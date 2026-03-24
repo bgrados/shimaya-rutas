@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#000000" />
+  
+  <!-- Chopsticks -->
+  <line x1="20" y1="70" x2="80" y2="20" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
+  <line x1="15" y1="65" x2="75" y2="15" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
+  
+  <!-- Ramen Bowl -->
+  <path d="M 15 50 c 0 25 20 40 35 40 s 35 -15 35 -40" fill="none" stroke="#ffffff" stroke-width="5" />
+  
+  <!-- Noodles / Swirls -->
+  <path d="M 30 45 q 10 -15 20 0 t 20 0" fill="none" stroke="#ffffff" stroke-width="3" />
+  <path d="M 40 50 q 5 -10 10 0 t 10 0" fill="none" stroke="#ffffff" stroke-width="3" />
+  
+  <!-- Egg -->
+  <ellipse cx="70" cy="40" rx="6" ry="8" fill="none" stroke="#ffffff" stroke-width="3" />
+  <circle cx="70" cy="40" r="2" fill="#E50914" />
+  
+  <!-- Mini Japan Map (Stylized red shape) -->
+  <path d="M 50 80 c 15 -5 10 -15 20 -20 c 5 -5 10 5 15 -5" fill="none" stroke="#E50914" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <text x="50" y="85" font-family="Arial, sans-serif" font-weight="bold" font-size="12" fill="#E50914" text-anchor="middle">S</text>
+</svg>
