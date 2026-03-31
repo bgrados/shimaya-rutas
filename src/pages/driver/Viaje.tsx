@@ -227,19 +227,22 @@ export default function DriverViaje() {
     }
   }, [bitacora, locales, localesDisponibles.length]);
 
+  const [actionLoading, setActionLoading] = useState(false);
+
   const handleRegistrarSalida = async () => {
-    if (!ruta || !nuevoDestino || loading) return;
+    if (!ruta || !nuevoDestino || actionLoading) return;
     const origen = proximoOrigen;
     
+    setActionLoading(true);
     let lat = null, lng = null;
     try {
-      // Máximo 3 segundos al GPS para la salida
+      // Máximo 2 segundos al GPS para la salida, si no, avanzamos sin él
       const pos = await new Promise<any>((res) => {
-        const timeout = setTimeout(() => res(null), 3000);
+        const timeout = setTimeout(() => res(null), 2000);
         navigator.geolocation.getCurrentPosition(
           (p) => { clearTimeout(timeout); res(p); },
           (e) => { clearTimeout(timeout); res(null); },
-          { timeout: 3000, enableHighAccuracy: false }
+          { timeout: 2000, enableHighAccuracy: false }
         );
       });
       if (pos) {
@@ -247,7 +250,7 @@ export default function DriverViaje() {
         lng = pos.coords.longitude;
       }
     } catch (e) {
-      console.warn('No se pudo obtener GPS para la salida:', e);
+      console.warn('GPS Error:', e);
     }
 
     const { data, error } = await supabase
@@ -274,23 +277,24 @@ export default function DriverViaje() {
       }
     } else if (error) {
       console.error('[Viaje] Error registrar salida:', error);
-      alert('No se pudo registrar la salida: ' + error.message);
+      alert('Error en salida: ' + error.message);
     }
+    setActionLoading(false);
   };
 
   const handleRegistrarLlegada = async (idBitacora: string) => {
-    // Si ya estamos procesando, no hacer nada
-    if (loading) return; 
+    if (actionLoading) return; 
     
+    setActionLoading(true);
     let lat = null, lng = null;
     try {
-      // Damos máximo 3 segundos al GPS, si no responde, avanzamos sin él
-      const pos = await new Promise<any>((res, rej) => {
-        const timeout = setTimeout(() => res(null), 3000);
+      // Máximo 2 segundos al GPS, si no responde, avanzamos sin él
+      const pos = await new Promise<any>((res) => {
+        const timeout = setTimeout(() => res(null), 2000);
         navigator.geolocation.getCurrentPosition(
           (p) => { clearTimeout(timeout); res(p); },
           (e) => { clearTimeout(timeout); res(null); },
-          { timeout: 3000, enableHighAccuracy: false }
+          { timeout: 2000, enableHighAccuracy: false }
         );
       });
       if (pos) {
@@ -298,7 +302,7 @@ export default function DriverViaje() {
         lng = pos.coords.longitude;
       }
     } catch (e) {
-      console.warn('No se pudo obtener GPS para la llegada:', e);
+      console.warn('GPS Error:', e);
     }
 
     const now = new Date().toISOString();
@@ -319,8 +323,9 @@ export default function DriverViaje() {
       }
     } else if (error) {
       console.error('[Viaje] Error registrar llegada:', error);
-      alert('Error: ' + error.message);
+      alert('Error en llegada: ' + error.message);
     }
+    setActionLoading(false);
   };
 
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
@@ -443,11 +448,20 @@ export default function DriverViaje() {
                     <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter">Salió de {tramoEnProgreso.origen_nombre} a las {format(new Date(tramoEnProgreso.hora_salida!), 'HH:mm')}</p>
                   </div>
                 </div>
-                <Button 
-                  onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora)}
-                  className="w-full h-14 text-lg font-black bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/30 border-b-4 border-blue-800"
+                 <Button 
+                   onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora)}
+                   disabled={actionLoading}
+                   className="w-full h-14 text-lg font-black bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/30 border-b-4 border-blue-800 disabled:opacity-70"
                 >
-                  <Flag size={20} className="mr-2" /> MARCAR LLEGADA
+                  {actionLoading ? (
+                    <span className="flex items-center gap-2">
+                       <Clock className="animate-spin" size={20} /> REGISTRANDO...
+                    </span>
+                  ) : (
+                    <>
+                      <Flag size={20} className="mr-2" /> MARCAR LLEGADA
+                    </>
+                  )}
                 </Button>
               </div>
             ) : nuevoDestino ? (
@@ -500,9 +514,18 @@ export default function DriverViaje() {
 
                 <Button 
                    onClick={handleRegistrarSalida}
-                   className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-xl shadow-primary/30 border-b-4 border-primary-dark"
+                   disabled={actionLoading}
+                   className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-xl shadow-primary/30 border-b-4 border-primary-dark disabled:opacity-70"
                 >
-                  <Play size={20} className="mr-2" /> REGISTRAR SALIDA
+                  {actionLoading ? (
+                    <span className="flex items-center gap-2">
+                       <Clock className="animate-spin" size={20} /> REGISTRANDO...
+                    </span>
+                  ) : (
+                    <>
+                      <Play size={20} className="mr-2" /> REGISTRAR SALIDA
+                    </>
+                  )}
                 </Button>
               </div>
             ) : locales.length > 0 ? (
