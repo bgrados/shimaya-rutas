@@ -121,7 +121,27 @@ export default function DriverViaje() {
 
   useEffect(() => {
     loadCurrentRuta();
-  }, [profile]);
+
+    // Monitoreo en tiempo real de la ruta actual y su bitácora
+    const channel = supabase
+      .channel('driver_viaje_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rutas' }, () => loadCurrentRuta())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'viajes_bitacora' }, () => loadCurrentRuta())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadCurrentRuta())
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          loadCurrentRuta(); // Refrescar al conectar o tras fallo
+        }
+      });
+
+    // Detectar si el teléfono entra/sale de zona con señal 
+    window.addEventListener('online', loadCurrentRuta);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('online', loadCurrentRuta);
+    };
+  }, [profile?.id_usuario]);
 
   const handleCreateViaje = async () => {
     if (!selectedRutaBase || !profile) return;

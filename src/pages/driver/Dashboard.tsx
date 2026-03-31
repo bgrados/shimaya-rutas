@@ -35,7 +35,30 @@ export default function DriverDashboard() {
 
   useEffect(() => {
     loadRutas();
-  }, [profile]);
+
+    // Suscripción Realtime para detectar cambios de estado desde Admin
+    const channel = supabase
+      .channel('driver_dashboard_updates')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'rutas',
+        filter: `id_chofer=eq.${profile?.id_usuario}`
+      }, () => loadRutas())
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          loadRutas(); // Reintentar carga al conectar o error
+        }
+      });
+
+    // Escuchar cuando el teléfono vuelve a tener internet
+    window.addEventListener('online', loadRutas);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('online', loadRutas);
+    };
+  }, [profile?.id_usuario]);
 
   const activeRoute = rutas[0];
 
