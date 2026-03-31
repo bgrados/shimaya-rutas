@@ -13,7 +13,10 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
 
   const loadRutas = async () => {
-    if (!profile) return;
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     
     try {

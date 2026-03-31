@@ -40,7 +40,10 @@ export default function DriverViaje() {
   const [nuevoDestino, setNuevoDestino] = useState('');
 
   const loadCurrentRuta = async () => {
-    if (!profile) return;
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data: rutaData, error: rError } = await supabase
@@ -50,7 +53,7 @@ export default function DriverViaje() {
         .in('estado', ['pendiente', 'en_progreso'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle(); // Better than single() when 0 is allowed
+        .maybeSingle(); 
         
       if (rError) throw rError;
 
@@ -76,7 +79,6 @@ export default function DriverViaje() {
         setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
       } else {
         setRuta(null);
-        // Load templates for creation — include locale counts
         const { data: baseData, error: rbError } = await supabase
           .from('rutas_base')
           .select('*')
@@ -86,7 +88,6 @@ export default function DriverViaje() {
         if (rbError) throw rbError;
 
         if (baseData) {
-          // Attach locale counts to each template, handle individual errors
           const withCounts = await Promise.all(baseData.map(async (rb) => {
             try {
               const { count, error: cError } = await supabase
@@ -101,7 +102,6 @@ export default function DriverViaje() {
             }
           }));
           
-          // Only show routes that have at least 1 local
           const validas = withCounts.filter(r => r.locales_count > 0);
           setRutasBase(validas);
           if (validas.length > 0) setSelectedRutaBase(validas[0].id_ruta_base);
@@ -372,13 +372,23 @@ export default function DriverViaje() {
 
   return (
     <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold text-white uppercase italic tracking-tighter">Mi Bitácora</h1>
-          <p className="text-text-muted text-sm italic font-medium">{ruta.nombre} • <span className="text-primary font-black uppercase">{ruta.placa || 'Sin Placa'}</span></p>
-        </div>
-        <div className="bg-surface-light px-3 py-1 rounded-full border border-white/5">
-           <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
+      <div className="flex flex-col gap-4">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate('/driver')}
+          className="w-fit text-text-muted hover:text-white -ml-2"
+        >
+          ← VOLVER AL TABLERO
+        </Button>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-white uppercase italic tracking-tighter">Mi Bitácora</h1>
+            <p className="text-text-muted text-sm italic font-medium">{ruta.nombre} • <span className="text-primary font-black uppercase">{ruta.placa || 'Sin Placa'}</span></p>
+          </div>
+          <div className="bg-surface-light px-3 py-1 rounded-full border border-white/5">
+             <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
+          </div>
         </div>
       </div>
 
