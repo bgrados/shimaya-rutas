@@ -222,15 +222,27 @@ export default function DriverViaje() {
   }, [bitacora, locales, localesDisponibles.length]);
 
   const handleRegistrarSalida = async () => {
-    if (!ruta || !nuevoDestino) return;
+    if (!ruta || !nuevoDestino || loading) return;
     const origen = proximoOrigen;
     
     let lat = null, lng = null;
     try {
-      const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-    } catch (e) {}
+      // Máximo 3 segundos al GPS para la salida
+      const pos = await new Promise<any>((res) => {
+        const timeout = setTimeout(() => res(null), 3000);
+        navigator.geolocation.getCurrentPosition(
+          (p) => { clearTimeout(timeout); res(p); },
+          (e) => { clearTimeout(timeout); res(null); },
+          { timeout: 3000, enableHighAccuracy: false }
+        );
+      });
+      if (pos) {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      }
+    } catch (e) {
+      console.warn('No se pudo obtener GPS para la salida:', e);
+    }
 
     const { data, error } = await supabase
       .from('viajes_bitacora')
@@ -261,12 +273,27 @@ export default function DriverViaje() {
   };
 
   const handleRegistrarLlegada = async (idBitacora: string) => {
+    // Si ya estamos procesando, no hacer nada
+    if (loading) return; 
+    
     let lat = null, lng = null;
     try {
-      const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-    } catch (e) {}
+      // Damos máximo 3 segundos al GPS, si no responde, avanzamos sin él
+      const pos = await new Promise<any>((res, rej) => {
+        const timeout = setTimeout(() => res(null), 3000);
+        navigator.geolocation.getCurrentPosition(
+          (p) => { clearTimeout(timeout); res(p); },
+          (e) => { clearTimeout(timeout); res(null); },
+          { timeout: 3000, enableHighAccuracy: false }
+        );
+      });
+      if (pos) {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      }
+    } catch (e) {
+      console.warn('No se pudo obtener GPS para la llegada:', e);
+    }
 
     const now = new Date().toISOString();
     const { data, error } = await supabase
@@ -284,6 +311,9 @@ export default function DriverViaje() {
       if (data.destino_nombre === 'Planta') {
          await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
       }
+    } else if (error) {
+      console.error('[Viaje] Error registrar llegada:', error);
+      alert('Error: ' + error.message);
     }
   };
 
