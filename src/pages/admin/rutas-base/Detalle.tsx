@@ -7,23 +7,7 @@ import { Card, CardContent } from '../../../components/ui/Card';
 import { ArrowLeft, Plus, MapPin, Trash2, Edit2, CheckCircle, X, ChevronUp, ChevronDown, Zap } from 'lucide-react';
 
 interface RutaBase { id_ruta_base: string; nombre: string; }
-interface LocalBase { id_local_base: string; id_ruta_base: string; nombre: string; orden: number; }
-
-// Locales predefinidos por tipo de ruta (clave = substring del nombre)
-const LOCALES_PREDEFINIDOS: Record<string, string[]> = {
-  'guinda': ['Puruchuco', 'Santa Anita', 'San Juan de Lurigancho', 'Los Olivos', 'Comas'],
-  'negra':  ['Independencia', 'Los Olivos', 'San Martín de Porres', 'Carabayllo', 'Puente Piedra'],
-  'verde':  ['Ate', 'La Molina', 'Surco', 'San Borja', 'Chorrillos'],
-  'amarilla': ['Callao', 'Bellavista', 'La Perla', 'Carmen de la Legua', 'Ventanilla'],
-};
-
-function getLocalesPredefinidos(nombre: string): string[] {
-  const lower = nombre.toLowerCase();
-  for (const [key, locales] of Object.entries(LOCALES_PREDEFINIDOS)) {
-    if (lower.includes(key)) return locales;
-  }
-  return [];
-}
+interface LocalBase { id_local_base: string; id_ruta_base: string | null; nombre: string; orden: number; }
 
 export default function DetalleRutaBase() {
   const { id } = useParams<{ id: string }>();
@@ -37,68 +21,133 @@ export default function DetalleRutaBase() {
   const [loadingPredefined, setLoadingPredefined] = useState(false);
   const [showPredefined, setShowPredefined] = useState(false);
   const [selectedPredefined, setSelectedPredefined] = useState<string[]>([]);
+  const [allLocales, setAllLocales] = useState<LocalBase[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   async function load() {
     if (!id) return;
     setLoading(true);
-    const [rutaRes, localesRes] = await Promise.all([
+    const [rutaRes, localesRes, allLocalesRes] = await Promise.all([
       supabase.from('rutas_base').select('*').eq('id_ruta_base', id).single(),
-      supabase.from('locales_base').select('*').eq('id_ruta_base', id).order('orden', { ascending: true })
+      supabase.from('locales_base').select('*').eq('id_ruta_base', id).order('orden', { ascending: true }),
+      supabase.from('locales_base').select('*')
     ]);
     if (rutaRes.data) setRuta(rutaRes.data);
     if (localesRes.data) setLocales(localesRes.data);
+    if (allLocalesRes.data) setAllLocales(allLocalesRes.data);
     setLoading(false);
   }
 
   useEffect(() => { load(); }, [id]);
 
-  // Cargar locales predefinidos seleccionados
+  // Cargar locales libres seleccionados
   const handleLoadPredefined = async () => {
     if (!id || selectedPredefined.length === 0) return;
     setLoadingPredefined(true);
     const maxOrden = locales.length > 0 ? Math.max(...locales.map(l => l.orden)) : 0;
-    const nuevos = selectedPredefined.map((nombre, i) => ({
-      id_ruta_base: id,
-      nombre,
-      orden: maxOrden + i + 1
-    }));
-    const { data, error } = await supabase.from('locales_base').insert(nuevos).select();
-    if (!error && data) {
-      setLocales([...locales, ...data]);
-    } else {
-      console.error('Error al cargar locales:', error);
+    
+    // selectedPredefined ahora guarda los id_local_base de los locales libres
+    let successCount = 0;
+    const addedLocales: LocalBase[] = [];
+
+    for (let i = 0; i < selectedPredefined.length; i++) {
+        const localId = selectedPredefined[i];
+        const { data, error } = await supabase
+            .from('locales_base')
+            .update({ id_ruta_base: id, orden: maxOrden + i + 1 })
+            .eq('id_local_base', localId)
+            .select()
+            .single();
+            
+        if (!error && data) {
+            successCount++;
+            addedLocales.push(data);
+        }
     }
+
+    if (successCount > 0) {
+      setLocales([...locales, ...addedLocales]);
+      setAllLocales(allLocales.map(l => 
+        addedLocales.find(a => a.id_local_base === l.id_local_base) ? addedLocales.find(a => a.id_local_base === l.id_local_base)! : l
+      ));
+    }
+    
     setShowPredefined(false);
     setSelectedPredefined([]);
     setLoadingPredefined(false);
   };
 
-  const togglePredefined = (nombre: string) => {
+  const togglePredefined = (localId: string) => {
     setSelectedPredefined(prev =>
-      prev.includes(nombre) ? prev.filter(n => n !== nombre) : [...prev, nombre]
+      prev.includes(localId) ? prev.filter(id => id !== localId) : [...prev, localId]
     );
   };
 
   const handleAddLocal = async () => {
     if (!newLocalName.trim() || !id) return;
+    
+    const maxOrden = locales.length > 0 ? Math.max(...locales.map(l => l.orden)) : 0;
+    
+    // Verificamos si escribieron el nombre exacto de uno existente (case-insensitive)
+    const existenteExacto = allLocales.find(l => l.nombre.toLowerCase() === newLocalName.trim().toLowerCase() && l.id_ruta_base !== id);
+    
+    if (existenteExacto) {
+        // Usar existente
+        const { data, error } = await supabase
+            .from('locales_base')
+            .update({ id_ruta_base: id, orden: maxOrden + 1 })
+            .eq('id_local_base', existenteExacto.id_local_base)
+            .select()
+            .single();
+        if (!error && data) {
+            setLocales([...locales, data]);
+            setAllLocales(allLocales.map(l => l.id_local_base === data.id_local_base ? data : l));
+            setNewLocalName('');
+            setAdding(false);
+        } else {
+            alert('Error al vincular local: ' + (error?.message || 'desconocido'));
+        }
+    } else {
+        // Crear nuevo
+        const { data, error } = await supabase
+          .from('locales_base')
+          .insert({ id_ruta_base: id, nombre: newLocalName.trim(), orden: maxOrden + 1 })
+          .select()
+          .single();
+        if (!error && data) {
+          setLocales([...locales, data]);
+          setAllLocales([...allLocales, data]);
+          setNewLocalName('');
+          setAdding(false);
+        } else {
+          alert('Error al crear local: ' + (error?.message || 'desconocido'));
+        }
+    }
+  };
+  
+  const handleAssignExisting = async (local: LocalBase) => {
+    if (!id) return;
     const maxOrden = locales.length > 0 ? Math.max(...locales.map(l => l.orden)) : 0;
     const { data, error } = await supabase
-      .from('locales_base')
-      .insert({ id_ruta_base: id, nombre: newLocalName.trim(), orden: maxOrden + 1 })
-      .select()
-      .single();
+        .from('locales_base')
+        .update({ id_ruta_base: id, orden: maxOrden + 1 })
+        .eq('id_local_base', local.id_local_base)
+        .select()
+        .single();
     if (!error && data) {
-      setLocales([...locales, data]);
-      setNewLocalName('');
-      setAdding(false);
+        setLocales([...locales, data]);
+        setAllLocales(allLocales.map(l => l.id_local_base === data.id_local_base ? data : l));
+        setNewLocalName('');
+        setAdding(false);
+        setShowSuggestions(false);
     } else {
-      alert('Error: ' + (error?.message || 'desconocido'));
+        alert('Error: ' + (error?.message || 'desconocido'));
     }
   };
 
   const handleDeleteLocal = async (localId: string) => {
-    if (!confirm('¿Eliminar esta parada?')) return;
-    const { error } = await supabase.from('locales_base').delete().eq('id_local_base', localId);
+    if (!confirm('¿Desvincular esta parada de la ruta? (El local seguirá existiendo en el sistema)')) return;
+    const { error } = await supabase.from('locales_base').update({ id_ruta_base: null, orden: null }).eq('id_local_base', localId);
     if (!error) {
       const updated = locales
         .filter(l => l.id_local_base !== localId)
@@ -135,7 +184,13 @@ export default function DetalleRutaBase() {
   if (loading) return <div className="text-white italic animate-pulse py-10 text-center">Cargando...</div>;
   if (!ruta) return <div className="text-white">Ruta no encontrada.</div>;
 
-  const predefinidos = getLocalesPredefinidos(ruta.nombre);
+  const localesDisponibles = allLocales.filter(l => l.id_ruta_base !== id);
+  const localesLibres = localesDisponibles.filter(l => !l.id_ruta_base);
+  const localesEnOtrasRutas = localesDisponibles.filter(l => l.id_ruta_base);
+  
+  const filteredSuggestions = newLocalName.trim().length >= 2 
+    ? localesDisponibles.filter(l => l.nombre.toLowerCase().includes(newLocalName.toLowerCase()))
+    : [];
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -155,64 +210,95 @@ export default function DetalleRutaBase() {
       {/* Botones de acción */}
       <div className="flex gap-3 flex-wrap">
         <Button onClick={() => { setAdding(true); setShowPredefined(false); }} className="bg-primary flex items-center gap-2">
-          <Plus size={16} /> Agregar manual
+          <Plus size={16} /> Agregar manual / Buscar
         </Button>
-        {predefinidos.length > 0 && (
-          <Button variant="secondary" onClick={() => { setShowPredefined(!showPredefined); setAdding(false); }} className="flex items-center gap-2">
-            <Zap size={16} /> Cargar distritos predefinidos
-          </Button>
-        )}
+        <Button variant="secondary" onClick={() => { setShowPredefined(!showPredefined); setAdding(false); }} className="flex items-center gap-2">
+          <Zap size={16} /> Ver Todos los Locales ({localesDisponibles.length})
+        </Button>
       </div>
 
-      {/* Panel de predefinidos */}
-      {showPredefined && predefinidos.length > 0 && (
+      {/* Panel de locales libres y en otras rutas */}
+      {showPredefined && (
         <Card className="border-yellow-500/30 bg-yellow-500/5">
           <CardContent className="p-5 space-y-4">
             <h3 className="text-white font-black italic uppercase text-sm flex items-center gap-2">
               <Zap size={14} className="text-yellow-400" />
-              Distritos de {ruta.nombre}
+              Locales Disponibles
             </h3>
-            <p className="text-text-muted text-xs">Selecciona los distritos a agregar:</p>
-            <div className="grid grid-cols-2 gap-2">
-              {predefinidos.map(d => {
-                const yaExiste = locales.some(l => l.nombre.toLowerCase() === d.toLowerCase());
-                const seleccionado = selectedPredefined.includes(d);
-                return (
-                  <button
-                    key={d}
-                    disabled={yaExiste}
-                    onClick={() => togglePredefined(d)}
-                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left ${
-                      yaExiste
-                        ? 'opacity-30 cursor-not-allowed bg-white/5 text-text-muted'
-                        : seleccionado
-                          ? 'bg-primary text-white ring-1 ring-primary shadow-lg shadow-primary/20'
-                          : 'bg-surface-light text-text-muted hover:text-white hover:bg-surface-light/80 border border-white/5'
-                    }`}
-                  >
-                    <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                      yaExiste ? 'border-white/20' :
-                      seleccionado ? 'border-white bg-white' : 'border-text-muted'
-                    }`}>
-                      {seleccionado && <span className="w-2 h-2 rounded-full bg-primary block" />}
-                      {yaExiste && <span className="text-[8px] leading-none">✓</span>}
-                    </span>
-                    {d}
-                    {yaExiste && <span className="text-[10px] ml-auto opacity-60">ya existe</span>}
-                  </button>
-                );
-              })}
-            </div>
+            {localesDisponibles.length === 0 ? (
+               <p className="text-text-muted text-xs">No hay más locales en el sistema. Puedes crear uno nuevo desde el botón Agregar.</p>
+            ) : (
+                <div className="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                
+                {localesLibres.length > 0 && (
+                  <div>
+                    <p className="text-green-400/80 font-bold text-xs mb-2">Libres (Sin Ruta Asignada):</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {localesLibres.map(l => {
+                        const seleccionado = selectedPredefined.includes(l.id_local_base);
+                        return (
+                          <button
+                            key={l.id_local_base}
+                            onClick={() => togglePredefined(l.id_local_base)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left ${
+                               seleccionado
+                                  ? 'bg-primary text-white ring-1 ring-primary shadow-lg shadow-primary/20'
+                                  : 'bg-surface-light text-text-muted hover:text-white hover:bg-surface-light/80 border border-white/5'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                              seleccionado ? 'border-white bg-white' : 'border-text-muted'
+                            }`}>
+                              {seleccionado && <span className="w-2 h-2 rounded-full bg-primary block" />}
+                            </span>
+                            <span className="truncate" title={l.nombre}>{l.nombre}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {localesEnOtrasRutas.length > 0 && (
+                  <div className="pt-2">
+                    <p className="text-yellow-500/80 font-bold text-xs mb-2">En otras Rutas (Al seleccionar, los robarás a esta ruta):</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {localesEnOtrasRutas.map(l => {
+                        const seleccionado = selectedPredefined.includes(l.id_local_base);
+                        return (
+                          <button
+                            key={l.id_local_base}
+                            onClick={() => togglePredefined(l.id_local_base)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left opacity-80 ${
+                               seleccionado
+                                  ? 'bg-primary text-white ring-1 ring-primary shadow-lg shadow-primary/20 opacity-100'
+                                  : 'bg-surface-light text-text-muted hover:text-white hover:bg-surface-light/80 border border-white/5'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                              seleccionado ? 'border-yellow-400 bg-yellow-400' : 'border-text-muted'
+                            }`}>
+                              {seleccionado && <span className="w-2 h-2 rounded-full bg-surface block" />}
+                            </span>
+                            <span className="truncate" title={l.nombre}>{l.nombre}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                </div>
+            )}
             <div className="flex gap-3 pt-1">
               <Button
                 onClick={handleLoadPredefined}
                 disabled={selectedPredefined.length === 0 || loadingPredefined}
                 className="bg-yellow-500 hover:bg-yellow-600 text-black font-black"
               >
-                {loadingPredefined ? 'Cargando...' : `Agregar ${selectedPredefined.length} seleccionados`}
+                {loadingPredefined ? 'Agregando...' : `Añadir ${selectedPredefined.length} seleccionados`}
               </Button>
               <Button variant="ghost" onClick={() => { setShowPredefined(false); setSelectedPredefined([]); }}>
-                <X size={14} className="mr-1" /> Cancelar
+                <X size={14} className="mr-1" /> Cerrar
               </Button>
             </div>
           </CardContent>
@@ -221,17 +307,40 @@ export default function DetalleRutaBase() {
 
       {/* Formulario de agregar manual */}
       {adding && (
-        <Card className="border-primary/40 bg-primary/5">
+        <Card className="border-primary/40 bg-primary/5 relative">
           <CardContent className="p-5 space-y-4">
-            <h3 className="text-white font-black uppercase italic text-sm">Nueva Parada</h3>
-            <Input
-              placeholder="Ej: Miraflores, San Isidro, Barranco..."
-              value={newLocalName}
-              onChange={e => setNewLocalName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddLocal()}
-              className="bg-surface-light border-primary/30 text-white"
-              autoFocus
-            />
+            <h3 className="text-white font-black uppercase italic text-sm">Nueva Parada (o buscar existente)</h3>
+            <div className="relative">
+                <Input
+                  placeholder="Ej: Miraflores, San Isidro, Barranco..."
+                  value={newLocalName}
+                  onChange={e => {
+                      setNewLocalName(e.target.value);
+                      setShowSuggestions(true);
+                  }}
+                  onKeyDown={e => e.key === 'Enter' && handleAddLocal()}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  className="bg-surface-light border-primary/30 text-white"
+                  autoFocus
+                />
+                
+                {showSuggestions && filteredSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-surface-light border border-white/10 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                        {filteredSuggestions.map(s => (
+                            <button
+                                key={s.id_local_base}
+                                onClick={() => handleAssignExisting(s)}
+                                className="w-full text-left px-4 py-2 text-sm text-text-muted hover:text-white hover:bg-primary/20 transition-colors border-b border-white/5 last:border-0 flex justify-between items-center"
+                            >
+                                <span>{s.nombre}</span>
+                                <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full">Agregar existente</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+            
             <div className="flex gap-3">
               <Button onClick={handleAddLocal} className="bg-primary">
                 <CheckCircle size={16} className="mr-2" /> Agregar

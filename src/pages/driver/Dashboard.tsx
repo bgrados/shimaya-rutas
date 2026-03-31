@@ -4,8 +4,7 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { format } from 'date-fns';
-import { MapPin, Navigation, Map } from 'lucide-react';
+import { MapPin, Navigation, Map, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function DriverDashboard() {
@@ -13,23 +12,28 @@ export default function DriverDashboard() {
   const [rutas, setRutas] = useState<Ruta[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadRutas() {
-      if (!profile) return;
-      const today = format(new Date(), 'yyyy-MM-dd');
-      
+  const loadRutas = async () => {
+    if (!profile) return;
+    setLoading(true);
+    
+    try {
       const { data, error } = await supabase
         .from('rutas')
         .select('*')
         .eq('id_chofer', profile.id_usuario)
-        .eq('fecha', today)
-        .in('estado', ['pendiente', 'en_progreso']);
+        .in('estado', ['pendiente', 'en_progreso'])
+        .order('fecha', { ascending: false });
         
-      if (!error && data) {
-        setRutas(data as Ruta[]);
-      }
+      if (error) throw error;
+      setRutas(data as Ruta[]);
+    } catch (e) {
+      console.error('Error loading dashboard routes:', e);
+    } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadRutas();
   }, [profile]);
 
@@ -39,7 +43,18 @@ export default function DriverDashboard() {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold text-white mb-6">Tus Rutas de Hoy</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-white">Tus Rutas de Hoy</h1>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={loadRutas} 
+          isLoading={loading}
+          className="text-text-muted hover:text-white"
+        >
+          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+        </Button>
+      </div>
 
       <div className="space-y-4">
         <Card className="bg-primary border-none shadow-lg shadow-primary/20 overflow-hidden">

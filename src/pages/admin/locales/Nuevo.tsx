@@ -7,7 +7,7 @@ import { Card, CardContent } from '../../../components/ui/Card';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import axios from 'axios';
-import { Search } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 
 // Fix for default marker icon in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -29,6 +29,9 @@ export default function NuevoLocal() {
   const [direccion, setDireccion] = useState('');
   const [contacto, setContacto] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Default to somewhere readable if no location
   const [position, setPosition] = useState<[number, number]>([-12.0464, -77.0428]); // Lima default
@@ -56,14 +59,23 @@ export default function NuevoLocal() {
     if (!searchQuery) return;
     setIsSearching(true);
     try {
-      const res = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+      const query = searchQuery.trim() + ', Lima, Peru';
+      const res = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+      
       if (res.data && res.data.length > 0) {
         const result = res.data[0];
-        setPosition([parseFloat(result.lat), parseFloat(result.lon)]);
+        const newPos: [number, number] = [parseFloat(result.lat), parseFloat(result.lon)];
+        setPosition(newPos);
         setZoom(16);
-        setDireccion(result.display_name.split(',').slice(0,2).join(','));
+        
+        // Limpiamos el nombre mostrado para que sea amigable
+        const addressParts = result.display_name.split(',');
+        const simplifiedAddress = addressParts.slice(0, 3).join(',').trim();
+        setDireccion(simplifiedAddress);
+        
+        console.log('[NuevoLocal] Geocalización exitosa:', newPos, simplifiedAddress);
       } else {
-        alert("Dirección no encontrada. Mueve el mapa manualmente.");
+        alert("No se encontró la dirección exacta. Intenta con un nombre de calle y distrito.");
       }
     } catch (e) {
       console.error(e);
@@ -73,33 +85,87 @@ export default function NuevoLocal() {
     }
   };
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setFotoFile(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => setFotoPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadPhoto = async (): Promise<string | null> => {
+    if (!fotoFile) return null;
+    const fileExt = fotoFile.name.split('.').pop();
+    const fileName = `local_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `locales/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage.from('locales_fotos').upload(filePath, fotoFile);
+    if (uploadError) {
+      console.error('[NuevoLocal] Error upload:', uploadError);
+      return null;
+    }
+
+    const { data } = supabase.storage.from('locales_fotos').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !direccion) {
-      setError('Debes ingresar nombre y dirección.');
+    
+    // 1. Validaciones básicas
+    if (!nombre.trim()) {
+      setError('El nombre del local es obligatorio.');
       return;
+    }
+    if (!direccion.trim()) {
+      setError('La dirección es obligatoria para la geolocalización.');
+      return;
+    }
+
+    // 2. Validación de Teléfono (Opcional pero si existe, debe ser válido)
+    if (telefono.trim()) {
+      const phoneRegex = /^[0-9+() -]{7,15}$/;
+      if (!phoneRegex.test(telefono.trim())) {
+        setError('El formato del teléfono no es válido (mínimo 7 dígitos).');
+        return;
+      }
     }
 
     setLoadingSubmit(true);
     setError('');
 
     try {
+      console.log('[NuevoLocal] Intentando registrar local:', { nombre, direccion, telefono });
+      
+      let photoUrl = null;
+      if (fotoFile) {
+        photoUrl = await uploadPhoto();
+      }
+
       const { error: insertError } = await supabase
         .from('locales_base')
         .insert({
-          nombre,
-          direccion,
-          contacto,
-          telefono,
+          nombre: nombre.trim(),
+          direccion: direccion.trim(),
+          contacto: contacto.trim() || null,
+          telefono: telefono.trim() || null,
           latitud: position[0],
-          longitud: position[1]
+          longitud: position[1],
+          foto_url: photoUrl
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('[NuevoLocal] Error de inserción:', insertError);
+        throw insertError;
+      }
+
+      console.log('[NuevoLocal] Registro exitoso, navegando...');
       navigate('/admin/locales');
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Ocurrió un error al registrar el local.');
+      console.error('[NuevoLocal] Catch error:', err);
+      setError(err.message || 'Error de conexión con la base de datos. Verifica tu internet.');
     } finally {
       setLoadingSubmit(false);
     }
@@ -141,7 +207,38 @@ export default function NuevoLocal() {
                 label="Teléfono (Opcional)"
                 value={telefono}
                 onChange={e => setTelefono(e.target.value)}
+                placeholder="Ej. 987654321"
+                type="tel"
               />
+
+              <div className="pt-4 border-t border-white/5">
+                <label className="text-xs text-text-muted mb-2 block">Imagen de Fondo (Opcional)</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  onChange={handlePhotoChange} 
+                />
+                
+                {fotoPreview ? (
+                  <div className="relative rounded-xl overflow-hidden border border-surface-light group aspect-video">
+                    <img src={fotoPreview} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>Cambiar imagen</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full h-32 border-2 border-dashed border-surface-light hover:border-primary rounded-xl flex flex-col items-center justify-center text-text-muted hover:text-white transition-colors gap-2"
+                  >
+                    <Plus size={24} />
+                    <span className="text-sm font-medium">Subir foto del local</span>
+                  </button>
+                )}
+              </div>
             </form>
           </CardContent>
         </Card>

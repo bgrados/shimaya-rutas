@@ -11,6 +11,7 @@ export default function NuevoUsuario() {
   const [email, setEmail] = useState('');
   const [rol, setRol] = useState('chofer');
   const [telefono, setTelefono] = useState('');
+  const [password, setPassword] = useState('');
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,10 +38,20 @@ export default function NuevoUsuario() {
           email,
           rol,
           telefono,
+          password: password.trim(),
           activo: true
         });
 
       if (insertError) throw insertError;
+
+      // 2. Auth Create (vía Edge Function sincronizada)
+      try {
+        await supabase.functions.invoke('admin-auth', {
+          body: { action: 'create_user', email, password, nombre, rol, telefono }
+        });
+      } catch (err) {
+        console.warn('[Edge Function] Fallo registro Auth:', err);
+      }
 
       navigate('/admin/usuarios');
     } catch (err: any) {
@@ -93,6 +104,15 @@ export default function NuevoUsuario() {
               label="Teléfono (Opcional)"
               value={telefono}
               onChange={e => setTelefono(e.target.value)}
+            />
+
+            <Input
+              label="Contraseña Inicial"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              placeholder="Mínimo 6 caracteres"
             />
 
             <div className="flex justify-end gap-3 pt-4 font-bold border-t border-surface-light">

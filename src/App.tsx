@@ -16,7 +16,7 @@ import Usuarios from './pages/admin/usuarios';
 import NuevoUsuario from './pages/admin/usuarios/Nuevo';
 import Reportes from './pages/admin/reportes';
 import AdminViajes from './pages/admin/Viajes';
-import DebugAuth from './pages/DebugAuth';
+import MapaGeneral from './pages/admin/MapaGeneral';
 
 import DriverDashboard from './pages/driver/Dashboard';
 import DriverViaje from './pages/driver/Viaje';
@@ -28,7 +28,6 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/debug-auth" element={<DebugAuth />} />
           <Route path="/" element={<AuthLayout />}>
             <Route index element={<Navigate to="/login" replace />} />
             <Route path="login" element={<Login />} />
@@ -44,6 +43,7 @@ function App() {
             <Route path="locales" element={<LocalesBase />} />
             <Route path="locales/nuevo" element={<NuevoLocal />} />
             <Route path="reportes" element={<Reportes />} />
+            <Route path="mapa" element={<MapaGeneral />} />
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
           </Route>

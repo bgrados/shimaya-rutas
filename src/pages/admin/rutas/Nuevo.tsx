@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export default function NuevaRuta() {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export default function NuevaRuta() {
   const [choferes, setChoferes] = useState<Usuario[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
-  const [nombre, setNombre] = useState(`Ruta ${format(new Date(), 'dd/MM/yyyy')}`);
+  const [nombre, setNombre] = useState(`Ruta ${format(new Date(), 'dd/MM/yyyy', { locale: es })}`);
   const [idRutaBase, setIdRutaBase] = useState('');
   const [idChofer, setIdChofer] = useState('');
   const [placa, setPlaca] = useState('');

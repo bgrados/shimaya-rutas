@@ -69,9 +69,21 @@ export default function EjecucionRuta() {
         estado: 'en_progreso'
       })
       .eq('id_ruta', id);
+
+    // Si tiene locales asignados, inicializamos el primer tramo de la bitácora
+    if (locales.length > 0) {
+      await supabase.from('viajes_bitacora').insert([{
+        id_ruta: id,
+        id_chofer: ruta?.id_chofer,
+        origen_nombre: 'Planta',
+        destino_nombre: locales[0].nombre,
+        hora_salida: now
+      }]);
+    }
     
     if (!error) {
       setRuta(prev => prev ? { ...prev, hora_salida_planta: now, estado: 'en_progreso' } : null);
+      navigate('/driver/viaje'); // Redirigimos al chofer a su bitácora ya iniciada
     }
   };
 
@@ -94,7 +106,6 @@ export default function EjecucionRuta() {
     // Tomamos todos los locales pendientes o no finalizados, o simplemente todos para trazar la ruta
     const validLocales = locales.filter(l => l.latitud && l.longitud);
     if (validLocales.length === 0) {
-      alert("No hay ubicaciones con coordenadas válidas para esta ruta.");
       return;
     }
     

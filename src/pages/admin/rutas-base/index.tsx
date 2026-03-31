@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 interface RutaBase {
   id_ruta_base: string;
   nombre: string;
+  locales_base?: { count: number }[] | any;
 }
 
 export default function RutasBase() {
@@ -21,7 +22,7 @@ export default function RutasBase() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('rutas_base').select('*').order('nombre');
+    const { data } = await supabase.from('rutas_base').select('*, locales_base(count)').order('nombre');
     if (data) setRutas(data);
     setLoading(false);
   }
@@ -140,11 +141,16 @@ export default function RutasBase() {
                 ) : (
                   <>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg" style={{ backgroundColor: getColor(ruta.nombre) + '33' }}>
+                      <div className="flex items-center gap-3 w-full border-b border-surface-light pb-3">
+                        <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: getColor(ruta.nombre) + '33' }}>
                           <Map size={20} style={{ color: getColor(ruta.nombre) === '#1a1a1a' ? '#aaa' : getColor(ruta.nombre) }} />
                         </div>
-                        <h3 className="font-black text-white text-lg leading-tight">{ruta.nombre}</h3>
+                        <div className="flex flex-col">
+                          <h3 className="font-black text-white text-lg leading-tight">{ruta.nombre}</h3>
+                          <p className="text-xs text-text-muted mt-1 font-bold tracking-widest uppercase">
+                            {Array.isArray(ruta.locales_base) && ruta.locales_base[0] ? ruta.locales_base[0].count : 0} LOCALES
+                          </p>
+                        </div>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button

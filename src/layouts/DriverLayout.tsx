@@ -1,13 +1,12 @@
 import React from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Map, FileText, User as UserIcon, LogOut, Truck } from 'lucide-react';
+import { Map, LogOut, Truck } from 'lucide-react';
 
 export const DriverLayout: React.FC = () => {
   const { user, profile, loading, signOut } = useAuth();
   const location = useLocation();
 
-  console.log('[DriverLayout] Status:', { path: location.pathname, hasUser: !!user, hasProfile: !!profile, loading });
 
   if (loading) {
     return (
@@ -21,7 +20,6 @@ export const DriverLayout: React.FC = () => {
   }
 
   if (!user || !profile || profile.rol !== 'chofer') {
-    console.warn('[DriverLayout] Redirecting to /login');
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
@@ -60,14 +58,6 @@ export const DriverLayout: React.FC = () => {
             <Link to="/driver/viaje" className={`flex flex-col items-center p-2 ${location.pathname === '/driver/viaje' ? 'text-primary' : 'text-text-muted'}`}>
               <Truck size={24} className="mb-1" />
               <span className="text-[10px] uppercase font-bold tracking-wider">Viaje</span>
-            </Link>
-            <Link to="/driver/historial" className={`flex flex-col items-center p-2 ${location.pathname === '/driver/historial' ? 'text-primary' : 'text-text-muted'}`}>
-              <FileText size={24} className="mb-1" />
-              <span className="text-[10px] uppercase font-bold tracking-wider">Historial</span>
-            </Link>
-            <Link to="/driver/perfil" className={`flex flex-col items-center p-2 ${location.pathname === '/driver/perfil' ? 'text-primary' : 'text-text-muted'}`}>
-              <UserIcon size={24} className="mb-1" />
-              <span className="text-[10px] uppercase font-bold tracking-wider">Perfil</span>
             </Link>
           </div>
         </nav>

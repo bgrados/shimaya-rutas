@@ -8,6 +8,13 @@ import { format, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer } from 'lucide-react';
 
+const parseLocalDate = (dateStr: string | null) => {
+  if (!dateStr || dateStr === 'Sin fecha') return null;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return new Date(dateStr);
+  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+};
+
 export default function AdminViajes() {
   const [rutas, setRutas] = useState<(Ruta & { chofer?: Usuario, bitacora?: ViajeBitacora[] })[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +65,31 @@ export default function AdminViajes() {
 
   useEffect(() => {
     loadData();
+
+    // Suscripción en tiempo real con manejo de reconexión y estado
+    const channel = supabase
+      .channel('seguimiento_admin')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rutas' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'viajes_bitacora' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadData())
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Realtime conectado');
+          loadData(); // Asegurar datos frescos al conectar
+        }
+        if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.error('Realtime desconectado, reintentando...');
+          setTimeout(loadData, 2000);
+        }
+      });
+
+    // Fallback de actualización cada 5 minutos por si acaso
+    const interval = setInterval(loadData, 5 * 60 * 1000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleAddSegment = async (rutaId: string) => {
@@ -116,7 +148,7 @@ export default function AdminViajes() {
           <div class="details">
             <div>
               <p><strong>Chofer:</strong> ${viaje.chofer?.nombre || 'No asignado'}</p>
-              <p><strong>Fecha:</strong> ${viaje.fecha ? format(new Date(viaje.fecha), 'PPPP', { locale: es }) : 'S/F'}</p>
+              <p><strong>Fecha:</strong> ${viaje.fecha ? format(parseLocalDate(viaje.fecha)!, 'PPPP', { locale: es }) : 'S/F'}</p>
             </div>
             <div>
               <p><strong>Estado:</strong> ${viaje.estado.toUpperCase()}</p>
@@ -171,10 +203,18 @@ export default function AdminViajes() {
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-           <h1 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Seguimiento de Viajes</h1>
-           <p className="text-text-muted text-sm">Monitoreo en tiempo real y reportes</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+           <div>
+              <h1 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Seguimiento en Vivo</h1>
+              <p className="text-text-muted text-sm flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                Actualizaciones en tiempo real activas
+              </p>
+           </div>
+           <Button size="sm" className="hidden md:flex items-center gap-2" onClick={() => window.location.href='/admin/rutas/nueva'}>
+              <Plus size={18}/> Nueva Ruta
+           </Button>
         </div>
         <div className="w-full md:w-80">
            <Input 
@@ -191,7 +231,7 @@ export default function AdminViajes() {
           <div key={date} className="space-y-6">
             <div className="flex items-center gap-4 sticky top-0 bg-background z-10 py-2 border-b border-surface-light">
               <h2 className="text-sm font-black text-primary uppercase tracking-[0.3em]">
-                {date !== 'Sin fecha' ? format(new Date(date), 'PPPP', { locale: es }) : 'Sin Fecha'}
+                {date !== 'Sin fecha' ? format(parseLocalDate(date)!, 'PPPP', { locale: es }) : 'Sin Fecha'}
               </h2>
               <div className="h-[1px] flex-1 bg-gradient-to-r from-primary/20 to-transparent" />
             </div>
@@ -311,6 +351,29 @@ export default function AdminViajes() {
                                        }}
                                      > {isSubmitting ? 'CERRANDO...' : 'CERRAR VIAJE'} </Button>
                                   )}
+                                  
+                                  {/* Botón de eliminar solo para administradores */}
+                                  <Button size="sm" variant="danger" disabled={isSubmitting} className="font-black bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-100"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm('¿Estás seguro de eliminar todo el registro de esta ruta diaria? Esta acción es irreversible.')) {
+                                        setIsSubmitting(true);
+                                        try {
+                                          await supabase.from('viajes_bitacora').delete().eq('id_ruta', viaje.id_ruta);
+                                          await supabase.from('locales_ruta').delete().eq('id_ruta', viaje.id_ruta);
+                                          await supabase.from('rutas').delete().eq('id_ruta', viaje.id_ruta);
+                                          await loadData();
+                                        } catch (err) {
+                                          console.error(err);
+                                          alert('Error al eliminar la ruta.');
+                                        } finally {
+                                          setIsSubmitting(false);
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    ELIMINAR
+                                  </Button>
                                 </div>
                              </div>
 

@@ -56,7 +56,7 @@ export default function RutasDiarias() {
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusColor(ruta.estado)}`}>
                   {ruta.estado.replace('_', ' ')}
                 </span>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/rutas/${ruta.id_ruta}`)}>
                   Ver Detalles
                 </Button>
               </div>

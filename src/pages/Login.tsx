@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { useNavigate, Link } from 'react-router-dom';
-import { Truck, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Truck, CheckCircle2, MoveRight } from 'lucide-react';
 
 export default function Login() {
   const { signIn, profile, loading, user } = useAuth();
@@ -49,11 +49,11 @@ export default function Login() {
            <p className="text-primary font-bold text-lg capitalize">{profile.rol}</p>
         </div>
 
-        <Button 
+        <Button
           className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30"
           onClick={() => {
-            if (profile.rol === 'administrador') window.location.href = '/admin';
-            else window.location.href = '/driver';
+            if (profile.rol === 'administrador') navigate('/admin');
+            else navigate('/driver');
           }}
         >
           IR AL PANEL DE CONTROL
@@ -64,16 +64,26 @@ export default function Login() {
 
   return (
     <div className="w-full max-w-md bg-surface p-8 rounded-2xl shadow-2xl border border-surface-light relative">
-      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-4 py-1 rounded-full font-black text-xs whitespace-nowrap animate-bounce">
-         ACTUALIZACIÓN: v4.0 - CACHE ACTIVO
-      </div>
-      
-      <div className="mb-8 text-center">
-        <div className="w-20 h-20 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/30">
-          <Truck className="text-primary" size={40} />
+      <div className="mb-8 text-center overflow-hidden">
+        <style>{`
+          @keyframes truckDrive {
+            0% { transform: translateX(-100px); opacity: 0; }
+            30% { transform: translateX(10px); opacity: 1; }
+            45% { transform: translateX(-5px); }
+            60% { transform: translateX(0); }
+          }
+          .animate-truck {
+            animation: truckDrive 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          }
+        `}</style>
+        <div className="w-24 h-24 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/30 relative animate-truck">
+          <Truck className="text-primary" size={48} />
+          <div className="absolute bottom-4 right-4 animate-bounce">
+            <MoveRight size={12} className="text-primary/40" />
+          </div>
         </div>
-        <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Shimaya Rutas</h2>
-        <p className="text-text-muted">Control de Tiempos y Bitácora</p>
+        <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Shimaya Rutas</h2>
+        <p className="text-text-muted text-xs uppercase tracking-widest font-bold opacity-60">Logística Avanzada</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,11 +116,6 @@ export default function Login() {
                 {isLoggingIn ? 'Verificando...' : 'Entrar al Panel'}
               </Button>
         
-        <div className="pt-4 text-center">
-            <Link to="/debug-auth" className="text-xs text-primary font-bold hover:underline">
-               ⚙️ VER ESTADO DEL SISTEMA (DEBUG)
-            </Link>
-        </div>
       </form>
     </div>
   );

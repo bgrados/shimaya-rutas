@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { Ruta, LocalRuta, ViajeBitacora } from '../../types';
@@ -7,78 +8,115 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { format, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Play, Flag, Truck, Clock, CheckCircle2, MapPin, ChevronDown, Timer, PlusCircle } from 'lucide-react';
+import { 
+  MapPin, 
+  CheckCircle2, 
+  Clock, 
+  Truck, 
+  PlusCircle,
+  ChevronDown,
+  Flag,
+  Play,
+  Timer
+} from 'lucide-react';
 
 export default function DriverViaje() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const [ruta, setRuta] = useState<Ruta | null>(null);
   const [locales, setLocales] = useState<LocalRuta[]>([]);
   const [bitacora, setBitacora] = useState<ViajeBitacora[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   
   // Selection/Creation state
   const [rutasBase, setRutasBase] = useState<any[]>([]);
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
   const [nuevaPlaca, setNuevaPlaca] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   const [nuevoDestino, setNuevoDestino] = useState('');
-  const [nuevoOrigen, setNuevoOrigen] = useState('');
 
   const loadCurrentRuta = async () => {
     if (!profile) return;
     setLoading(true);
-    const today = format(new Date(), 'yyyy-MM-dd');
-    
-    const { data: rutaData } = await supabase
-      .from('rutas')
-      .select('*')
-      .eq('id_chofer', profile.id_usuario)
-      .eq('fecha', today)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-      
-    if (rutaData) {
-      setRuta(rutaData as Ruta);
-      
-      const { data: localesData } = await supabase
-        .from('locales_ruta')
+    try {
+      const { data: rutaData, error: rError } = await supabase
+        .from('rutas')
         .select('*')
-        .eq('id_ruta', rutaData.id_ruta)
-        .order('orden', { ascending: true });
-      
-      if (localesData) setLocales(localesData as LocalRuta[]);
+        .eq('id_chofer', profile.id_usuario)
+        .in('estado', ['pendiente', 'en_progreso'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(); // Better than single() when 0 is allowed
+        
+      if (rError) throw rError;
 
-      const { data: bitacoraData } = await supabase
-        .from('viajes_bitacora')
-        .select('*')
-        .eq('id_ruta', rutaData.id_ruta)
-        .order('created_at', { ascending: true });
-      
-      if (bitacoraData) {
-        setBitacora(bitacoraData as ViajeBitacora[]);
-        const lastTramo = bitacoraData[bitacoraData.length - 1];
-        if (lastTramo && lastTramo.hora_llegada) {
-          setNuevoOrigen(lastTramo.destino_nombre || '');
-        } else if (lastTramo && !lastTramo.hora_llegada) {
-          setNuevoOrigen(lastTramo.origen_nombre || '');
-        } else {
-          setNuevoOrigen('Planta');
-        }
+      if (rutaData) {
+        setRuta(rutaData as Ruta);
+        
+        const { data: localesData, error: locError } = await supabase
+          .from('locales_ruta')
+          .select('*')
+          .eq('id_ruta', rutaData.id_ruta)
+          .order('orden', { ascending: true });
+        
+        if (locError) console.error('Error loading locales_ruta:', locError);
+        if (localesData) setLocales(localesData as LocalRuta[]);
+
+        const { data: bitacoraData, error: bitError } = await supabase
+          .from('viajes_bitacora')
+          .select('*')
+          .eq('id_ruta', rutaData.id_ruta)
+          .order('created_at', { ascending: true });
+        
+        if (bitError) console.error('Error loading bitacora:', bitError);
+        setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
       } else {
-        setNuevoOrigen('Planta');
+        setRuta(null);
+        // Load templates for creation — include locale counts
+        const { data: baseData, error: rbError } = await supabase
+          .from('rutas_base')
+          .select('*')
+          .eq('activo', true)
+          .order('nombre');
+          
+        if (rbError) throw rbError;
+
+        if (baseData) {
+          // Attach locale counts to each template, handle individual errors
+          const withCounts = await Promise.all(baseData.map(async (rb) => {
+            try {
+              const { count, error: cError } = await supabase
+                .from('locales_base')
+                .select('id_local_base', { count: 'exact', head: true })
+                .eq('id_ruta_base', rb.id_ruta_base);
+              
+              if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
+              return { ...rb, locales_count: count ?? 0 };
+            } catch (e) {
+              return { ...rb, locales_count: 0 };
+            }
+          }));
+          
+          // Only show routes that have at least 1 local
+          const validas = withCounts.filter(r => r.locales_count > 0);
+          setRutasBase(validas);
+          if (validas.length > 0) setSelectedRutaBase(validas[0].id_ruta_base);
+        }
       }
-    } else {
-      setRuta(null);
-      // Load templates for creation
-      const { data: baseData } = await supabase.from('rutas_base').select('*').eq('activo', true);
-      if (baseData) {
-        setRutasBase(baseData);
-        if (baseData.length > 0) setSelectedRutaBase(baseData[0].id_ruta_base);
+    } catch (err: any) {
+      console.error('Error cargando datos de viaje:', err);
+      if (err.message?.includes('policy') || err.code === '42501') {
+        setLoadError('Error de permisos (RLS). Contacta al administrador.');
+      } else {
+        setLoadError('No se pudo cargar la información. Reintenta.');
       }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -86,48 +124,69 @@ export default function DriverViaje() {
   }, [profile]);
 
   const handleCreateViaje = async () => {
-    if (!selectedRutaBase || !nuevaPlaca || !profile) return;
+    if (!selectedRutaBase || !profile) return;
+    if (!nuevaPlaca.trim()) {
+      setCreateError('Por favor ingresa la placa del vehículo.');
+      return;
+    }
+    setCreateError('');
     setIsCreating(true);
     
     try {
       const baseRuta = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
       const today = format(new Date(), 'yyyy-MM-dd');
       
-      // 1. Create Route
+      const { data: baseLocales, error: lbError } = await supabase
+        .from('locales_base')
+        .select('*')
+        .eq('id_ruta_base', selectedRutaBase)
+        .order('orden', { ascending: true });
+
+      if (lbError) {
+        setCreateError(`Error al consultar locales base: ${lbError.message}`);
+        return;
+      }
+      
+      if (!baseLocales || baseLocales.length === 0) {
+        setCreateError('Esta plantilla no tiene locales configurados. Pide al administrador que los agregue.');
+        setIsCreating(false);
+        return;
+      }
+
       const { data: newRuta, error: rError } = await supabase.from('rutas').insert({
         nombre: baseRuta.nombre,
         id_ruta_base: selectedRutaBase,
         id_chofer: profile.id_usuario,
-        placa: nuevaPlaca.toUpperCase(),
+        placa: nuevaPlaca.trim().toUpperCase(),
         fecha: today,
         estado: 'pendiente'
       }).select().single();
 
       if (rError) throw rError;
 
-      // 2. Clone Locales
-      const { data: baseLocales } = await supabase.from('locales_base').select('*').eq('id_ruta_base', selectedRutaBase);
-      if (baseLocales && baseLocales.length > 0) {
-        const trLocales = baseLocales.map(bl => ({
-          id_ruta: newRuta.id_ruta,
-          id_local_base: bl.id_local_base,
-          nombre: bl.nombre,
-          orden: bl.orden,
-          estado_visita: 'pendiente'
-        }));
-        await supabase.from('locales_ruta').insert(trLocales);
-      }
+      const localesRuta = baseLocales.map(bl => ({
+        id_ruta: newRuta.id_ruta,
+        id_local_base: bl.id_local_base,
+        nombre: bl.nombre,
+        direccion: bl.direccion ?? null,
+        latitud: bl.latitud ?? null,
+        longitud: bl.longitud ?? null,
+        orden: bl.orden,
+        estado_visita: 'pendiente'
+      }));
+
+      const { error: insertError } = await supabase.from('locales_ruta').insert(localesRuta);
+      if (insertError) throw insertError;
 
       await loadCurrentRuta();
-    } catch (e) {
-      console.error(e);
-      alert('Error al crear el viaje');
+    } catch (e: any) {
+      console.error('[Viaje] Error al crear viaje:', e);
+      setCreateError('Error al crear el viaje: ' + (e.message || JSON.stringify(e)));
     } finally {
       setIsCreating(false);
     }
   };
 
-  // LÓGICA SECUENCIAL Y DISPONIBILIDAD
   const localesRegistrados = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
   const localesDisponibles = locales.filter(l => !localesRegistrados.includes(l.nombre || ''));
   const tramoEnProgreso = bitacora.find(b => !b.hora_llegada);
@@ -143,11 +202,12 @@ export default function DriverViaje() {
   }, [bitacora, locales, localesDisponibles.length]);
 
   const handleRegistrarSalida = async () => {
-    if (!ruta || !nuevoDestino || !nuevoOrigen) return;
+    if (!ruta || !nuevoDestino) return;
+    const origen = proximoOrigen;
     
     let lat = null, lng = null;
     try {
-      const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+      const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
       lat = pos.coords.latitude;
       lng = pos.coords.longitude;
     } catch (e) {}
@@ -157,7 +217,7 @@ export default function DriverViaje() {
       .insert([{
         id_ruta: ruta.id_ruta,
         id_chofer: profile?.id_usuario,
-        origen_nombre: nuevoOrigen,
+        origen_nombre: origen,
         destino_nombre: nuevoDestino,
         hora_salida: new Date().toISOString(),
         gps_salida_lat: lat,
@@ -168,12 +228,15 @@ export default function DriverViaje() {
 
     if (!error && data) {
       setBitacora([...bitacora, data as ViajeBitacora]);
-      if (nuevoOrigen !== 'Planta') {
-        await supabase.from('locales_ruta').update({ hora_salida: data.hora_salida }).eq('id_ruta', ruta.id_ruta).eq('nombre', nuevoOrigen);
+      if (origen !== 'Planta') {
+        await supabase.from('locales_ruta').update({ hora_salida: data.hora_salida }).eq('id_ruta', ruta.id_ruta).eq('nombre', origen);
       }
       if (bitacora.length === 0) {
         await supabase.from('rutas').update({ estado: 'en_progreso', hora_salida_planta: data.hora_salida }).eq('id_ruta', ruta.id_ruta);
       }
+    } else if (error) {
+      console.error('[Viaje] Error registrar salida:', error);
+      alert('No se pudo registrar la salida: ' + error.message);
     }
   };
 
@@ -195,7 +258,6 @@ export default function DriverViaje() {
 
     if (!error && data) {
       setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
-      setNuevoOrigen(data.destino_nombre || '');
       if (data.destino_nombre !== 'Planta') {
         await supabase.from('locales_ruta').update({ hora_llegada: now, estado_visita: 'visitado' }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.destino_nombre);
       }
@@ -215,7 +277,7 @@ export default function DriverViaje() {
               <Truck size={40} />
            </div>
            <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">Nueva Jornada</h1>
-           <p className="text-text-muted text-sm">Selecciona tu ruta y vehículo para comenzar</p>
+           <p className="text-text-muted text-sm">Selecciona una plantilla y placa para iniciar tu ruta del día.</p>
         </div>
 
         <Card className="border-primary/30 bg-surface shadow-2xl overflow-hidden relative">
@@ -226,44 +288,59 @@ export default function DriverViaje() {
               <div className="space-y-4">
                  <div className="space-y-1">
                     <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
-                    <div className="relative">
-                       <select 
-                         className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors"
-                         value={selectedRutaBase}
-                         onChange={e => setSelectedRutaBase(e.target.value)}
-                       >
-                         {rutasBase.map(r => (
-                           <option key={r.id_ruta_base} value={r.id_ruta_base}>{r.nombre}</option>
-                         ))}
-                       </select>
-                       <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary pointer-events-none" />
-                    </div>
+                    {rutasBase.length === 0 ? (
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 text-yellow-400 text-sm font-bold">
+                        ⚠️ No hay plantillas disponibles. Contacta al administrador para configurar rutas base.
+                      </div>
+                    ) : (
+                      <div className="relative">
+                         <select 
+                           className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors"
+                           value={selectedRutaBase}
+                           onChange={e => setSelectedRutaBase(e.target.value)}
+                         >
+                           {rutasBase.map(r => (
+                             <option key={r.id_ruta_base} value={r.id_ruta_base}>
+                               {r.nombre} ({r.locales_count} paradas)
+                             </option>
+                           ))}
+                         </select>
+                         <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary pointer-events-none" />
+                      </div>
+                    )}
                  </div>
 
                  <div className="space-y-1">
                     <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Placa del Vehículo</label>
                     <Input 
-                      placeholder="ABC-123" 
+                      placeholder="Ej: ABC-123" 
                       className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg"
                       value={nuevaPlaca}
                       onChange={e => setNuevaPlaca(e.target.value)}
                     />
                  </div>
+
+                 {createError && (
+                   <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm font-bold">
+                     ❌ {createError}
+                   </div>
+                 )}
+                 {loadError && (
+                   <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm font-bold">
+                     ❌ {loadError}
+                   </div>
+                 )}
               </div>
 
               <Button 
                 onClick={handleCreateViaje}
-                disabled={isCreating || !nuevaPlaca}
-                className="w-full h-16 text-xl font-black italic bg-primary hover:bg-primary-hover shadow-xl shadow-primary/20 transition-all active:scale-95"
+                disabled={isCreating || !nuevaPlaca.trim() || rutasBase.length === 0}
+                className="w-full h-16 text-xl font-black italic bg-primary hover:bg-primary-hover shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
               >
-                {isCreating ? 'CREANDO...' : 'INICIAR MI RUTA'}
+                {isCreating ? '⏳ CREANDO RUTA...' : '🚛 INICIAR MI RUTA'}
               </Button>
            </CardContent>
         </Card>
-
-        <div className="text-center opacity-30 text-[10px] uppercase font-bold tracking-[0.2em] text-white">
-           Gestión de Rutas Shimaya v5.2
-        </div>
       </div>
     );
   }
@@ -341,14 +418,22 @@ export default function DriverViaje() {
                       <Clock size={16} className="text-primary" />
                       <span className="text-xs text-text-muted uppercase font-bold">Tiempo Actual</span>
                    </div>
-                   <span className="text-white font-black italic">{format(new Date(), 'HH:mm')}</span>
+                   <div className="flex gap-2">
+                    <Button 
+                      variant="secondary" 
+                      className="flex-1 bg-white/5 border border-white/10 text-white hover:bg-white/10"
+                      onClick={() => navigate(`/driver/ruta/${ruta.id_ruta}`)}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <MapPin size={18} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Ver Lista</span>
+                      </div>
+                    </Button>
+                   </div>
                 </div>
 
                 <Button 
-                   onClick={() => {
-                     setNuevoOrigen(proximoOrigen);
-                     handleRegistrarSalida();
-                   }}
+                   onClick={handleRegistrarSalida}
                    className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-xl shadow-primary/30 border-b-4 border-primary-dark"
                 >
                   <Play size={20} className="mr-2" /> REGISTRAR SALIDA
@@ -372,7 +457,7 @@ export default function DriverViaje() {
       {/* BARRA DE PROGRESO */}
       <div className="bg-surface/50 p-4 rounded-2xl border border-white/5 space-y-3">
          <div className="flex justify-between text-[10px] uppercase font-black text-text-muted tracking-[0.2em]">
-            <span>LOCALE VISITADOS</span>
+            <span>LOCALES VISITADOS</span>
             <span className="text-primary">{localesRegistrados.filter(l => l !== 'Planta').length} / {locales.length}</span>
          </div>
          <div className="h-3 bg-surface-light rounded-full overflow-hidden flex p-0.5 shadow-inner">

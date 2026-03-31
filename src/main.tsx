@@ -3,6 +3,16 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
+// Limpiar service workers y caches viejos que puedan bloquear la app
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(sw => sw.unregister())
+  })
+}
+if ('caches' in window) {
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)))
+}
+
 const rootEl = document.getElementById('root')
 if (!rootEl) {
   document.body.innerHTML = '<div style="color:red;padding:20px">Error: #root element not found</div>'

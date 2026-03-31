@@ -7,6 +7,8 @@ export interface Usuario {
   rol: UserRole;
   telefono: string | null;
   activo: boolean;
+  foto_url: string | null;
+  placa_camion: string | null;
   created_at: string;
 }
 
@@ -44,6 +46,7 @@ export interface LocalBase {
   telefono: string | null;
   contacto: string | null;
   orden: number | null;
+  foto_url: string | null;
   created_at: string;
 }
 

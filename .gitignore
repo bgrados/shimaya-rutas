@@ -22,7 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-node_modules
-dist
+
+# Environment variables (secrets)
 .env
-.DS_Store
+.env.local
+.env.*.local
+
+# Binaries e instaladores
+*.msi
+*.exe
+
+# Logs de instalación
+install_log.txt
+final_install_log.txt
+install_loop.ps1
+
+# Node local embebido
+.local_node/

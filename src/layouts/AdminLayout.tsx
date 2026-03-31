@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Map, Users, Settings, LogOut, Menu, X, LayoutDashboard, MapPin, BarChart3, Truck } from 'lucide-react';
@@ -8,18 +8,6 @@ export const AdminLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
 
-  console.log('[AdminLayout] Status:', { path: location.pathname, hasUser: !!user, hasProfile: !!profile, loading });
-
-  // Safety timeout to prevent infinite loading
-  useEffect(() => {
-    if (loading) {
-      const timer = setTimeout(() => {
-        console.warn('[AdminLayout] Loading timeout reached. Forcing check...');
-        // We don't have a way to force loading to false here, but we can show a way out
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [loading]);
 
   if (loading) {
     return (
@@ -42,13 +30,12 @@ export const AdminLayout: React.FC = () => {
   }
 
   if (!user || !profile || profile.rol !== 'administrador') {
-    console.warn('[AdminLayout] Access Denied:', { user: !!user, role: profile?.rol });
     return <Navigate to="/login" replace />;
   }
   const navigation = [
-    { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-    { name: 'Seguimiento Viajes', href: '/admin/viajes', icon: Truck },
-    { name: 'Rutas Diarias', href: '/admin/rutas', icon: Map },
+    { name: 'Monitor Principal', href: '/admin', icon: LayoutDashboard },
+    { name: 'Seguimiento (En Vivo)', href: '/admin/viajes', icon: Truck },
+    { name: 'Vista Mapa de Red', href: '/admin/mapa', icon: Map },
     { name: 'Rutas Base (Plantillas)', href: '/admin/rutas-base', icon: Settings },
     { name: 'Locales Base', href: '/admin/locales', icon: MapPin },
     { name: 'Reportes', href: '/admin/reportes', icon: BarChart3 },
