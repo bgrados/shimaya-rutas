@@ -120,21 +120,27 @@ export default function DriverViaje() {
   };
 
   useEffect(() => {
+    // Si no hay perfil, no cargamos nada
+    if (!profile?.id_usuario) {
+      setLoading(false);
+      return;
+    }
+
     loadCurrentRuta();
 
-    // Monitoreo en tiempo real de la ruta actual y su bitácora
+    // Suscripción Realtime específica para ESTE chofer
     const channel = supabase
-      .channel('driver_viaje_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rutas' }, () => loadCurrentRuta())
+      .channel(`viaje_chofer_${profile.id_usuario}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'rutas',
+        filter: `id_chofer=eq.${profile.id_usuario}` 
+      }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'viajes_bitacora' }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadCurrentRuta())
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          loadCurrentRuta(); // Refrescar al conectar o tras fallo
-        }
-      });
+      .subscribe();
 
-    // Detectar si el teléfono entra/sale de zona con señal 
     window.addEventListener('online', loadCurrentRuta);
 
     return () => {
