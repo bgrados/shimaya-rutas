@@ -2,18 +2,14 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { registerSW } from 'virtual:pwa-register'
 
-// Limpiar service workers y caches viejos que puedan bloquear la app
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    registrations.forEach(sw => sw.unregister())
-  })
-}
-if ('caches' in window) {
-  caches.keys().then(keys => keys.forEach(k => caches.delete(k)))
-}
+registerSW({
+  immediate: true
+})
 
 const rootEl = document.getElementById('root')
+
 if (!rootEl) {
   document.body.innerHTML = '<div style="color:red;padding:20px">Error: #root element not found</div>'
 } else {
