@@ -8,17 +8,17 @@ export const AdminLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
 
-
-  if (loading) {
+  // Solo spinner si loading Y no hay caché de perfil
+  if (loading && !profile) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center p-6 text-center">
         <div className="flex flex-col items-center gap-6 max-w-xs">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           <div className="space-y-2">
             <p className="text-white font-black uppercase italic tracking-tighter text-xl">Verificando acceso...</p>
-            <p className="text-text-muted text-sm">Validando credenciales de administrador en la base de datos de Shimaya.</p>
+            <p className="text-text-muted text-sm">Validando credenciales de administrador.</p>
           </div>
-          <button 
+          <button
             onClick={() => signOut()}
             className="text-primary text-xs font-bold hover:underline mt-4 uppercase tracking-widest"
           >
@@ -29,9 +29,13 @@ export const AdminLayout: React.FC = () => {
     );
   }
 
-  if (!user || !profile || profile.rol !== 'administrador') {
+  if (!loading && (!user || !profile || profile.rol !== 'administrador')) {
     return <Navigate to="/login" replace />;
   }
+
+  // Si hay perfil en caché pero loading aún es true, igual mostramos el layout
+  if (!profile) return null;
+
   const navigation = [
     { name: 'Monitor Principal', href: '/admin', icon: LayoutDashboard },
     { name: 'Seguimiento (En Vivo)', href: '/admin/viajes', icon: Truck },
@@ -52,7 +56,7 @@ export const AdminLayout: React.FC = () => {
         </button>
       </div>
 
-      {/* Sidebar - Desktop & Mobile */}
+      {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-surface border-r border-surface-light transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static`}>
         <div className="p-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
@@ -60,7 +64,6 @@ export const AdminLayout: React.FC = () => {
             <X size={24} />
           </button>
         </div>
-
         <nav className="mt-6 px-4 space-y-2">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
@@ -79,7 +82,6 @@ export const AdminLayout: React.FC = () => {
             );
           })}
         </nav>
-
         <div className="absolute bottom-0 w-full p-4 border-t border-surface-light">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="text-sm">
