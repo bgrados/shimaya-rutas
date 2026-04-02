@@ -35,31 +35,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   })
   const [loading, setLoading] = useState(true)
-
-  // Ref para evitar que getInitialSession pise un login que ya ocurrió
   const authEventFired = useRef(false)
 
   useEffect(() => {
     let mounted = true
 
-    // Timeout de seguridad: si Supabase no responde en 6s, desbloquear la app
+    // Timeout de seguridad: si Supabase no responde en 8s, desbloquear la app
     const loadingTimeout = setTimeout(() => {
-      if (mounted) setLoading(false)
-    }, 6000)
+      if (mounted) {
+        console.warn('[Auth] Timeout alcanzado, forzando loading=false')
+        setLoading(false)
+      }
+    }, 8000)
 
-    // onAuthStateChange es la fuente de verdad principal
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, newSession: Session | null) => {
         if (!mounted) return
-
         authEventFired.current = true
         clearTimeout(loadingTimeout)
-
         setSession(newSession)
         setUser(newSession?.user ?? null)
-
         if (newSession?.user) {
-          // Si ya hay un perfil en cache para este correo, usarlo mientras carga
           await fetchProfile(newSession.user.email)
         } else {
           localStorage.removeItem('user_profile')
@@ -73,12 +69,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession()
         if (error) throw error
-
         if (authEventFired.current || !mounted) return
-
         setSession(initialSession)
         setUser(initialSession?.user ?? null)
-
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.email)
         } else {
@@ -86,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (err) {
         console.error('[Auth] Error getting initial session:', err)
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
@@ -103,44 +96,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!email) {
       setProfile(null)
       localStorage.removeItem('user_profile')
+      setLoading(false)
       return
     }
 
-    // Usar caché para respuesta inmediata mientras llega la DB
+    // Usar caché para respuesta inmediata
     try {
       const cached = localStorage.getItem('user_profile')
       if (cached) {
         const p = JSON.parse(cached)
         if (p.email?.toLowerCase() === email.toLowerCase()) {
           setProfile(p)
+          // Si hay caché válido, liberar el loading de inmediato
+          setLoading(false)
         }
       }
     } catch {}
 
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .ilike('email', email.trim())
-      .maybeSingle()
+    // Igual actualizar desde DB en background
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .ilike('email', email.trim())
+        .maybeSingle()
 
-    if (error) {
-      console.error('[Auth] Profile fetch error:', error.message)
-    }
-
-    if (data) {
-      const p: Usuario = {
-        ...data,
-        rol: (data.rol || '').trim().toLowerCase() as Usuario['rol'],
-        email: (data.email || '').trim().toLowerCase(),
+      if (error) {
+        console.error('[Auth] Profile fetch error:', error.message)
+        return
       }
-      setProfile(p)
-      localStorage.setItem('user_profile', JSON.stringify(p))
-    } else if (!error) {
-      console.warn(`[Auth] No profile found for email: ${email}`)
-      setProfile(null)
-      localStorage.removeItem('user_profile')
+
+      if (data) {
+        const p: Usuario = {
+          ...data,
+          rol: (data.rol || '').trim().toLowerCase() as Usuario['rol'],
+          email: (data.email || '').trim().toLowerCase(),
+        }
+        setProfile(p)
+        localStorage.setItem('user_profile', JSON.stringify(p))
+      } else {
+        console.warn(`[Auth] No profile found for email: ${email}`)
+        setProfile(null)
+        localStorage.removeItem('user_profile')
+      }
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const signIn = async (email: string, password: string) => {
