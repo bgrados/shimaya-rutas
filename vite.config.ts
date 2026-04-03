@@ -112,7 +112,7 @@ export default defineConfig({
 
               },
 
-              networkTimeoutSeconds: 10,
+              networkTimeoutSeconds: 0,
 
             },
 
