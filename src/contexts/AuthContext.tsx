@@ -1,60 +1,25 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
-import type { Session, User, AuthChangeEvent } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
-import type { Usuario } from '../types'
-
-interface AuthContextType {
-  session: Session | null
-  user: User | null
-  profile: Usuario | null
-  signIn: (email: string, password: string) => Promise<void>
-  signOut: () => Promise<void>
-  loading: boolean
-}
-
-const AuthContext = createContext<AuthContextType>({
-  session: null,
-  user: null,
-  profile: null,
-  signIn: async () => {},
-  signOut: async () => {},
-  loading: true,
-})
-
-export const useAuth = () => useContext(AuthContext)
+// ... (manten tus imports igual)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Usuario | null>(() => {
-    try {
-      const cached = localStorage.getItem('user_profile')
-      return cached ? JSON.parse(cached) : null
-    } catch {
-      return null
-    }
+    const cached = localStorage.getItem('user_profile')
+    return cached ? JSON.parse(cached) : null
   })
   const [loading, setLoading] = useState(true)
-  const authEventFired = useRef(false)
 
   useEffect(() => {
     let mounted = true
 
-    // Timeout de seguridad: si Supabase no responde en 8s, desbloquear la app
-    const loadingTimeout = setTimeout(() => {
-      if (mounted) {
-        console.warn('[Auth] Timeout alcanzado, forzando loading=false')
-        setLoading(false)
-      }
-    }, 8000)
-
+    // Solo usamos onAuthStateChange, que maneja la sesión inicial automáticamente
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: AuthChangeEvent, newSession: Session | null) => {
+      async (event, newSession) => {
         if (!mounted) return
-        authEventFired.current = true
-        clearTimeout(loadingTimeout)
+        
         setSession(newSession)
         setUser(newSession?.user ?? null)
+
         if (newSession?.user) {
           await fetchProfile(newSession.user.email)
         } else {
@@ -65,55 +30,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     )
 
-    async function getInitialSession() {
-      try {
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession()
-        if (error) throw error
-        if (authEventFired.current || !mounted) return
-        setSession(initialSession)
-        setUser(initialSession?.user ?? null)
-        if (initialSession?.user) {
-          await fetchProfile(initialSession.user.email)
-        } else {
-          setLoading(false)
-        }
-      } catch (err) {
-        console.error('[Auth] Error getting initial session:', err)
-        if (mounted) setLoading(false)
-      }
-    }
-
-    getInitialSession()
-
     return () => {
       mounted = false
-      clearTimeout(loadingTimeout)
       subscription.unsubscribe()
     }
   }, [])
 
   const fetchProfile = async (email?: string | null) => {
     if (!email) {
-      setProfile(null)
-      localStorage.removeItem('user_profile')
       setLoading(false)
       return
     }
 
-    // Usar caché para respuesta inmediata
-    try {
-      const cached = localStorage.getItem('user_profile')
-      if (cached) {
-        const p = JSON.parse(cached)
-        if (p.email?.toLowerCase() === email.toLowerCase()) {
-          setProfile(p)
-          // Si hay caché válido, liberar el loading de inmediato
-          setLoading(false)
-        }
-      }
-    } catch {}
-
-    // Igual actualizar desde DB en background
     try {
       const { data, error } = await supabase
         .from('usuarios')
@@ -121,12 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .ilike('email', email.trim())
         .maybeSingle()
 
-      if (error) {
-        console.error('[Auth] Profile fetch error:', error.message)
-        return
-      }
+      if (error) throw error
 
       if (data) {
+        // Normalizamos el rol a minúsculas y sin espacios
         const p: Usuario = {
           ...data,
           rol: (data.rol || '').trim().toLowerCase() as Usuario['rol'],
@@ -135,26 +61,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(p)
         localStorage.setItem('user_profile', JSON.stringify(p))
       } else {
-        console.warn(`[Auth] No profile found for email: ${email}`)
+        // SI NO HAY PERFIL: Limpiamos para evitar loop
         setProfile(null)
         localStorage.removeItem('user_profile')
       }
+    } catch (err) {
+      console.error('[Auth] Error fetching profile:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const signIn = async (email: string, password: string) => {
-    localStorage.removeItem('user_profile')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-  }
-
-  const signOut = async () => {
-    localStorage.removeItem('user_profile')
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-  }
+  // ... (signIn y signOut se mantienen igual)
 
   return (
     <AuthContext.Provider value={{ session, user, profile, signIn, signOut, loading }}>
