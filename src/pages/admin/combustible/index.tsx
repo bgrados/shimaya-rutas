@@ -159,7 +159,8 @@ export default function GastosCombustible() {
   };
 
   const generarPDF = async () => {
-    setShowExportMenu(false);
+    console.log('🚀 generandoPDF called');
+    try {
     
     const doc = new jsPDF();
     const fechaActual = format(new Date(), 'yyyy-MM-dd');
@@ -325,30 +326,15 @@ export default function GastosCombustible() {
           Gastos Combustible
         </h1>
         
-        <div className="relative">
-          <Button onClick={() => setShowExportMenu(!showExportMenu)} className="flex items-center gap-2">
-            <Download size={18} />
-            Exportar
+        <div className="flex gap-2">
+          <Button onClick={() => console.log('PDF click')} className="flex items-center gap-2">
+            <FileText size={18} />
+            Exportar PDF
           </Button>
-          
-          {showExportMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-surface border border-surface-light rounded-lg shadow-lg z-50">
-              <button
-                onClick={generarPDF}
-                className="flex items-center gap-2 w-full px-4 py-3 text-left text-white hover:bg-surface-light transition-colors rounded-t-lg"
-              >
-                <FileText size={18} className="text-red-400" />
-                Exportar PDF
-              </button>
-              <button
-                onClick={generarExcel}
-                className="flex items-center gap-2 w-full px-4 py-3 text-left text-white hover:bg-surface-light transition-colors rounded-b-lg"
-              >
-                <FileSpreadsheet size={18} className="text-green-400" />
-                Exportar Excel
-              </button>
-            </div>
-          )}
+          <Button onClick={generarExcel} variant="secondary" className="flex items-center gap-2">
+            <FileSpreadsheet size={18} />
+            Exportar Excel
+          </Button>
         </div>
       </div>
 
