@@ -28,36 +28,49 @@ export default function NuevoUsuario() {
     }
 
     setLoadingSubmit(true);
-    setError('Creando usuario...');
+    setError('');
 
     try {
-      // 1. Crear usuario en Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nombre,
-            telefono,
-            rol
-          }
-        }
-      });
-
-      console.log('SignUp response:', data, error);
-
-      if (error) {
-        throw new Error(error.message);
+      // Verificar si el email ya existe en la tabla usuarios
+      const { data: existing } = await supabase
+        .from('usuarios')
+        .select('id_usuario')
+        .eq('email', email)
+        .single();
+      
+      if (existing) {
+        setError('Este email ya está registrado en el sistema.');
+        setLoadingSubmit(false);
+        return;
       }
 
-      const userId = data.user?.id;
-      
-      console.log('User ID from signUp:', userId);
-      console.log('Full user data:', data.user);
-      console.log('Session:', data.session);
+      // 1. Crear usuario en Supabase Auth usando API REST directamente
+      const response = await fetch('https://cvbdhjomyywvyqvhrtci.supabase.co/auth/v1/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2YmRoam9teXl3dnlxdmhydGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MDUyOTQsImV4cCI6MjA4OTI4MTI5NH0.30RyLciUKl7MXZ_9NqjXq2ppUDoTmz7ldgw9-spSlzg'
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          options: {
+            data: { nombre, telefono, rol }
+          }
+        })
+      });
 
+      const authData = await response.json();
+      console.log('Auth API response:', authData);
+
+      if (!response.ok) {
+        throw new Error(authData.msg || authData.message || 'Error al crear usuario en autenticación');
+      }
+
+      const userId = authData.user?.id;
+      
       if (!userId) {
-        throw new Error('No se pudo obtener el ID del usuario. El email ya podría estar registrado.');
+        throw new Error('No se pudo obtener el ID del usuario');
       }
 
       // 2. Insertar en tabla usuarios
@@ -65,17 +78,15 @@ export default function NuevoUsuario() {
         .from('usuarios')
         .insert({
           id_usuario: userId,
-          nombre: nombre,
-          email: email,
-          rol: rol,
+          nombre,
+          email,
+          rol,
           telefono: telefono || null,
           activo: true
         });
 
-      console.log('DB insert result:', dbError);
-
       if (dbError) {
-        throw new Error('Error al guardar en base de datos: ' + dbError.message);
+        throw new Error('Error al guardar usuario: ' + dbError.message);
       }
 
       navigate('/admin/usuarios');
