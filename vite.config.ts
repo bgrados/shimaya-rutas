@@ -37,28 +37,19 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api',
               expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 5 * 60,
-              },
-              networkTimeoutSeconds: 10,
-            },
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-storage',
-              expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 10 * 60,
+                maxAgeSeconds: 60,
               },
+              networkTimeoutSeconds: 5,
             },
           },
           {
