@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
-import type { Ruta } from '../../../types';
+import type { Ruta, GastoCombustible } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2 } from 'lucide-react';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -17,11 +17,16 @@ function formatMins(mins: number | null) {
 }
 
 type Period = 'diario' | 'semanal' | 'mensual';
+type ReportType = 'rutas' | 'combustible';
+
 interface RutaConBitacora extends Ruta { bitacora?: any[]; duracionMins?: number | null; }
 interface Usuario { id_usuario: string; nombre: string; }
-
+interface GrupoFecha { fecha: string; gastos: GastoCombustible[]; total: number; }
+interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCombustible[]; total: number; }
 
 export default function Reportes() {
+  const [reportType, setReportType] = useState<ReportType>('rutas');
+  
   const [period, setPeriod] = useState<Period>('diario');
   const [selectedDate, setSelectedDate] = useState(localToday());
   const [allRutas, setAllRutas] = useState<RutaConBitacora[]>([]);
@@ -29,6 +34,12 @@ export default function Reportes() {
   const [rutasBase, setRutasBase] = useState<{ id_ruta_base: string; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+
+  // Combustible state
+  const [gastos, setGastos] = useState<GastoCombustible[]>([]);
+  const [combustibleLoading, setCombustibleLoading] = useState(true);
+  const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
+  const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
@@ -47,7 +58,8 @@ export default function Reportes() {
     };
   }
 
-  useEffect(() => { loadData(); }, [period, selectedDate]);
+  useEffect(() => { loadData(); }, [period, selectedDate, reportType]);
+  useEffect(() => { loadCombustible(); }, [filtroFecha, reportType]);
 
   useEffect(() => {
     supabase.from('usuarios').select('id_usuario,nombre').eq('rol', 'chofer').then(r => { if (r.data) setChoferes(r.data); });
@@ -81,7 +93,40 @@ export default function Reportes() {
     setLoading(false);
   }
 
-  // Aplicar filtros locales
+  async function loadCombustible() {
+    setCombustibleLoading(true);
+    try {
+      let query = supabase
+        .from('gastos_combustible')
+        .select('*, usuarios(nombre), rutas(nombre)')
+        .order('created_at', { ascending: false });
+
+      const fechaInicio = startOfWeek(new Date(), { weekStartsOn: 1 });
+      
+      if (filtroFecha === 'semana') {
+        query = query.gte('created_at', fechaInicio.toISOString());
+      } else if (filtroFecha === 'mes') {
+        const mesInicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        query = query.gte('created_at', mesInicio.toISOString());
+      }
+
+      const { data } = await query;
+
+      if (data) {
+        const mapped = data.map((g: any) => ({
+          ...g,
+          chofer_nombre: g.usuarios?.nombre,
+          ruta_nombre: g.rutas?.nombre
+        }));
+        setGastos(mapped as GastoCombustible[]);
+      }
+    } catch (err) {
+      console.error('[Gastos] Error:', err);
+    } finally {
+      setCombustibleLoading(false);
+    }
+  }
+
   const rutas = useMemo(() => {
     return allRutas.filter(r => {
       if (filterChofer && r.id_chofer !== filterChofer) return false;
@@ -104,7 +149,6 @@ export default function Reportes() {
 
   const choferNombre = filterChofer ? choferes.find(c => c.id_usuario === filterChofer)?.nombre || '' : '';
 
-  // Compartir resumen por WhatsApp
   const handleShareWhatsApp = () => {
     const lines = [
       `🚛 *Reporte Shimaya – ${rangoLabel.toUpperCase()}*`,
@@ -124,17 +168,15 @@ export default function Reportes() {
     window.open(`https://wa.me/?text=${texto}`, '_blank');
   };
 
-  // ── GENERADOR DE PDF ────────────────────────────────────────────────────────
+  // Generador PDF para Rutas
   const handleGeneratePDF = () => {
     setGenerating(true);
     const rows = rutas.map(r => {
       const bits = r.bitacora || [];
       const estadoBadge = r.estado === 'finalizada' ? '#22c55e' : r.estado === 'en_progreso' ? '#3b82f6' : '#eab308';
       const paradas = bits.map((b: any, i: number) => {
-        // Tiempo de tránsito: de hora_salida a hora_llegada del mismo tramo
         const transito = b.hora_salida && b.hora_llegada
           ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
-        // Permanencia en el local destino: tiempo desde hora_llegada hasta la hora_salida del SIGUIENTE tramo
         const nextBit = bits[i + 1];
         const permanencia = b.hora_llegada && nextBit?.hora_salida
           ? differenceInMinutes(new Date(nextBit.hora_salida), new Date(b.hora_llegada)) : null;
@@ -182,7 +224,7 @@ export default function Reportes() {
 
     const filtrosTexto = [
       filterChofer ? `Chofer: ${choferNombre}` : '',
-      filterRuta   ? `Ruta: ${filterRuta}` : '',
+      filterRuta ? `Ruta: ${filterRuta}` : '',
     ].filter(Boolean).join(' · ') || 'Todos los registros';
 
     const html = `<!DOCTYPE html>
@@ -207,23 +249,8 @@ export default function Reportes() {
 <body>
 <div class="header">
   <div style="display:flex;align-items:center;gap:16px;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="64" height="64" style="flex-shrink:0;">
-      <circle cx="100" cy="100" r="98" fill="#111111"/>
-      <circle cx="100" cy="100" r="98" fill="none" stroke="#cc2222" stroke-width="3"/>
-      <rect x="28" y="85" width="95" height="52" rx="4" fill="#ffffff"/>
-      <rect x="123" y="95" width="48" height="42" rx="4" fill="#ffffff"/>
-      <rect x="128" y="100" width="36" height="22" rx="2" fill="#cc2222"/>
-      <rect x="133" y="108" width="16" height="18" rx="2" fill="#ffffff" stroke="#cc2222" stroke-width="1.5"/>
-      <rect x="115" y="85" width="4" height="52" fill="#cc2222"/>
-      <rect x="28" y="106" width="95" height="5" fill="#cc2222"/>
-      <circle cx="55" cy="140" r="14" fill="#333333" stroke="#cc2222" stroke-width="2"/><circle cx="55" cy="140" r="7" fill="#777"/><circle cx="55" cy="140" r="3" fill="#ccc"/>
-      <circle cx="140" cy="140" r="14" fill="#333333" stroke="#cc2222" stroke-width="2"/><circle cx="140" cy="140" r="7" fill="#777"/><circle cx="140" cy="140" r="3" fill="#ccc"/>
-      <rect x="172" y="118" width="6" height="10" rx="2" fill="#ffdd00"/>
-      <text x="100" y="174" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="22" font-weight="900" fill="#cc2222" letter-spacing="1">SHIMAYA</text>
-      <text x="100" y="193" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#888" letter-spacing="4">RUTAS</text>
-    </svg>
     <div>
-      <p class="header-title">SHIMAYA RUTAS &amp; LOGÍSTICA</p>
+      <p class="header-title">SHIMAYA RUTAS & LOGÍSTICA</p>
       <p class="header-sub">📋 Reporte ${period.charAt(0).toUpperCase() + period.slice(1)} · ${rangoLabel}</p>
     </div>
   </div>
@@ -243,7 +270,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
   ${rows || '<p style="color:#94a3b8;text-align:center;padding:40px;font-style:italic;">No hay rutas que coincidan con el filtro seleccionado.</p>'}
 </div>
 <div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
-<button class="print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+<button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
     const win = window.open('', '_blank', 'width=960,height=750');
@@ -253,6 +280,83 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
       win.focus();
     }
     setGenerating(false);
+  };
+
+  // Funciones combustible
+  const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
+    const grupos: Record<string, GastoCombustible[]> = {};
+    gastos.forEach(gasto => {
+      const fecha = gasto.created_at ? format(new Date(gasto.created_at), 'yyyy-MM-dd') : 'sin fecha';
+      if (!grupos[fecha]) grupos[fecha] = [];
+      grupos[fecha].push(gasto);
+    });
+    return Object.entries(grupos)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([fecha, gastoss]) => ({
+        fecha,
+        gastos: gastoss,
+        total: gastoss.reduce((sum, g) => sum + (g.monto || 0), 0)
+      }));
+  };
+
+  const gastosAgrupadosPorChofer = (): GrupoChofer[] => {
+    const grupos: Record<string, { nombre: string; gastos: GastoCombustible[] }> = {};
+    gastos.forEach(gasto => {
+      const choferId = gasto.id_chofer || 'sin chofer';
+      const choferNombre = gasto.chofer_nombre || 'Sin nombre';
+      if (!grupos[choferId]) {
+        grupos[choferId] = { nombre: choferNombre, gastos: [] };
+      }
+      grupos[choferId].gastos.push(gasto);
+    });
+    return Object.entries(grupos)
+      .sort(([, a], [, b]) => b.gastos.length - a.gastos.length)
+      .map(([choferId, data]) => ({
+        choferId,
+        choferNombre: data.nombre,
+        gastos: data.gastos,
+        total: data.gastos.reduce((sum, g) => sum + (g.monto || 0), 0)
+      }));
+  };
+
+  const totalesPorTipo = gastos.reduce((acc, g) => {
+    const tipo = g.tipo_combustible || 'otro';
+    acc[tipo] = (acc[tipo] || 0) + (g.monto || 0);
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalGeneral = gastos.reduce((sum, g) => sum + (g.monto || 0), 0);
+
+  const handleExportarCombustiblePDF = async () => {
+    const html2canvas = (await import('html2canvas')).default;
+    const { jsPDF } = await import('jspdf');
+    
+    const element = document.getElementById('combustible-report-content');
+    if (!element) return;
+    
+    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#1a1a2e' });
+    const imgData = canvas.toDataURL('image/png');
+    
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const imgWidth = pageWidth - 20;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    let heightLeft = imgHeight;
+    let position = 10;
+    
+    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    
+    while (heightLeft > 0) {
+      doc.addPage();
+      position = heightLeft - imgHeight + 10;
+      doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    
+    doc.save(`reporte_combustible_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const PERIODS: { key: Period; label: string }[] = [
@@ -271,190 +375,357 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
           <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter">Reportes</h1>
           <p className="text-text-muted text-sm capitalize">{rangoLabel}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            onClick={handleShareWhatsApp}
-            disabled={rutas.length === 0}
-            className="bg-[#25D366] hover:bg-[#1fb85a] flex items-center gap-2 font-black shadow-lg shadow-green-800/20"
+        
+        {/* Tipo de reporte */}
+        <div className="flex bg-surface rounded-xl overflow-hidden border border-surface-light">
+          <button
+            onClick={() => setReportType('rutas')}
+            className={`px-4 py-2 font-medium transition-colors ${reportType === 'rutas' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
           >
-            <Share2 size={18} /> WhatsApp
-          </Button>
-          <Button
-            onClick={handleGeneratePDF}
-            disabled={generating}
-            className="bg-green-600 hover:bg-green-700 flex items-center gap-2 shadow-lg shadow-green-700/20 font-black"
+            <Truck size={16} className="inline mr-2" />
+            Rutas
+          </button>
+          <button
+            onClick={() => setReportType('combustible')}
+            className={`px-4 py-2 font-medium transition-colors ${reportType === 'combustible' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
           >
-            <FileDown size={18} />
-            {generating ? 'Generando...' : 'Exportar PDF'}
-          </Button>
+            <Fuel size={16} className="inline mr-2" />
+            Combustible
+          </button>
         </div>
       </div>
 
-      {/* FILTROS */}
-      <Card className="border-surface-light">
-        <CardContent className="p-5 space-y-4">
-          {/* Período + Fecha */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
-              {PERIODS.map(p => (
-                <button key={p.key} onClick={() => setPeriod(p.key)}
-                  className={`px-5 py-2.5 text-sm font-black italic transition-all ${period === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <Calendar size={15} className="text-primary" />
-              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                className="bg-surface-light border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-primary" />
-            </div>
-          </div>
+      {reportType === 'rutas' ? (
+        <>
+          {/* FILTROS RUTAS */}
+          <Card className="border-surface-light">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
+                  {PERIODS.map(p => (
+                    <button key={p.key} onClick={() => setPeriod(p.key)}
+                      className={`px-5 py-2.5 text-sm font-black italic transition-all ${period === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar size={15} className="text-primary" />
+                  <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                    className="bg-surface-light border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-primary" />
+                </div>
+              </div>
 
-          {/* Filtros Ruta + Chofer */}
-          <div className="flex flex-wrap gap-3 items-center border-t border-white/5 pt-4">
-            <Filter size={14} className="text-text-muted" />
-            <span className="text-xs text-text-muted uppercase font-black tracking-widest">Filtrar por:</span>
+              <div className="flex flex-wrap gap-3 items-center border-t border-white/5 pt-4">
+                <Filter size={14} className="text-text-muted" />
+                <span className="text-xs text-text-muted uppercase font-black tracking-widest">Filtrar por:</span>
 
-            {/* Por Ruta */}
-            <div className="relative">
-              <select value={filterRuta} onChange={e => setFilterRuta(e.target.value)}
-                className="bg-surface-light border border-white/10 rounded-xl pl-3 pr-8 py-2 text-white text-sm appearance-none focus:outline-none focus:border-primary min-w-[160px]">
-                <option value="">Todas las rutas</option>
-                {rutasBase.map(r => <option key={r.id_ruta_base} value={r.nombre}>{r.nombre}</option>)}
-              </select>
-            </div>
+                <div className="relative">
+                  <select value={filterRuta} onChange={e => setFilterRuta(e.target.value)}
+                    className="bg-surface-light border border-white/10 rounded-xl pl-3 pr-8 py-2 text-white text-sm appearance-none focus:outline-none focus:border-primary min-w-[160px]">
+                    <option value="">Todas las rutas</option>
+                    {rutasBase.map(r => <option key={r.id_ruta_base} value={r.nombre}>{r.nombre}</option>)}
+                  </select>
+                </div>
 
-            {/* Por Chofer */}
-            <div className="relative">
-              <select value={filterChofer} onChange={e => setFilterChofer(e.target.value)}
-                className="bg-surface-light border border-white/10 rounded-xl pl-3 pr-8 py-2 text-white text-sm appearance-none focus:outline-none focus:border-primary min-w-[160px]">
-                <option value="">Todos los choferes</option>
-                {choferes.map(c => <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>)}
-              </select>
-            </div>
+                <div className="relative">
+                  <select value={filterChofer} onChange={e => setFilterChofer(e.target.value)}
+                    className="bg-surface-light border border-white/10 rounded-xl pl-3 pr-8 py-2 text-white text-sm appearance-none focus:outline-none focus:border-primary min-w-[160px]">
+                    <option value="">Todos los choferes</option>
+                    {choferes.map(c => <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>)}
+                  </select>
+                </div>
 
-            {/* Limpiar filtros */}
-            {hasFilters && (
-              <button onClick={() => { setFilterChofer(''); setFilterRuta(''); }}
-                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
-                <X size={12} /> Limpiar filtros
-              </button>
-            )}
-
-            {hasFilters && (
-              <span className="text-xs text-primary italic ml-auto">
-                {rutas.length} resultado{rutas.length !== 1 ? 's' : ''}
-                {filterChofer ? ` · ${choferNombre}` : ''}
-                {filterRuta ? ` · ${filterRuta}` : ''}
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* STATS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Rutas', value: totalRutas, color: 'text-white', icon: Truck },
-          { label: 'Finalizadas', value: finalizadas, color: 'text-green-400', icon: CheckCircle2 },
-          { label: 'En Progreso', value: enProgreso, color: 'text-blue-400', icon: Clock },
-          { label: 'Pendientes', value: pendientes, color: 'text-yellow-400', icon: MapPin },
-        ].map(s => (
-          <Card key={s.label} className="border-surface-light">
-            <CardContent className="p-5 flex items-center gap-4">
-              <s.icon size={22} className={s.color + ' opacity-70'} />
-              <div>
-                <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
-                <p className="text-text-muted text-xs">{s.label}</p>
+                {hasFilters && (
+                  <button onClick={() => { setFilterChofer(''); setFilterRuta(''); }}
+                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
+                    <X size={12} /> Limpiar
+                  </button>
+                )}
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {/* LISTA */}
-      {loading ? (
-        <div className="text-white italic animate-pulse text-center py-16">Cargando datos...</div>
-      ) : rutas.length === 0 ? (
-        <div className="text-center py-16 bg-surface border border-dashed border-surface-light rounded-2xl">
-          <Truck size={40} className="mx-auto mb-3 text-text-muted opacity-30" />
-          <p className="text-text-muted italic">No hay rutas que coincidan con los filtros.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {rutas.map(ruta => {
-            const bits = ruta.bitacora || [];
-            const estadoColor = ruta.estado === 'finalizada' ? 'text-green-400 bg-green-500/10 border-green-500/20'
-              : ruta.estado === 'en_progreso' ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'
-              : 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
-            return (
-              <Card key={ruta.id_ruta} className="border-surface-light/50 overflow-hidden">
-                <div className="p-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <Truck size={18} className="text-primary" />
-                    <div>
-                      <p className="font-black text-white italic">{ruta.nombre}</p>
-                      <p className="text-xs text-text-muted">
-                        🚛 {ruta.placa || 'Sin placa'} &nbsp;·&nbsp;
-                        📅 {ruta.fecha ? format(parseISO(ruta.fecha), "EEE d MMM", { locale: es }) : '-'}
-                      </p>
-                    </div>
+          {/* BOTONES EXPORTAR */}
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={handleShareWhatsApp} disabled={rutas.length === 0} className="bg-[#25D366] hover:bg-[#1fb85a] flex items-center gap-2 font-black">
+              <Share2 size={18} /> WhatsApp
+            </Button>
+            <Button onClick={handleGeneratePDF} disabled={generating} className="bg-green-600 hover:bg-green-700 flex items-center gap-2 font-black">
+              <FileDown size={18} /> {generating ? 'Generando...' : 'Exportar PDF'}
+            </Button>
+          </div>
+
+          {/* STATS */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Rutas', value: totalRutas, color: 'text-white', icon: Truck },
+              { label: 'Finalizadas', value: finalizadas, color: 'text-green-400', icon: CheckCircle2 },
+              { label: 'En Progreso', value: enProgreso, color: 'text-blue-400', icon: Clock },
+              { label: 'Pendientes', value: pendientes, color: 'text-yellow-400', icon: MapPin },
+            ].map(s => (
+              <Card key={s.label} className="border-surface-light">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <s.icon size={22} className={s.color + ' opacity-70'} />
+                  <div>
+                    <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+                    <p className="text-text-muted text-xs">{s.label}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {ruta.hora_salida_planta && (
-                      <span className="text-xs text-text-muted">
-                        🕐 {format(new Date(ruta.hora_salida_planta), 'HH:mm')}
-                        {ruta.hora_llegada_planta && ` → ${format(new Date(ruta.hora_llegada_planta), 'HH:mm')}`}
-                        {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
-                      </span>
-                    )}
-                    <span className={`text-xs font-black uppercase px-2 py-1 rounded-full border ${estadoColor}`}>
-                      {ruta.estado?.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-                {bits.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-text-muted border-b border-white/5">
-                          {['#', 'Tramo', 'Salida', 'Llegada', 'Duración'].map(h => (
-                            <th key={h} className="px-4 py-2 text-left font-bold uppercase tracking-wider">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bits.map((b: any, i: number) => {
-                          const dur = b.hora_salida && b.hora_llegada
-                            ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
-                          return (
-                            <tr key={b.id_bitacora} className="border-b border-white/5 hover:bg-white/5">
-                              <td className="px-4 py-2 text-primary font-black">{i + 1}</td>
-                              <td className="px-4 py-2 text-white font-bold italic">
-                                {b.origen_nombre} <span className="text-primary">→</span> {b.destino_nombre}
-                              </td>
-                              <td className="px-4 py-2 text-text-muted">{b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
-                              <td className="px-4 py-2 text-text-muted">
-                                {b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}
-                              </td>
-                              <td className="px-4 py-2 font-bold text-primary">{formatMins(dur)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-text-muted text-xs italic p-4">Sin movimientos registrados.</p>
-                )}
+                </CardContent>
               </Card>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* LISTA RUTAS */}
+          {loading ? (
+            <div className="text-white italic animate-pulse text-center py-16">Cargando datos...</div>
+          ) : rutas.length === 0 ? (
+            <div className="text-center py-16 bg-surface border border-dashed border-surface-light rounded-2xl">
+              <Truck size={40} className="mx-auto mb-3 text-text-muted opacity-30" />
+              <p className="text-text-muted italic">No hay rutas que coincidan con los filtros.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {rutas.map(ruta => {
+                const bits = ruta.bitacora || [];
+                const estadoColor = ruta.estado === 'finalizada' ? 'text-green-400 bg-green-500/10 border-green-500/20'
+                  : ruta.estado === 'en_progreso' ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                  : 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
+                return (
+                  <Card key={ruta.id_ruta} className="border-surface-light/50 overflow-hidden">
+                    <div className="p-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <Truck size={18} className="text-primary" />
+                        <div>
+                          <p className="font-black text-white italic">{ruta.nombre}</p>
+                          <p className="text-xs text-text-muted">
+                            🚛 {ruta.placa || 'Sin placa'} &nbsp;·&nbsp;
+                            📅 {ruta.fecha ? format(parseISO(ruta.fecha), "EEE d MMM", { locale: es }) : '-'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {ruta.hora_salida_planta && (
+                          <span className="text-xs text-text-muted">
+                            🕐 {format(new Date(ruta.hora_salida_planta), 'HH:mm')}
+                            {ruta.hora_llegada_planta && ` → ${format(new Date(ruta.hora_llegada_planta), 'HH:mm')}`}
+                            {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
+                          </span>
+                        )}
+                        <span className={`text-xs font-black uppercase px-2 py-1 rounded-full border ${estadoColor}`}>
+                          {ruta.estado?.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                    {bits.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-text-muted border-b border-white/5">
+                              {['#', 'Tramo', 'Salida', 'Llegada', 'Duración'].map(h => (
+                                <th key={h} className="px-4 py-2 text-left font-bold uppercase tracking-wider">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bits.map((b: any, i: number) => {
+                              const dur = b.hora_salida && b.hora_llegada ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
+                              return (
+                                <tr key={b.id_bitacora} className="border-b border-white/5 hover:bg-white/5">
+                                  <td className="px-4 py-2 text-primary font-black">{i + 1}</td>
+                                  <td className="px-4 py-2 text-white font-bold italic">{b.origen_nombre} <span className="text-primary">→</span> {b.destino_nombre}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
+                                  <td className="px-4 py-2 font-bold text-primary">{formatMins(dur)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-text-muted text-xs italic p-4">Sin movimientos registrados.</p>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+        {/* REPORTES COMBUSTIBLE */}
+        <style>{`
+          @media print {
+            .no-print { display: none !important; }
+            .print-title { font-size: 20px !important; font-weight: bold !important; }
+          }
+        `}</style>
+        
+        <div id="combustible-report-content" className="flex flex-wrap gap-4 mb-6">
+          <select
+            value={filtroFecha}
+            onChange={(e) => setFiltroFecha(e.target.value as any)}
+            className="bg-surface border border-surface-light rounded-lg px-4 py-2 text-white"
+          >
+            <option value="semana">Esta semana</option>
+            <option value="mes">Este mes</option>
+            <option value="todo">Todo</option>
+          </select>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAgruparPor('fecha')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${agruparPor === 'fecha' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'}`}
+            >
+              <Calendar size={16} className="inline mr-2" />
+              Por Fecha
+            </button>
+            <button
+              onClick={() => setAgruparPor('chofer')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${agruparPor === 'chofer' ? 'bg-green-600 text-white' : 'bg-surface text-text-muted'}`}
+            >
+              <Truck size={16} className="inline mr-2" />
+              Por Chofer
+            </button>
+          </div>
+
+          <Button onClick={handleExportarCombustiblePDF} className="flex items-center gap-2">
+            <Download size={18} />
+            Exportar PDF
+          </Button>
         </div>
+
+        {/* Título para impresión */}
+        <div className="print-title hidden mb-4">
+          <h1 className="text-xl font-bold">Reporte de Gastos de Combustible</h1>
+          <p style={{ color: '#666', fontSize: '14px' }}>
+            Período: {filtroFecha === 'semana' ? 'Esta semana' : filtroFecha === 'mes' ? 'Este mes' : 'Todo'} | 
+            Generado: {format(new Date(), 'dd/MM/yyyy HH:mm')}
+          </p>
+        </div>
+
+        {/* Totales */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <Card className="bg-green-500/10 border-green-500/30">
+            <CardContent className="p-3 text-center">
+              <p className="text-xs text-green-300 uppercase font-bold">GLP</p>
+              <p className="text-xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-blue-500/10 border-blue-500/30">
+            <CardContent className="p-3 text-center">
+              <p className="text-xs text-blue-300 uppercase font-bold">Gasolina</p>
+              <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-orange-500/10 border-orange-500/30">
+            <CardContent className="p-3 text-center">
+              <p className="text-xs text-orange-300 uppercase font-bold">Diesel</p>
+              <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-yellow-500/10 border-yellow-500/30">
+            <CardContent className="p-3 text-center">
+              <p className="text-xs text-yellow-300 uppercase font-bold">Cargas</p>
+              <p className="text-xl font-black text-yellow-400">{gastos.length}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-primary/10 border-primary/30">
+            <CardContent className="p-3 text-center">
+              <p className="text-xs text-primary uppercase font-bold">TOTAL</p>
+              <p className="text-xl font-black text-primary">S/ {totalGeneral.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Lista agrupada */}
+        {combustibleLoading ? (
+          <div className="text-center py-8 text-text-muted">Cargando...</div>
+        ) : agruparPor === 'fecha' ? (
+          <div className="space-y-4">
+            {gastosAgrupadosPorFecha().map(grupo => (
+              <Card key={grupo.fecha}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="text-blue-400" size={20} />
+                      <span className="font-bold text-white">
+                        {format(new Date(grupo.fecha), "EEEE d 'de' MMMM", { locale: es })}
+                      </span>
+                    </div>
+                    <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {grupo.gastos.map(gasto => (
+                      <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded">
+                        <div className="flex items-center gap-2">
+                          <Truck size={14} className="text-text-muted" />
+                          <span className="text-white">{gasto.chofer_nombre || 'Chofer'}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
+                            gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-orange-500/20 text-orange-400'
+                          }`}>
+                            {gasto.tipo_combustible}
+                          </span>
+                        </div>
+                        <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {gastosAgrupadosPorChofer().map(grupo => (
+              <Card key={grupo.choferId}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Truck className="text-green-400" size={20} />
+                      <span className="font-bold text-white">{grupo.choferNombre}</span>
+                      <span className="text-text-muted text-sm">({grupo.gastos.length} cargas)</span>
+                    </div>
+                    <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {grupo.gastos.map(gasto => (
+                      <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded ml-6">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={14} className="text-text-muted" />
+                          <span className="text-text-muted">
+                            {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
+                            gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-orange-500/20 text-orange-400'
+                          }`}>
+                            {gasto.tipo_combustible}
+                          </span>
+                        </div>
+                        <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {gastos.length === 0 && (
+          <div className="text-center py-12 no-print">
+            <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+            <p className="text-text-muted">No hay gastos registrados</p>
+          </div>
+        )}
+      </>
       )}
-      <p className="text-center text-text-muted text-xs italic pb-4">
-        💡 El PDF incluye el logo Shimaya y todos los filtros aplicados actualmente.
-      </p>
     </div>
   );
 }
+

@@ -24,4 +24,12 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      external: ['canvg']
+    }
+  },
+  optimizeDeps: {
+    exclude: ['jspdf']
+  }
 })
