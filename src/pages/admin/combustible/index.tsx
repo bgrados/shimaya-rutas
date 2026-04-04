@@ -64,7 +64,7 @@ export default function GastosCombustible() {
     try {
       let query = supabase
         .from('gastos_combustible')
-        .select('*, usuarios(nombre), rutas(nombre)')
+        .select('id_gasto, id_chofer, id_ruta, tipo_combustible, monto, foto_url, estado, created_at, usuarios(nombre), rutas(nombre)')
         .order('created_at', { ascending: false });
 
       if (filtroFechaDesde) {
@@ -85,7 +85,9 @@ export default function GastosCombustible() {
       const { data } = await query;
 
       if (data) {
-        console.log('Gastos loaded:', data.length, 'con fotos:', data.filter((g: any) => g.foto_url).length);
+        console.log('Gastos loaded:', data.length);
+        console.log('Primer gasto:', JSON.stringify(data[0], null, 2));
+        console.log('Gastos con fotos:', data.filter((g: any) => g.foto_url).length);
         const mapped = data.map((g: any) => ({
           ...g,
           chofer_nombre: g.usuarios?.nombre,
