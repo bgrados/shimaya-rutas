@@ -18,7 +18,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   const [procesando, setProcesando] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [montoDetectado, setMontoDetectado] = useState<number | null>(null);
-  const [tipoDetectado, setTipoDetectado] = useState<string>('glp');
+  const [tipoDetectado, setTipoDetectado] = useState<string>('');
   const [manualMonto, setManualMonto] = useState('');
   const [notas, setNotas] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -99,6 +99,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   };
 
   const handleGuardar = async () => {
+    if (!tipoDetectado) {
+      setError('Selecciona el tipo de combustible');
+      return;
+    }
     if (!manualMonto || parseFloat(manualMonto) <= 0) {
       setError('Ingresa el monto del combustible');
       return;
@@ -253,6 +257,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
             onChange={(e) => setTipoDetectado(e.target.value)}
             className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary"
           >
+            <option value="">Seleccionar...</option>
             <option value="glp">GLP</option>
             <option value="gasolina">Gasolina</option>
             <option value="diesel">Diesel</option>
