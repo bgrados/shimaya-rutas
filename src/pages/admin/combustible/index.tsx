@@ -1,25 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
-import type { GastoCombustible, Usuario, Ruta } from '../../../types';
+import type { GastoCombustible } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Fuel, DollarSign, Truck, Calendar, Check, X, Eye, Filter, Download } from 'lucide-react';
+import { Fuel, Truck, Calendar, Filter, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-type TabType = 'pendientes' | 'confirmados' | 'reportes';
+type TabType = 'todos' | 'pendientes' | 'confirmados';
+
+interface GrupoFecha {
+  fecha: string;
+  gastos: GastoCombustible[];
+  total: number;
+}
+
+interface GrupoChofer {
+  choferId: string;
+  choferNombre: string;
+  gastos: GastoCombustible[];
+  total: number;
+}
 
 export default function GastosCombustible() {
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('pendientes');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editMonto, setEditMonto] = useState('');
-  const [editTipo, setEditTipo] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('todos');
+  const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
+  const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadGastos();
-  }, [activeTab]);
+  }, [activeTab, filtroFecha]);
 
   const loadGastos = async () => {
     setLoading(true);
@@ -29,13 +42,22 @@ export default function GastosCombustible() {
         .select('*, usuarios(nombre), rutas(nombre)')
         .order('created_at', { ascending: false });
 
+      const fechaInicio = startOfWeek(new Date(), { weekStartsOn: 1 });
+      
+      if (filtroFecha === 'semana') {
+        query = query.gte('created_at', fechaInicio.toISOString());
+      } else if (filtroFecha === 'mes') {
+        const mesInicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        query = query.gte('created_at', mesInicio.toISOString());
+      }
+
       if (activeTab === 'pendientes') {
         query = query.eq('estado', 'pendiente_revision');
       } else if (activeTab === 'confirmados') {
         query = query.eq('estado', 'confirmado');
       }
 
-      const { data, error } = await query;
+      const { data } = await query;
 
       if (data) {
         const mapped = data.map((g: any) => ({
@@ -52,55 +74,42 @@ export default function GastosCombustible() {
     }
   };
 
-  const handleConfirmar = async (gasto: GastoCombustible) => {
-    const { error } = await supabase
-      .from('gastos_combustible')
-      .update({ estado: 'confirmado' })
-      .eq('id_gasto', gasto.id_gasto);
-
-    if (!error) {
-      setGastos(prev => prev.filter(g => g.id_gasto !== gasto.id_gasto));
-    }
+  const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
+    const grupos: Record<string, GastoCombustible[]> = {};
+    gastos.forEach(gasto => {
+      const fecha = gasto.created_at ? format(new Date(gasto.created_at), 'yyyy-MM-dd') : 'sin fecha';
+      if (!grupos[fecha]) grupos[fecha] = [];
+      grupos[fecha].push(gasto);
+    });
+    return Object.entries(grupos)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([fecha, gastoss]) => ({
+        fecha,
+        gastos: gastoss,
+        total: gastoss.reduce((sum, g) => sum + (g.monto || 0), 0)
+      }));
   };
 
-  const handleRechazar = async (gasto: GastoCombustible) => {
-    const { error } = await supabase
-      .from('gastos_combustible')
-      .update({ estado: 'rechazado' })
-      .eq('id_gasto', gasto.id_gasto);
-
-    if (!error) {
-      setGastos(prev => prev.filter(g => g.id_gasto !== gasto.id_gasto));
-    }
+  const gastosAgrupadosPorChofer = (): GrupoChofer[] => {
+    const grupos: Record<string, { nombre: string; gastos: GastoCombustible[] }> = {};
+    gastos.forEach(gasto => {
+      const choferId = gasto.id_chofer || 'sin chofer';
+      const choferNombre = gasto.chofer_nombre || 'Sin nombre';
+      if (!grupos[choferId]) {
+        grupos[choferId] = { nombre: choferNombre, gastos: [] };
+      }
+      grupos[choferId].gastos.push(gasto);
+    });
+    return Object.entries(grupos)
+      .sort(([, a], [, b]) => b.gastos.length - a.gastos.length)
+      .map(([choferId, data]) => ({
+        choferId,
+        choferNombre: data.nombre,
+        gastos: data.gastos,
+        total: data.gastos.reduce((sum, g) => sum + (g.monto || 0), 0)
+      }));
   };
 
-  const handleEdit = (gasto: GastoCombustible) => {
-    setEditingId(gasto.id_gasto);
-    setEditMonto(gasto.monto?.toString() || '');
-    setEditTipo(gasto.tipo_combustible || 'glp');
-  };
-
-  const handleSaveEdit = async (gasto: GastoCombustible) => {
-    if (!editMonto) return;
-    setSaving(true);
-
-    const { error } = await supabase
-      .from('gastos_combustible')
-      .update({ 
-        monto: parseFloat(editMonto),
-        tipo_combustible: editTipo,
-        estado: 'confirmado'
-      })
-      .eq('id_gasto', gasto.id_gasto);
-
-    if (!error) {
-      setEditingId(null);
-      setGastos(prev => prev.filter(g => g.id_gasto !== gasto.id_gasto));
-    }
-    setSaving(false);
-  };
-
-  // Calcular totales para reportes
   const totalesPorTipo = gastos.reduce((acc, g) => {
     const tipo = g.tipo_combustible || 'otro';
     acc[tipo] = (acc[tipo] || 0) + (g.monto || 0);
@@ -109,231 +118,224 @@ export default function GastosCombustible() {
 
   const totalGeneral = gastos.reduce((sum, g) => sum + (g.monto || 0), 0);
 
+  const exportarPDF = () => {
+    window.print();
+  };
+
   const tabs = [
-    { key: 'pendientes', label: 'Pendientes', icon: Filter },
-    { key: 'confirmados', label: 'Confirmados', icon: Check },
-    { key: 'reportes', label: 'Reportes', icon: DollarSign },
+    { key: 'todos', label: 'Todos' },
+    { key: 'pendientes', label: 'Pendientes' },
+    { key: 'confirmados', label: 'Confirmados' },
   ];
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; }
+          .print-only { display: block !important; }
+          .bg-surface { background: white !important; border: 1px solid #ddd !important; }
+          .text-white { color: black !important; }
+          .text-text-muted { color: #666 !important; }
+          .print-title { font-size: 24px !important; font-weight: bold !important; }
+        }
+        .print-only { display: none; }
+      `}</style>
+
+      <div className="no-print flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Fuel className="text-primary" />
           Gastos Combustible
         </h1>
+        <Button onClick={exportarPDF} className="flex items-center gap-2">
+          <Download size={18} />
+          Exportar PDF
+        </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto">
-        {tabs.map(tab => (
+      {/* Título para impresión */}
+      <div className="print-only mb-4">
+        <h1 className="print-title">Reporte de Gastos de Combustible</h1>
+        <p style={{ color: '#666', fontSize: '14px' }}>
+          Período: {filtroFecha === 'semana' ? 'Esta semana' : filtroFecha === 'mes' ? 'Este mes' : 'Todo'} | 
+          Generado: {format(new Date(), 'dd/MM/yyyy HH:mm')}
+        </p>
+      </div>
+
+      {/* Filtros - no imprimir */}
+      <div className="no-print flex flex-wrap gap-4 mb-6">
+        <div className="flex gap-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as TabType)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === tab.key ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <select
+          value={filtroFecha}
+          onChange={(e) => setFiltroFecha(e.target.value as any)}
+          className="bg-surface border border-surface-light rounded-lg px-4 py-2 text-white"
+        >
+          <option value="semana">Esta semana</option>
+          <option value="mes">Este mes</option>
+          <option value="todo">Todo</option>
+        </select>
+
+        <div className="flex gap-2">
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as TabType)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.key 
-                ? 'bg-primary text-white' 
-                : 'bg-surface text-text-muted hover:text-white'
+            onClick={() => setAgruparPor('fecha')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              agruparPor === 'fecha' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'
             }`}
           >
-            <tab.icon size={18} />
-            {tab.label}
-            {tab.key === 'pendientes' && (
-              <span className="bg-yellow-500 text-black text-xs px-2 py-0.5 rounded-full">
-                {gastos.length}
-              </span>
-            )}
+            <Calendar size={16} className="inline mr-2" />
+            Por Fecha
           </button>
-        ))}
+          <button
+            onClick={() => setAgruparPor('chofer')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              agruparPor === 'chofer' ? 'bg-green-600 text-white' : 'bg-surface text-text-muted'
+            }`}
+          >
+            <Truck size={16} className="inline mr-2" />
+            Por Chofer
+          </button>
+        </div>
       </div>
 
-      {/* Contenido según tab */}
-      {activeTab === 'reportes' ? (
-        <div className="space-y-6">
-          {/* Totales por tipo */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="bg-green-500/10 border-green-500/30">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-green-300 uppercase font-bold">Total GLP</p>
-                <p className="text-2xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-blue-500/10 border-blue-500/30">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-blue-300 uppercase font-bold">Total Gasolina</p>
-                <p className="text-2xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-orange-500/10 border-orange-500/30">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-orange-300 uppercase font-bold">Total Diesel</p>
-                <p className="text-2xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-primary/10 border-primary/30">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-primary uppercase font-bold">TOTAL GENERAL</p>
-                <p className="text-2xl font-black text-primary">S/ {totalGeneral.toFixed(2)}</p>
-              </CardContent>
-            </Card>
-          </div>
+      {/* Totales */}
+      <div ref={printRef} className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <Card className="bg-green-500/10 border-green-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-green-300 uppercase font-bold">GLP</p>
+            <p className="text-xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-500/10 border-blue-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-blue-300 uppercase font-bold">Gasolina</p>
+            <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-500/10 border-orange-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-orange-300 uppercase font-bold">Diesel</p>
+            <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-yellow-500/10 border-yellow-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-yellow-300 uppercase font-bold">Cargas</p>
+            <p className="text-xl font-black text-yellow-400">{gastos.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-primary/10 border-primary/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-primary uppercase font-bold">TOTAL</p>
+            <p className="text-xl font-black text-primary">S/ {totalGeneral.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+      </div>
 
-          {/* Tabla de gastos */}
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-surface-light/50 text-text-muted">
-                    <tr>
-                      <th className="px-4 py-3 font-black uppercase text-[10px]">Fecha</th>
-                      <th className="px-4 py-3 font-black uppercase text-[10px]">Chofer</th>
-                      <th className="px-4 py-3 font-black uppercase text-[10px]">Ruta</th>
-                      <th className="px-4 py-3 font-black uppercase text-[10px]">Tipo</th>
-                      <th className="px-4 py-3 font-black uppercase text-[10px]">Monto</th>
-                      <th className="px-4 py-3 font-black uppercase text-[10px]">Foto</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-surface-light">
-                    {gastos.map(gasto => (
-                      <tr key={gasto.id_gasto} className="hover:bg-surface-light/20">
-                        <td className="px-4 py-3 text-white">
-                          {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-white">{gasto.chofer_nombre || '-'}</td>
-                        <td className="px-4 py-3 text-text-muted text-xs">{gasto.ruta_nombre || '-'}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                            gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
-                            gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-orange-500/20 text-orange-400'
-                          }`}>
-                            {gasto.tipo_combustible || 'N/A'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</td>
-                        <td className="px-4 py-3">
-                          {gasto.foto_url ? (
-                            <a href={gasto.foto_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                              <Eye size={16} />
-                            </a>
-                          ) : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                    {gastos.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
-                          No hay gastos registrados
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Lista agrupada */}
+      {loading ? (
+        <div className="text-center py-8 text-text-muted">Cargando...</div>
+      ) : agruparPor === 'fecha' ? (
+        <div className="space-y-4">
+          {gastosAgrupadosPorFecha().map(grupo => (
+            <Card key={grupo.fecha}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="text-blue-400" size={20} />
+                    <span className="font-bold text-white">
+                      {format(new Date(grupo.fecha), "EEEE d 'de' MMMM", { locale: es })}
+                    </span>
+                  </div>
+                  <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2">
+                  {grupo.gastos.map(gasto => (
+                    <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <Truck size={14} className="text-text-muted" />
+                        <span className="text-white">{gasto.chofer_nombre || 'Chofer'}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
+                          gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-orange-500/20 text-orange-400'
+                        }`}>
+                          {gasto.tipo_combustible}
+                        </span>
+                      </div>
+                      <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : (
-        /* Lista de gastos pendientes/confirmados */
-        <div className="space-y-3">
-          {loading ? (
-            <div className="text-center py-8 text-text-muted">Cargando...</div>
-          ) : gastos.length === 0 ? (
-            <div className="text-center py-8">
-              <Fuel className="mx-auto mb-2 text-text-muted opacity-50" size={48} />
-              <p className="text-text-muted">No hay gastos {activeTab}</p>
-            </div>
-          ) : (
-            gastos.map(gasto => (
-              <Card key={gasto.id_gasto} className="border-surface-light">
-                <CardContent className="p-4">
-                  {editingId === gasto.id_gasto ? (
-                    /* Modo edición */
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-yellow-400 font-bold">Editando gasto</span>
+        <div className="space-y-4">
+          {gastosAgrupadosPorChofer().map(grupo => (
+            <Card key={grupo.choferId}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Truck className="text-green-400" size={20} />
+                    <span className="font-bold text-white">{grupo.choferNombre}</span>
+                    <span className="text-text-muted text-sm">({grupo.gastos.length} cargas)</span>
+                  </div>
+                  <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2">
+                  {grupo.gastos.map(gasto => (
+                    <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded ml-6">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-text-muted" />
+                        <span className="text-text-muted">
+                          {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
+                          gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-orange-500/20 text-orange-400'
+                        }`}>
+                          {gasto.tipo_combustible}
+                        </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-text-muted mb-1">Monto</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={editMonto}
-                            onChange={e => setEditMonto(e.target.value)}
-                            className="w-full bg-background border border-surface-light rounded px-3 py-2 text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-text-muted mb-1">Tipo</label>
-                          <select
-                            value={editTipo}
-                            onChange={e => setEditTipo(e.target.value)}
-                            className="w-full bg-background border border-surface-light rounded px-3 py-2 text-white"
-                          >
-                            <option value="glp">GLP</option>
-                            <option value="gasolina">Gasolina</option>
-                            <option value="diesel">Diesel</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleSaveEdit(gasto)} isLoading={saving}>
-                          <Check size={16} className="mr-1" /> Guardar
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                          <X size={16} className="mr-1" /> Cancelar
-                        </Button>
-                      </div>
+                      <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
                     </div>
-                  ) : (
-                    /* Vista normal */
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-white">{gasto.chofer_nombre || 'Chofer'}</span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
-                            gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-orange-500/20 text-orange-400'
-                          }`}>
-                            {gasto.tipo_combustible || 'N/A'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-text-muted mb-2">
-                          {gasto.ruta_nombre || 'Ruta'} • {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-green-400 font-bold text-lg">S/ {(gasto.monto || 0).toFixed(2)}</span>
-                          {gasto.foto_url && (
-                            <a href={gasto.foto_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs flex items-center gap-1">
-                              <Eye size={14} /> Ver foto
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {activeTab === 'pendientes' && (
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => handleEdit(gasto)}>
-                            Editar
-                          </Button>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleConfirmar(gasto)}>
-                            <Check size={16} />
-                          </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleRechazar(gasto)}>
-                            <X size={16} />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          )}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {gastos.length === 0 && (
+        <div className="text-center py-12 no-print">
+          <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+          <p className="text-text-muted">No hay gastos registrados</p>
         </div>
       )}
     </div>
   );
+}
+
+function startOfWeek(date: Date, options?: any): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
 }
