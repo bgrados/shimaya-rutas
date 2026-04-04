@@ -31,28 +31,41 @@ export default function NuevoUsuario() {
     setError('');
 
     try {
-      const response = await fetch('https://cvbdhjomyywvyqvhrtci.supabase.co/auth/v1/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      const authData = await response.json();
-      console.log('Signup result:', authData);
-
-      if (!response.ok) {
-        throw new Error(authData.msg || authData.message || 'Error al crear usuario');
+      // Verificar si ya existe en la tabla usuarios
+      const { data: existing } = await supabase
+        .from('usuarios')
+        .select('id_usuario')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (existing) {
+        setError('Este email ya está registrado en el sistema.');
+        setLoadingSubmit(false);
+        return;
       }
 
+      // Crear usuario en Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(authError.message);
+      }
+
+      console.log('Auth response:', authData);
+
+      // Obtener el ID del usuario de Auth
+      // Si el usuario necesita confirmar email, session será null pero user tendrá el ID
       const userId = authData.user?.id;
       
       if (!userId) {
-        throw new Error('No se pudo obtener ID del usuario');
+        throw new Error('No se pudo obtener el ID del usuario. Es posible que el email ya esté registrado.');
       }
 
+      // Insertar en tabla usuarios con el ID correcto de Auth
       const { error: dbError } = await supabase
         .from('usuarios')
         .insert({
@@ -64,11 +77,14 @@ export default function NuevoUsuario() {
           activo: true
         });
 
-      if (dbError) throw new Error(dbError.message);
+      if (dbError) {
+        console.error('DB error:', dbError);
+        throw new Error(dbError.message);
+      }
 
       navigate('/admin/usuarios');
     } catch (err: any) {
-      console.error('Error:', err);
+      console.error('Error completo:', err);
       setError(err.message || 'Error desconocido');
     } finally {
       setLoadingSubmit(false);
