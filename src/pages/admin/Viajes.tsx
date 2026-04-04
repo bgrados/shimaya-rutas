@@ -30,40 +30,58 @@ export default function AdminViajes() {
 
   const getRouteTheme = (nombre: string) => {
     const n = (nombre || '').toString().toLowerCase();
-    console.log('Route name:', nombre, '-> theme check:', n);
+    console.log('Route:', nombre, '->', n);
     
-    // Verificar amarilla PRIMERO y sola, antes de cualquier otra palabra
-    // Buscar patrón: amarilla/amarillo (puede tener guiones, espacios, etc)
-    if (/amarill[oa]/.test(n)) {
-      console.log('Theme: AMARILLA');
+    // Extraer primera palabra antes del guión o espacio
+    const firstWord = n.split(/[-\s]/)[0] || '';
+    
+    // Si la primera palabra indica color, usarlo
+    if (firstWord === 'ruta') {
+      // Buscar el color después de "ruta"
+      if (n.includes('amarilla') || n.includes('amarillo')) {
+        return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
+      }
+      if (n.includes('negra')) {
+        return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' };
+      }
+      if (n.includes('guinda')) {
+        return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' };
+      }
+      if (n.includes('verde')) {
+        return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
+      }
+    }
+    
+    // Verificar amarilla primero
+    if (n.includes('amarilla') || n.includes('amarillo')) {
       return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
     }
     
-    // Negra/Norte
+    // Norte
     if (n.includes('norte')) {
-      console.log('Theme: NEGRA');
       return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' };
     }
     
-    // Guinda/Sur
+    // Sur
     if (n.includes('sur')) {
-      console.log('Theme: GUINDA');
       return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' };
     }
     
-    // Verde/Este
-    if (n.includes('verde') || n.includes('este')) {
-      console.log('Theme: VERDE');
+    // Verde
+    if (n.includes('verde')) {
       return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
     }
     
-    // Oeste/Centro
-    if (n.includes('oeste') || n.includes('centro')) {
-      console.log('Theme: AMARILLA (oeste/centro)');
+    // Este
+    if (n.includes('este')) {
+      return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
+    }
+    
+    // Oeste
+    if (n.includes('oeste')) {
       return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
     }
     
-    console.log('Theme: DEFAULT');
     return { bg: 'bg-surface-light border-surface-light/30', text: 'text-text-muted', icon: 'text-white' };
   };
 
