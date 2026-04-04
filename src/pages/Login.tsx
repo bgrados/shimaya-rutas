@@ -12,19 +12,20 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && profile && !loading) {
-      if (profile.rol === 'administrador') navigate('/admin');
-      else if (profile.rol === 'chofer') navigate('/driver');
+    if (user && profile && !loading && !showSuccess) {
+      setShowSuccess(true);
     }
-  }, [user, profile, loading, navigate]);
+  }, [user, profile, loading, showSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoggingIn(true);
+    setShowSuccess(false);
     try {
       await signIn(email.trim(), password);
     } catch (err: any) {
@@ -33,27 +34,35 @@ export default function Login() {
     }
   };
 
-  if (user && profile && !loading) {
+  const goToAdmin = () => {
+    window.location.href = '/admin';
+  };
+
+  const goToDriver = () => {
+    window.location.href = '/driver';
+  };
+
+  if (showSuccess && user && profile && !loading) {
+    const targetUrl = (profile.rol === 'administrador' || profile.rol === 'supervisor') ? '/admin' : '/driver';
+    
     return (
       <div className="w-full max-w-md bg-surface p-10 rounded-2xl shadow-2xl border border-primary/50 text-center animate-in zoom-in-95 duration-500">
         <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 className="text-green-500" size={48} />
         </div>
         <h2 className="text-2xl font-black text-white mb-2 uppercase italic">¡Acceso Concedido!</h2>
-        <p className="text-text-muted mb-8">Bienvenido de nuevo, <span className="text-white font-bold">{profile.nombre}</span></p>
+        <p className="text-text-muted mb-8">Bienvenido, <span className="text-white font-bold">{profile.nombre}</span></p>
         <div className="p-4 bg-white/5 rounded-xl border border-white/10 mb-8">
           <p className="text-xs text-text-muted uppercase font-bold mb-1">Rol Detectado</p>
           <p className="text-primary font-bold text-lg capitalize">{profile.rol}</p>
         </div>
-        <Button
-          className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30"
-          onClick={() => {
-            if (profile.rol === 'administrador') navigate('/admin');
-            else navigate('/driver');
-          }}
+        <button
+          type="button"
+          onClick={profile.rol === 'administrador' || profile.rol === 'supervisor' ? goToAdmin : goToDriver}
+          className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30 rounded-lg"
         >
           IR AL PANEL DE CONTROL
-        </Button>
+        </button>
       </div>
     );
   }

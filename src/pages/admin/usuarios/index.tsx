@@ -211,22 +211,43 @@ export default function Usuarios() {
     if (!confirm(`¿Eliminar a "${user.nombre}"? No podrá volver a iniciar sesión.`)) return;
     setDeletingId(user.id_usuario);
     
-    // 1. Auth Delete (Edge Function)
-    try {
-      await supabase.functions.invoke('admin-auth', {
-        body: { action: 'delete_user', userId: user.id_usuario }
-      });
-    } catch(err) {
-      console.warn('Fallo Auth Delete:', err);
-    }
-
-    // 2. Table Delete
+    // Intentar delete en la tabla
     const { error: tableErr } = await supabase.from('usuarios').delete().eq('id_usuario', user.id_usuario);
-    if (!tableErr) {
-    setUsuarios((prev: Usuario[]) => prev.filter((u: Usuario) => u.id_usuario !== user.id_usuario));
-    } else {
-      alert('Error tabla: ' + tableErr.message);
+    
+    // Si hay error de foreign key constraint
+    console.log('[handleDelete] Error:', tableErr?.message);
+    if (tableErr && (tableErr.message?.indexOf('foreign key') >= 0 || tableErr.message?.indexOf('violates') >= 0 || tableErr.code === '23503')) {
+      console.log('[handleDelete] Foreign key constraint detectado, intentando desactivar...');
+      const { error: deactivateErr } = await supabase.from('usuarios').update({ activo: false }).eq('id_usuario', user.id_usuario);
+      
+      if (deactivateErr) {
+        alert('Error al desactivar: ' + deactivateErr.message);
+      } else {
+        setUsuarios((prev: Usuario[]) => prev.map((u: Usuario) => u.id_usuario === user.id_usuario ? { ...u, activo: false } : u));
+        alert('Usuario desactivado. El usuario tiene rutas asociadas y no puede ser eliminado hasta desvincularlas.');
+      }
+      setDeletingId(null);
+      return;
     }
+    
+    if (tableErr) {
+      alert('Error tabla: ' + tableErr.message);
+      setDeletingId(null);
+      return;
+    }
+    
+    // Si el delete fue exitoso, también eliminar de Auth (solo para no choferes)
+    if (user.rol !== 'chofer') {
+      try {
+        await supabase.functions.invoke('admin-auth', {
+          body: { action: 'delete_user', userId: user.id_usuario }
+        });
+      } catch(err) {
+        console.warn('Fallo Auth Delete:', err);
+      }
+    }
+    
+    setUsuarios((prev: Usuario[]) => prev.filter((u: Usuario) => u.id_usuario !== user.id_usuario));
     setDeletingId(null);
   };
 

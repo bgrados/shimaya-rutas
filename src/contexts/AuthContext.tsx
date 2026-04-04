@@ -55,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(newSession)
         setUser(newSession?.user ?? null)
         if (newSession?.user) {
-          await fetchProfile(newSession.user.email)
+          await fetchProfile(newSession.user.email, newSession.user.id)
         } else {
           localStorage.removeItem('user_profile')
           setProfile(null)
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(initialSession)
         setUser(initialSession?.user ?? null)
         if (initialSession?.user) {
-          await fetchProfile(initialSession.user.email)
+          await fetchProfile(initialSession.user.email, initialSession.user.id)
         } else {
           setLoading(false)
         }
@@ -91,58 +91,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-  const fetchProfile = async (email?: string | null) => {
-    if (!email) {
+  const fetchProfile = async (email?: string | null, userId?: string) => {
+    console.log('[Auth] fetchProfile llamado con email:', email, 'userId:', userId)
+    
+    if (!email && !userId) {
       setProfile(null)
       localStorage.removeItem('user_profile')
       setLoading(false)
       return
     }
 
+    const emailLower = email?.toLowerCase().trim() || ''
+
     try {
       const cached = localStorage.getItem('user_profile')
       if (cached) {
         const p = JSON.parse(cached)
-        if (p.email?.toLowerCase() === email.toLowerCase()) {
+        if (p.email?.toLowerCase() === emailLower) {
           setProfile(p)
           setLoading(false)
+          return
         }
       }
     } catch {}
 
-    try {
-      const { data, error } = await supabase
+    let profileFound: any = null
+
+    if (userId) {
+      console.log('[Auth] Buscando por id_usuario:', userId)
+      const { data: dataById, error: errorById } = await supabase
         .from('usuarios')
         .select('*')
-        .ilike('email', email.trim())
+        .eq('id_usuario', userId)
         .maybeSingle()
-
-      if (error) {
-        console.error('[Auth] Profile fetch error:', error.message)
-        return
+      
+      if (!errorById && dataById) {
+        console.log('[Auth] Encontrado por id_usuario:', dataById.email)
+        profileFound = dataById
       }
-
-      if (data) {
-        const p: Usuario = {
-          ...data,
-          rol: (data.rol || '').trim().toLowerCase() as Usuario['rol'],
-          email: (data.email || '').trim().toLowerCase(),
-        }
-        setProfile(p)
-        localStorage.setItem('user_profile', JSON.stringify(p))
-      } else {
-        setProfile(null)
-        localStorage.removeItem('user_profile')
-      }
-    } finally {
-      setLoading(false)
     }
+
+    if (!profileFound && emailLower) {
+      console.log('[Auth] Buscando por email:', emailLower)
+      const { data: dataByEmail, error: errorByEmail } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', emailLower)
+        .maybeSingle()
+      
+      if (!errorByEmail && dataByEmail) {
+        console.log('[Auth] Encontrado por email:', dataByEmail.email)
+        profileFound = dataByEmail
+      }
+    }
+
+    if (profileFound) {
+      const p: Usuario = {
+        ...profileFound,
+        rol: (profileFound.rol || '').trim().toLowerCase() as Usuario['rol'],
+        email: (profileFound.email || '').trim().toLowerCase(),
+      }
+      setProfile(p)
+      localStorage.setItem('user_profile', JSON.stringify(p))
+      console.log('[Auth] Perfil cargado:', p.email, p.rol)
+    } else {
+      console.warn('[Auth] No se encontró perfil para:', emailLower, userId)
+      setProfile(null)
+      localStorage.removeItem('user_profile')
+    }
+    
+    setLoading(false)
   }
 
   const signIn = async (email: string, password: string) => {
     localStorage.removeItem('user_profile')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    const emailClean = email.toLowerCase().trim()
+    console.log('[Auth] Intentando signIn con:', emailClean)
+    const { error } = await supabase.auth.signInWithPassword({ 
+      email: emailClean, 
+      password 
+    })
+    if (error) {
+      console.error('[Auth] Error signIn:', error)
+      throw error
+    }
   }
 
   const signOut = async () => {
