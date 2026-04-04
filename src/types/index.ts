@@ -93,3 +93,22 @@ export interface ViajeBitacora {
   gps_llegada_lng: number | null;
   created_at: string;
 }
+
+export type GastoCombustibleEstado = 'pendiente_revision' | 'confirmado' | 'rechazado';
+export type TipoCombustible = 'glp' | 'gasolina' | 'diesel' | 'otro';
+
+export interface GastoCombustible {
+  id_gasto: string;
+  id_ruta: string | null;
+  id_chofer: string | null;
+  tipo_combustible: TipoCombustible | null;
+  monto: number | null;
+  fecha: string | null;
+  foto_url: string | null;
+  notas: string | null;
+  estado: GastoCombustibleEstado | null;
+  ocr_confidence: number | null;
+  created_at: string;
+  chofer_nombre?: string;
+  ruta_nombre?: string;
+}

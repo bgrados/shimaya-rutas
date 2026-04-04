@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import type { Ruta, LocalRuta } from '../../../types';
+import RegistrarCombustible from '../combustible/Registrar';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, Navigation, Play, Flag } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, Navigation, Play, Flag, Fuel } from 'lucide-react';
 
 export default function EjecucionRuta() {
   const { id } = useParams<{ id: string }>();
@@ -12,6 +13,7 @@ export default function EjecucionRuta() {
   const [ruta, setRuta] = useState<Ruta | null>(null);
   const [locales, setLocales] = useState<LocalRuta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCombustible, setShowCombustible] = useState(false);
 
   useEffect(() => {
     async function fetchRutaDetalle() {
@@ -150,14 +152,24 @@ export default function EjecucionRuta() {
       )}
 
       {ruta.hora_salida_planta && (
-        <Button 
-          variant="secondary"
-          className="w-full mb-6 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border-blue-600/50" 
-          onClick={openGoogleMapsRoute}
-        >
-          <Navigation size={18} className="mr-2" />
-          Abrir Ruta Completa en Google Maps
-        </Button>
+        <>
+          <Button 
+            variant="secondary"
+            className="w-full mb-3 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border-blue-600/50" 
+            onClick={openGoogleMapsRoute}
+          >
+            <Navigation size={18} className="mr-2" />
+            Abrir Ruta en Google Maps
+          </Button>
+          
+          <Button 
+            className="w-full mb-6 bg-green-600/20 text-green-400 hover:bg-green-600/30 border-green-600/50" 
+            onClick={() => setShowCombustible(true)}
+          >
+            <Fuel size={18} className="mr-2" />
+            Registrar Combustible
+          </Button>
+        </>
       )}
 
       <div className="space-y-4">
