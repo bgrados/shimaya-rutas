@@ -28,14 +28,23 @@ export default function NuevoUsuario() {
     }
 
     setLoadingSubmit(true);
-    setError('');
+    setError('Creando usuario...');
 
     try {
       // 1. Crear usuario en Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            nombre,
+            telefono,
+            rol
+          }
+        }
       });
+
+      console.log('SignUp response:', data, error);
 
       if (error) {
         throw new Error(error.message);
@@ -43,8 +52,12 @@ export default function NuevoUsuario() {
 
       const userId = data.user?.id;
       
+      console.log('User ID from signUp:', userId);
+      console.log('Full user data:', data.user);
+      console.log('Session:', data.session);
+
       if (!userId) {
-        throw new Error('No se pudo obtener el ID del usuario');
+        throw new Error('No se pudo obtener el ID del usuario. El email ya podría estar registrado.');
       }
 
       // 2. Insertar en tabla usuarios
@@ -59,12 +72,15 @@ export default function NuevoUsuario() {
           activo: true
         });
 
+      console.log('DB insert result:', dbError);
+
       if (dbError) {
-        throw new Error(dbError.message);
+        throw new Error('Error al guardar en base de datos: ' + dbError.message);
       }
 
       navigate('/admin/usuarios');
     } catch (err: any) {
+      console.error('Error completo:', err);
       setError(err.message || 'Ocurrió un error');
     } finally {
       setLoadingSubmit(false);
