@@ -17,8 +17,13 @@ export default function NuevoUsuario() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !email) {
-      setError('Nombre y correo son obligatorios.');
+    if (!nombre || !email || !password) {
+      setError('Nombre, correo y contraseña son obligatorios.');
+      return;
+    }
+    
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
@@ -26,31 +31,47 @@ export default function NuevoUsuario() {
     setError('');
 
     try {
-      // Nota: Este usuario se inserta en la tabla pública para gestión del administrador.
-      // Para que el usuario inicie sesión, debe crearse también en Supabase Auth.
-      const fakeUuid = crypto.randomUUID();
-      
+      // 1. Crear usuario en Auth primero (vía Edge Function)
+      const { data: authData, error: authError } = await supabase.functions.invoke('admin-auth', {
+        body: { 
+          action: 'create_user', 
+          email, 
+          password, 
+          nombre, 
+          rol, 
+          telefono 
+        }
+      });
+
+      if (authError) {
+        console.error('[Auth] Error:', authError);
+        throw new Error(authError.message || 'Error al crear usuario en autenticación');
+      }
+
+      const authUserId = authData?.userId;
+      console.log('[Auth] User created with ID:', authUserId);
+
+      // 2. Insertar en tabla usuarios con el ID de Auth
       const { error: insertError } = await supabase
         .from('usuarios')
         .insert({
-          id_usuario: fakeUuid,
+          id_usuario: authUserId || crypto.randomUUID(), // Usar ID de Auth o generar uno
           nombre,
           email,
           rol,
-          telefono,
-          password: password.trim(),
+          telefono: telefono || null,
           activo: true
         });
 
-      if (insertError) throw insertError;
-
-      // 2. Auth Create (vía Edge Function sincronizada)
-      try {
-        await supabase.functions.invoke('admin-auth', {
-          body: { action: 'create_user', email, password, nombre, rol, telefono }
-        });
-      } catch (err) {
-        console.warn('[Edge Function] Fallo registro Auth:', err);
+      if (insertError) {
+        console.error('[DB] Error:', insertError);
+        // Si falla el insert, intentamos eliminar el usuario de Auth
+        if (authUserId) {
+          await supabase.functions.invoke('admin-auth', {
+            body: { action: 'delete_user', userId: authUserId }
+          });
+        }
+        throw new Error(insertError.message);
       }
 
       navigate('/admin/usuarios');

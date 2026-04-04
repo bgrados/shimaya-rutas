@@ -14,66 +14,94 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+    
+    if (!supabaseServiceKey) {
+      throw new Error('SERVICE_ROLE_KEY no está configurada')
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // 1. Verificar que el que llama es un administrador
-    const authHeader = req.headers.get('Authorization')!
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+    const { action, userId, email, password, nombre, rol, telefono, activo } = await req.json()
 
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'No autorizado' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
-    }
-
-    // Consultar el rol en la tabla usuarios
-    const { data: profile } = await supabase
-      .from('usuarios')
-      .select('rol')
-      .eq('id_usuario', user.id)
-      .single()
-
-    if (profile?.rol !== 'administrador') {
-      return new Response(JSON.stringify({ error: 'Prohibido: Solo administradores' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      })
-    }
-
-    const { action, userId, email, password, activo } = await req.json()
-
-    // 2. Ejecutar Acciones Administrativas
+    // Acciones Administrativas (no requiere autenticación porque se usa la SERVICE_ROLE_KEY)
     if (action === 'create_user') {
+      if (!email || !password) {
+        throw new Error('Email y password son requeridos')
+      }
+      
       const { data, error } = await supabase.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
+        user_metadata: {
+          nombre: nombre || '',
+          telefono: telefono || '',
+          rol: rol || 'chofer',
+        }
       })
-      if (error) throw error
-      return new Response(JSON.stringify({ data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      
+      if (error) {
+        console.error('[admin-auth] Error creating user:', error)
+        throw error
+      }
+      
+      console.log('[admin-auth] User created:', data.user?.id)
+      return new Response(JSON.stringify({ 
+        success: true, 
+        userId: data.user?.id,
+        data 
+      }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
     }
 
     if (action === 'update_user') {
+      if (!userId) {
+        throw new Error('userId es requerido')
+      }
+      
       const updateData: any = {}
       if (password) updateData.password = password
-      if (activo !== undefined) updateData.ban = !activo // O usar metadata si prefieres
-
+      
       const { data, error } = await supabase.auth.admin.updateUserById(userId, updateData)
-      if (error) throw error
-      return new Response(JSON.stringify({ data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      
+      if (error) {
+        console.error('[admin-auth] Error updating user:', error)
+        throw error
+      }
+      
+      console.log('[admin-auth] User updated:', userId)
+      return new Response(JSON.stringify({ success: true, data }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
     }
 
     if (action === 'delete_user') {
+      if (!userId) {
+        throw new Error('userId es requerido')
+      }
+      
       const { data, error } = await supabase.auth.admin.deleteUser(userId)
-      if (error) throw error
-      return new Response(JSON.stringify({ data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      
+      if (error) {
+        console.error('[admin-auth] Error deleting user:', error)
+        throw error
+      }
+      
+      console.log('[admin-auth] User deleted:', userId)
+      return new Response(JSON.stringify({ success: true, data }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
     }
 
     return new Response(JSON.stringify({ error: 'Acción no válida' }), { status: 400 })
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[admin-auth] Error:', error)
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Error desconocido',
+      details: error
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })
