@@ -115,6 +115,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       let fotoUrl: string | null = null;
       
       if (foto) {
+        console.log('[Combustible] Intentando subir foto...');
         try {
           const fileExt = 'jpg';
           const fileName = `combustible_${idRuta}_${Date.now()}.${fileExt}`;
@@ -123,21 +124,30 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           const response = await fetch(foto);
           const blob = await response.blob();
 
-          const { error: uploadError } = await supabase.storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
             .from('combustible')
             .upload(filePath, blob, { upsert: true });
 
-          if (!uploadError) {
-            const { data } = supabase.storage.from('combustible').getPublicUrl(filePath);
-            fotoUrl = data.publicUrl;
-          } else {
-            console.log('[Combustible] Upload error (no es crítico):', uploadError.message);
+          if (uploadError) {
+            console.error('[Combustible] Upload error:', uploadError.message);
+            setError('Error al subir la foto: ' + uploadError.message);
+            setGuardando(false);
+            return;
           }
+
+          console.log('[Combustible] Foto subida:', uploadData);
+          const { data: urlData } = supabase.storage.from('combustible').getPublicUrl(filePath);
+          fotoUrl = urlData.publicUrl;
+          console.log('[Combustible] Foto URL:', fotoUrl);
         } catch (uploadErr) {
-          console.log('[Combustible] Error uploading photo:', uploadErr);
+          console.error('[Combustible] Error uploading photo:', uploadErr);
+          setError('Error al procesar la foto');
+          setGuardando(false);
+          return;
         }
       }
 
+      console.log('[Combustible] Guardando gasto con foto_url:', fotoUrl);
       const { error: insertError } = await supabase.from('gastos_combustible').insert({
         id_ruta: idRuta,
         id_chofer: idChofer,
@@ -154,6 +164,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         throw new Error(insertError.message);
       }
 
+      console.log('[Combustible] Gasto guardado correctamente');
       setGuardado(true);
       setTimeout(() => {
         if (onClose) onClose();
