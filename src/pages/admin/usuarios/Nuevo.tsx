@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
+import { CheckCircle } from 'lucide-react';
 
 export default function NuevoUsuario() {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ export default function NuevoUsuario() {
   const [password, setPassword] = useState('');
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,65 +33,112 @@ export default function NuevoUsuario() {
     setError('');
 
     try {
-      // Verificar si ya existe en la tabla usuarios
+      const emailLower = email.toLowerCase().trim();
+      
+      console.log('[NuevoUsuario] Verificando email:', emailLower);
+
       const { data: existing } = await supabase
         .from('usuarios')
         .select('id_usuario')
-        .eq('email', email)
+        .eq('email', emailLower)
         .maybeSingle();
       
       if (existing) {
-        setError('Este email ya está registrado en el sistema.');
+        setError('Este email ya está registrado.');
         setLoadingSubmit(false);
         return;
       }
 
-      // Crear usuario en Auth
+      console.log('[NuevoUsuario] Verificando en Auth...');
+      try {
+        const { data: existingAuth } = await supabase.auth.admin.getUserByEmail(emailLower);
+        if (existingAuth?.user) {
+          setError('Este email ya está registrado en Auth. Usa otro correo o recupera la contraseña.');
+          setLoadingSubmit(false);
+          return;
+        }
+      } catch (adminErr) {
+        console.log('[NuevoUsuario] Admin check no disponible, continuando...');
+      }
+
+      console.log('[NuevoUsuario] Creando usuario en Auth...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: emailLower,
         password,
       });
 
       if (authError) {
-        console.error('Auth error:', authError);
+        console.error('[NuevoUsuario] Auth error:', authError);
+        
+        if (authError.message.includes('already been registered')) {
+          throw new Error('Este email ya está registrado. Usa otro correo.');
+        }
         throw new Error(authError.message);
       }
 
-      console.log('Auth response:', authData);
+      console.log('[NuevoUsuario] Auth response:', authData);
 
-      // Obtener el ID del usuario de Auth
-      // Si el usuario necesita confirmar email, session será null pero user tendrá el ID
       const userId = authData.user?.id;
       
       if (!userId) {
-        throw new Error('No se pudo obtener el ID del usuario. Es posible que el email ya esté registrado.');
+        throw new Error('No se pudo obtener el ID del usuario. El email ya podría estar registrado.');
       }
 
-      // Insertar en tabla usuarios con el ID correcto de Auth
+      console.log('[NuevoUsuario] Insertando en tabla usuarios...');
       const { error: dbError } = await supabase
         .from('usuarios')
         .insert({
           id_usuario: userId,
-          nombre,
-          email,
+          nombre: nombre.trim(),
+          email: emailLower,
           rol,
-          telefono: telefono || null,
+          telefono: telefono?.trim() || null,
           activo: true
         });
 
       if (dbError) {
-        console.error('DB error:', dbError);
-        throw new Error(dbError.message);
+        console.error('[NuevoUsuario] DB error:', dbError);
+        
+        console.log('[NuevoUsuario] Limpiando usuario de Auth...');
+        try {
+          await supabase.auth.admin.deleteUser(userId);
+        } catch (cleanupError) {
+          console.error('[NuevoUsuario] Error al limpiar usuario:', cleanupError);
+        }
+        
+        if (dbError.message.includes('duplicate')) {
+          throw new Error('El usuario ya existe en la base de datos.');
+        }
+        throw new Error(`Error al crear usuario: ${dbError.message}`);
       }
 
-      navigate('/admin/usuarios');
+      console.log('[NuevoUsuario] Usuario creado exitosamente');
+      setSuccess(true);
+      
+      setTimeout(() => {
+        navigate('/admin/usuarios');
+      }, 2000);
+      
     } catch (err: any) {
-      console.error('Error completo:', err);
+      console.error('[NuevoUsuario] Error completo:', err);
       setError(err.message || 'Error desconocido');
     } finally {
       setLoadingSubmit(false);
     }
   };
+
+  if (success) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-green-500/10 border border-green-500 text-green-500 p-8 rounded-xl text-center">
+          <CheckCircle className="mx-auto mb-4" size={64} />
+          <h2 className="text-2xl font-bold mb-2">Usuario creado exitosamente</h2>
+          <p className="text-green-200 mb-4">El usuario podrá iniciar sesión inmediatamente.</p>
+          <p className="text-sm text-green-300">Redirigiendo a la lista de usuarios...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -155,10 +204,6 @@ export default function NuevoUsuario() {
           </form>
         </CardContent>
       </Card>
-      
-      <div className="mt-6 bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl text-blue-200 text-sm">
-        <strong>Importante:</strong> Esto agregará al usuario en la base de datos de administración y roles. Para que la persona pueda acceder al sistema, debes asegurarte de registrar el mismo correo en el panel de <strong>Authentication</strong> de Supabase y otorgarle una contraseña.
-      </div>
     </div>
   );
 }
