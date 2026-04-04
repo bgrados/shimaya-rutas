@@ -31,49 +31,28 @@ export default function NuevoUsuario() {
     setError('');
 
     try {
-      // Verificar si el email ya existe en la tabla usuarios
-      const { data: existing } = await supabase
-        .from('usuarios')
-        .select('id_usuario')
-        .eq('email', email)
-        .single();
-      
-      if (existing) {
-        setError('Este email ya está registrado en el sistema.');
-        setLoadingSubmit(false);
-        return;
-      }
-
-      // 1. Crear usuario en Supabase Auth usando API REST directamente
       const response = await fetch('https://cvbdhjomyywvyqvhrtci.supabase.co/auth/v1/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2YmRoam9teXl3dnlxdmhydGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MDUyOTQsImV4cCI6MjA4OTI4MTI5NH0.30RyLciUKl7MXZ_9NqjXq2ppUDoTmz7ldgw9-spSlzg'
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
-        body: JSON.stringify({
-          email,
-          password,
-          options: {
-            data: { nombre, telefono, rol }
-          }
-        })
+        body: JSON.stringify({ email, password })
       });
 
       const authData = await response.json();
-      console.log('Auth API response:', authData);
+      console.log('Signup result:', authData);
 
       if (!response.ok) {
-        throw new Error(authData.msg || authData.message || 'Error al crear usuario en autenticación');
+        throw new Error(authData.msg || authData.message || 'Error al crear usuario');
       }
 
       const userId = authData.user?.id;
       
       if (!userId) {
-        throw new Error('No se pudo obtener el ID del usuario');
+        throw new Error('No se pudo obtener ID del usuario');
       }
 
-      // 2. Insertar en tabla usuarios
       const { error: dbError } = await supabase
         .from('usuarios')
         .insert({
@@ -85,14 +64,12 @@ export default function NuevoUsuario() {
           activo: true
         });
 
-      if (dbError) {
-        throw new Error('Error al guardar usuario: ' + dbError.message);
-      }
+      if (dbError) throw new Error(dbError.message);
 
       navigate('/admin/usuarios');
     } catch (err: any) {
-      console.error('Error completo:', err);
-      setError(err.message || 'Ocurrió un error');
+      console.error('Error:', err);
+      setError(err.message || 'Error desconocido');
     } finally {
       setLoadingSubmit(false);
     }
