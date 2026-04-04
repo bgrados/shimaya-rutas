@@ -232,10 +232,10 @@ export default function AdminViajes() {
         <div className="flex items-center gap-4">
            <div>
               <h1 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Seguimiento en Vivo</h1>
-              <p className="text-text-muted text-sm flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-                Actualizaciones en tiempo real activas
-              </p>
+               <p className="text-text-muted text-sm flex items-center gap-2">
+                 <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                 Tiempo real activo
+               </p>
             </div>
         </div>
         <div className="flex items-center gap-3">
