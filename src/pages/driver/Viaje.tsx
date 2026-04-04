@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { Ruta, LocalRuta, ViajeBitacora } from '../../types';
+import RegistrarCombustible from './combustible/Registrar';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -17,7 +18,8 @@ import {
   ChevronDown,
   Flag,
   Play,
-  Timer
+  Timer,
+  Fuel
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -38,6 +40,7 @@ export default function DriverViaje() {
   const [createError, setCreateError] = useState('');
 
   const [nuevoDestino, setNuevoDestino] = useState('');
+  const [showCombustible, setShowCombustible] = useState(false);
 
   const loadCurrentRuta = async () => {
     if (!profile) {
@@ -432,6 +435,16 @@ export default function DriverViaje() {
           </div>
         </div>
       </div>
+
+      {ruta.estado !== 'finalizada' && (
+        <Button 
+          className="w-full bg-green-600/20 text-green-400 hover:bg-green-600/30 border-green-600/50 py-3 font-bold"
+          onClick={() => setShowCombustible(true)}
+        >
+          <Fuel size={18} className="mr-2" />
+          Registrar Combustible
+        </Button>
+      )}
 
       {ruta.estado !== 'finalizada' && (
         <Card className="border-primary bg-primary/5 ring-1 ring-primary/20 overflow-hidden">
