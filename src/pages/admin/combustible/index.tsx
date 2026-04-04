@@ -171,7 +171,7 @@ export default function GastosCombustible() {
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Período: ${getPeriodoLabel()} | Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 30);
-    doc.text(`Estado: ${activeTab === 'todos' ? 'Todos' : activeTab === 'pendientes' ? 'Pendientes' : 'Confirmados'}`, 14, 36);
+    doc.text(`Estado: ${activeTab === 'todos' ? 'Todos' : activeTab === 'pendientes' ? 'Pendientes' : 'Confirmados'} | Agrupado: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}`, 14, 36);
     
     doc.setFontSize(12);
     doc.setTextColor(0);
@@ -189,48 +189,71 @@ export default function GastosCombustible() {
     doc.setFontSize(10);
     doc.text(`Total de cargas: ${gastos.length} | Pendientes: ${pendientesCount} | Confirmados: ${confirmadosCount}`, 14, yPos);
     
-    const tableData: string[][] = [];
+    const tableData: (string | undefined)[][] = [];
+    const fotos: { url: string; x: number; y: number; width: number; height: number }[] = [];
     
     if (agruparPor === 'fecha') {
       gastosAgrupadosPorFecha().forEach(grupo => {
-        tableData.push([`--- ${format(parseISO(grupo.fecha), 'dd/MM/yyyy')} ---`, '', '', `S/ ${grupo.total.toFixed(2)}`]);
+        tableData.push([`--- ${format(parseISO(grupo.fecha), 'dd/MM/yyyy')} ---`, '', '', '', `S/ ${grupo.total.toFixed(2)}`]);
         grupo.gastos.forEach(gasto => {
           tableData.push([
             gasto.created_at ? format(new Date(gasto.created_at), 'HH:mm') : '',
             gasto.chofer_nombre || '-',
             gasto.tipo_combustible || '-',
+            gasto.foto_url ? '[Foto]' : '-',
             `S/ ${(gasto.monto || 0).toFixed(2)}`
           ]);
+          if (gasto.foto_url) {
+            fotos.push({ url: gasto.foto_url, x: 0, y: 0, width: 0, height: 0 });
+          }
         });
       });
     } else {
       gastosAgrupadosPorChofer().forEach(grupo => {
-        tableData.push([`--- ${grupo.choferNombre} ---`, '', '', `S/ ${grupo.total.toFixed(2)} (${grupo.gastos.length})`]);
+        const porTipo = grupo.gastos.reduce((acc, gg) => {
+          const t = gg.tipo_combustible || 'otro';
+          acc[t] = (acc[t] || 0) + (gg.monto || 0);
+          return acc;
+        }, {} as Record<string, number>);
+        
+        let detallesTipo = '';
+        if (porTipo.glp) detallesTipo += `GLP: S/ ${porTipo.glp.toFixed(2)} `;
+        if (porTipo.gasolina) detallesTipo += `Gasolina: S/ ${porTipo.gasolina.toFixed(2)} `;
+        if (porTipo.diesel) detallesTipo += `Diesel: S/ ${porTipo.diesel.toFixed(2)}`;
+        
+        tableData.push([`--- ${grupo.choferNombre} ---`, '', '', '', `S/ ${grupo.total.toFixed(2)} (${grupo.gastos.length} cargas)`]);
+        if (detallesTipo) {
+          tableData.push([detallesTipo, '', '', '', '']);
+        }
         grupo.gastos.forEach(gasto => {
           tableData.push([
             gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM HH:mm') : '-',
             gasto.tipo_combustible || '-',
             gasto.estado === 'confirmado' ? '✓' : gasto.estado === 'pendiente_revision' ? '⏳' : '✗',
+            gasto.foto_url ? '[Foto]' : '-',
             `S/ ${(gasto.monto || 0).toFixed(2)}`
           ]);
+          if (gasto.foto_url) {
+            fotos.push({ url: gasto.foto_url, x: 0, y: 0, width: 0, height: 0 });
+          }
         });
       });
     }
 
     autoTable(doc, {
-      head: [['Hora', 'Chofer/Tipo', 'Combustible', 'Monto']],
+      head: [['Hora', 'Chofer', 'Tipo', 'Foto', 'Monto']],
       body: tableData,
       startY: yPos + 5,
       theme: 'striped',
       headStyles: { fillColor: [59, 130, 246] },
       styles: { fontSize: 9 },
       columnStyles: {
-        3: { halign: 'right' }
+        4: { halign: 'right' }
       }
     });
 
     doc.save(`reporte-combustible-${fechaActual}.pdf`);
-    console.log('PDF saved successfully');
+    console.log('PDF saved successfully', fotos.length > 0 ? `${fotos.length} fotos disponibles` : 'sin fotos');
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error al generar PDF');
