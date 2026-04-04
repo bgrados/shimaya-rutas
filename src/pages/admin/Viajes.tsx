@@ -29,16 +29,20 @@ export default function AdminViajes() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getRouteTheme = (nombre: string) => {
-    const n = nombre.toLowerCase();
-    console.log('getRouteTheme called with:', nombre, '-> lowercase:', n);
-    // Orden importante: amarilla primero porque puede tener "este" también
-    if (n.includes('norte')) return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' }; // Negra
-    if (n.includes('sur')) return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' }; // Guinda
-    // Amarilla va antes que verde/este porque puede contener "este"
-    if (n.includes('amarilla') || n.includes('amarillo')) return { bg: 'bg-yellow-950 border-yellow-800', text: 'text-yellow-400', icon: 'text-yellow-500' }; // Amarilla
-    if (n.includes('verde')) return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' }; // Verde
-    if (n.includes('este')) return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' }; // Verde
-    if (n.includes('oeste') || n.includes('centro')) return { bg: 'bg-yellow-950 border-yellow-800', text: 'text-yellow-400', icon: 'text-yellow-500' }; // Amarilla/Oeste
+    const n = (nombre || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    console.log('getRouteTheme:', nombre, '-> processed:', n);
+    
+    // Negra/Norte - siempre primero si contiene "norte"
+    if (n.includes('norte')) return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' };
+    // Guinda/Sur
+    if (n.includes('sur')) return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' };
+    // Amarilla - ANTES de verde/este porque puede contenerlos
+    if (n.includes('amarilla') || n.includes('amarillo')) return { bg: 'bg-yellow-950 border-yellow-800', text: 'text-yellow-400', icon: 'text-yellow-500' };
+    // Verde/Este
+    if (n.includes('verde') || n.includes('este')) return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
+    // Oeste/Centro - vuelve a amarilla
+    if (n.includes('oeste') || n.includes('centro')) return { bg: 'bg-yellow-950 border-yellow-800', text: 'text-yellow-400', icon: 'text-yellow-500' };
+    
     return { bg: 'bg-surface-light border-surface-light/30', text: 'text-text-muted', icon: 'text-white' };
   };
 
