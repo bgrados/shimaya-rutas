@@ -85,6 +85,7 @@ export default function GastosCombustible() {
       const { data } = await query;
 
       if (data) {
+        console.log('Gastos loaded:', data.length, 'con fotos:', data.filter((g: any) => g.foto_url).length);
         const mapped = data.map((g: any) => ({
           ...g,
           chofer_nombre: g.usuarios?.nombre,
@@ -529,12 +530,15 @@ export default function GastosCombustible() {
                         <td className="py-3 px-2 text-right text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</td>
                         <td className="py-3 px-2 text-center">
                           {gasto.foto_url ? (
-                            <button
-                              onClick={() => setShowFotoModal(gasto.foto_url!)}
-                              className="p-1 hover:bg-surface-light rounded"
-                            >
-                              <ImageIcon size={18} className="text-blue-400" />
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => setShowFotoModal(gasto.foto_url!)}
+                                className="p-1 hover:bg-surface-light rounded"
+                              >
+                                <ImageIcon size={18} className="text-blue-400" />
+                              </button>
+                              <span className="text-xs text-text-muted">✓</span>
+                            </div>
                           ) : (
                             <span className="text-text-muted">-</span>
                           )}
