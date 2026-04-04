@@ -23,9 +23,10 @@ export default function MapaGeneral() {
     for (const [key, color] of Object.entries(ROUTE_COLORS)) {
       if (n.includes(key)) return color;
     }
-    // Fallback por zona
+    // Fallback por zona - orden importante: amarilla antes de este
     if (n.includes('norte')) return '#64748b';
     if (n.includes('sur'))   return '#ef4444';
+    if (n.includes('amarilla')) return '#eab308';
     if (n.includes('este'))  return '#22c55e';
     if (n.includes('oeste') || n.includes('centro')) return '#eab308';
     // Color aleatorio para rutas no reconocidas
