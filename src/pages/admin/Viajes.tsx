@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { format, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer } from 'lucide-react';
+import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer, RefreshCw } from 'lucide-react';
 
 const parseLocalDate = (dateStr: string | null) => {
   if (!dateStr || dateStr === 'Sin fecha') return null;
@@ -211,18 +211,21 @@ export default function AdminViajes() {
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
                 Actualizaciones en tiempo real activas
               </p>
-           </div>
-           <Button size="sm" className="hidden md:flex items-center gap-2" onClick={() => window.location.href='/admin/rutas/nueva'}>
-              <Plus size={18}/> Nueva Ruta
-           </Button>
+            </div>
         </div>
-        <div className="w-full md:w-80">
-           <Input 
-             placeholder="Buscar chofer o placa..." 
-             value={searchTerm}
-             onChange={e => setSearchTerm(e.target.value)}
-             className="bg-surface-light/10 border-primary/20 focus:border-primary/50"
-           />
+        <div className="flex items-center gap-3">
+           <Button size="sm" variant="secondary" onClick={loadData} className="flex items-center gap-2">
+             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+             Actualizar
+           </Button>
+           <div className="w-full md:w-80">
+              <Input 
+                placeholder="Buscar chofer o placa..." 
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="bg-surface-light/10 border-primary/20 focus:border-primary/50"
+              />
+           </div>
         </div>
       </div>
 
