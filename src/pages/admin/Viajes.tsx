@@ -28,52 +28,28 @@ export default function AdminViajes() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const ROUTE_COLORS: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+    amarilla: { bg: '#713f12', border: '#ca8a04', text: '#fef08a', icon: '#fde047' },
+    negra:   { bg: '#1a1a1a', border: '#4a4a4a', text: '#d4d4d4', icon: '#ffffff' },
+    guinda:  { bg: '#7c1c2e', border: '#991b1b', text: '#fca5a5', icon: '#f87171' },
+    verde:   { bg: '#14532d', border: '#166534', text: '#86efac', icon: '#4ade80' },
+  };
+
   const getRouteTheme = (nombre: string) => {
     const n = (nombre || '').toString().toLowerCase();
     
-    // Debug
-    window.debugRouteTheme = window.debugRouteTheme || [];
-    window.debugRouteTheme.push({ nombre, n });
-    console.log('getRouteTheme:', nombre, '-> processed:', n);
-    
-    // Si contiene "amarilla" o "amarillo", es AMARILLA
-    if (n.includes('amarilla') || n.includes('amarillo')) {
-      console.log('  -> RETURNING: AMARILLA');
-      return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
+    for (const [key, colors] of Object.entries(ROUTE_COLORS)) {
+      if (n.includes(key)) {
+        return {
+          bg: colors.bg,
+          border: colors.border,
+          text: colors.text,
+          icon: colors.icon,
+        };
+      }
     }
     
-    // Norte
-    if (n.includes('norte')) {
-      console.log('  -> RETURNING: NEGRA');
-      return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' };
-    }
-    
-    // Sur
-    if (n.includes('sur')) {
-      console.log('  -> RETURNING: GUINDA');
-      return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' };
-    }
-    
-    // Verde
-    if (n.includes('verde')) {
-      console.log('  -> RETURNING: VERDE');
-      return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
-    }
-    
-    // Este
-    if (n.includes('este')) {
-      console.log('  -> RETURNING: VERDE');
-      return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
-    }
-    
-    // Oeste
-    if (n.includes('oeste')) {
-      console.log('  -> RETURNING: AMARILLA');
-      return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
-    }
-    
-    console.log('  -> RETURNING: DEFAULT');
-    return { bg: 'bg-surface-light border-surface-light/30', text: 'text-text-muted', icon: 'text-white' };
+    return { bg: '#1e3a5f', border: '#3b82f6', text: '#93c5fd', icon: '#60a5fa' };
   };
 
   const loadData = async () => {
@@ -313,10 +289,10 @@ export default function AdminViajes() {
                       <CardContent className="p-0">
                         <div className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer hover:bg-surface-light/20 transition-colors"
                           onClick={() => setExpandedRuta(isExpanded ? null : viaje.id_ruta)} >
-                          <div className="flex items-start gap-4">
-                            <div className={`p-4 rounded-2xl shadow-inner border transition-colors ${theme.bg}`}>
-                              <Truck size={32} className={`${theme.icon} drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]`} />
-                            </div>
+                           <div className="flex items-start gap-4">
+                             <div className="p-4 rounded-2xl shadow-inner transition-colors" style={{ backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1, borderStyle: 'solid' }}>
+                               <Truck size={32} style={{ color: theme.icon }} />
+                             </div>
                             <div>
                               <div className="flex items-center gap-3 mb-1">
                                 <h3 className="text-xl font-black text-white uppercase tracking-tight">{viaje.nombre}</h3>
