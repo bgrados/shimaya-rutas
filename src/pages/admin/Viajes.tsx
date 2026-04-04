@@ -29,20 +29,41 @@ export default function AdminViajes() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getRouteTheme = (nombre: string) => {
-    const n = (nombre || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    console.log('getRouteTheme:', nombre, '-> processed:', n);
+    const n = (nombre || '').toString().toLowerCase();
+    console.log('Route name:', nombre, '-> theme check:', n);
     
-    // Negra/Norte - siempre primero si contiene "norte"
-    if (n.includes('norte')) return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' };
+    // Verificar amarilla PRIMERO y sola, antes de cualquier otra palabra
+    // Buscar patrón: amarilla/amarillo (puede tener guiones, espacios, etc)
+    if (/amarill[oa]/.test(n)) {
+      console.log('Theme: AMARILLA');
+      return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
+    }
+    
+    // Negra/Norte
+    if (n.includes('norte')) {
+      console.log('Theme: NEGRA');
+      return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' };
+    }
+    
     // Guinda/Sur
-    if (n.includes('sur')) return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' };
-    // Amarilla - ANTES de verde/este porque puede contenerlos
-    if (n.includes('amarilla') || n.includes('amarillo')) return { bg: 'bg-yellow-950 border-yellow-800', text: 'text-yellow-400', icon: 'text-yellow-500' };
-    // Verde/Este
-    if (n.includes('verde') || n.includes('este')) return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
-    // Oeste/Centro - vuelve a amarilla
-    if (n.includes('oeste') || n.includes('centro')) return { bg: 'bg-yellow-950 border-yellow-800', text: 'text-yellow-400', icon: 'text-yellow-500' };
+    if (n.includes('sur')) {
+      console.log('Theme: GUINDA');
+      return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' };
+    }
     
+    // Verde/Este
+    if (n.includes('verde') || n.includes('este')) {
+      console.log('Theme: VERDE');
+      return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
+    }
+    
+    // Oeste/Centro
+    if (n.includes('oeste') || n.includes('centro')) {
+      console.log('Theme: AMARILLA (oeste/centro)');
+      return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
+    }
+    
+    console.log('Theme: DEFAULT');
     return { bg: 'bg-surface-light border-surface-light/30', text: 'text-text-muted', icon: 'text-white' };
   };
 
@@ -201,7 +222,17 @@ export default function AdminViajes() {
             (r.placa || '').toLowerCase().includes(search);
   });
 
-  const groupedRutas = filteredRutas.reduce((acc, ruta) => {
+  // Ordenar: primero en_progreso, luego pendiente, luego finalizada
+  const sortedRutas = [...filteredRutas].sort((a, b) => {
+    const estadoOrden = { 'en_progreso': 0, 'pendiente': 1, 'finalizada': 2 };
+    const ordenA = estadoOrden[a.estado] ?? 3;
+    const ordenB = estadoOrden[b.estado] ?? 3;
+    if (ordenA !== ordenB) return ordenA - ordenB;
+    // Si son igual estado, ordenar por fecha (más reciente primero)
+    return (b.fecha || '').localeCompare(a.fecha || '');
+  });
+
+  const groupedRutas = sortedRutas.reduce((acc, ruta) => {
     const date = ruta.fecha || 'Sin fecha';
     if (!acc[date]) acc[date] = [];
     acc[date].push(ruta);
