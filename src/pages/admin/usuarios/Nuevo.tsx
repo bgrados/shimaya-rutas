@@ -31,6 +31,8 @@ export default function NuevoUsuario() {
     setError('');
 
     try {
+      console.log('[NuevoUsuario] Intentando crear usuario:', email);
+
       // 1. Crear usuario en Supabase Auth usando signUp
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -44,38 +46,71 @@ export default function NuevoUsuario() {
         }
       });
 
+      console.log('[NuevoUsuario] Auth response:', { authData, authError });
+
       if (authError) {
         console.error('[Auth] Error:', authError);
-        throw new Error(authError.message || 'Error al crear usuario en autenticación');
+        setError('Error de autenticación: ' + authError.message);
+        setLoadingSubmit(false);
+        return;
+      }
+
+      // Si el usuario ya existe, signUp retorna un error
+      if (authData.user && authData.user.identities?.length === 0) {
+        console.error('[Auth] Usuario ya existe');
+        setError('Este correo ya está registrado. Intenta con otro.');
+        setLoadingSubmit(false);
+        return;
       }
 
       const authUserId = authData?.user?.id;
-      console.log('[Auth] User created with ID:', authUserId);
+      console.log('[Auth] User ID:', authUserId);
 
-      // 2. Insertar en tabla usuarios con el ID de Auth
-      if (authUserId) {
-        const { error: insertError } = await supabase
+      if (!authUserId) {
+        // El usuario puede haber sido creado pero sin ID (requiere confirmación de email)
+        console.log('[Auth] Usuario puede requerir confirmación de email');
+        
+        // Buscar si el usuario existe por email
+        const { data: existingUser } = await supabase
           .from('usuarios')
-          .insert({
-            id_usuario: authUserId,
-            nombre,
-            email,
-            rol,
-            telefono: telefono || null,
-            activo: true
-          });
-
-        if (insertError) {
-          console.error('[DB] Error:', insertError);
-          throw new Error(insertError.message);
+          .select('id_usuario')
+          .eq('email', email)
+          .single();
+        
+        if (existingUser) {
+          setError('El usuario ya existe en el sistema.');
+          setLoadingSubmit(false);
+          return;
         }
-      } else {
-        throw new Error('No se pudo obtener el ID del usuario');
+        
+        setError('Error: No se pudo crear el usuario. Verifica que el email no esté registrado.');
+        setLoadingSubmit(false);
+        return;
       }
 
+      // 2. Insertar en tabla usuarios con el ID de Auth
+      const { error: insertError } = await supabase
+        .from('usuarios')
+        .insert({
+          id_usuario: authUserId,
+          nombre,
+          email,
+          rol,
+          telefono: telefono || null,
+          activo: true
+        });
+
+      if (insertError) {
+        console.error('[DB] Error:', insertError);
+        setError('Error al guardar usuario: ' + insertError.message);
+        setLoadingSubmit(false);
+        return;
+      }
+
+      console.log('[NuevoUsuario] Usuario creado exitosamente');
       navigate('/admin/usuarios');
     } catch (err: any) {
-      console.error(err);
+      console.error('[NuevoUsuario] Error:', err);
       setError(err.message || 'Ocurrió un error al registrar el usuario.');
     } finally {
       setLoadingSubmit(false);
