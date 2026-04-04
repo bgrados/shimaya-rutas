@@ -31,36 +31,48 @@ export default function AdminViajes() {
   const getRouteTheme = (nombre: string) => {
     const n = (nombre || '').toString().toLowerCase();
     
+    // Debug
+    window.debugRouteTheme = window.debugRouteTheme || [];
+    window.debugRouteTheme.push({ nombre, n });
+    console.log('getRouteTheme:', nombre, '-> processed:', n);
+    
     // Si contiene "amarilla" o "amarillo", es AMARILLA
     if (n.includes('amarilla') || n.includes('amarillo')) {
+      console.log('  -> RETURNING: AMARILLA');
       return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
     }
     
     // Norte
     if (n.includes('norte')) {
+      console.log('  -> RETURNING: NEGRA');
       return { bg: 'bg-black border-gray-700', text: 'text-gray-400', icon: 'text-white' };
     }
     
     // Sur
     if (n.includes('sur')) {
+      console.log('  -> RETURNING: GUINDA');
       return { bg: 'bg-red-950 border-red-800', text: 'text-red-400', icon: 'text-red-500' };
     }
     
     // Verde
     if (n.includes('verde')) {
+      console.log('  -> RETURNING: VERDE');
       return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
     }
     
     // Este
     if (n.includes('este')) {
+      console.log('  -> RETURNING: VERDE');
       return { bg: 'bg-green-950 border-green-800', text: 'text-green-400', icon: 'text-green-500' };
     }
     
     // Oeste
     if (n.includes('oeste')) {
+      console.log('  -> RETURNING: AMARILLA');
       return { bg: 'bg-yellow-900 border-yellow-700', text: 'text-yellow-300', icon: 'text-yellow-400' };
     }
     
+    console.log('  -> RETURNING: DEFAULT');
     return { bg: 'bg-surface-light border-surface-light/30', text: 'text-text-muted', icon: 'text-white' };
   };
 
