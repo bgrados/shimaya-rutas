@@ -31,15 +31,16 @@ export default function NuevoUsuario() {
     setError('');
 
     try {
-      // 1. Crear usuario en Auth primero (vía Edge Function)
-      const { data: authData, error: authError } = await supabase.functions.invoke('admin-auth', {
-        body: { 
-          action: 'create_user', 
-          email, 
-          password, 
-          nombre, 
-          rol, 
-          telefono 
+      // 1. Crear usuario en Supabase Auth usando signUp
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nombre,
+            telefono,
+            rol,
+          }
         }
       });
 
@@ -48,30 +49,28 @@ export default function NuevoUsuario() {
         throw new Error(authError.message || 'Error al crear usuario en autenticación');
       }
 
-      const authUserId = authData?.userId;
+      const authUserId = authData?.user?.id;
       console.log('[Auth] User created with ID:', authUserId);
 
       // 2. Insertar en tabla usuarios con el ID de Auth
-      const { error: insertError } = await supabase
-        .from('usuarios')
-        .insert({
-          id_usuario: authUserId || crypto.randomUUID(), // Usar ID de Auth o generar uno
-          nombre,
-          email,
-          rol,
-          telefono: telefono || null,
-          activo: true
-        });
-
-      if (insertError) {
-        console.error('[DB] Error:', insertError);
-        // Si falla el insert, intentamos eliminar el usuario de Auth
-        if (authUserId) {
-          await supabase.functions.invoke('admin-auth', {
-            body: { action: 'delete_user', userId: authUserId }
+      if (authUserId) {
+        const { error: insertError } = await supabase
+          .from('usuarios')
+          .insert({
+            id_usuario: authUserId,
+            nombre,
+            email,
+            rol,
+            telefono: telefono || null,
+            activo: true
           });
+
+        if (insertError) {
+          console.error('[DB] Error:', insertError);
+          throw new Error(insertError.message);
         }
-        throw new Error(insertError.message);
+      } else {
+        throw new Error('No se pudo obtener el ID del usuario');
       }
 
       navigate('/admin/usuarios');
