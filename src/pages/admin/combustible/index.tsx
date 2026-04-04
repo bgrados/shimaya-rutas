@@ -334,7 +334,7 @@ export default function GastosCombustible() {
             <FileText size={18} />
             Exportar PDF
           </Button>
-          <Button onClick={generarExcel} variant="secondary" className="flex items-center gap-2">
+          <Button onClick={generarExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
             <FileSpreadsheet size={18} />
             Exportar Excel
           </Button>
