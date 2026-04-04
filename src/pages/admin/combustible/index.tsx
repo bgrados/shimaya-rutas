@@ -159,7 +159,7 @@ export default function GastosCombustible() {
   };
 
   const generarPDF = async () => {
-    console.log('🚀 generandoPDF called');
+    console.log('PDF button clicked');
     try {
     
     const doc = new jsPDF();
@@ -230,11 +230,14 @@ export default function GastosCombustible() {
     });
 
     doc.save(`reporte-combustible-${fechaActual}.pdf`);
+    console.log('PDF saved successfully');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error al generar PDF');
+    }
   };
 
   const generarExcel = () => {
-    setShowExportMenu(false);
-    
     const fechaActual = format(new Date(), 'yyyy-MM-dd');
     const wb = XLSX.utils.book_new();
     
@@ -327,7 +330,7 @@ export default function GastosCombustible() {
         </h1>
         
         <div className="flex gap-2">
-          <Button onClick={() => console.log('PDF click')} className="flex items-center gap-2">
+          <Button onClick={generarPDF} className="flex items-center gap-2">
             <FileText size={18} />
             Exportar PDF
           </Button>
