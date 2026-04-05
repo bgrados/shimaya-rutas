@@ -216,15 +216,11 @@ export default function MapaGeneral() {
                             style={{ width: '100%', height: '60px', objectFit: 'cover', borderRadius: '6px', marginBottom: '6px', display: 'block', opacity: 0.85 }}
                           />
                         )}
-                        <h4 className="font-bold text-gray-900 border-b border-gray-100 pb-1 mb-1">{local.nombre}</h4>
-                        <p className="text-[10px] text-gray-600 mb-2 leading-tight">{local.direccion}</p>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[9px] font-black italic uppercase">
-                            Orden #{local.orden}
-                          </span>
-                          <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase italic">
-                            {route.nombre}
-                          </span>
+                        <h4 style={{ fontWeight: 'bold', color: '#111', fontSize: '12px', marginBottom: '4px', borderBottom: '1px solid #eee', paddingBottom: '2px' }}>{local.nombre}</h4>
+                        <p style={{ fontSize: '10px', color: '#333', marginBottom: '4px', lineHeight: '1.2' }}>{local.direccion}</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                          <span style={{ background: '#ddd', color: '#333', padding: '2px 6px', borderRadius: '10px', fontSize: '9px', fontWeight: 'bold' }}>Orden #{local.orden}</span>
+                          <span style={{ background: '#f0f0f0', color: '#333', padding: '2px 6px', borderRadius: '10px', fontSize: '9px', fontWeight: 'bold' }}>{route.nombre}</span>
                         </div>
                       </div>
                     </Popup>
