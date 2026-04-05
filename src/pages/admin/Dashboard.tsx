@@ -91,34 +91,21 @@ export default function AdminDashboard() {
       console.log('[Dashboard] Rutas de hoy:', rutasDeHoy.map(r => ({ nombre: r.nombre, estado: r.estado })));
       
       const rutasEnProgreso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
-      const rutasIds = rutasEnProgreso.map(r => r.id_ruta);
+      const rutasPendientes = rutasDeHoy.filter(r => r.estado === 'pendiente');
       
       let visitasCompletadas = 0;
       let visitasPendientes = 0;
       let localesVisitados = 0;
       
-      if (rutasIds.length === 0 && rutasDeHoy.length > 0) {
-        const rutasFinalizadasIds = rutasDeHoy.map(r => r.id_ruta);
-        if (rutasFinalizadasIds.length > 0) {
-          const { data: visData } = await supabase
-            .from('locales_ruta')
-            .select('estado_visita')
-            .in('id_ruta', rutasFinalizadasIds);
-          
-          if (visData) {
-            console.log('[Dashboard] Visitas data:', visData.length);
-            visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
-            visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
-            localesVisitados = visData.length;
-          }
-        }
-      } else if (rutasIds.length > 0) {
+      if (rutasDeHoy.length > 0) {
+        const rutasIds = rutasDeHoy.map(r => r.id_ruta);
         const { data: visData } = await supabase
           .from('locales_ruta')
           .select('estado_visita')
           .in('id_ruta', rutasIds);
         
         if (visData) {
+          console.log('[Dashboard] Visitas data:', visData.length);
           visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
           visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
           localesVisitados = visData.length;
