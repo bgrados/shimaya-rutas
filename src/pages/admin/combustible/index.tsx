@@ -278,7 +278,8 @@ export default function GastosCombustible() {
             gasto.foto_url ? '[Foto]' : '-',
             `S/ ${(gasto.monto || 0).toFixed(2)}`
           ]);
-          if (gasto.foto_url) {
+          if (gasto.foto_url && gasto.foto_url.length > 0) {
+            console.log('Adding gasto with foto_url:', gasto.foto_url);
             gastosConFotos.push(gasto);
           }
         });
@@ -308,7 +309,8 @@ export default function GastosCombustible() {
             gasto.foto_url ? '[Foto]' : '-',
             `S/ ${(gasto.monto || 0).toFixed(2)}`
           ]);
-          if (gasto.foto_url) {
+          if (gasto.foto_url && gasto.foto_url.length > 0) {
+            console.log('Adding gasto with foto_url:', gasto.foto_url);
             gastosConFotos.push(gasto);
           }
         });
@@ -317,7 +319,11 @@ export default function GastosCombustible() {
 
     console.log('Table created, gastosConFotos:', gastosConFotos.length);
     console.log('tableData rows:', tableData.length);
-    console.log('Checking foto_url in gastos:', gastos.filter(g => g.foto_url).length);
+    console.log('Checking foto_url in all gastos:', gastos.filter(g => g.foto_url).length);
+    console.log('Active chofer filter:', filtroChofer);
+    if (gastosConFotos.length > 0 && gastosConFotos[0]) {
+      console.log('First gasto with foto:', JSON.stringify(gastosConFotos[0], null, 2));
+    }
     if (tableData.length > 0) {
       console.log('First row:', tableData[0]);
     }
