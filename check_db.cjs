@@ -7,23 +7,18 @@ const supabase = createClient(URL, KEY);
 
 async function check() {
   const hoy = '2026-04-05';
-  const fechaSemana = '2026-04-05'; // Monday
   
-  console.log('=== GASTOS COMBUSTIBLE HOY ===');
-  const { data: gastoHoy } = await supabase.from('gastos_combustible').select('*').gte('created_at', `${hoy}T00:00:00`);
-  console.log('Gastos hoy:', JSON.stringify(gastoHoy, null, 2));
+  console.log('=== GASTOS CON FECHA ===');
+  const { data: gasto } = await supabase.from('gastos_combustible').select('*, fecha, created_at');
+  console.log('Todos:', gasto?.map(g => ({ fecha: g.fecha, created: g.created_at, monto: g.monto })));
   
-  console.log('\n=== GASTOS COMBUSTIBLE SEMANA ===');
-  const { data: gastoSemana } = await supabase.from('gastos_combustible').select('*').gte('created_at', `${fechaSemana}T00:00:00`);
-  console.log('Gastos semana:', JSON.stringify(gastoSemana, null, 2));
+  console.log('\n=== LOCALES_RUTA CON FECHA ===');
+  const { data: locales } = await supabase.from('locales_ruta').select('*, created_at, hora_llegada');
+  console.log('Muestra:', locales?.slice(0,3).map(l => ({ nombre: l.nombre, estado: l.estado_visita, created: l.created_at })));
   
-  console.log('\n=== USUARIOS CHOFER ===');
-  const { data: choferes } = await supabase.from('usuarios').select('*').eq('rol', 'chofer');
-  console.log('Choferes:', JSON.stringify(choferes, null, 2));
-  
-  console.log('\n=== RUTAS HOY ===');
-  const { data: rutas } = await supabase.from('rutas').select('*').eq('fecha', hoy);
-  console.log('Rutas hoy:', JSON.stringify(rutas, null, 2));
+  console.log('\n=== RUTAS CON FECHA ===');
+  const { data: rutas } = await supabase.from('rutas').select('*, fecha, created_at');
+  console.log('Muestra:', rutas?.slice(0,3).map(r => ({ nombre: r.nombre, fecha: r.fecha, estado: r.estado })));
 }
 
 check();
