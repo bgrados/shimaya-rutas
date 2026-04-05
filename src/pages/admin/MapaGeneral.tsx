@@ -236,7 +236,7 @@ export default function MapaGeneral() {
             </div>
             {unassignedLocales.length > 0 && (
               <div className="flex justify-between">
-                <span className="text-[9px] text-text-muted">Sin ruta:</span>
+                <span className="text-[9px] text-text-muted">PLANTA:</span>
                 <span className="text-[9px] font-bold text-yellow-400">{unassignedLocales.length}</span>
               </div>
             )}
