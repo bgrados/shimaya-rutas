@@ -60,25 +60,24 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const hoy = format(new Date(), 'yyyy-MM-dd');
-      const inicioSemana = new Date();
+      const now = new Date();
+      const hoy = format(now, 'yyyy-MM-dd');
+      const inicioSemana = new Date(now);
       inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1);
       const fechaSemana = format(inicioSemana, 'yyyy-MM-dd');
 
       const [rutasRes, visitasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
         supabase.from('rutas').select('*').eq('fecha', hoy),
-        supabase.from('locales_ruta').select('*').gte('created_at', `${hoy}T00:00:00`),
+        supabase.from('locales_ruta').select('*'),
         supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
-        supabase.from('gastos_combustible').select('monto').gte('created_at', `${hoy}T00:00:00`),
-        supabase.from('gastos_combustible').select('monto').gte('created_at', `${fechaSemana}T00:00:00`),
-        supabase.from('gastos_combustible').select('id_gasto').gte('created_at', `${hoy}T00:00:00`)
+        supabase.from('gastos_combustible').select('monto'),
+        supabase.from('gastos_combustible').select('monto'),
+        supabase.from('gastos_combustible').select('id_gasto')
       ]);
 
       const rutas = rutasRes.data || [];
       const visitas = visitasRes.data || [];
-      console.log('[Dashboard] Total visitas in DB:', visitas.length);
-      console.log('[Dashboard] Sample visita:', visitas[0] ? JSON.stringify(visitas[0]) : 'none');
-
+      
       setStats({
         rutasActivas: rutas.filter(r => r.estado === 'en_progreso').length,
         rutasPendientes: rutas.filter(r => r.estado === 'pendiente').length,
@@ -92,15 +91,11 @@ export default function AdminDashboard() {
         cargasHoy: cargasRes.count || 0
       });
 
-      const { data: rutasProgreso, error: rutasProgresoError } = await supabase
+      const { data: rutasProgreso } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
         .eq('estado', 'en_progreso')
-        .order('created_at', { ascending: false })
         .limit(5);
-
-      console.log('[Dashboard] Error rutasProgreso:', rutasProgresoError);
-      console.log('[Dashboard] Rutas en progreso:', rutasProgreso?.length);
         
       if (rutasProgreso) {
         const rutasConVisitas = await Promise.all(
@@ -115,8 +110,6 @@ export default function AdminDashboard() {
               .select('*', { count: 'exact', head: true })
               .eq('id_ruta', r.id_ruta)
               .eq('estado_visita', 'visitado');
-
-            console.log(`[Dashboard] Ruta ${r.id_ruta}: total=${total}, completadas=${completadas}`);
             
             return {
               id_ruta: r.id_ruta,
@@ -136,9 +129,7 @@ export default function AdminDashboard() {
 
       const { data: gastosChofer } = await supabase
         .from('gastos_combustible')
-        .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
-        .gte('created_at', `${fechaSemana}T00:00:00`)
-        .order('monto', { ascending: false });
+        .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)');
 
       if (gastosChofer) {
         const grouped: Record<string, { nombre: string; total: number; cargas: number }> = {};

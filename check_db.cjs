@@ -6,34 +6,24 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const supabase = createClient(URL, KEY);
 
 async function check() {
-  console.log('=== RUTAS EN PROGRESO ===');
-  const { data: rutas } = await supabase.from('rutas').select('id_ruta, nombre').eq('estado', 'en_progreso');
-  console.log('Rutas:', JSON.stringify(rutas, null, 2));
+  const hoy = '2026-04-05';
+  const fechaSemana = '2026-04-05'; // Monday
   
-  if (rutas && rutas.length > 0) {
-    for (const ruta of rutas) {
-      console.log(`\n=== LOCALES para ruta ${ruta.nombre} (${ruta.id_ruta}) ===`);
-      const { data: locales } = await supabase.from('locales_ruta')
-        .select('*')
-        .eq('id_ruta', ruta.id_ruta);
-      console.log('Locales:', JSON.stringify(locales, null, 2));
-    }
-  }
+  console.log('=== GASTOS COMBUSTIBLE HOY ===');
+  const { data: gastoHoy } = await supabase.from('gastos_combustible').select('*').gte('created_at', `${hoy}T00:00:00`);
+  console.log('Gastos hoy:', JSON.stringify(gastoHoy, null, 2));
   
-  console.log('\n=== HOY 2026-04-05 ===');
-  const { data: rutasHoy } = await supabase.from('rutas')
-    .select('id_ruta, nombre, estado, fecha')
-    .eq('fecha', '2026-04-05');
-  console.log('Rutas hoy:', JSON.stringify(rutasHoy, null, 2));
+  console.log('\n=== GASTOS COMBUSTIBLE SEMANA ===');
+  const { data: gastoSemana } = await supabase.from('gastos_combustible').select('*').gte('created_at', `${fechaSemana}T00:00:00`);
+  console.log('Gastos semana:', JSON.stringify(gastoSemana, null, 2));
   
-  if (rutasHoy && rutasHoy.length > 0) {
-    for (const ruta of rutasHoy) {
-      const { count } = await supabase.from('locales_ruta')
-        .select('*', { count: 'exact', head: true })
-        .eq('id_ruta', ruta.id_ruta);
-      console.log(`Ruta ${ruta.nombre}: ${count} locales`);
-    }
-  }
+  console.log('\n=== USUARIOS CHOFER ===');
+  const { data: choferes } = await supabase.from('usuarios').select('*').eq('rol', 'chofer');
+  console.log('Choferes:', JSON.stringify(choferes, null, 2));
+  
+  console.log('\n=== RUTAS HOY ===');
+  const { data: rutas } = await supabase.from('rutas').select('*').eq('fecha', hoy);
+  console.log('Rutas hoy:', JSON.stringify(rutas, null, 2));
 }
 
 check();
