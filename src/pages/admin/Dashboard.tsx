@@ -124,7 +124,7 @@ export default function AdminDashboard() {
       
       setStats({
         rutasActivas: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
-        rutasPendientes: rutasDeHoy.filter(r => r.estado === 'pendiente').length,
+        rutasPendientes: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
         rutasFinalizadas: rutasDeHoy.filter(r => r.estado === 'finalizada').length,
         visitasCompletadas: visitasCompletadas,
         visitasPendientes: visitasPendientes,
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-3 text-center">
-            <p className="text-text-muted text-xs">Rutas Pendientes</p>
+            <p className="text-text-muted text-xs">Rutas en Curso</p>
             <p className="text-xl font-bold text-yellow-400">{stats.rutasPendientes}</p>
           </CardContent>
         </Card>
