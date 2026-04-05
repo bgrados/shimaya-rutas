@@ -213,7 +213,7 @@ export default function MapaGeneral() {
                           <img 
                             src={local.foto_url} 
                             alt={local.nombre}
-                            className="w-full h-16 object-cover rounded-md mb-2"
+                            style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', display: 'block' }}
                           />
                         )}
                         <h4 className="font-bold text-gray-900 border-b border-gray-100 pb-1 mb-1">{local.nombre}</h4>
