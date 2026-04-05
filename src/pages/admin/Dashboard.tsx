@@ -66,17 +66,25 @@ export default function AdminDashboard() {
       inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1);
       const fechaSemana = format(inicioSemana, 'yyyy-MM-dd');
 
-      const [rutasRes, visitasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
+      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
         supabase.from('rutas').select('*').eq('fecha', hoy),
-        supabase.from('locales_ruta').select('*'),
         supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
-        supabase.from('gastos_combustible').select('monto'),
-        supabase.from('gastos_combustible').select('monto'),
-        supabase.from('gastos_combustible').select('id_gasto')
+        supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoy}T00:00:00`),
+        supabase.from('gastos_combustible').select('monto').gte('fecha', `${fechaSemana}T00:00:00`),
+        supabase.from('gastos_combustible').select('id_gasto').gte('fecha', `${hoy}T00:00:00`)
       ]);
 
       const rutas = rutasRes.data || [];
-      const visitas = visitasRes.data || [];
+      const rutasIds = rutas.map(r => r.id_ruta);
+      
+      let visitas = [];
+      if (rutasIds.length > 0) {
+        const { data: visitasData } = await supabase
+          .from('locales_ruta')
+          .select('*')
+          .in('id_ruta', rutasIds);
+        visitas = visitasData || [];
+      }
       
       setStats({
         rutasActivas: rutas.filter(r => r.estado === 'en_progreso').length,
@@ -129,7 +137,9 @@ export default function AdminDashboard() {
 
       const { data: gastosChofer } = await supabase
         .from('gastos_combustible')
-        .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)');
+        .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
+        .gte('fecha', `${fechaSemana}T00:00:00`)
+        .order('monto', { ascending: false });
 
       if (gastosChofer) {
         const grouped: Record<string, { nombre: string; total: number; cargas: number }> = {};
