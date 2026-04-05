@@ -234,7 +234,8 @@ export default function MapaGeneral() {
                 <Popup>
                   <div className="p-1">
                     <h4 className="font-bold text-gray-900">{local.nombre}</h4>
-                    <p className="text-[10px] text-gray-600">PLANTA - Inicio y Fin de rutas</p>
+                    <p className="text-[10px] text-gray-600 mb-1">{local.direccion}</p>
+                    <p className="text-[10px] text-blue-600 font-bold">🏠 PLANTA - Inicio y Fin de todas las rutas</p>
                   </div>
                 </Popup>
               </Marker>
