@@ -71,8 +71,8 @@ export default function AdminDashboard() {
       const rutasRes = await supabase.from('rutas').select('*').eq('fecha', hoyStr);
       const choferesRes = await supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true);
       
-      const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoyStr}T00:00:00`);
-      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('monto').gte('fecha', `${semanaStr}T00:00:00`);
+      const combustibleDiaRes = await supabase.from('gastos_combustible').select('*').gte('created_at', `${hoyStr}T00:00:00`);
+      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('*').gte('created_at', `${semanaStr}T00:00:00`);
       
       console.log('[Dashboard] Combustible dia:', combustibleDiaRes.data);
       console.log('[Dashboard] Combustible semana:', combustibleSemanaRes.data);
@@ -153,7 +153,7 @@ export default function AdminDashboard() {
       const { data: gastosChofer } = await supabase
         .from('gastos_combustible')
         .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
-        .gte('fecha', `${semanaStr}T00:00:00`)
+        .gte('created_at', `${semanaStr}T00:00:00`)
         .order('monto', { ascending: false });
 
       if (gastosChofer) {
