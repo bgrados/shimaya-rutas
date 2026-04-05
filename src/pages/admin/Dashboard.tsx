@@ -66,8 +66,8 @@ export default function AdminDashboard() {
       const fechaSemana = format(inicioSemana, 'yyyy-MM-dd');
 
       const [rutasRes, visitasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
-        supabase.from('rutas').select('*'),
-        supabase.from('locales_ruta').select('*'),
+        supabase.from('rutas').select('*').eq('fecha', hoy),
+        supabase.from('locales_ruta').select('*').gte('created_at', `${hoy}T00:00:00`),
         supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
         supabase.from('gastos_combustible').select('monto').gte('created_at', `${hoy}T00:00:00`),
         supabase.from('gastos_combustible').select('monto').gte('created_at', `${fechaSemana}T00:00:00`),
@@ -92,17 +92,17 @@ export default function AdminDashboard() {
         cargasHoy: cargasRes.count || 0
       });
 
-      const { data: rutasProgreso } = await supabase
+      const { data: rutasProgreso, error: rutasProgresoError } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
         .eq('estado', 'en_progreso')
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (rutasProgreso) {
-        console.log('[Dashboard] Rutas en progreso:', rutasProgreso.length);
-        console.log('[Dashboard] First ruta:', rutasProgreso[0]);
+      console.log('[Dashboard] Error rutasProgreso:', rutasProgresoError);
+      console.log('[Dashboard] Rutas en progreso:', rutasProgreso?.length);
         
+      if (rutasProgreso) {
         const rutasConVisitas = await Promise.all(
           rutasProgreso.map(async (r: any) => {
             const { count: total } = await supabase
