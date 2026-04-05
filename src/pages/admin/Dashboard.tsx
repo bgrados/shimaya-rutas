@@ -74,7 +74,7 @@ export default function AdminDashboard() {
 
       console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr);
 
-      const rutasRes = await supabase.from('rutas').select('*').eq('fecha', hoyStr);
+      const rutasRes = await supabase.from('rutas').select('*');
       const choferesRes = await supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true);
       
       const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').gte('created_at', `${hoyStr}T00:00:00`);
@@ -84,6 +84,7 @@ export default function AdminDashboard() {
       console.log('[Dashboard] Combustible semana:', combustibleSemanaRes.data);
 
       const rutas = rutasRes.data || [];
+      
       const rutasEnProgreso = rutas.filter(r => r.estado === 'en_progreso');
       const rutasIds = rutasEnProgreso.map(r => r.id_ruta);
       
@@ -271,7 +272,7 @@ export default function AdminDashboard() {
                 <CheckCircle className="text-green-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-green-300 uppercase font-bold">Visitas</p>
+                <p className="text-xs text-green-300 uppercase font-bold">Visitas a locales</p>
                 <p className="text-2xl font-black text-white">{stats.visitasCompletadas}</p>
               </div>
             </div>
