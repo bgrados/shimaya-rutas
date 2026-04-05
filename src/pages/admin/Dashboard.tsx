@@ -67,7 +67,7 @@ export default function AdminDashboard() {
 
       const [rutasRes, visitasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
         supabase.from('rutas').select('*'),
-        supabase.from('local_ruta').select('*'),
+        supabase.from('local_ruta').select('*').gte('created_at', `${fechaSemana}T00:00:00`),
         supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
         supabase.from('gastos_combustible').select('monto').gte('created_at', `${hoy}T00:00:00`),
         supabase.from('gastos_combustible').select('monto').gte('created_at', `${fechaSemana}T00:00:00`),
