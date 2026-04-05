@@ -61,9 +61,11 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const now = new Date();
+      const day = now.getDay();
       const hoyStr = format(now, 'yyyy-MM-dd');
+      
       const inicioSemana = new Date(now);
-      inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1);
+      inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
       const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
 
       console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr);
@@ -71,8 +73,8 @@ export default function AdminDashboard() {
       const rutasRes = await supabase.from('rutas').select('*').eq('fecha', hoyStr);
       const choferesRes = await supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true);
       
-      const combustibleDiaRes = await supabase.from('gastos_combustible').select('*').gte('created_at', `${hoyStr}T00:00:00`);
-      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('*').gte('created_at', `${semanaStr}T00:00:00`);
+      const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').gte('created_at', `${hoyStr}T00:00:00`);
+      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('monto').gte('created_at', `${semanaStr}T00:00:00`);
       
       console.log('[Dashboard] Combustible dia:', combustibleDiaRes.data);
       console.log('[Dashboard] Combustible semana:', combustibleSemanaRes.data);
@@ -94,6 +96,7 @@ export default function AdminDashboard() {
         }
       }
       
+      console.log('[Dashboard] Rutas:', rutas.map(r => r.estado));
       console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes);
       
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
