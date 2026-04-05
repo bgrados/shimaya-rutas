@@ -61,18 +61,23 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const now = new Date();
-      const hoy = format(now, 'yyyy-MM-dd');
+      const hoyStr = format(now, 'yyyy-MM-dd');
       const inicioSemana = new Date(now);
       inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1);
-      const fechaSemana = format(inicioSemana, 'yyyy-MM-dd');
+      const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
 
       const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
-        supabase.from('rutas').select('*').eq('fecha', hoy),
+        supabase.from('rutas').select('*').eq('fecha', hoyStr),
         supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
-        supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoy}T00:00:00`),
-        supabase.from('gastos_combustible').select('monto').gte('fecha', `${fechaSemana}T00:00:00`),
-        supabase.from('gastos_combustible').select('id_gasto').gte('fecha', `${hoy}T00:00:00`)
+        supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoyStr}T00:00:00`),
+        supabase.from('gastos_combustible').select('monto').gte('fecha', `${semanaStr}T00:00:00`),
+        supabase.from('gastos_combustible').select('id_gasto').gte('fecha', `${hoyStr}T00:00:00`)
       ]);
+
+      console.log('[Dashboard] Query params - hoy:', `${hoyStr}T00:00:00`, 'semana:', `${semanaStr}T00:00:00`);
+      console.log('[Dashboard] Combustible dia data:', combustibleDiaRes.data);
+      console.log('[Dashboard] Combustible semana data:', combustibleSemanaRes.data);
+      console.log('[Dashboard] Cargas conteo:', cargasRes.count);
 
       const rutas = rutasRes.data || [];
       const rutasIds = rutas.map(r => r.id_ruta);
@@ -85,6 +90,8 @@ export default function AdminDashboard() {
           .in('id_ruta', rutasIds);
         visitas = visitasData || [];
       }
+      
+      console.log('[Dashboard] Visitas para rutas de hoy:', visitas);
       
       setStats({
         rutasActivas: rutas.filter(r => r.estado === 'en_progreso').length,
@@ -138,7 +145,7 @@ export default function AdminDashboard() {
       const { data: gastosChofer } = await supabase
         .from('gastos_combustible')
         .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
-        .gte('fecha', `${fechaSemana}T00:00:00`)
+        .gte('fecha', `${semanaStr}T00:00:00`)
         .order('monto', { ascending: false });
 
       if (gastosChofer) {

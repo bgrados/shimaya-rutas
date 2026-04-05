@@ -8,17 +8,20 @@ const supabase = createClient(URL, KEY);
 async function check() {
   const hoy = '2026-04-05';
   
-  console.log('=== GASTOS CON FECHA ===');
-  const { data: gasto } = await supabase.from('gastos_combustible').select('*, fecha, created_at');
-  console.log('Todos:', gasto?.map(g => ({ fecha: g.fecha, created: g.created_at, monto: g.monto })));
+  console.log('=== FILTRO CON FECHA string ===');
+  const { data: gasto1, error: e1 } = await supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoy}T00:00:00`);
+  console.log('Error:', e1);
+  console.log('Datos:', gasto1);
+  console.log('Suma:', gasto1?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0);
   
-  console.log('\n=== LOCALES_RUTA CON FECHA ===');
-  const { data: locales } = await supabase.from('locales_ruta').select('*, created_at, hora_llegada');
-  console.log('Muestra:', locales?.slice(0,3).map(l => ({ nombre: l.nombre, estado: l.estado_visita, created: l.created_at })));
+  console.log('\n=== FILTRO CON FECHA Date object ===');
+  const { data: gasto2, error: e2 } = await supabase.from('gastos_combustible').select('monto').gte('fecha', new Date(`${hoy}T00:00:00`).toISOString());
+  console.log('Error:', e2);
+  console.log('Datos:', gasto2);
   
-  console.log('\n=== RUTAS CON FECHA ===');
-  const { data: rutas } = await supabase.from('rutas').select('*, fecha, created_at');
-  console.log('Muestra:', rutas?.slice(0,3).map(r => ({ nombre: r.nombre, fecha: r.fecha, estado: r.estado })));
+  console.log('\n=== TODOS LOS GASTOS ===');
+  const { data: gasto3 } = await supabase.from('gastos_combustible').select('*');
+  console.log('Todos:', gasto3?.map(g => ({ id: g.id_gasto, monto: g.monto, fecha: g.fecha })));
 }
 
 check();
