@@ -209,6 +209,13 @@ export default function MapaGeneral() {
                   >
                     <Popup>
                       <div className="p-1">
+                        {local.foto_url && (
+                          <img 
+                            src={local.foto_url} 
+                            alt={local.nombre}
+                            className="w-full h-16 object-cover rounded-md mb-2"
+                          />
+                        )}
                         <h4 className="font-bold text-gray-900 border-b border-gray-100 pb-1 mb-1">{local.nombre}</h4>
                         <p className="text-[10px] text-gray-600 mb-2 leading-tight">{local.direccion}</p>
                         <div className="flex items-center justify-between gap-2">
