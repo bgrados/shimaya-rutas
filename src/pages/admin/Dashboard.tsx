@@ -11,6 +11,8 @@ interface Stats {
   rutasFinalizadas: number;
   visitasCompletadas: number;
   visitasPendientes: number;
+  localesVisitados: number;
+  numeroViajes: number;
   choferesEnRuta: number;
   totalChoferes: number;
   gastoCombustibleDia: number;
@@ -43,6 +45,8 @@ export default function AdminDashboard() {
     rutasFinalizadas: 0,
     visitasCompletadas: 0,
     visitasPendientes: 0,
+    localesVisitados: 0,
+    numeroViajes: 0,
     choferesEnRuta: 0,
     totalChoferes: 0,
     gastoCombustibleDia: 0,
@@ -85,6 +89,7 @@ export default function AdminDashboard() {
       
       let visitasCompletadas = 0;
       let visitasPendientes = 0;
+      let localesVisitados = 0;
       if (rutasIds.length > 0) {
         const { data: visData } = await supabase
           .from('locales_ruta')
@@ -94,11 +99,14 @@ export default function AdminDashboard() {
         if (visData) {
           visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
           visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
+          localesVisitados = visData.length;
         }
       }
       
-      console.log('[Dashboard] Rutas en progreso:', rutas.map(r => r.estado));
-      console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes);
+      const numeroViajes = rutasEnProgreso.length;
+      
+      console.log('[Dashboard] Rutas:', rutas.map(r => r.estado));
+      console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes, 'locales:', localesVisitados);
       
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
@@ -111,6 +119,8 @@ export default function AdminDashboard() {
         rutasFinalizadas: rutas.filter(r => r.estado === 'finalizada').length,
         visitasCompletadas: visitasCompletadas,
         visitasPendientes: visitasPendientes,
+        localesVisitados: localesVisitados,
+        numeroViajes: numeroViajes,
         choferesEnRuta: rutas.filter(r => r.estado === 'en_progreso').length,
         totalChoferes: choferesRes.count || 0,
         gastoCombustibleDia: gastoDia,
@@ -230,7 +240,35 @@ export default function AdminDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-500/20 rounded-lg">
+                <Truck className="text-green-400" size={20} />
+              </div>
+              <div>
+                <p className="text-xs text-green-300 uppercase font-bold">Viajes</p>
+                <p className="text-2xl font-black text-white">{stats.numeroViajes}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-500/20 rounded-lg">
                 <MapPin className="text-green-400" size={20} />
+              </div>
+              <div>
+                <p className="text-xs text-green-300 uppercase font-bold">Locales Visitados</p>
+                <p className="text-2xl font-black text-white">{stats.localesVisitados}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-500/20 rounded-lg">
+                <CheckCircle className="text-green-400" size={20} />
               </div>
               <div>
                 <p className="text-xs text-green-300 uppercase font-bold">Visitas</p>

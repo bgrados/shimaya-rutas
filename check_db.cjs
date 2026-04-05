@@ -6,17 +6,28 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const supabase = createClient(URL, KEY);
 
 async function check() {
-  // Solo rutas EN PROGRESO
-  console.log('=== SOLO RUTAS EN PROGRESO ===');
-  const { data: prog } = await supabase.from('rutas').select('id_ruta, nombre').eq('estado', 'en_progreso');
-  console.log('Rutas en progreso:', prog);
+  console.log('=== RUTA EN PROGRESO ACTUAL ===');
+  const { data: prog } = await supabase.from('rutas').select('*').eq('estado', 'en_progreso');
+  console.log('Ruta:', prog);
   
   if (prog && prog.length > 0) {
-    const ids = prog.map(r => r.id_ruta);
-    const { data: vis } = await supabase.from('locales_ruta').select('nombre, estado_visita').in('id_ruta', ids);
-    console.log('Visitas:', vis);
-    console.log('Completadas:', vis?.filter(v => v.estado_visita === 'visitado').length);
-    console.log('Pendientes:', vis?.filter(v => v.estado_visita === 'pendiente').length);
+    console.log('\n=== VISITAS CON hora_llegada DE HOY (05 abril) ===');
+    const { data: vis } = await supabase
+      .from('locales_ruta')
+      .select('nombre, estado_visita, hora_llegada')
+      .eq('id_ruta', prog[0].id_ruta)
+      .gte('hora_llegada', '2026-04-05T00:00:00')
+      .lte('hora_llegada', '2026-04-05T23:59:59');
+    console.log('Visitas con llegada hoy:', vis);
+    console.log('Total con hora_llegada hoy:', vis?.length);
+    
+    console.log('\n=== TODAS LAS VISITAS DE LA RUTA ===');
+    const { data: todas } = await supabase
+      .from('locales_ruta')
+      .select('nombre, estado_visita, hora_llegada')
+      .eq('id_ruta', prog[0].id_ruta)
+      .order('orden');
+    console.log('Todas:', todas);
   }
 }
 
