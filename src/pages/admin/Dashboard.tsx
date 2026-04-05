@@ -66,55 +66,52 @@ export default function AdminDashboard() {
       inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1);
       const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
 
-      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
-        supabase.from('rutas').select('*').eq('fecha', hoyStr),
-        supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
-        supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoyStr}T00:00:00`),
-        supabase.from('gastos_combustible').select('monto').gte('fecha', `${semanaStr}T00:00:00`),
-        supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoyStr}T00:00:00`)
-      ]);
+      console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr);
 
-      console.log('[Dashboard] Query params - hoy:', `${hoyStr}T00:00:00`, 'semana:', `${semanaStr}T00:00:00`);
-      console.log('[Dashboard] Combustible dia data:', combustibleDiaRes.data);
-      console.log('[Dashboard] Combustible semana data:', combustibleSemanaRes.data);
-      console.log('[Dashboard] Cargas hoy (monto):', cargasRes.data);
+      const rutasRes = await supabase.from('rutas').select('*').eq('fecha', hoyStr);
+      const choferesRes = await supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true);
+      
+      const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoyStr}T00:00:00`);
+      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('monto').gte('fecha', `${semanaStr}T00:00:00`);
+      
+      console.log('[Dashboard] Combustible dia:', combustibleDiaRes.data);
+      console.log('[Dashboard] Combustible semana:', combustibleSemanaRes.data);
 
       const rutas = rutasRes.data || [];
       const rutasIds = rutas.map(r => r.id_ruta);
       
-      let visitas = [];
-      if (rutasIds.length > 0) {
-        const { data: visitasData } = await supabase
-          .from('locales_ruta')
-          .select('*')
-          .in('id_ruta', rutasIds)
-          .eq('estado_visita', 'visitado');
-        visitas = visitasData || [];
-      }
-      
+      let visitasCompletadas = 0;
       let visitasPendientes = 0;
       if (rutasIds.length > 0) {
-        const { count: pendCount } = await supabase
+        const { data: visData } = await supabase
           .from('locales_ruta')
-          .select('*', { count: 'exact', head: true })
-          .in('id_ruta', rutasIds)
-          .eq('estado_visita', 'pendiente');
-        visitasPendientes = pendCount || 0;
+          .select('estado_visita')
+          .in('id_ruta', rutasIds);
+        
+        if (visData) {
+          visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
+          visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
+        }
       }
       
-      console.log('[Dashboard] Visitas completadas:', visitas.length, 'pendientes:', visitasPendientes);
+      console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes);
+      
+      const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+      const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+      
+      console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana);
       
       setStats({
         rutasActivas: rutas.filter(r => r.estado === 'en_progreso').length,
         rutasPendientes: rutas.filter(r => r.estado === 'pendiente').length,
         rutasFinalizadas: rutas.filter(r => r.estado === 'finalizada').length,
-        visitasCompletadas: visitas.length,
+        visitasCompletadas: visitasCompletadas,
         visitasPendientes: visitasPendientes,
         choferesEnRuta: rutas.filter(r => r.estado === 'en_progreso').length,
         totalChoferes: choferesRes.count || 0,
-        gastoCombustibleDia: combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0,
-        gastoCombustibleSemana: combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0,
-        cargasHoy: cargasRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0
+        gastoCombustibleDia: gastoDia,
+        gastoCombustibleSemana: gastoSemana,
+        cargasHoy: gastoDia
       });
 
       const { data: rutasProgreso } = await supabase
