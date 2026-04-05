@@ -267,7 +267,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-xs text-green-300 uppercase font-bold">Locales</p>
-                <p className="text-2xl font-black text-white">{stats.localesVisitados} <span className="text-sm text-green-300">({stats.visitasCompletadas} visitados)</span></p>
+                <p className="text-2xl font-black text-white">{stats.localesVisitados}</p>
               </div>
             </div>
           </CardContent>
@@ -444,7 +444,7 @@ export default function AdminDashboard() {
               </div>
               
               <Link 
-                to="/admin/combustible"
+                to="/admin/combustible/"
                 className="block w-full text-center py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Ver Detalle Combustible
