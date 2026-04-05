@@ -60,6 +60,27 @@ export default function MapaGeneral() {
     });
   };
 
+  const createPlantaIcon = () => {
+    return L.divIcon({
+      html: `
+        <div style="
+          background-color: #3b82f6;
+          width: 24px;
+          height: 24px;
+          border-radius: 4px;
+          border: 3px solid #ffffff;
+          box-shadow: 0 0 15px #3b82f688;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">🏠</div>
+      `,
+      className: 'custom-div-icon',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+  };
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -149,7 +170,7 @@ export default function MapaGeneral() {
           ))}
           {unassignedLocales.length > 0 && (
             <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
-              <div className="w-3 h-3 rounded-full bg-[#94a3b8]"></div>
+              <span className="text-[10px]">🏠</span>
               <span className="text-[10px] font-bold text-white uppercase italic">PLANTA</span>
             </div>
           )}
@@ -208,12 +229,12 @@ export default function MapaGeneral() {
               <Marker
                 key={local.id_local_base}
                 position={[local.latitud, local.longitud]}
-                icon={createCustomIcon(unassignedColor, local.nombre)}
+                icon={createPlantaIcon()}
               >
                 <Popup>
                   <div className="p-1">
                     <h4 className="font-bold text-gray-900">{local.nombre}</h4>
-                    <p className="text-[10px] text-gray-600">Local sin ruta asignada</p>
+                    <p className="text-[10px] text-gray-600">PLANTA - Inicio y Fin de rutas</p>
                   </div>
                 </Popup>
               </Marker>
