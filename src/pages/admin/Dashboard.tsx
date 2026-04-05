@@ -71,13 +71,13 @@ export default function AdminDashboard() {
         supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
         supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoyStr}T00:00:00`),
         supabase.from('gastos_combustible').select('monto').gte('fecha', `${semanaStr}T00:00:00`),
-        supabase.from('gastos_combustible').select('id_gasto').gte('fecha', `${hoyStr}T00:00:00`)
+        supabase.from('gastos_combustible').select('monto').gte('fecha', `${hoyStr}T00:00:00`)
       ]);
 
       console.log('[Dashboard] Query params - hoy:', `${hoyStr}T00:00:00`, 'semana:', `${semanaStr}T00:00:00`);
       console.log('[Dashboard] Combustible dia data:', combustibleDiaRes.data);
       console.log('[Dashboard] Combustible semana data:', combustibleSemanaRes.data);
-      console.log('[Dashboard] Cargas conteo:', cargasRes.count);
+      console.log('[Dashboard] Cargas hoy (monto):', cargasRes.data);
 
       const rutas = rutasRes.data || [];
       const rutasIds = rutas.map(r => r.id_ruta);
@@ -87,23 +87,34 @@ export default function AdminDashboard() {
         const { data: visitasData } = await supabase
           .from('locales_ruta')
           .select('*')
-          .in('id_ruta', rutasIds);
+          .in('id_ruta', rutasIds)
+          .eq('estado_visita', 'visitado');
         visitas = visitasData || [];
       }
       
-      console.log('[Dashboard] Visitas para rutas de hoy:', visitas);
+      let visitasPendientes = 0;
+      if (rutasIds.length > 0) {
+        const { count: pendCount } = await supabase
+          .from('locales_ruta')
+          .select('*', { count: 'exact', head: true })
+          .in('id_ruta', rutasIds)
+          .eq('estado_visita', 'pendiente');
+        visitasPendientes = pendCount || 0;
+      }
+      
+      console.log('[Dashboard] Visitas completadas:', visitas.length, 'pendientes:', visitasPendientes);
       
       setStats({
         rutasActivas: rutas.filter(r => r.estado === 'en_progreso').length,
         rutasPendientes: rutas.filter(r => r.estado === 'pendiente').length,
         rutasFinalizadas: rutas.filter(r => r.estado === 'finalizada').length,
-        visitasCompletadas: visitas.filter(v => v.estado_visita === 'visitado').length,
-        visitasPendientes: visitas.filter(v => v.estado_visita === 'pendiente').length,
+        visitasCompletadas: visitas.length,
+        visitasPendientes: visitasPendientes,
         choferesEnRuta: rutas.filter(r => r.estado === 'en_progreso').length,
         totalChoferes: choferesRes.count || 0,
         gastoCombustibleDia: combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0,
         gastoCombustibleSemana: combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0,
-        cargasHoy: cargasRes.count || 0
+        cargasHoy: cargasRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0
       });
 
       const { data: rutasProgreso } = await supabase
