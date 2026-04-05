@@ -67,7 +67,7 @@ export default function AdminDashboard() {
 
       const [rutasRes, visitasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, cargasRes] = await Promise.all([
         supabase.from('rutas').select('*'),
-        supabase.from('local_ruta').select('*'),
+        supabase.from('locales_ruta').select('*'),
         supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true),
         supabase.from('gastos_combustible').select('monto').gte('created_at', `${hoy}T00:00:00`),
         supabase.from('gastos_combustible').select('monto').gte('created_at', `${fechaSemana}T00:00:00`),
@@ -106,12 +106,12 @@ export default function AdminDashboard() {
         const rutasConVisitas = await Promise.all(
           rutasProgreso.map(async (r: any) => {
             const { count: total } = await supabase
-              .from('local_ruta')
+              .from('locales_ruta')
               .select('*', { count: 'exact', head: true })
               .eq('id_ruta', r.id_ruta);
             
             const { count: completadas } = await supabase
-              .from('local_ruta')
+              .from('locales_ruta')
               .select('*', { count: 'exact', head: true })
               .eq('id_ruta', r.id_ruta)
               .eq('estado_visita', 'visitado');
