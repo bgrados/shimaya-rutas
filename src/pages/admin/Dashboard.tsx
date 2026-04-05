@@ -85,9 +85,17 @@ export default function AdminDashboard() {
 
       const rutas = rutasRes.data || [];
       
+      console.log('[Dashboard] Todas las rutas estados:', rutas.map(r => ({ fecha: r.fecha, estado: r.estado })));
+      
       const rutasDeHoy = rutas.filter(r => r.fecha === hoyStr);
+      console.log('[Dashboard] Rutas de hoy:', rutasDeHoy.map(r => ({ nombre: r.nombre, estado: r.estado })));
+      
       const rutasEnProgreso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
       const rutasIds = rutasEnProgreso.map(r => r.id_ruta);
+      
+      let visitasCompletadas = 0;
+      let visitasPendientes = 0;
+      let localesVisitados = 0;
       
       if (rutasIds.length === 0 && rutasDeHoy.length > 0) {
         const rutasFinalizadasIds = rutasDeHoy.map(r => r.id_ruta);
@@ -98,6 +106,7 @@ export default function AdminDashboard() {
             .in('id_ruta', rutasFinalizadasIds);
           
           if (visData) {
+            console.log('[Dashboard] Visitas data:', visData.length);
             visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
             visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
             localesVisitados = visData.length;
