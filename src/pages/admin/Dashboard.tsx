@@ -90,19 +90,18 @@ export default function AdminDashboard() {
       const rutasDeHoy = rutas.filter(r => r.fecha === hoyStr);
       console.log('[Dashboard] Rutas de hoy:', rutasDeHoy.map(r => ({ nombre: r.nombre, estado: r.estado })));
       
-      const rutasEnProgreso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
-      const rutasPendientes = rutasDeHoy.filter(r => r.estado === 'pendiente');
+      const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
+      const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
       
       let visitasCompletadas = 0;
       let visitasPendientes = 0;
       let localesVisitados = 0;
       
-      if (rutasDeHoy.length > 0) {
-        const rutasIds = rutasDeHoy.map(r => r.id_ruta);
+      if (rutasFinalizadasIds.length > 0) {
         const { data: visData } = await supabase
           .from('locales_ruta')
           .select('estado_visita')
-          .in('id_ruta', rutasIds);
+          .in('id_ruta', rutasFinalizadasIds);
         
         if (visData) {
           console.log('[Dashboard] Visitas data:', visData.length);
@@ -112,7 +111,7 @@ export default function AdminDashboard() {
         }
       }
       
-      const numeroViajes = rutasDeHoy.length;
+      const numeroViajes = rutasFinalizadas.length;
       
       console.log('[Dashboard] Rutas:', rutas.map(r => r.estado));
       console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes, 'locales:', localesVisitados);
