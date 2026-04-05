@@ -85,13 +85,25 @@ export default function AdminDashboard() {
 
       const rutas = rutasRes.data || [];
       
-      const rutasEnProgreso = rutas.filter(r => r.estado === 'en_progreso');
+      const rutasDeHoy = rutas.filter(r => r.fecha === hoyStr);
+      const rutasEnProgreso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
       const rutasIds = rutasEnProgreso.map(r => r.id_ruta);
       
-      let visitasCompletadas = 0;
-      let visitasPendientes = 0;
-      let localesVisitados = 0;
-      if (rutasIds.length > 0) {
+      if (rutasIds.length === 0 && rutasDeHoy.length > 0) {
+        const rutasFinalizadasIds = rutasDeHoy.map(r => r.id_ruta);
+        if (rutasFinalizadasIds.length > 0) {
+          const { data: visData } = await supabase
+            .from('locales_ruta')
+            .select('estado_visita')
+            .in('id_ruta', rutasFinalizadasIds);
+          
+          if (visData) {
+            visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
+            visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
+            localesVisitados = visData.length;
+          }
+        }
+      } else if (rutasIds.length > 0) {
         const { data: visData } = await supabase
           .from('locales_ruta')
           .select('estado_visita')
@@ -104,7 +116,7 @@ export default function AdminDashboard() {
         }
       }
       
-      const numeroViajes = rutasEnProgreso.length;
+      const numeroViajes = rutasDeHoy.length;
       
       console.log('[Dashboard] Rutas:', rutas.map(r => r.estado));
       console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes, 'locales:', localesVisitados);
@@ -115,14 +127,14 @@ export default function AdminDashboard() {
       console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana);
       
       setStats({
-        rutasActivas: rutas.filter(r => r.estado === 'en_progreso').length,
-        rutasPendientes: rutas.filter(r => r.estado === 'pendiente').length,
-        rutasFinalizadas: rutas.filter(r => r.estado === 'finalizada').length,
+        rutasActivas: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
+        rutasPendientes: rutasDeHoy.filter(r => r.estado === 'pendiente').length,
+        rutasFinalizadas: rutasDeHoy.filter(r => r.estado === 'finalizada').length,
         visitasCompletadas: visitasCompletadas,
         visitasPendientes: visitasPendientes,
         localesVisitados: localesVisitados,
         numeroViajes: numeroViajes,
-        choferesEnRuta: rutas.filter(r => r.estado === 'en_progreso').length,
+        choferesEnRuta: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
         totalChoferes: choferesRes.count || 0,
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
@@ -132,6 +144,7 @@ export default function AdminDashboard() {
       const { data: rutasProgreso } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
+        .eq('fecha', hoyStr)
         .eq('estado', 'en_progreso')
         .limit(5);
         
