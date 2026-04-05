@@ -65,19 +65,22 @@ export default function MapaGeneral() {
       html: `
         <div style="
           background-color: #3b82f6;
-          width: 24px;
-          height: 24px;
-          border-radius: 4px;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
           border: 3px solid #ffffff;
           box-shadow: 0 0 15px #3b82f688;
           display: flex;
           align-items: center;
           justify-content: center;
-        ">🏠</div>
+          font-size: 14px;
+          font-weight: bold;
+          color: white;
+        ">P</div>
       `,
       className: 'custom-div-icon',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
     });
   };
 
@@ -170,7 +173,7 @@ export default function MapaGeneral() {
           ))}
           {unassignedLocales.length > 0 && (
             <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
-              <span className="text-[10px]">🏠</span>
+              <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">P</span>
               <span className="text-[10px] font-bold text-white uppercase italic">PLANTA</span>
             </div>
           )}
@@ -235,7 +238,7 @@ export default function MapaGeneral() {
                   <div className="p-1">
                     <h4 className="font-bold text-gray-900">{local.nombre}</h4>
                     <p className="text-[10px] text-gray-600 mb-1">{local.direccion}</p>
-                    <p className="text-[10px] text-blue-600 font-bold">🏠 PLANTA - Inicio y Fin de todas las rutas</p>
+                    <p className="text-[10px] text-blue-600 font-bold">PLANTA - Inicio y Fin de todas las rutas</p>
                   </div>
                 </Popup>
               </Marker>
