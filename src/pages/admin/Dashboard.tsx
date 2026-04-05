@@ -87,17 +87,19 @@ export default function AdminDashboard() {
       if (rutasIds.length > 0) {
         const { data: visData } = await supabase
           .from('locales_ruta')
-          .select('estado_visita')
+          .select('estado_visita, hora_llegada')
           .in('id_ruta', rutasIds);
         
         if (visData) {
-          visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
+          const hoy = new Date().toISOString().split('T')[0];
+          const visHoy = visData.filter(v => v.hora_llegada && v.hora_llegada.startsWith(hoy));
+          visitasCompletadas = visHoy.filter(v => v.estado_visita === 'visitado').length;
           visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
         }
       }
       
       console.log('[Dashboard] Rutas:', rutas.map(r => r.estado));
-      console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes);
+      console.log('[Dashboard] Visitas HOJUE - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes);
       
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;

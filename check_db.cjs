@@ -6,35 +6,28 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const supabase = createClient(URL, KEY);
 
 async function check() {
-  // Corregir: si es domingo (day=0), ir a hace 6 días, no sumar 1
-  const now = new Date();
-  const day = now.getDay();
-  const inicioSemana = new Date(now);
-  inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+  const hoy = '2026-04-05';
   
-  const semanaStr = inicioSemana.toISOString().split('T')[0];
-  const hoyStr = now.toISOString().split('T')[0];
+  console.log('=== VISITAS CON hora_llegada HOY ===');
+  const { data: visitasHoy } = await supabase
+    .from('locales_ruta')
+    .select('*, hora_llegada, hora_salida')
+    .gte('hora_llegada', `${hoy}T00:00:00`)
+    .lte('hora_llegada', `${hoy}T23:59:59`);
+  console.log('Visitas con llegada hoy:', visitasHoy);
   
-  console.log('day:', day);
-  console.log('semanaStr corregido:', semanaStr);
-  console.log('hoyStr:', hoyStr);
-  
-  console.log('\n=== GASTO SEMANA (lunes 30 - hoy) ===');
-  const { data: gastoSemana } = await supabase.from('gastos_combustible').select('*').gte('created_at', `${semanaStr}T00:00:00`);
-  console.log('Cantidad:', gastoSemana?.length);
-  console.log('Suma:', gastoSemana?.reduce((s, g) => s + (g.monto || 0), 0) || 0);
-  
-  console.log('\n=== VISITAS DE RUTAS DE HOY ===');
-  const { data: rutas } = await supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr);
-  console.log('Rutas hoy:', rutas?.length);
-  
-  if (rutas && rutas.length > 0) {
-    const ids = rutas.map(r => r.id_ruta);
-    const { data: visitas } = await supabase.from('locales_ruta').select('estado_visita').in('id_ruta', ids);
-    console.log('Visitas:', visitas?.length);
-    console.log('Completadas:', visitas?.filter(v => v.estado_visita === 'visitado').length);
-    console.log('Pendientes:', visitas?.filter(v => v.estado_visita === 'pendiente').length);
+  console.log('\n=== VISITAS PENDIENTES DE RUTAS EN PROGRESO ===');
+  const { data: rutasProgreso } = await supabase.from('rutas').select('id_ruta').eq('estado', 'en_progreso');
+  if (rutasProgreso && rutasProgreso.length > 0) {
+    const ids = rutasProgreso.map(r => r.id_ruta);
+    const { data: pend } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).eq('estado_visita', 'pendiente');
+    console.log('Pendientes en rutas en progreso:', pend?.length);
+    console.log('Detalles:', pend?.map(p => ({ nombre: p.nombre, estado: p.estado_visita })));
   }
+  
+  console.log('\n=== RESUMEN ===');
+  console.log('Visitas completadas hoy:', visitasHoy?.filter(v => v.estado_visita === 'visitado').length);
+  console.log('Visitas pendientes (en progreso):', rutasProgreso?.length > 0 ? (await supabase.from('locales_ruta').select('*', { count: 'exact', head: true }).in('id_ruta', rutasProgreso.map(r => r.id_ruta)).eq('estado_visita', 'pendiente')).count : 0);
 }
 
 check();
