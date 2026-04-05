@@ -280,22 +280,8 @@ export default function AdminDashboard() {
                 <MapPin className="text-green-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-green-300 uppercase font-bold">Locales Visitados</p>
-                <p className="text-2xl font-black text-white">{stats.localesVisitados}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/20 rounded-lg">
-                <CheckCircle className="text-green-400" size={20} />
-              </div>
-              <div>
-                <p className="text-xs text-green-300 uppercase font-bold">Visitas a locales</p>
-                <p className="text-2xl font-black text-white">{stats.visitasCompletadas}</p>
+                <p className="text-xs text-green-300 uppercase font-bold">Locales</p>
+                <p className="text-2xl font-black text-white">{stats.localesVisitados} <span className="text-sm text-green-300">({stats.visitasCompletadas} visitados)</span></p>
               </div>
             </div>
           </CardContent>
