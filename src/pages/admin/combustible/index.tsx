@@ -9,6 +9,74 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
+const urlToBase64 = async (url: string): Promise<string | null> => {
+  try {
+    console.log('[PDF] Fetching URL:', url);
+    
+    const response = await fetch(url, {
+      mode: 'cors',
+      credentials: 'include'
+    });
+    console.log('[PDF] Response status:', response.status, response.statusText);
+    if (!response.ok) {
+      console.error('[PDF] Fetch failed:', response.status);
+      return null;
+    }
+    const blob = await response.blob();
+    console.log('[PDF] Blob size:', blob.size, 'type:', blob.type);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        console.log('[PDF] Reader result length:', reader.result ? (reader.result as string).length : 0);
+        resolve(reader.result as string);
+      };
+      reader.onerror = () => {
+        console.error('[PDF] Reader error');
+        resolve(null);
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch (e: any) {
+    console.error('[PDF] Error fetching image:', e.message || e);
+    return null;
+  }
+};
+
+const urlToBase64Supabase = async (url: string): Promise<string | null> => {
+  try {
+    console.log('[PDF] Trying to download image from URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    
+    if (!response.ok) {
+      console.error('[PDF] Fetch failed:', response.status, response.statusText);
+      return null;
+    }
+    
+    const blob = await response.blob();
+    console.log('[PDF] Blob received:', blob.size, 'type:', blob.type);
+    
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        console.log('[PDF] Converted to base64, length:', (reader.result as string)?.length);
+        resolve(reader.result as string);
+      };
+      reader.onerror = () => {
+        console.error('[PDF] FileReader error');
+        resolve(null);
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch (e: any) {
+    console.error('[PDF] Error:', e.message || e);
+    return null;
+  }
+};
+
 type TabType = 'todos' | 'pendientes' | 'confirmados';
 
 interface GrupoFecha {
@@ -163,10 +231,12 @@ export default function GastosCombustible() {
 
   const generarPDF = async () => {
     console.log('PDF button clicked');
+    console.log('gastos:', gastos.length);
     try {
     
     const doc = new jsPDF();
     const fechaActual = format(new Date(), 'yyyy-MM-dd');
+    console.log('PDF doc created, gastos length:', gastos.length);
     
     doc.setFontSize(18);
     doc.text('Reporte de Gastos de Combustible', 14, 22);
@@ -193,7 +263,9 @@ export default function GastosCombustible() {
     doc.text(`Total de cargas: ${gastos.length} | Pendientes: ${pendientesCount} | Confirmados: ${confirmadosCount}`, 14, yPos);
     
     const tableData: (string | undefined)[][] = [];
-    const fotos: { url: string; x: number; y: number; width: number; height: number }[] = [];
+    const gastosConFotos: typeof gastos = [];
+    const grupos = agruparPor === 'fecha' ? gastosAgrupadosPorFecha() : gastosAgrupadosPorChofer();
+    console.log('Grupos:', grupos.length);
     
     if (agruparPor === 'fecha') {
       gastosAgrupadosPorFecha().forEach(grupo => {
@@ -207,7 +279,7 @@ export default function GastosCombustible() {
             `S/ ${(gasto.monto || 0).toFixed(2)}`
           ]);
           if (gasto.foto_url) {
-            fotos.push({ url: gasto.foto_url, x: 0, y: 0, width: 0, height: 0 });
+            gastosConFotos.push(gasto);
           }
         });
       });
@@ -237,12 +309,19 @@ export default function GastosCombustible() {
             `S/ ${(gasto.monto || 0).toFixed(2)}`
           ]);
           if (gasto.foto_url) {
-            fotos.push({ url: gasto.foto_url, x: 0, y: 0, width: 0, height: 0 });
+            gastosConFotos.push(gasto);
           }
         });
       });
     }
 
+    console.log('Table created, gastosConFotos:', gastosConFotos.length);
+    console.log('tableData rows:', tableData.length);
+    console.log('Checking foto_url in gastos:', gastos.filter(g => g.foto_url).length);
+    if (tableData.length > 0) {
+      console.log('First row:', tableData[0]);
+    }
+    
     autoTable(doc, {
       head: [['Hora', 'Chofer', 'Tipo', 'Foto', 'Monto']],
       body: tableData,
@@ -255,11 +334,68 @@ export default function GastosCombustible() {
       }
     });
 
+    console.log('Table added to PDF, processing photos...');
+    console.log('[PDF] Fotos a procesar:', gastosConFotos.length);
+    if (gastosConFotos.length > 0) {
+      console.log('[PDF] Primera foto URL:', gastosConFotos[0]?.foto_url);
+      
+      doc.addPage();
+      doc.setFontSize(16);
+      doc.setTextColor(0);
+      doc.text('Fotos de Comprobantes', 14, 20);
+      
+      let currentY = 30;
+      const imgWidth = 60;
+      const imgHeight = 45;
+      const margin = 14;
+      const gapX = 70;
+      const gapY = 55;
+      const cols = 3;
+      
+      for (let i = 0; i < gastosConFotos.length; i++) {
+        const gasto = gastosConFotos[i];
+        if (!gasto.foto_url) continue;
+        
+        console.log(`[PDF] Procesando foto ${i + 1}:`, gasto.foto_url);
+        
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const xPos = margin + (col * gapX);
+        const yPos = currentY + (row * gapY);
+        
+        if (yPos + imgHeight > 270) {
+          doc.addPage();
+          currentY = 20;
+          continue;
+        }
+        
+        try {
+          const base64 = await urlToBase64Supabase(gasto.foto_url);
+          console.log(`[PDF] Base64 resultado ${i + 1}:`, base64 ? 'OK' : 'NULL');
+          if (base64) {
+            const imgData = base64.split(',')[1];
+            const format = gasto.foto_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
+            doc.addImage(imgData, format, xPos, yPos, imgWidth, imgHeight);
+            
+            doc.setFontSize(8);
+            doc.setTextColor(60);
+            doc.text(`${gasto.chofer_nombre || 'Sin chofer'}`, xPos, yPos + imgHeight + 5);
+            doc.text(`S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase() || '-'}`, xPos, yPos + imgHeight + 10);
+            doc.text(gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '', xPos, yPos + imgHeight + 15);
+          }
+        } catch (imgError) {
+          console.error('[PDF] Error adding image:', imgError);
+        }
+      }
+    } else {
+      console.log('[PDF] No hay gastos con fotos');
+    }
+
     doc.save(`reporte-combustible-${fechaActual}.pdf`);
-    console.log('PDF saved successfully', fotos.length > 0 ? `${fotos.length} fotos disponibles` : 'sin fotos');
-    } catch (error) {
+    console.log('PDF saved successfully', gastosConFotos.length > 0 ? `${gastosConFotos.length} fotos incluidas` : 'sin fotos');
+    } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert('Error al generar PDF');
+      alert('Error al generar PDF: ' + (error?.message || error));
     }
   };
 
