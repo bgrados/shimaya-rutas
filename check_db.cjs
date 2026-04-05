@@ -6,30 +6,24 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const supabase = createClient(URL, KEY);
 
 async function check() {
-  const now = new Date();
-  const hoyStr = now.toISOString().split('T')[0];
+  const hoy = '2026-04-05';
   
-  console.log('HOY:', hoyStr);
+  console.log('=== RUTAS DE HOY ===');
+  const { data: rutas } = await supabase.from('rutas').select('*').eq('fecha', hoy);
+  console.log('Rutas:', rutas?.map(r => ({ nombre: r.nombre, estado: r.estado })));
   
-  console.log('\n=== TODAS LAS RUTAS ===');
-  const { data: rutas } = await supabase.from('rutas').select('*').order('created_at', { ascending: false });
-  console.log('Rutas:', rutas?.map(r => ({ nombre: r.nombre, fecha: r.fecha, estado: r.estado })));
-  
-  console.log('\n=== RUTAS DE HOY ===');
-  const { data: rutasHoy } = await supabase.from('rutas').select('*').eq('fecha', hoyStr);
-  console.log('Rutas hoy:', rutasHoy?.map(r => ({ nombre: r.nombre, estado: r.estado })));
-  console.log('En progreso:', rutasHoy?.filter(r => r.estado === 'en_progreso').length);
-  console.log('Pendientes:', rutasHoy?.filter(r => r.estado === 'pendiente').length);
-  console.log('Finalizadas:', rutasHoy?.filter(r => r.estado === 'finalizada').length);
-  
-  if (rutasHoy && rutasHoy.length > 0) {
-    const ids = rutasHoy.map(r => r.id_ruta);
-    console.log('\n=== VISITAS PARA RUTAS DE HOY ===');
-    const { data: vis } = await supabase.from('locales_ruta').select('estado_visita').in('id_ruta', ids);
-    console.log('Total locales:', vis?.length);
-    console.log('Visitados:', vis?.filter(v => v.estado_visita === 'visitado').length);
-    console.log('Pendientes:', vis?.filter(v => v.estado_visita === 'pendiente').length);
+  console.log('\n=== LOCALES POR RUTA ===');
+  for (const r of rutas || []) {
+    const { data: vis } = await supabase.from('locales_ruta').select('nombre').eq('id_ruta', r.id_ruta);
+    console.log(`${r.nombre} (${r.estado}): ${vis?.length} locales`);
   }
+  
+  console.log('\n=== RESUMEN ===');
+  const finalizadas = rutas?.filter(r => r.estado === 'finalizada').length || 0;
+  const enProgreso = rutas?.filter(r => r.estado === 'en_progreso').length || 0;
+  console.log('Finalizadas:', finalizadas);
+  console.log('En progreso:', enProgreso);
+  console.log('Viajes (solo finalizadas):', finalizadas);
 }
 
 check();
