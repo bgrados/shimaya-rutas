@@ -6,13 +6,21 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const supabase = createClient(URL, KEY);
 
 async function check() {
-  console.log('=== BUSCAR PLANTA ===');
-  const { data: planta } = await supabase.from('locales_base').select('*').ilike('nombre', '%planta%');
-  console.log('Planta:', planta);
+  console.log('=== COLUMNAS DE locales_base ===');
+  const { data: cols } = await supabase.from('locales_base').select('*').limit(1);
+  console.log('Columnas:', cols ? Object.keys(cols[0]) : 'error');
   
-  console.log('\n=== LOCALES SIN RUTA ===');
-  const { data: sinRuta } = await supabase.from('locales_base').select('*').is('id_ruta_base', null);
-  console.log('Sin ruta:', sinRuta?.map(l => ({ nombre: l.nombre, latitud: l.latitud, longitud: l.longitud })));
+  console.log('\n=== ALGUNOS LOCALES ===');
+  const { data: locales } = await supabase.from('locales_base').select('*').limit(3);
+  console.log('Locales:', locales?.map(l => ({ nombre: l.nombre, foto_url: l.foto_url })));
+  
+  console.log('\n=== PROBAR STORAGE ===');
+  try {
+    const { data: buckets } = await supabase.storage.listBuckets();
+    console.log('Buckets:', buckets?.map(b => b.name) || 'vacío');
+  } catch(e) {
+    console.log('Error storage:', e.message);
+  }
 }
 
 check();
