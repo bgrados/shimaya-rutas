@@ -416,9 +416,9 @@ export default function LocalesBase() {
               }`}
             >
               {local.foto_url && editId !== local.id_local_base && (
-                <div className="absolute inset-0 z-0">
-                  <img src={local.foto_url} alt="" className="w-full h-full object-cover opacity-60" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
+                <div className="absolute inset-0 z-0 overflow-hidden">
+                  <img src={local.foto_url} alt="" className="w-full h-full object-cover object-center opacity-50" style={{ minHeight: '120px' }} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/70 to-transparent" />
                 </div>
               )}
               
@@ -438,9 +438,9 @@ export default function LocalesBase() {
                           <MapPin size={18} />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-black text-white italic truncate">{local.nombre}</h3>
+                          <h3 className="font-black text-white italic truncate text-lg">{local.nombre}</h3>
                           {local.direccion && (
-                            <p className="text-text-muted text-xs mt-0.5 line-clamp-2">{local.direccion}</p>
+                            <p className="text-white font-semibold text-sm mt-1 line-clamp-2" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{local.direccion}</p>
                           )}
                         </div>
                       </div>
@@ -467,15 +467,15 @@ export default function LocalesBase() {
                     </div>
 
                     {(local.contacto || local.telefono) && (
-                      <div className="border-t border-white/5 pt-3 mt-3 space-y-1">
+                      <div className="border-t border-white/10 pt-3 mt-3 space-y-1">
                         {local.contacto && (
-                          <p className="text-xs text-text-muted flex items-center gap-1.5">
-                            <User size={11} className="text-primary/60" /> {local.contacto}
+                          <p className="text-sm text-white font-semibold flex items-center gap-1.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                            <User size={12} className="text-primary" /> {local.contacto}
                           </p>
                         )}
                         {local.telefono && (
-                          <p className="text-xs text-text-muted flex items-center gap-1.5">
-                            <Phone size={11} className="text-primary/60" /> {local.telefono}
+                          <p className="text-sm text-white font-semibold flex items-center gap-1.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                            <Phone size={12} className="text-primary" /> {local.telefono}
                           </p>
                         )}
                       </div>
