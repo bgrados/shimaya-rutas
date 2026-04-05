@@ -36,21 +36,27 @@ export default function MapaGeneral() {
     return `hsl(${hue}, 70%, 55%)`;
   };
 
-  const createCustomIcon = (color: string) => {
+  const createCustomIcon = (color: string, nombre?: string) => {
     return L.divIcon({
       html: `
         <div style="
           background-color: ${color};
-          width: 16px;
-          height: 16px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
           border: 3px solid #ffffff;
-          box-shadow: 0 0 15px ${color}88;
-        "></div>
+          box-shadow: 0 0 10px ${color}88;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          font-weight: bold;
+          color: white;
+        ">${nombre ? nombre.substring(0, 2).toUpperCase() : ''}</div>
       `,
       className: 'custom-div-icon',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
     });
   };
 
@@ -108,13 +114,11 @@ export default function MapaGeneral() {
       locales: routeLocales,
       positions,
       color,
-      icon: createCustomIcon(color),
     };
   });
 
   const unassignedLocales = locales.filter(l => !l.id_ruta_base);
   const unassignedColor = '#94a3b8';
-  const unassignedIcon = createCustomIcon(unassignedColor);
 
   // Leyenda dinámica basada en rutas reales
   const leyenda = rutasBase.map(r => ({
@@ -146,7 +150,7 @@ export default function MapaGeneral() {
           {unassignedLocales.length > 0 && (
             <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
               <div className="w-3 h-3 rounded-full bg-[#94a3b8]"></div>
-              <span className="text-[10px] font-bold text-white uppercase italic">Sin Ruta</span>
+              <span className="text-[10px] font-bold text-white uppercase italic">PLANTA</span>
             </div>
           )}
         </div>
@@ -177,7 +181,7 @@ export default function MapaGeneral() {
                   <Marker
                     key={local.id_local_base}
                     position={[local.latitud, local.longitud]}
-                    icon={route.icon}
+                    icon={createCustomIcon(route.color, local.nombre)}
                   >
                     <Popup>
                       <div className="p-1">
@@ -204,7 +208,7 @@ export default function MapaGeneral() {
               <Marker
                 key={local.id_local_base}
                 position={[local.latitud, local.longitud]}
-                icon={unassignedIcon}
+                icon={createCustomIcon(unassignedColor, local.nombre)}
               >
                 <Popup>
                   <div className="p-1">

@@ -6,24 +6,13 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const supabase = createClient(URL, KEY);
 
 async function check() {
-  const hoy = '2026-04-05';
+  console.log('=== BUSCAR PLANTA ===');
+  const { data: planta } = await supabase.from('locales_base').select('*').ilike('nombre', '%planta%');
+  console.log('Planta:', planta);
   
-  console.log('=== RUTAS DE HOY ===');
-  const { data: rutas } = await supabase.from('rutas').select('*').eq('fecha', hoy);
-  console.log('Rutas:', rutas?.map(r => ({ nombre: r.nombre, estado: r.estado })));
-  
-  console.log('\n=== LOCALES POR RUTA ===');
-  for (const r of rutas || []) {
-    const { data: vis } = await supabase.from('locales_ruta').select('nombre').eq('id_ruta', r.id_ruta);
-    console.log(`${r.nombre} (${r.estado}): ${vis?.length} locales`);
-  }
-  
-  console.log('\n=== RESUMEN ===');
-  const finalizadas = rutas?.filter(r => r.estado === 'finalizada').length || 0;
-  const enProgreso = rutas?.filter(r => r.estado === 'en_progreso').length || 0;
-  console.log('Finalizadas:', finalizadas);
-  console.log('En progreso:', enProgreso);
-  console.log('Viajes (solo finalizadas):', finalizadas);
+  console.log('\n=== LOCALES SIN RUTA ===');
+  const { data: sinRuta } = await supabase.from('locales_base').select('*').is('id_ruta_base', null);
+  console.log('Sin ruta:', sinRuta?.map(l => ({ nombre: l.nombre, latitud: l.latitud, longitud: l.longitud })));
 }
 
 check();
