@@ -417,8 +417,8 @@ export default function LocalesBase() {
             >
               {local.foto_url && editId !== local.id_local_base && (
                 <div className="absolute inset-0 z-0">
-                  <img src={local.foto_url} alt="" className="w-full h-full object-cover opacity-90" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/10 to-transparent" />
+                  <img src={local.foto_url} alt="" className="w-full h-full object-cover opacity-60" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
                 </div>
               )}
               
