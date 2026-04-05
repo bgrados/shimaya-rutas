@@ -6,6 +6,8 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 function localToday(): string { return format(new Date(), 'yyyy-MM-dd'); }
 
@@ -327,36 +329,171 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 
   const totalGeneral = gastos.reduce((sum, g) => sum + (g.monto || 0), 0);
 
-  const handleExportarCombustiblePDF = async () => {
-    const html2canvas = (await import('html2canvas')).default;
-    const { jsPDF } = await import('jspdf');
-    
-    const element = document.getElementById('combustible-report-content');
-    if (!element) return;
-    
-    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#1a1a2e' });
-    const imgData = canvas.toDataURL('image/png');
-    
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const imgWidth = pageWidth - 20;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    
-    let heightLeft = imgHeight;
-    let position = 10;
-    
-    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-    
-    while (heightLeft > 0) {
-      doc.addPage();
-      position = heightLeft - imgHeight + 10;
-      doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+  const getFiltroLabel = () => {
+    if (filtroFecha === 'semana') return 'Esta semana';
+    if (filtroFecha === 'mes') return 'Este mes';
+    return 'Todo';
+  };
+
+  const urlToBase64 = async (url: string): Promise<string | null> => {
+    try {
+      const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
     }
-    
-    doc.save(`reporte_combustible_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleExportarCombustiblePDF = async () => {
+    try {
+      const doc = new jsPDF();
+      const fechaActual = format(new Date(), 'yyyy-MM-dd');
+      
+      doc.setFontSize(18);
+      doc.text('Reporte de Gastos de Combustible', 14, 22);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Período: ${getFiltroLabel()} | Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 30);
+      doc.text(`Agrupado: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}`, 14, 36);
+      
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text('Resumen por Tipo de Combustible', 14, 48);
+      
+      doc.setFontSize(10);
+      let yPos = 56;
+      doc.text(`GLP: S/ ${(totalesPorTipo.glp || 0).toFixed(2)}`, 14, yPos);
+      doc.text(`Gasolina: S/ ${(totalesPorTipo.gasolina || 0).toFixed(2)}`, 60, yPos);
+      doc.text(`Diesel: S/ ${(totalesPorTipo.diesel || 0).toFixed(2)}`, 110, yPos);
+      yPos += 8;
+      doc.setFontSize(11);
+      doc.text(`TOTAL GENERAL: S/ ${totalGeneral.toFixed(2)}`, 14, yPos);
+      yPos += 10;
+      doc.setFontSize(10);
+      doc.text(`Total de cargas: ${gastos.length}`, 14, yPos);
+      
+      const tableData: (string | undefined)[][] = [];
+      const gastosConFotos: typeof gastos = [];
+      
+      if (agruparPor === 'fecha') {
+        gastosAgrupadosPorFecha().forEach(grupo => {
+          tableData.push([`--- ${format(parseISO(grupo.fecha), 'dd/MM/yyyy')} ---`, '', '', '', `S/ ${grupo.total.toFixed(2)}`]);
+          grupo.gastos.forEach(gasto => {
+            tableData.push([
+              gasto.created_at ? format(new Date(gasto.created_at), 'HH:mm') : '',
+              gasto.chofer_nombre || '-',
+              gasto.tipo_combustible || '-',
+              gasto.foto_url ? '[Foto]' : '-',
+              `S/ ${(gasto.monto || 0).toFixed(2)}`
+            ]);
+            if (gasto.foto_url && gasto.foto_url.length > 0) {
+              gastosConFotos.push(gasto);
+            }
+          });
+        });
+      } else {
+        gastosAgrupadosPorChofer().forEach(grupo => {
+          const porTipo = grupo.gastos.reduce((acc, gg) => {
+            const t = gg.tipo_combustible || 'otro';
+            acc[t] = (acc[t] || 0) + (gg.monto || 0);
+            return acc;
+          }, {} as Record<string, number>);
+          
+          let detallesTipo = '';
+          if (porTipo.glp) detallesTipo += `GLP: S/ ${porTipo.glp.toFixed(2)} `;
+          if (porTipo.gasolina) detallesTipo += `Gasolina: S/ ${porTipo.gasolina.toFixed(2)} `;
+          if (porTipo.diesel) detallesTipo += `Diesel: S/ ${porTipo.diesel.toFixed(2)}`;
+          
+          tableData.push([`--- ${grupo.choferNombre} ---`, '', '', '', `S/ ${grupo.total.toFixed(2)} (${grupo.gastos.length} cargas)`]);
+          if (detallesTipo) {
+            tableData.push([detallesTipo, '', '', '', '']);
+          }
+          grupo.gastos.forEach(gasto => {
+            tableData.push([
+              gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM HH:mm') : '-',
+              gasto.tipo_combustible || '-',
+              gasto.estado === 'confirmado' ? '✓' : gasto.estado === 'pendiente_revision' ? '⏳' : '✗',
+              gasto.foto_url ? '[Foto]' : '-',
+              `S/ ${(gasto.monto || 0).toFixed(2)}`
+            ]);
+            if (gasto.foto_url && gasto.foto_url.length > 0) {
+              gastosConFotos.push(gasto);
+            }
+          });
+        });
+      }
+
+      autoTable(doc, {
+        head: [['Hora', 'Chofer', 'Tipo', 'Foto', 'Monto']],
+        body: tableData,
+        startY: yPos + 5,
+        theme: 'striped',
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 9 },
+        columnStyles: { 4: { halign: 'right' } }
+      });
+
+      if (gastosConFotos.length > 0) {
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.setTextColor(0);
+        doc.text('Fotos de Comprobantes', 14, 20);
+        
+        let currentY = 30;
+        const imgWidth = 60;
+        const imgHeight = 45;
+        const margin = 14;
+        const gapX = 70;
+        const gapY = 55;
+        const cols = 3;
+        
+        for (let i = 0; i < gastosConFotos.length; i++) {
+          const gasto = gastosConFotos[i];
+          if (!gasto.foto_url) continue;
+          
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const xPos = margin + (col * gapX);
+          const yPos = currentY + (row * gapY);
+          
+          if (yPos + imgHeight > 270) {
+            doc.addPage();
+            currentY = 20;
+            continue;
+          }
+          
+          try {
+            const base64 = await urlToBase64(gasto.foto_url);
+            if (base64) {
+              const imgData = base64.split(',')[1];
+              const imgFormat = gasto.foto_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
+              doc.addImage(imgData, imgFormat, xPos, yPos, imgWidth, imgHeight);
+              
+              doc.setFontSize(8);
+              doc.setTextColor(60);
+              doc.text(`${gasto.chofer_nombre || 'Sin chofer'}`, xPos, yPos + imgHeight + 5);
+              doc.text(`S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase() || '-'}`, xPos, yPos + imgHeight + 10);
+              doc.text(gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '', xPos, yPos + imgHeight + 15);
+            }
+          } catch (e) {
+            console.error('Error adding image:', e);
+          }
+        }
+      }
+
+      doc.save(`reporte_combustible_${fechaActual}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error al generar PDF');
+    }
   };
 
   const PERIODS: { key: Period; label: string }[] = [
