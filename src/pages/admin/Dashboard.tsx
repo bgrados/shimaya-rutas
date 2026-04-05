@@ -80,26 +80,25 @@ export default function AdminDashboard() {
       console.log('[Dashboard] Combustible semana:', combustibleSemanaRes.data);
 
       const rutas = rutasRes.data || [];
-      const rutasIds = rutas.map(r => r.id_ruta);
+      const rutasEnProgreso = rutas.filter(r => r.estado === 'en_progreso');
+      const rutasIds = rutasEnProgreso.map(r => r.id_ruta);
       
       let visitasCompletadas = 0;
       let visitasPendientes = 0;
       if (rutasIds.length > 0) {
         const { data: visData } = await supabase
           .from('locales_ruta')
-          .select('estado_visita, hora_llegada')
+          .select('estado_visita')
           .in('id_ruta', rutasIds);
         
         if (visData) {
-          const hoy = new Date().toISOString().split('T')[0];
-          const visHoy = visData.filter(v => v.hora_llegada && v.hora_llegada.startsWith(hoy));
-          visitasCompletadas = visHoy.filter(v => v.estado_visita === 'visitado').length;
+          visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
           visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
         }
       }
       
-      console.log('[Dashboard] Rutas:', rutas.map(r => r.estado));
-      console.log('[Dashboard] Visitas HOJUE - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes);
+      console.log('[Dashboard] Rutas en progreso:', rutas.map(r => r.estado));
+      console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes);
       
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
