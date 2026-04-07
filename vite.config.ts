@@ -12,7 +12,7 @@ export default defineConfig({
         short_name: 'Rutas',
         theme_color: '#E50914',
         background_color: '#000000',
-        display: 'standalone',
+        display: 'fullscreen',
         start_url: '/',
         icons: [
           {
