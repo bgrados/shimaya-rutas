@@ -229,6 +229,8 @@ export default function DriverViaje() {
         setNuevoDestino(localesDisponibles[0].nombre || '');
       } else if (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) {
         setNuevoDestino('Planta');
+      } else {
+        setNuevoDestino('');
       }
     }
   }, [bitacora, locales, localesDisponibles.length]);
@@ -329,6 +331,7 @@ export default function DriverViaje() {
       }
       if (data.destino_nombre === 'Planta') {
          await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
+         if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
       }
     } else if (error) {
       console.error('[Viaje] Error registrar llegada:', error);
