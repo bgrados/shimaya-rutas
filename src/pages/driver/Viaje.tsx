@@ -440,8 +440,9 @@ const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
       
       // Enviar a WhatsApp en segundo plano
       if (urlsSubidas.length > 0 && localParaFoto.nombre) {
-        const mensaje = `📸 *EVIDENCIA - ${localParaFoto.nombre}*\n\n🕐 ${format(new Date(), 'HH:mm')}\n📍 ${localParaFoto.direccion || 'Sin dirección'}\n✅ ${urlsSubidas.length} fotos`;
-        const urlWhatsapp = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+        const mensaje = `📸 *EVIDENCIA - ${localParaFoto.nombre}*\n\n🕐 ${format(new Date(), 'HH:mm')}\n📍 ${localParaFoto.direccion || 'Sin dirección'}\n✅ ${urlsSubidas.length} fotos guardadas`;
+        // Enviar a número directo para pruebas
+        const urlWhatsapp = `https://wa.me/51947024333?text=${encodeURIComponent(mensaje)}`;
         // Abrir en background (sin interromper)
         setTimeout(() => window.open(urlWhatsapp, '_blank'), 500);
       }
