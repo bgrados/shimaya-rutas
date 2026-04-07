@@ -84,6 +84,30 @@ export default function MapaGeneral() {
     });
   };
 
+  const createCerradoIcon = () => {
+    return L.divIcon({
+      html: `
+        <div style="
+          background-color: #ef4444;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 3px solid #ffffff;
+          box-shadow: 0 0 12px #ef444488;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: bold;
+          color: white;
+        ">X</div>
+      `,
+      className: 'custom-div-icon',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+  };
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -143,6 +167,10 @@ export default function MapaGeneral() {
 
   const unassignedLocales = locales.filter(l => !l.id_ruta_base);
   const unassignedColor = '#94a3b8';
+  
+  // Separar planta de locales cerrados temporalmente usando la columna cerrado_temporal
+  const plantaLocal = unassignedLocales.find(l => l.nombre?.toLowerCase().includes('planta'));
+  const cerradosTemporales = locales.filter(l => l.cerrado_temporal === true);
 
   // Leyenda dinámica basada en rutas reales
   const leyenda = rutasBase.map(r => ({
@@ -175,6 +203,12 @@ export default function MapaGeneral() {
             <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
               <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">P</span>
               <span className="text-[10px] font-bold text-white uppercase italic">PLANTA</span>
+            </div>
+          )}
+          {cerradosTemporales.length > 0 && (
+            <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
+              <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">X</span>
+              <span className="text-[10px] font-bold text-white uppercase italic">CERRADO</span>
             </div>
           )}
         </div>
@@ -230,18 +264,36 @@ export default function MapaGeneral() {
             </React.Fragment>
           ))}
 
-          {unassignedLocales.map(local =>
+          {/* PLANTA - solo si existe */}
+          {plantaLocal && plantaLocal.latitud && plantaLocal.longitud && (
+            <Marker
+              key={plantaLocal.id_local_base}
+              position={[plantaLocal.latitud, plantaLocal.longitud]}
+              icon={createPlantaIcon()}
+            >
+              <Popup>
+                <div className="p-1">
+                  <h4 className="font-bold text-gray-900">{plantaLocal.nombre}</h4>
+                  <p className="text-[10px] text-gray-600 mb-1">{plantaLocal.direccion}</p>
+                  <p className="text-[10px] text-blue-600 font-bold">PLANTA - Inicio y Fin de todas las rutas</p>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
+          {/* Locales cerrados temporalmente */}
+          {cerradosTemporales.map(local =>
             local.latitud && local.longitud ? (
               <Marker
                 key={local.id_local_base}
                 position={[local.latitud, local.longitud]}
-                icon={createPlantaIcon()}
+                icon={createCerradoIcon()}
               >
                 <Popup>
                   <div className="p-1">
                     <h4 className="font-bold text-gray-900">{local.nombre}</h4>
                     <p className="text-[10px] text-gray-600 mb-1">{local.direccion}</p>
-                    <p className="text-[10px] text-blue-600 font-bold">PLANTA - Inicio y Fin de todas las rutas</p>
+                    <p className="text-[10px] text-red-600 font-bold">⚠️ CERRADO TEMPORALMENTE</p>
                   </div>
                 </Popup>
               </Marker>
