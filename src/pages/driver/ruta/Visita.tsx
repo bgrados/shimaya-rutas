@@ -1,11 +1,49 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
-import type { LocalRuta, EstadoVisita } from '../../../types';
+import type { LocalRuta, EstadoVisita, FotoVisita } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Camera, MapPin, ArrowLeft, CheckCircle2, Navigation } from 'lucide-react';
+import { Camera, MapPin, ArrowLeft, CheckCircle2, Navigation, X, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface PhotoItem {
+  preview: string;
+  file: File;
+  uploading?: boolean;
+}
+
+const MAX_PHOTOS = 5;
+const TARGET_WIDTH = 1200;
+
+function compressToWebP(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ratio = TARGET_WIDTH / img.width;
+        canvas.width = TARGET_WIDTH;
+        canvas.height = img.height * ratio;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('No se pudo crear el contexto'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Error al comprimir'));
+        }, 'image/webp', 0.8);
+      };
+      img.onerror = () => reject(new Error('Error al cargar imagen'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Error al leer archivo'));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function VisitaLocal() {
   const { rId, vId } = useParams<{ rId: string; vId: string }>();
@@ -16,10 +54,9 @@ export default function VisitaLocal() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Form states
   const [observacion, setObservacion] = useState('');
-  const [fotoFile, setFotoFile] = useState<File | null>(null);
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<FotoVisita[]>([]);
   const [gps, setGps] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
@@ -29,90 +66,104 @@ export default function VisitaLocal() {
       if (!error && data) {
         setLocal(data as LocalRuta);
         setObservacion(data.observacion || '');
-        if (data.foto_url) setFotoPreview(data.foto_url);
       }
       setLoading(false);
     }
     fetchLocal();
   }, [vId]);
 
-  const handleLlegada = async () => {
-    setSaving(true);
-    
-    // Obtener GPS y guardar de INMEDIATO
-    let currentGps = gps;
-    if (!currentGps && 'geolocation' in navigator) {
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
-        });
-        currentGps = { lat: position.coords.latitude, lng: position.coords.longitude };
-        setGps(currentGps);
-      } catch (err) {
-        console.warn("GPS falló o denegado durante llegada.", err);
-      }
+  useEffect(() => {
+    async function fetchExistingPhotos() {
+      if (!vId) return;
+      const { data } = await supabase
+        .from('fotos_visita')
+        .select('*')
+        .eq('id_local_ruta', vId)
+        .order('orden', { ascending: true });
+      if (data) setExistingPhotos(data as FotoVisita[]);
     }
+    fetchExistingPhotos();
+  }, [vId]);
 
-    const now = new Date().toISOString();
-    await supabase.from('locales_ruta').update({
-      hora_llegada: now,
-      estado_visita: 'pendiente',
-      ...(currentGps ? { gps_lat: currentGps.lat, gps_lng: currentGps.lng } : {})
-    }).eq('id_local_ruta', vId);
-    
-    setLocal(prev => prev ? { ...prev, hora_llegada: now } : null);
-    setSaving(false);
-  };
+  const totalPhotos = photos.length + existingPhotos.length;
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      setFotoFile(file);
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setFotoPreview(ev.target?.result as string);
+        const newPhoto: PhotoItem = {
+          preview: ev.target?.result as string,
+          file,
+        };
+        setPhotos(prev => [...prev, newPhoto]);
       };
       reader.readAsDataURL(file);
     }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const uploadPhoto = async (): Promise<string | null> => {
-    if (!fotoFile || !vId) return null;
-    const fileExt = fotoFile.name.split('.').pop();
-    const fileName = `${vId}_${Date.now()}.${fileExt}`;
-    const filePath = `visitas/${fileName}`;
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
 
-    const { error: uploadError } = await supabase.storage.from('visitas_fotos').upload(filePath, fotoFile);
-    
-    if (uploadError) {
-      console.error('Error uploading photo:', uploadError);
+  const handleRemoveExistingPhoto = async (id_foto: string) => {
+    try {
+      await supabase.from('fotos_visita').delete().eq('id_foto', id_foto);
+      setExistingPhotos(prev => prev.filter(p => p.id_foto !== id_foto));
+    } catch (err) {
+      console.error('Error deleting photo:', err);
+    }
+  };
+
+  const uploadPhoto = async (file: File, orden: number): Promise<string | null> => {
+    try {
+      const compressedBlob = await compressToWebP(file);
+      const fileName = `${vId}_${Date.now()}_${orden}.webp`;
+      const filePath = `evidencia/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('visitas_fotos')
+        .upload(filePath, compressedBlob, { contentType: 'image/webp' });
+
+      if (uploadError) {
+        console.error('Error uploading:', uploadError);
+        return null;
+      }
+
+      const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (err) {
+      console.error('Error compressing/uploading:', err);
       return null;
     }
-
-    const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
-    return data.publicUrl;
   };
 
   const handleFinalizar = async (estado: EstadoVisita) => {
     setSaving(true);
     const now = new Date().toISOString();
-    
-    let photoUrl = local?.foto_url;
-    if (fotoFile) {
-      const uploadedUrl = await uploadPhoto();
-      if (uploadedUrl) photoUrl = uploadedUrl;
+
+    for (let i = 0; i < photos.length; i++) {
+      const photo = photos[i];
+      const orden = existingPhotos.length + i + 1;
+      const url = await uploadPhoto(photo.file, orden);
+      if (url) {
+        await supabase.from('fotos_visita').insert({
+          id_local_ruta: vId,
+          foto_url: url,
+          orden,
+        });
+      }
     }
 
     const updates = {
       estado_visita: estado,
       observacion,
-      foto_url: photoUrl,
       ...(gps ? { gps_lat: gps.lat, gps_lng: gps.lng } : {}),
-       hora_salida: now
+      hora_salida: now
     };
 
     await supabase.from('locales_ruta').update(updates).eq('id_local_ruta', vId);
-    
     navigate(`/driver/ruta/${rId}`);
   };
 
@@ -143,7 +194,29 @@ export default function VisitaLocal() {
           </div>
           
           {!local.hora_llegada && (
-            <Button className="w-full flex items-center justify-center gap-2" size="lg" onClick={handleLlegada} isLoading={saving}>
+            <Button className="w-full flex items-center justify-center gap-2" size="lg" onClick={async () => {
+              setSaving(true);
+              let currentGps = gps;
+              if (!currentGps && 'geolocation' in navigator) {
+                try {
+                  const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+                  });
+                  currentGps = { lat: position.coords.latitude, lng: position.coords.longitude };
+                  setGps(currentGps);
+                } catch (err) {
+                  console.warn("GPS falló", err);
+                }
+              }
+              const now = new Date().toISOString();
+              await supabase.from('locales_ruta').update({
+                hora_llegada: now,
+                estado_visita: 'pendiente',
+                ...(currentGps ? { gps_lat: currentGps.lat, gps_lng: currentGps.lng } : {})
+              }).eq('id_local_ruta', vId);
+              setLocal(prev => prev ? { ...prev, hora_llegada: now } : null);
+              setSaving(false);
+            }} isLoading={saving}>
               <MapPin size={20} /> Registrar Llegada a Local
             </Button>
           )}
@@ -163,7 +236,11 @@ export default function VisitaLocal() {
 
       <div className="space-y-6">
         <div>
-          <h3 className="text-white font-bold mb-3 flex items-center gap-2"><Camera size={18} className="text-primary"/> Fotografía</h3>
+          <h3 className="text-white font-bold mb-3 flex items-center gap-2">
+            <Camera size={18} className="text-primary"/> 
+            Evidencia Fotográfica
+            <span className="text-xs text-text-muted ml-2">({totalPhotos}/{MAX_PHOTOS})</span>
+          </h3>
           
           <input 
             type="file" 
@@ -171,25 +248,50 @@ export default function VisitaLocal() {
             capture="environment" 
             ref={fileInputRef} 
             className="hidden" 
-            onChange={handlePhotoCapture} 
+            onChange={handleAddPhoto}
+            disabled={totalPhotos >= MAX_PHOTOS}
           />
           
-          {fotoPreview ? (
-            <div className="relative rounded-xl overflow-hidden border border-surface-light group">
-              <img src={fotoPreview} alt="Evidencia" className="w-full h-48 object-cover" />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>Cambiar foto</Button>
+          <div className="grid grid-cols-3 gap-3">
+            {existingPhotos.map((photo, idx) => (
+              <div key={photo.id_foto} className="relative group aspect-square rounded-lg overflow-hidden border border-surface-light">
+                <img src={photo.foto_url} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => handleRemoveExistingPhoto(photo.id_foto)}
+                  className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={14} />
+                </button>
               </div>
-            </div>
-          ) : (
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-32 border-2 border-dashed border-surface-light hover:border-primary rounded-xl flex flex-col items-center justify-center text-text-muted hover:text-white transition-colors gap-2"
-            >
-              <Camera size={32} />
-              <span className="text-sm font-medium">Tomar foto de evidencia</span>
-            </button>
-          )}
+            ))}
+            
+            {photos.map((photo, idx) => (
+              <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-primary/50">
+                <img src={photo.preview} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => handleRemovePhoto(idx)}
+                  className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full p-1"
+                >
+                  <X size={14} />
+                </button>
+                {photo.uploading && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <Loader2 className="text-white animate-spin" size={24} />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {totalPhotos < MAX_PHOTOS && (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="aspect-square border-2 border-dashed border-surface-light hover:border-primary rounded-lg flex flex-col items-center justify-center text-text-muted hover:text-white transition-colors gap-1"
+              >
+                <Camera size={20} />
+                <span className="text-[10px] font-medium">Agregar</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div>

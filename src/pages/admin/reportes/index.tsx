@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
-import type { Ruta, GastoCombustible } from '../../../types';
+import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
@@ -21,7 +21,7 @@ function formatMins(mins: number | null) {
 type Period = 'diario' | 'semanal' | 'mensual';
 type ReportType = 'rutas' | 'combustible';
 
-interface RutaConBitacora extends Ruta { bitacora?: any[]; duracionMins?: number | null; }
+interface RutaConBitacora extends Ruta { bitacora?: any[]; duracionMins?: number | null; localesRuta?: any[]; }
 interface Usuario { id_usuario: string; nombre: string; }
 interface GrupoFecha { fecha: string; gastos: GastoCombustible[]; total: number; }
 interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCombustible[]; total: number; }
@@ -36,6 +36,9 @@ export default function Reportes() {
   const [rutasBase, setRutasBase] = useState<{ id_ruta_base: string; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+
+  // Estado para fotos de evidencia
+  const [fotosPorLocal, setFotosPorLocal] = useState<Record<string, FotoVisita[]>>({});
 
   // Combustible state
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
@@ -82,11 +85,30 @@ export default function Reportes() {
     if (rutasData && rutasData.length > 0) {
       const ids = rutasData.map((r: any) => r.id_ruta);
       const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
+      
+      // Cargar locales_ruta para cada ruta
+      const { data: localesData } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
+      
+      // Cargar fotos de evidencia por local
+      const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
+      let fotosMap: Record<string, FotoVisita[]> = {};
+      if (localRutaIds.length > 0) {
+        const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
+        if (fotosData) {
+          fotosData.forEach((f: any) => {
+            if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
+            fotosMap[f.id_local_ruta].push(f as FotoVisita);
+          });
+        }
+      }
+      setFotosPorLocal(fotosMap);
+
       const enriched = rutasData.map((r: any) => {
         const bits = (bitData || []).filter((b: any) => b.id_ruta === r.id_ruta);
+        const locales = (localesData || []).filter((l: any) => l.id_ruta === r.id_ruta);
         const duracionMins = r.hora_salida_planta && r.hora_llegada_planta
           ? differenceInMinutes(new Date(r.hora_llegada_planta), new Date(r.hora_salida_planta)) : null;
-        return { ...r, bitacora: bits, duracionMins };
+        return { ...r, bitacora: bits, localesRuta: locales, duracionMins };
       });
       setAllRutas(enriched as RutaConBitacora[]);
     } else {
@@ -192,7 +214,7 @@ export default function Reportes() {
         </tr>`;
       }).join('');
 
-      return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
         <div style="background:#1e293b;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
           <div>
             <strong style="font-size:14px;">🚛 ${r.nombre}</strong>
@@ -215,12 +237,27 @@ export default function Reportes() {
             <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Tramo</th>
             <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Salida</th>
             <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Llegada</th>
-            <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Tránsito</th>
-            <th style="padding:6px 8px;text-align:left;color:#f59e0b;font-weight:600;">⏳ Permanencia</th>
+            <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Trnsito</th>
+            <th style="padding:6px 8px;text-align:left;color:#f59e0b;font-weight:600;">Permanencia</th>
           </tr></thead>
           <tbody>${paradas}</tbody>
         </table>` :
         '<p style="padding:10px 16px;color:#94a3b8;font-size:12px;font-style:italic;margin:0;">Sin movimientos registrados</p>'}
+        ${(r.localesRuta || []).length > 0 ? (() => {
+          let fotosHtml = '';
+          (r.localesRuta || []).forEach((local: any) => {
+            const fotos = fotosPorLocal[local.id_local_ruta] || [];
+            if (fotos.length > 0) {
+              fotosHtml += `<div style="padding:8px 12px;border-top:1px solid #e2e8f0;background:#fafafa;">
+                <p style="font-size:10px;color:#64748b;margin:0 0 6px 0;font-weight:600;">${local.nombre || 'Local'}</p>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  ${fotos.map((f: any) => `<img src="${f.foto_url}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;" />`).join('')}
+                </div>
+              </div>`;
+            }
+          });
+          return fotosHtml;
+        })() : ''}
       </div>`;
     }).join('');
 
@@ -682,6 +719,36 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                       </div>
                     ) : (
                       <p className="text-text-muted text-xs italic p-4">Sin movimientos registrados.</p>
+                    )}
+
+                    {/* Fotos de evidencia por local */}
+                    {ruta.localesRuta && ruta.localesRuta.length > 0 && (
+                      <div className="p-4 bg-surface-light/20 border-t border-white/5">
+                        <p className="text-xs text-text-muted font-bold mb-2 uppercase">📸 Evidencia por Local</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {ruta.localesRuta.map((local: any) => {
+                            const fotos = fotosPorLocal[local.id_local_ruta] || [];
+                            if (fotos.length === 0) return null;
+                            return (
+                              <div key={local.id_local_ruta} className="bg-surface rounded-lg p-2 border border-surface-light">
+                                <p className="text-[10px] text-white font-medium truncate mb-1">{local.nombre || 'Local'}</p>
+                                <div className="grid grid-cols-3 gap-1">
+                                  {fotos.slice(0, 3).map((foto: any, idx: number) => (
+                                    <a key={foto.id_foto} href={foto.foto_url} target="_blank" rel="noopener noreferrer">
+                                      <img src={foto.foto_url} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded" />
+                                    </a>
+                                  ))}
+                                  {fotos.length > 3 && (
+                                    <div className="w-full aspect-square bg-surface-light rounded flex items-center justify-center text-[10px] text-text-muted">
+                                      +{fotos.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
                   </Card>
                 );
