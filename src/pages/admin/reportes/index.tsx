@@ -338,7 +338,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
-    const win = window.open('', '_blank', 'width=960,height=750');
+const win = window.open('', '_blank');
     if (win) {
       win.document.write(html);
       win.document.close();
