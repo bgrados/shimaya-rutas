@@ -89,8 +89,8 @@ export default function Login() {
             <MoveRight size={12} className="text-primary/40" />
           </div>
         </div>
-        <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Shimaya Rutas</h2>
-        <p className="text-text-muted text-xs uppercase tracking-widest font-bold opacity-60">Logística Avanzada</p>
+        <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Shimaya Rutas 🚛 v2</h2>
+        <p className="text-text-muted text-xs uppercase tracking-widest font-bold opacity-60">Logística Avanzada - TEST DEPLOY</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
