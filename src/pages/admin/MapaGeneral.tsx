@@ -171,6 +171,7 @@ export default function MapaGeneral() {
   // Separar planta de locales cerrados temporalmente usando la columna cerrado_temporal
   const plantaLocal = unassignedLocales.find(l => l.nombre?.toLowerCase().includes('planta'));
   const cerradosTemporales = locales.filter(l => l.cerrado_temporal === true);
+  const plantaCount = plantaLocal ? 1 : 0;
 
   // Leyenda dinámica basada en rutas reales
   const leyenda = rutasBase.map(r => ({
@@ -199,7 +200,7 @@ export default function MapaGeneral() {
               <span className="text-[10px] font-bold text-white uppercase italic">{r.nombre}</span>
             </div>
           ))}
-          {unassignedLocales.length > 0 && (
+          {plantaCount > 0 && (
             <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
               <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">P</span>
               <span className="text-[10px] font-bold text-white uppercase italic">PLANTA</span>
@@ -314,10 +315,16 @@ export default function MapaGeneral() {
               <span className="text-[9px] text-text-muted">Zonas Activas:</span>
               <span className="text-[9px] font-bold">{rutasBase.length}</span>
             </div>
-            {unassignedLocales.length > 0 && (
+            {plantaCount > 0 && (
               <div className="flex justify-between">
                 <span className="text-[9px] text-text-muted">PLANTA:</span>
-                <span className="text-[9px] font-bold text-yellow-400">{unassignedLocales.length}</span>
+                <span className="text-[9px] font-bold text-yellow-400">{plantaCount}</span>
+              </div>
+            )}
+            {cerradosTemporales.length > 0 && (
+              <div className="flex justify-between">
+                <span className="text-[9px] text-text-muted">Cerrados:</span>
+                <span className="text-[9px] font-bold text-red-400">{cerradosTemporales.length}</span>
               </div>
             )}
           </div>
