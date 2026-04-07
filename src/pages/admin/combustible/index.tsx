@@ -368,6 +368,7 @@ export default function GastosCombustible() {
   .content { padding: 20px 28px; }
   .footer { text-align: center; color: #94a3b8; font-size: 11px; padding: 16px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
   .print-btn { position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
+  .close-btn { position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; z-index: 9999; }
 </style>
 </head>
 <body>
@@ -380,6 +381,7 @@ export default function GastosCombustible() {
   </div>
   <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(new Date(), "dd/MM/yyyy HH:mm")}</div>
 </div>
+<button class="close-btn" onclick="if(window.opener){window.close();}else{history.back();}">✕ Cerrar</button>
 
 <div class="badge-row">
   <div class="badge"><span class="badge-val" style="color:#22c55e;">S/ ${totalGeneral.toFixed(2)}</span><span class="badge-lbl">Total General</span></div>
