@@ -448,8 +448,19 @@ export default function DriverViaje() {
             <h1 className="text-2xl font-bold text-white uppercase italic tracking-tighter">Mi Bitácora</h1>
             <p className="text-text-muted text-sm italic font-medium">{ruta.nombre} • <span className="text-primary font-black uppercase">{ruta.placa || 'Sin Placa'}</span></p>
           </div>
-          <div className="bg-surface-light px-3 py-1 rounded-full border border-white/5">
-             <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="secondary" 
+              size="sm"
+              onClick={() => navigate(`/driver/ruta/${ruta.id_ruta}`)}
+              className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/30"
+            >
+              <MapPin size={16} className="mr-1" />
+              Ver Locales
+            </Button>
+            <div className="bg-surface-light px-3 py-1 rounded-full border border-white/5">
+               <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
+            </div>
           </div>
         </div>
       </div>
