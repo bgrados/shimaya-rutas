@@ -22,7 +22,8 @@ import {
   Fuel,
   Edit2,
   X,
-  Check
+  Check,
+  Camera
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -472,6 +473,23 @@ export default function DriverViaje() {
         >
           <Fuel size={18} className="mr-2" />
           Registrar Combustible
+        </Button>
+      )}
+
+      {/* Botón contextual para tomar fotos del destino actual */}
+      {tramoEnProgreso && (
+        <Button 
+          className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
+          onClick={() => {
+            const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
+            if (localActual) {
+              navigate(`/driver/ruta/${ruta.id_ruta}/visita/${localActual.id_local_ruta}`);
+            }
+          }}
+          disabled={!locales.find(l => l.nombre === tramoEnProgreso.destino_nombre)}
+        >
+          <Camera size={20} className="mr-2" />
+          📸 Tomar Evidencia - {tramoEnProgreso.destino_nombre}
         </Button>
       )}
 
