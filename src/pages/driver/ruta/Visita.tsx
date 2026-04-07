@@ -238,7 +238,7 @@ export default function VisitaLocal() {
         <div>
           <h3 className="text-white font-bold mb-3 flex items-center gap-2">
             <Camera size={18} className="text-primary"/> 
-            Evidencia Fotográfica
+            📸 Evidencia Fotográfica (hasta 5 fotos)
             <span className="text-xs text-text-muted ml-2">({totalPhotos}/{MAX_PHOTOS})</span>
           </h3>
           
