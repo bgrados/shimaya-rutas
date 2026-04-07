@@ -57,7 +57,9 @@ export default function DriverViaje() {
   // Estado para capturar fotos de evidencia
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
   const [fotosCapturadas, setFotosCapturadas] = useState<{preview: string; file: File}[]>([]);
+  const [fotosExistentes, setFotosExistentes] = useState<{id_foto: string; foto_url: string}[]>([]);
   const [capturando, setCapturando] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadCurrentRuta = async () => {
@@ -412,6 +414,7 @@ export default function DriverViaje() {
         .eq('id_local_ruta', localParaFoto.id_local_ruta);
       
       const ordenBase = (fotosExistentes?.length || 0) + 1;
+      const urlsSubidas: string[] = [];
       
       for (let i = 0; i < fotosCapturadas.length; i++) {
         const { file } = fotosCapturadas[i];
@@ -424,18 +427,29 @@ export default function DriverViaje() {
           .upload(filePath, compressedBlob, { contentType: 'image/webp' });
         
         if (!uploadError) {
-          const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
+const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
           await supabase.from('fotos_visita').insert({
             id_local_ruta: localParaFoto.id_local_ruta,
             foto_url: data.publicUrl,
             orden: ordenBase + i,
           });
+          
+          urlsSubidas.push(data.publicUrl);
         }
       }
       
-      alert('✅ Fotos de evidencia guardadas correctamente');
+      // Enviar a WhatsApp en segundo plano
+      if (urlsSubidas.length > 0 && localParaFoto.nombre) {
+        const mensaje = `📸 *EVIDENCIA - ${localParaFoto.nombre}*\n\n🕐 ${format(new Date(), 'HH:mm')}\n📍 ${localParaFoto.direccion || 'Sin dirección'}\n✅ ${urlsSubidas.length} fotos`;
+        const urlWhatsapp = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+        // Abrir en background (sin interromper)
+        setTimeout(() => window.open(urlWhatsapp, '_blank'), 500);
+      }
+      
+      alert('✅ Fotos guardadas y enviado a WhatsApp');
       setLocalParaFoto(null);
       setFotosCapturadas([]);
+      setFotosExistentes([]);
     } catch (err) {
       console.error('Error subiendo fotos:', err);
       alert('Error al guardar fotos');
@@ -575,11 +589,13 @@ export default function DriverViaje() {
       {tramoEnProgreso && (
         <Button 
           className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
-          onClick={() => {
+          onClick={async () => {
             const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
             if (localActual) {
               setLocalParaFoto(localActual);
               setFotosCapturadas([]);
+              const { data: fotos } = await supabase.from('fotos_visita').select('id_foto,foto_url').eq('id_local_ruta', localActual.id_local_ruta);
+              setFotosExistentes(fotos || []);
             }
           }}
           disabled={!locales.find(l => l.nombre === tramoEnProgreso.destino_nombre)}
@@ -593,12 +609,14 @@ export default function DriverViaje() {
       {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
         <Button 
           className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
-          onClick={() => {
+          onClick={async () => {
             const ultimoTramo = bitacora[bitacora.length - 1];
             const localActual = locales.find(l => l.nombre === ultimoTramo.destino_nombre);
             if (localActual) {
               setLocalParaFoto(localActual);
               setFotosCapturadas([]);
+              const { data: fotos } = await supabase.from('fotos_visita').select('id_foto,foto_url').eq('id_local_ruta', localActual.id_local_ruta);
+              setFotosExistentes(fotos || []);
             }
           }}
         >
@@ -888,6 +906,20 @@ export default function DriverViaje() {
             
             <p className="text-sm text-text-muted">Máximo 5 fotos • Compresión automática</p>
             
+            {/* Fotos existentes */}
+            {fotosExistentes.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-purple-400 font-bold">Fotos guardadas:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {fotosExistentes.map((foto) => (
+                    <div key={foto.id_foto} className="relative aspect-square rounded-lg overflow-hidden border border-green-500/50 cursor-pointer" onClick={() => setFotoAmpliada(foto.foto_url)}>
+                      <img src={foto.foto_url} alt="Evidencia" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="grid grid-cols-3 gap-2">
               {fotosCapturadas.map((foto, idx) => (
                 <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-purple-500/50">
@@ -939,6 +971,16 @@ export default function DriverViaje() {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal para ver foto ampliada */}
+      {fotoAmpliada && (
+        <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4" onClick={() => setFotoAmpliada(null)}>
+          <img src={fotoAmpliada} alt="Foto ampliada" className="max-w-full max-h-full object-contain" />
+          <button className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2" onClick={() => setFotoAmpliada(null)}>
+            <X size={24} />
+          </button>
         </div>
       )}
     </div>
