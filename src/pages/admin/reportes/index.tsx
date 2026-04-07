@@ -6,8 +6,20 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+
+const urlToBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch { return null; }
+};
 
 function localToday(): string { return format(new Date(), 'yyyy-MM-dd'); }
 
@@ -45,6 +57,7 @@ export default function Reportes() {
   const [combustibleLoading, setCombustibleLoading] = useState(true);
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
   const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
+  const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
@@ -143,6 +156,18 @@ export default function Reportes() {
           ruta_nombre: g.rutas?.nombre
         }));
         setGastos(mapped as GastoCombustible[]);
+        
+        // Cargar fotos de combustible
+        const fotosMap: Record<string, string> = {};
+        for (const gasto of data) {
+          if (gasto.foto_url) {
+            const base64 = await urlToBase64(gasto.foto_url);
+            if (base64) {
+              fotosMap[gasto.id_gasto] = base64;
+            }
+          }
+        }
+        setFotosCombustible(fotosMap);
       }
     } catch (err) {
       console.error('[Gastos] Error:', err);
@@ -506,6 +531,27 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 <div class="content">
   <p style="font-size:12px;color:#64748b;margin-bottom:16px;">Agrupado por: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}</p>
   ${gruposHTML.join('')}
+  ${(() => {
+    const gastosConFoto = gastos.filter(g => fotosCombustible[g.id_gasto]);
+    if (gastosConFoto.length === 0) return '';
+    let fotosHTML = `<div style="margin-top:30px;">
+      <h3 style="color:#1e293b;font-size:16px;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">📸 Fotos de Comprobantes (${gastosConFoto.length})</h3>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">`;
+    gastosConFoto.forEach(gasto => {
+      const fotoBase64 = fotosCombustible[gasto.id_gasto];
+      if (fotoBase64) {
+        fotosHTML += `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+          <img src="${fotoBase64}" style="width:100%;height:120px;object-fit:cover;" />
+          <div style="padding:8px;font-size:10px;color:#64748b;">
+            <strong>${gasto.chofer_nombre || '-'}</strong><br/>
+            S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase() || '-'}<br/>
+            ${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : ''}
+          </div>
+        </div>`;
+      }
+    });
+    return fotosHTML + `</div></div>`;
+  })()}
 </div>
 <div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
