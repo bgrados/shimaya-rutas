@@ -388,56 +388,43 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
     }
   };
 
-  const handleExportarCombustiblePDF = async () => {
-    try {
-      const doc = new jsPDF();
-      const fechaActual = format(new Date(), 'yyyy-MM-dd');
-      
-      doc.setFontSize(18);
-      doc.text('Reporte de Gastos de Combustible', 14, 22);
-      
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(`Período: ${getFiltroLabel()} | Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 30);
-      doc.text(`Agrupado: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}`, 14, 36);
-      
-      doc.setFontSize(12);
-      doc.setTextColor(0);
-      doc.text('Resumen por Tipo de Combustible', 14, 48);
-      
-      doc.setFontSize(10);
-      let yPos = 56;
-      doc.text(`GLP: S/ ${(totalesPorTipo.glp || 0).toFixed(2)}`, 14, yPos);
-      doc.text(`Gasolina: S/ ${(totalesPorTipo.gasolina || 0).toFixed(2)}`, 60, yPos);
-      doc.text(`Diesel: S/ ${(totalesPorTipo.diesel || 0).toFixed(2)}`, 110, yPos);
-      yPos += 8;
-      doc.setFontSize(11);
-      doc.text(`TOTAL GENERAL: S/ ${totalGeneral.toFixed(2)}`, 14, yPos);
-      yPos += 10;
-      doc.setFontSize(10);
-      doc.text(`Total de cargas: ${gastos.length}`, 14, yPos);
-      
-      const tableData: (string | undefined)[][] = [];
-      const gastosConFotos: typeof gastos = [];
-      
-      if (agruparPor === 'fecha') {
-        gastosAgrupadosPorFecha().forEach(grupo => {
-          tableData.push([`--- ${format(parseISO(grupo.fecha), 'dd/MM/yyyy')} ---`, '', '', '', `S/ ${grupo.total.toFixed(2)}`]);
-          grupo.gastos.forEach(gasto => {
-            tableData.push([
-              gasto.created_at ? format(new Date(gasto.created_at), 'HH:mm') : '',
-              gasto.chofer_nombre || '-',
-              gasto.tipo_combustible || '-',
-              gasto.foto_url ? '[Foto]' : '-',
-              `S/ ${(gasto.monto || 0).toFixed(2)}`
-            ]);
-            if (gasto.foto_url && gasto.foto_url.length > 0) {
-              gastosConFotos.push(gasto);
-            }
-          });
-        });
-      } else {
-        gastosAgrupadosPorChofer().forEach(grupo => {
+  const handleExportarCombustiblePDF = () => {
+    const periodoLabel = getFiltroLabel();
+    const estadoLabel = 'Todos';
+    
+    const gruposHTML = agruparPor === 'fecha' 
+      ? gastosAgrupadosPorFecha().map(grupo => {
+          const gastosHTML = grupo.gastos.map(gasto => {
+            const estadoIcon = gasto.estado === 'confirmado' ? '✓' : gasto.estado === 'pendiente_revision' ? '⏳' : '✗';
+            const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
+            
+            return `<tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'HH:mm') : '-'}</td>
+              <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
+              <td style="padding:8px;color:#475569;text-transform:uppercase;">${gasto.tipo_combustible || '-'}</td>
+              <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
+              <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
+            </tr>`;
+          }).join('');
+          
+          return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <div style="background:#1e293b;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
+              <div><strong style="font-size:14px;">📅 ${format(parseISO(grupo.fecha), 'dd MMMM yyyy', { locale: es })}</strong></div>
+              <div style="background:#22c55e22;color:#22c55e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;">Total: S/ ${grupo.total.toFixed(2)}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr style="background:#f1f5f9;">
+                <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Hora</th>
+                <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Chofer</th>
+                <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Tipo</th>
+                <th style="padding:8px;text-align:center;color:#475569;font-weight:600;">Estado</th>
+                <th style="padding:8px;text-align:right;color:#475569;font-weight:600;">Monto</th>
+              </tr></thead>
+              <tbody>${gastosHTML}</tbody>
+            </table>
+          </div>`;
+        })
+      : gastosAgrupadosPorChofer().map(grupo => {
           const porTipo = grupo.gastos.reduce((acc, gg) => {
             const t = gg.tipo_combustible || 'otro';
             acc[t] = (acc[t] || 0) + (gg.monto || 0);
@@ -445,91 +432,90 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
           }, {} as Record<string, number>);
           
           let detallesTipo = '';
-          if (porTipo.glp) detallesTipo += `GLP: S/ ${porTipo.glp.toFixed(2)} `;
-          if (porTipo.gasolina) detallesTipo += `Gasolina: S/ ${porTipo.gasolina.toFixed(2)} `;
-          if (porTipo.diesel) detallesTipo += `Diesel: S/ ${porTipo.diesel.toFixed(2)}`;
+          if (porTipo.glp) detallesTipo += `<span style="background:#22c55e22;color:#22c55e;padding:2px 8px;border-radius:4px;margin-right:4px;font-size:11px;">GLP: S/ ${porTipo.glp.toFixed(2)}</span>`;
+          if (porTipo.gasolina) detallesTipo += `<span style="background:#3b82f622;color:#3b82f6;padding:2px 8px;border-radius:4px;margin-right:4px;font-size:11px;">Gasolina: S/ ${porTipo.gasolina.toFixed(2)}</span>`;
+          if (porTipo.diesel) detallesTipo += `<span style="background:#f9731622;color:#f97316;padding:2px 8px;border-radius:4px;margin-right:4px;font-size:11px;">Diesel: S/ ${porTipo.diesel.toFixed(2)}</span>`;
           
-          tableData.push([`--- ${grupo.choferNombre} ---`, '', '', '', `S/ ${grupo.total.toFixed(2)} (${grupo.gastos.length} cargas)`]);
-          if (detallesTipo) {
-            tableData.push([detallesTipo, '', '', '', '']);
-          }
-          grupo.gastos.forEach(gasto => {
-            tableData.push([
-              gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM HH:mm') : '-',
-              gasto.tipo_combustible || '-',
-              gasto.estado === 'confirmado' ? '✓' : gasto.estado === 'pendiente_revision' ? '⏳' : '✗',
-              gasto.foto_url ? '[Foto]' : '-',
-              `S/ ${(gasto.monto || 0).toFixed(2)}`
-            ]);
-            if (gasto.foto_url && gasto.foto_url.length > 0) {
-              gastosConFotos.push(gasto);
-            }
-          });
+          const gastosHTML = grupo.gastos.map(gasto => {
+            const estadoIcon = gasto.estado === 'confirmado' ? '✓' : gasto.estado === 'pendiente_revision' ? '⏳' : '✗';
+            const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
+            
+            return `<tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM HH:mm') : '-'}</td>
+              <td style="padding:8px;color:#475569;">${gasto.tipo_combustible || '-'}</td>
+              <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
+              <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
+            </tr>`;
+          }).join('');
+          
+          return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <div style="background:#1e293b;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
+              <div><strong style="font-size:14px;">🚛 ${grupo.choferNombre}</strong></div>
+              <div style="background:#22c55e22;color:#22c55e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;">Total: S/ ${grupo.total.toFixed(2)} (${grupo.gastos.length} cargas)</div>
+            </div>
+            <div style="padding:8px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">${detallesTipo}</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr style="background:#f1f5f9;">
+                <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Hora</th>
+                <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Tipo</th>
+                <th style="padding:8px;text-align:center;color:#475569;font-weight:600;">Estado</th>
+                <th style="padding:8px;text-align:right;color:#475569;font-weight:600;">Monto</th>
+              </tr></thead>
+              <tbody>${gastosHTML}</tbody>
+            </table>
+          </div>`;
         });
-      }
+    
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><title>Reporte Combustible - ${periodoLabel}</title>
+<style>
+  @media print { @page { margin: 18mm 15mm; } button { display: none !important; } }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: white; }
+  .header { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); color: white; padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; }
+  .header-title { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; margin: 0; }
+  .header-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+  .badge-row { display: flex; gap: 10px; padding: 16px 28px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+  .badge { display: flex; flex-direction: column; align-items: center; padding: 8px 18px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .badge-val { font-size: 20px; font-weight: 900; color: #0f172a; }
+  .badge-lbl { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .content { padding: 20px 28px; }
+  .footer { text-align: center; color: #94a3b8; font-size: 11px; padding: 16px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
+  .print-btn { position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div>
+      <p class="header-title">⛽ SHIMAYA RUTAS & LOGÍSTICA</p>
+      <p class="header-sub">📋 Reporte de Combustible · ${periodoLabel}</p>
+    </div>
+  </div>
+  <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(new Date(), "dd/MM/yyyy HH:mm")}</div>
+</div>
 
-      autoTable(doc, {
-        head: [['Hora', 'Chofer', 'Tipo', 'Foto', 'Monto']],
-        body: tableData,
-        startY: yPos + 5,
-        theme: 'striped',
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 9 },
-        columnStyles: { 4: { halign: 'right' } }
-      });
+<div class="badge-row">
+  <div class="badge"><span class="badge-val" style="color:#22c55e;">S/ ${totalGeneral.toFixed(2)}</span><span class="badge-lbl">Total General</span></div>
+  <div class="badge"><span class="badge-val">${gastos.length}</span><span class="badge-lbl">Total Cargas</span></div>
+  <div class="badge"><span class="badge-val" style="color:#22c55e;">S/ ${(totalesPorTipo.glp || 0).toFixed(2)}</span><span class="badge-lbl">GLP</span></div>
+  <div class="badge"><span class="badge-val" style="color:#3b82f6;">S/ ${(totalesPorTipo.gasolina || 0).toFixed(2)}</span><span class="badge-lbl">Gasolina</span></div>
+  <div class="badge"><span class="badge-val" style="color:#f97316;">S/ ${(totalesPorTipo.diesel || 0).toFixed(2)}</span><span class="badge-lbl">Diesel</span></div>
+</div>
 
-      if (gastosConFotos.length > 0) {
-        doc.addPage();
-        doc.setFontSize(16);
-        doc.setTextColor(0);
-        doc.text('Fotos de Comprobantes', 14, 20);
-        
-        let currentY = 30;
-        const imgWidth = 60;
-        const imgHeight = 45;
-        const margin = 14;
-        const gapX = 70;
-        const gapY = 55;
-        const cols = 3;
-        
-        for (let i = 0; i < gastosConFotos.length; i++) {
-          const gasto = gastosConFotos[i];
-          if (!gasto.foto_url) continue;
-          
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const xPos = margin + (col * gapX);
-          const yPos = currentY + (row * gapY);
-          
-          if (yPos + imgHeight > 270) {
-            doc.addPage();
-            currentY = 20;
-            continue;
-          }
-          
-          try {
-            const base64 = await urlToBase64(gasto.foto_url);
-            if (base64) {
-              const imgData = base64.split(',')[1];
-              const imgFormat = gasto.foto_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-              doc.addImage(imgData, imgFormat, xPos, yPos, imgWidth, imgHeight);
-              
-              doc.setFontSize(8);
-              doc.setTextColor(60);
-              doc.text(`${gasto.chofer_nombre || 'Sin chofer'}`, xPos, yPos + imgHeight + 5);
-              doc.text(`S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase() || '-'}`, xPos, yPos + imgHeight + 10);
-              doc.text(gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '', xPos, yPos + imgHeight + 15);
-            }
-          } catch (e) {
-            console.error('Error adding image:', e);
-          }
-        }
-      }
+<div class="content">
+  <p style="font-size:12px;color:#64748b;margin-bottom:16px;">Agrupado por: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}</p>
+  ${gruposHTML.join('')}
+</div>
+<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
+<button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+</body></html>`;
 
-      doc.save(`reporte_combustible_${fechaActual}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error al generar PDF');
+const win = window.open('', '_blank', 'width=960,height=750');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
     }
   };
 
