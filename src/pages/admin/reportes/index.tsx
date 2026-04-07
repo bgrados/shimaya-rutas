@@ -336,7 +336,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 <div class="content">
   ${rows || '<p style="color:#94a3b8;text-align:center;padding:40px;font-style:italic;">No hay rutas que coincidan con el filtro seleccionado.</p>'}
 </div>
-<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
+<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
@@ -558,7 +558,7 @@ const win = window.open('', '_blank');
     return fotosHTML + `</div></div>`;
   })()}
 </div>
-<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
+<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 

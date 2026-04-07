@@ -146,6 +146,8 @@ export default function GastosCombustible() {
         query = query.eq('estado', 'pendiente_revision');
       } else if (activeTab === 'confirmados') {
         query = query.eq('estado', 'confirmado');
+      } else if (activeTab === 'rechazados') {
+        query = query.eq('estado', 'rechazado');
       }
 
       const { data } = await query;
@@ -398,7 +400,7 @@ export default function GastosCombustible() {
   ${gruposHTML.join('')}
   ${fotosHTML}
 </div>
-<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
+<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
@@ -492,6 +494,7 @@ export default function GastosCombustible() {
     { key: 'todos', label: 'Todos' },
     { key: 'pendientes', label: 'Pendientes' },
     { key: 'confirmados', label: 'Confirmados' },
+    { key: 'rechazados', label: 'Rechazados' },
   ];
 
   return (

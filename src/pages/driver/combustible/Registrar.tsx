@@ -155,7 +155,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         monto: parseFloat(manualMonto),
         foto_url: fotoUrl,
         notas: notas || null,
-        estado: 'pendiente_revision',
+        estado: 'confirmado',
         fecha: new Date().toISOString()
       });
 
