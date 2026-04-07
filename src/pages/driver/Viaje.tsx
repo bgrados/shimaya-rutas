@@ -571,7 +571,7 @@ export default function DriverViaje() {
         </Button>
       )}
 
-      {/* Botón contextual para tomar fotos del destino actual */}
+      {/* Botón para tomar fotos - solo cuando está EN EL LOCAL (después de llegar, antes de salir) */}
       {tramoEnProgreso && (
         <Button 
           className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
@@ -586,6 +586,24 @@ export default function DriverViaje() {
         >
           <Camera size={20} className="mr-2" />
           📸 Tomar Evidencia - {tramoEnProgreso.destino_nombre}
+        </Button>
+      )}
+
+      {/* Después de marcar llegada pero antes de salir - fotos del local donde está */}
+      {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
+        <Button 
+          className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
+          onClick={() => {
+            const ultimoTramo = bitacora[bitacora.length - 1];
+            const localActual = locales.find(l => l.nombre === ultimoTramo.destino_nombre);
+            if (localActual) {
+              setLocalParaFoto(localActual);
+              setFotosCapturadas([]);
+            }
+          }}
+        >
+          <Camera size={20} className="mr-2" />
+          📸 Tomar Evidencia - {bitacora[bitacora.length - 1].destino_nombre}
         </Button>
       )}
 
