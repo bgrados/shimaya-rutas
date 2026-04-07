@@ -47,6 +47,7 @@ export interface LocalBase {
   contacto: string | null;
   orden: number | null;
   foto_url: string | null;
+  cerrado_temporal: boolean;
   created_at: string;
 }
 

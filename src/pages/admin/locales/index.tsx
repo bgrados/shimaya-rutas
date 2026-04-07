@@ -34,6 +34,7 @@ interface LocalBase {
   contacto: string | null;
   orden: number | null;
   foto_url: string | null;
+  cerrado_temporal: boolean;
   created_at: string;
 }
 
@@ -51,6 +52,7 @@ function EditForm({ local, onSave, onCancel }: EditFormProps) {
   const [telefono, setTelefono] = useState(local.telefono || '');
   const [latitud, setLatitud] = useState<number>(local.latitud ?? -12.0464);
   const [longitud, setLongitud] = useState<number>(local.longitud ?? -77.0428);
+  const [cerradoTemporal, setCerradoTemporal] = useState(local.cerrado_temporal || false);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -145,6 +147,7 @@ function EditForm({ local, onSave, onCancel }: EditFormProps) {
         latitud,
         longitud,
         foto_url: photoUrl,
+        cerrado_temporal: cerradoTemporal,
       });
     } catch (err: any) {
       console.error('[EditForm] Error handleSave:', err);
@@ -224,8 +227,8 @@ function EditForm({ local, onSave, onCancel }: EditFormProps) {
           </div>
 
           <div className="pt-2 border-t border-white/5">
-             <label className="text-[10px] text-text-muted mb-1 block uppercase font-bold tracking-tighter">Imagen de Fondo</label>
-             <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handlePhotoChange} />
+            <label className="text-[10px] text-text-muted mb-1 block uppercase font-bold tracking-tighter">Imagen de Fondo</label>
+            <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handlePhotoChange} />
              
              {fotoPreview ? (
                <div className="relative rounded-lg overflow-hidden border border-white/10 group h-20">
@@ -243,7 +246,27 @@ function EditForm({ local, onSave, onCancel }: EditFormProps) {
                  <Plus size={16} />
                  <span className="text-[10px] font-bold">AÑADIR FOTO</span>
                </button>
-             )}
+              )}
+          </div>
+
+          <div className="flex items-center gap-3 pt-3 border-t border-white/5">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cerradoTemporal}
+                onChange={e => setCerradoTemporal(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-surface-light rounded-full peer peer-checked:bg-red-600 peer-focus:ring-2 peer-focus:ring-red-500/50 transition-colors relative">
+                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${cerradoTemporal ? 'translate-x-5' : ''}`} />
+              </div>
+            </label>
+            <div>
+              <span className={`text-sm font-bold ${cerradoTemporal ? 'text-red-500' : 'text-white'}`}>
+                {cerradoTemporal ? '⚠️ CERRADO TEMPORALMENTE' : 'En mantenimiento'}
+              </span>
+              <p className="text-[10px] text-text-muted">Marcar si el local está temporalmente cerrado</p>
+            </div>
           </div>
 
           <div className="flex gap-2 pt-3 border-t border-white/5">
@@ -441,6 +464,11 @@ export default function LocalesBase() {
                           <h3 className="font-black text-white italic truncate text-lg">{local.nombre}</h3>
                           {local.direccion && (
                             <p className="text-white font-semibold text-sm mt-1 line-clamp-2" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{local.direccion}</p>
+                          )}
+                          {local.cerrado_temporal && (
+                            <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-full">
+                              ⚠️ CERRADO TEMPORALMENTE
+                            </span>
                           )}
                         </div>
                       </div>
