@@ -27,7 +27,8 @@ export default function Login() {
     setIsLoggingIn(true);
     setShowSuccess(false);
     try {
-      await signIn(email.trim(), password);
+      const cleanEmail = email.trim().replace('@shimaya.com', '');
+      await signIn(`${cleanEmail}@shimaya.com`, password);
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión. Verifica tus credenciales.');
       setIsLoggingIn(false);
@@ -98,15 +99,20 @@ export default function Login() {
             {error}
           </div>
         )}
-        <Input
-          label="Correo electrónico"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="usuario@shimaya.com"
-          className="bg-surface-light/50 border-white/5 focus:border-primary"
-        />
+        <div className="relative">
+          <Input
+            label="Usuario"
+            type="text"
+            value={email}
+            onChange={(e) => setEmail(e.target.value.replace('@shimaya.com', ''))}
+            required
+            placeholder="usuario"
+            className="bg-surface-light/50 border-white/5 focus:border-primary pr-[110px]"
+          />
+          <div className="absolute right-4 top-[32px] bottom-0 text-text-muted/60 pointer-events-none select-none font-medium flex items-center">
+            @shimaya.com
+          </div>
+        </div>
         <div className="relative">
           <Input
             label="Contraseña"
