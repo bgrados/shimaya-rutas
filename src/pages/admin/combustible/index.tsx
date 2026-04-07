@@ -105,6 +105,7 @@ export default function GastosCombustible() {
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
   const [paginaActual, setPaginaActual] = useState(1);
   const registrosPorPagina = 20;
+  const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadChoferes();
@@ -158,6 +159,18 @@ export default function GastosCombustible() {
           ruta_nombre: g.rutas?.nombre
         }));
         setGastos(mapped as GastoCombustible[]);
+        
+        // Cargar fotos de combustible
+        const fotosMap: Record<string, string> = {};
+        for (const gasto of data) {
+          if (gasto.foto_url) {
+            const base64 = await urlToBase64(gasto.foto_url);
+            if (base64) {
+              fotosMap[gasto.id_gasto] = base64;
+            }
+          }
+        }
+        setFotosCombustible(fotosMap);
       }
     } catch (err) {
       console.error('[Gastos] Error:', err);
