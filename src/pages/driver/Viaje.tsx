@@ -441,13 +441,23 @@ const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
       // Enviar a WhatsApp en segundo plano
       if (urlsSubidas.length > 0 && localParaFoto.nombre) {
         const mensaje = `📸 *EVIDENCIA - ${localParaFoto.nombre}*\n\n🕐 ${format(new Date(), 'HH:mm')}\n📍 ${localParaFoto.direccion || 'Sin dirección'}\n✅ ${urlsSubidas.length} fotos guardadas`;
-        // Enviar a número directo para pruebas
+        // Usar formato correcto de wa.me
         const urlWhatsapp = `https://wa.me/51947024333?text=${encodeURIComponent(mensaje)}`;
-        // Abrir en background (sin interromper)
-        setTimeout(() => window.open(urlWhatsapp, '_blank'), 500);
+        // Intentar abrir - puede fallar si no tiene WhatsApp instalado
+        try {
+          const win = window.open(urlWhatsapp, '_blank');
+          if (!win || win.closed || win.closed === undefined) {
+            // Si no se pudo abrir, copiar al portapapeles
+            navigator.clipboard.writeText(mensaje);
+            alert('✅ Fotos guardadas. Mensaje copiado al portapapeles');
+          }
+        } catch (e) {
+          navigator.clipboard.writeText(mensaje);
+          alert('✅ Fotos guardadas. Mensaje copiado al portapapeles');
+        }
       }
       
-      alert('✅ Fotos guardadas y enviado a WhatsApp');
+      alert('✅ Fotos guardadas correctamente');
       setLocalParaFoto(null);
       setFotosCapturadas([]);
       setFotosExistentes([]);
