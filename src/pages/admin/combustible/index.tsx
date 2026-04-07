@@ -700,6 +700,11 @@ export default function GastosCombustible() {
                             <span className="text-green-400 text-xs">✓ Confirmado</span>
                           ) : gasto.estado === 'pendiente_revision' ? (
                             <span className="text-yellow-400 text-xs">⏳ Pendiente</span>
+                          ) : gasto.estado === 'rechazado' ? (
+                            <div>
+                              <span className="text-red-400 text-xs">✗ Rechazado</span>
+                              {gasto.notas && <p className="text-[10px] text-text-muted mt-1">Motivo: {gasto.notas}</p>}
+                            </div>
                           ) : (
                             <span className="text-red-400 text-xs">✗ Rechazado</span>
                           )}
@@ -715,7 +720,13 @@ export default function GastosCombustible() {
                                 <Check size={16} className="text-green-400" />
                               </button>
                               <button
-                                onClick={() => actualizarEstado(gasto.id_gasto, 'rechazado')}
+                                onClick={() => {
+                                  const motivo = prompt('Ingrese el motivo del rechazo (obligatorio):');
+                                  if (motivo && motivo.trim()) {
+                                    actualizarEstado(gasto.id_gasto, 'rechazado');
+                                    supabase.from('gastos_combustible').update({ notas: motivo.trim() }).eq('id_gasto', gasto.id_gasto);
+                                  }
+                                }}
                                 className="p-1 hover:bg-red-500/20 rounded"
                                 title="Rechazar"
                               >
