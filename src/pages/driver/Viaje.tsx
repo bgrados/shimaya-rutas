@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -53,6 +53,12 @@ export default function DriverViaje() {
 
   const [nuevoDestino, setNuevoDestino] = useState('');
   const [showCombustible, setShowCombustible] = useState(false);
+  
+  // Estado para capturar fotos de evidencia
+  const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
+  const [fotosCapturadas, setFotosCapturadas] = useState<{preview: string; file: File}[]>([]);
+  const [capturando, setCapturando] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadCurrentRuta = async () => {
     if (!profile) {
@@ -349,6 +355,95 @@ export default function DriverViaje() {
     setActionLoading(false);
   };
 
+  // Funciones para captura de fotos de evidencia
+  const TARGET_WIDTH = 1200;
+
+  const compressToWebP = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ratio = TARGET_WIDTH / img.width;
+          canvas.width = TARGET_WIDTH;
+          canvas.height = img.height * ratio;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('No se pudo crear el contexto')); return; }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Error al comprimir'));
+          }, 'image/webp', 0.8);
+        };
+        img.onerror = () => reject(new Error('Error al cargar imagen'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Error al leer archivo'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAgregarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setFotosCapturadas(prev => [...prev, { preview: ev.target?.result as string, file }]);
+      };
+      reader.readAsDataURL(file);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleEliminarFoto = (index: number) => {
+    setFotosCapturadas(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubirFotosEvidencia = async () => {
+    if (!localParaFoto || fotosCapturadas.length === 0) return;
+    setCapturando(true);
+    
+    try {
+      // Obtener fotos existentes
+      const { data: fotosExistentes } = await supabase
+        .from('fotos_visita')
+        .select('id_foto')
+        .eq('id_local_ruta', localParaFoto.id_local_ruta);
+      
+      const ordenBase = (fotosExistentes?.length || 0) + 1;
+      
+      for (let i = 0; i < fotosCapturadas.length; i++) {
+        const { file } = fotosCapturadas[i];
+        const compressedBlob = await compressToWebP(file);
+        const fileName = `${localParaFoto.id_local_ruta}_${Date.now()}_${i}.webp`;
+        const filePath = `evidencia/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('visitas_fotos')
+          .upload(filePath, compressedBlob, { contentType: 'image/webp' });
+        
+        if (!uploadError) {
+          const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
+          await supabase.from('fotos_visita').insert({
+            id_local_ruta: localParaFoto.id_local_ruta,
+            foto_url: data.publicUrl,
+            orden: ordenBase + i,
+          });
+        }
+      }
+      
+      alert('✅ Fotos de evidencia guardadas correctamente');
+      setLocalParaFoto(null);
+      setFotosCapturadas([]);
+    } catch (err) {
+      console.error('Error subiendo fotos:', err);
+      alert('Error al guardar fotos');
+    } finally {
+      setCapturando(false);
+    }
+  };
+
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
 
   if (!ruta) {
@@ -483,7 +578,8 @@ export default function DriverViaje() {
           onClick={() => {
             const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
             if (localActual) {
-              navigate(`/driver/ruta/${ruta.id_ruta}/visita/${localActual.id_local_ruta}`);
+              setLocalParaFoto(localActual);
+              setFotosCapturadas([]);
             }
           }}
           disabled={!locales.find(l => l.nombre === tramoEnProgreso.destino_nombre)}
@@ -755,6 +851,75 @@ export default function DriverViaje() {
               idChofer={profile?.id_usuario || ''}
               onClose={() => setShowCombustible(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal para capturar fotos de evidencia */}
+      {localParaFoto && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-2xl w-full max-w-md p-4 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-black text-white">
+                📸 Evidencia: {localParaFoto.nombre}
+              </h3>
+              <button onClick={() => { setLocalParaFoto(null); setFotosCapturadas([]); }} className="text-text-muted hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <p className="text-sm text-text-muted">Máximo 5 fotos • Compresión automática</p>
+            
+            <div className="grid grid-cols-3 gap-2">
+              {fotosCapturadas.map((foto, idx) => (
+                <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-purple-500/50">
+                  <img src={foto.preview} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => handleEliminarFoto(idx)}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              
+              {fotosCapturadas.length < 5 && (
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square border-2 border-dashed border-purple-500/50 rounded-lg flex flex-col items-center justify-center text-purple-400 hover:bg-purple-500/10"
+                >
+                  <Camera size={20} />
+                  <span className="text-[10px]">Agregar</span>
+                </button>
+              )}
+            </div>
+            
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleAgregarFoto}
+            />
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="secondary" 
+                className="flex-1"
+                onClick={() => { setLocalParaFoto(null); setFotosCapturadas([]); }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                onClick={handleSubirFotosEvidencia}
+                disabled={fotosCapturadas.length === 0 || capturando}
+                isLoading={capturando}
+              >
+                ✓ Guardar {fotosCapturadas.length > 0 && `(${fotosCapturadas.length})`}
+              </Button>
+            </div>
           </div>
         </div>
       )}
