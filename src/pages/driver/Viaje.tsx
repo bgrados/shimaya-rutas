@@ -42,6 +42,14 @@ export default function DriverViaje() {
   const [nuevaPlaca, setNuevaPlaca] = useState('');
   const [createError, setCreateError] = useState('');
 
+  const handlePlacaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (val.length > 3) {
+      val = val.substring(0, 3) + '-' + val.substring(3, 6);
+    }
+    setNuevaPlaca(val);
+  };
+
   const [nuevoDestino, setNuevoDestino] = useState('');
   const [showCombustible, setShowCombustible] = useState(false);
 
@@ -386,10 +394,11 @@ export default function DriverViaje() {
                  <div className="space-y-1">
                     <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Placa del Vehículo</label>
                     <Input 
-                      placeholder="Ej: ABC-123" 
-                      className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg"
+                      placeholder="ABC-123" 
+                      className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg tracking-widest"
                       value={nuevaPlaca}
-                      onChange={e => setNuevaPlaca(e.target.value)}
+                      onChange={handlePlacaChange}
+                      maxLength={7}
                     />
                  </div>
 
