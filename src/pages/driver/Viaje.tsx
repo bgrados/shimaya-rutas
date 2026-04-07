@@ -19,7 +19,10 @@ import {
   Flag,
   Play,
   Timer,
-  Fuel
+  Fuel,
+  Edit2,
+  X,
+  Check
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -231,6 +234,9 @@ export default function DriverViaje() {
   }, [bitacora, locales, localesDisponibles.length]);
 
   const [actionLoading, setActionLoading] = useState(false);
+  const [isEditingDestino, setIsEditingDestino] = useState(false);
+  const [destinoEditado, setDestinoEditado] = useState('');
+  const [isSavingDestino, setIsSavingDestino] = useState(false);
 
   const handleRegistrarSalida = async () => {
     if (!ruta || !nuevoDestino || actionLoading) return;
@@ -455,10 +461,78 @@ export default function DriverViaje() {
                   <div className="bg-blue-500/20 p-2 rounded-lg text-blue-500 animate-pulse border border-blue-500/30">
                      <Clock size={20} />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest mb-0.5">En Camino A</p>
-                    <h3 className="text-xl font-black text-white italic leading-tight">{tramoEnProgreso.destino_nombre}</h3>
-                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter">Salió de {tramoEnProgreso.origen_nombre} a las {format(new Date(tramoEnProgreso.hora_salida!), 'HH:mm')}</p>
+                    
+                    {isEditingDestino ? (
+                      <div className="flex items-center gap-2 mt-1 mb-2">
+                        <select 
+                          value={destinoEditado}
+                          onChange={(e) => setDestinoEditado(e.target.value)}
+                          className="flex-1 bg-surface-light border border-blue-500/40 rounded-lg px-2 py-2 text-white font-black italic text-sm focus:outline-none focus:border-blue-500"
+                        >
+                          {localesDisponibles.map((l) => (
+                            <option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option>
+                          ))}
+                          {localesDisponibles.length === 0 && (
+                            <option value="Planta">Planta</option>
+                          )}
+                          {!localesDisponibles.find(l => l.nombre === tramoEnProgreso.destino_nombre) && (
+                             <option value={tramoEnProgreso.destino_nombre || ''}>{tramoEnProgreso.destino_nombre}</option>
+                          )}
+                        </select>
+                        <Button 
+                          size="sm" 
+                          onClick={async () => {
+                            if (!destinoEditado || isSavingDestino || destinoEditado === tramoEnProgreso.destino_nombre) {
+                              setIsEditingDestino(false);
+                              return;
+                            }
+                            setIsSavingDestino(true);
+                            const { data, error } = await supabase
+                              .from('viajes_bitacora')
+                              .update({ destino_nombre: destinoEditado })
+                              .eq('id_bitacora', tramoEnProgreso.id_bitacora)
+                              .select().single();
+                            if (!error && data) {
+                              setBitacora(bitacora.map(b => b.id_bitacora === tramoEnProgreso.id_bitacora ? (data as ViajeBitacora) : b));
+                              setIsEditingDestino(false);
+                            } else {
+                              alert('Error al actualizar: ' + error?.message);
+                            }
+                            setIsSavingDestino(false);
+                          }}
+                          disabled={isSavingDestino}
+                          className="bg-blue-600 hover:bg-blue-500 h-10 w-10 p-0 flex items-center justify-center rounded-lg min-w-[40px]"
+                        >
+                          <Check size={18} />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => setIsEditingDestino(false)}
+                          disabled={isSavingDestino}
+                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 h-10 w-10 p-0 flex items-center justify-center rounded-lg min-w-[40px]"
+                        >
+                          <X size={18} />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-xl font-black text-white italic leading-tight">{tramoEnProgreso.destino_nombre}</h3>
+                        <button 
+                          onClick={() => {
+                            setDestinoEditado(tramoEnProgreso.destino_nombre || '');
+                            setIsEditingDestino(true);
+                          }}
+                          className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors ml-2"
+                          title="Corregir destino"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      </div>
+                    )}
+                    
+                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter mt-1">Salió de {tramoEnProgreso.origen_nombre} a las {format(new Date(tramoEnProgreso.hora_salida!), 'HH:mm')}</p>
                   </div>
                 </div>
                  <Button 
