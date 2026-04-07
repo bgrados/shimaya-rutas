@@ -58,6 +58,7 @@ export default function Reportes() {
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
   const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
+  const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
@@ -957,6 +958,45 @@ const win = window.open('', '_blank', 'width=960,height=750');
           <div className="text-center py-12 no-print">
             <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
             <p className="text-text-muted">No hay gastos registrados</p>
+          </div>
+        )}
+
+        {/* Fotos de comprobantes en la UI */}
+        {gastos.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+          <Card className="mt-6">
+            <CardContent className="p-4">
+              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                📸 Fotos de Comprobantes
+                <span className="text-text-muted text-sm font-normal">({gastos.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {gastos.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
+                  <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                    <img 
+                      src={fotosCombustible[gasto.id_gasto]} 
+                      alt="Comprobante" 
+                      className="w-full h-40 object-cover cursor-pointer"
+                      onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
+                    />
+                    <div className="p-2 text-xs">
+                      <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
+                      <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {showFotoModal && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowFotoModal(null)}>
+            <div className="relative max-w-3xl w-full">
+              <button onClick={() => setShowFotoModal(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
+                <X size={24} />
+              </button>
+              <img src={showFotoModal} alt="Foto ampliada" className="max-h-[80vh] w-full object-contain rounded-lg" />
+            </div>
           </div>
         )}
       </>
