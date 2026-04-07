@@ -112,3 +112,11 @@ export interface GastoCombustible {
   chofer_nombre?: string;
   ruta_nombre?: string;
 }
+
+export interface FotoVisita {
+  id_foto: string;
+  id_local_ruta: string;
+  foto_url: string;
+  orden: number;
+  created_at: string;
+}
