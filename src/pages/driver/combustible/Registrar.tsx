@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Camera, Fuel, Loader2, X, Check, AlertTriangle } from 'lucide-react';
+import { Camera, Fuel, Loader2, X, Check, AlertTriangle, Image } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 
 interface RegistrarCombustibleProps {
@@ -215,10 +215,29 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                 </Button>
               </div>
             ) : (
-              <button onClick={handleTakePhoto} className="w-full py-6">
-                <Camera className="mx-auto mb-2 text-text-muted" size={32} />
-                <p className="text-text-muted text-sm">Toca para tomar foto del ticket</p>
-              </button>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex items-center justify-center gap-2 py-4"
+                    onClick={handleTakePhoto}
+                  >
+                    <Camera size={20} />
+                    Cámara
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex items-center justify-center gap-2 py-4"
+                    onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => handleFileChange(e as any); input.click(); }}
+                  >
+                    <Image size={20} />
+                    Fototeca
+                  </Button>
+                </div>
+                <p className="text-text-muted text-xs text-center">Toca para agregar foto del ticket</p>
+              </div>
             )}
             <input
               ref={fileInputRef}

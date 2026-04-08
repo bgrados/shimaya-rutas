@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import type { LocalRuta, EstadoVisita, FotoVisita } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Camera, MapPin, ArrowLeft, CheckCircle2, Navigation, X, Loader2 } from 'lucide-react';
+import { Camera, MapPin, ArrowLeft, CheckCircle2, Navigation, X, Loader2, Image } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PhotoItem {
@@ -241,6 +241,31 @@ export default function VisitaLocal() {
             📸 Evidencia Fotográfica (hasta 5 fotos)
             <span className="text-xs text-text-muted ml-2">({totalPhotos}/{MAX_PHOTOS})</span>
           </h3>
+          
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="flex items-center justify-center gap-1"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={totalPhotos >= MAX_PHOTOS}
+            >
+              <Camera size={16} />
+              Cámara
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="flex items-center justify-center gap-1"
+              onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => handleAddPhoto(e as any); input.click(); }}
+              disabled={totalPhotos >= MAX_PHOTOS}
+            >
+              <Image size={16} />
+              Fototeca
+            </Button>
+          </div>
           
           <input 
             type="file" 
