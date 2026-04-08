@@ -417,15 +417,13 @@ export default function DriverViaje() {
     setCapturando(true);
     
     // Timeout de seguridad - 30 segundos
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       if (capturando) {
         console.log('[handleSubirFotosEvidencia] TIMEOUT - algo falló');
         setCapturando(false);
         alert('Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.');
       }
     }, 30000);
-    
-    console.log('[Fotos] Iniciando guardado, fotos:', fotosCapturadas.length);
     
     try {
       // Obtener fotos existentes
@@ -436,7 +434,10 @@ export default function DriverViaje() {
       
       if (queryError) {
         console.error('[Fotos] Error consultando fotos existentes:', queryError);
-        throw queryError;
+        clearTimeout(timeoutId);
+        setCapturando(false);
+        alert('Error al consultar fotos: ' + queryError.message);
+        return;
       }
       
       const ordenBase = (fotosExistentes?.length || 0) + 1;
@@ -444,46 +445,64 @@ export default function DriverViaje() {
       
       for (let i = 0; i < fotosCapturadas.length; i++) {
         const { file } = fotosCapturadas[i];
-        console.log('[Fotos] Comprimiendo foto', i, 'size:', file.size);
+        console.log('[Fotos] Procesando foto', i, 'size:', file.size, 'type:', file.type);
         
-        const compressedBlob = await compressToWebP(file);
-        console.log('[Fotos] Foto comprimida, size:', compressedBlob.size);
+        // COMENTAR COMPRESIÓN TEMPORALMENTE - probar upload directo
+        // const compressedBlob = await compressToWebP(file);
+        // console.log('[Fotos] Foto comprimida, size:', compressedBlob.size);
         
-        const fileName = `${localParaFoto.id_local_ruta}_${Date.now()}_${i}.webp`;
+        const fileName = `${localParaFoto.id_local_ruta}_${Date.now()}_${i}.${file.name.split('.').pop()}`;
         const filePath = `evidencia/${fileName}`;
         
-        console.log('[Fotos] Subiendo a storage:', filePath);
+        console.log('[Fotos] Subiendo a storage:', filePath, 'bucket: visitas_fotos');
         
+        // Subir archivo directo (sin compresión)
         const { error: uploadError } = await supabase.storage
           .from('visitas_fotos')
-          .upload(filePath, compressedBlob, { contentType: 'image/webp' });
+          .upload(filePath, file, { contentType: file.type });
         
         if (uploadError) {
           console.error('[Fotos] Error upload:', uploadError);
-          continue;
+          clearTimeout(timeoutId);
+          setCapturando(false);
+          alert('Error al subir: ' + uploadError.message);
+          return;
         }
         
-        console.log('[Fotos] Upload OK, inserting to DB');
+        console.log('[Fotos] Upload OK, getting URL');
         const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
-        await supabase.from('fotos_visita').insert({
+        
+        console.log('[Fotos] Insertando en DB');
+        const { error: insertError } = await supabase.from('fotos_visita').insert({
           id_local_ruta: localParaFoto.id_local_ruta,
           foto_url: data.publicUrl,
           orden: ordenBase + i,
         });
         
+        if (insertError) {
+          console.error('[Fotos] Error insert:', insertError);
+          clearTimeout(timeoutId);
+          setCapturando(false);
+          alert('Error al guardar: ' + insertError.message);
+          return;
+        }
+        
         urlsSubidas.push(data.publicUrl);
+        console.log('[Fotos] Foto', i, 'guardada OK');
       }
       
       console.log('[Fotos] Completado, guardadas:', urlsSubidas.length);
+      clearTimeout(timeoutId);
+      setCapturando(false);
       alert(`✅ ${urlsSubidas.length} fotos guardadas correctamente`);
       setLocalParaFoto(null);
       setFotosCapturadas([]);
       setFotosExistentes([]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error subiendo fotos:', err);
-      alert('Error al guardar fotos');
-    } finally {
+      clearTimeout(timeoutId);
       setCapturando(false);
+      alert('Error al guardar fotos: ' + (err.message || 'Error desconocido'));
     }
   };
 
