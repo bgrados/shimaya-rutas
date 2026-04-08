@@ -388,12 +388,16 @@ export default function DriverViaje() {
   };
 
   const handleAgregarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[handleAgregarFoto] called, files:', e.target.files?.length);
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      console.log('[handleAgregarFoto] file:', file.name, file.size, file.type);
       const reader = new FileReader();
       reader.onload = (ev) => {
+        console.log('[handleAgregarFoto] FileReader loaded, setting state');
         setFotosCapturadas(prev => [...prev, { preview: ev.target?.result as string, file }]);
       };
+      reader.onerror = () => console.error('[handleAgregarFoto] FileReader error');
       reader.readAsDataURL(file);
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -404,8 +408,22 @@ export default function DriverViaje() {
   };
 
   const handleSubirFotosEvidencia = async () => {
-    if (!localParaFoto || fotosCapturadas.length === 0) return;
+    console.log('[handleSubirFotosEvidencia] INICIANDO, fotosCapturadas:', fotosCapturadas.length, 'localParaFoto:', localParaFoto?.id_local_ruta);
+    if (!localParaFoto || fotosCapturadas.length === 0) {
+      console.log('[handleSubirFotosEvidencia] early return - localParaFoto:', !!localParaFoto, 'fotosCapturadas:', fotosCapturadas.length);
+      alert('No hay fotos para guardar');
+      return;
+    }
     setCapturando(true);
+    
+    // Timeout de seguridad - 30 segundos
+    setTimeout(() => {
+      if (capturando) {
+        console.log('[handleSubirFotosEvidencia] TIMEOUT - algo falló');
+        setCapturando(false);
+        alert('Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.');
+      }
+    }, 30000);
     
     console.log('[Fotos] Iniciando guardado, fotos:', fotosCapturadas.length);
     
@@ -945,7 +963,19 @@ export default function DriverViaje() {
                 type="button"
                 variant="secondary"
                 className="flex items-center justify-center gap-2"
-                onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) handleAgregarFoto({ target: { files: [file] } } as any); }; input.click(); }}
+                onClick={() => { 
+                  const input = document.createElement('input'); 
+                  input.type = 'file'; 
+                  input.accept = 'image/*'; 
+                  input.onchange = (e) => { 
+                    const file = (e.target as HTMLInputElement).files?.[0]; 
+                    if (file) {
+                      console.log('[Fototeca] Archivo seleccionado:', file.name, file.size);
+                      handleAgregarFoto({ target: { files: [file] } } as any); 
+                    }
+                  }; 
+                  input.click(); 
+                }}
               >
                 <Image size={18} />
                 Fototeca
