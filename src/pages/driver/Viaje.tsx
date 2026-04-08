@@ -407,39 +407,57 @@ export default function DriverViaje() {
     if (!localParaFoto || fotosCapturadas.length === 0) return;
     setCapturando(true);
     
+    console.log('[Fotos] Iniciando guardado, fotos:', fotosCapturadas.length);
+    
     try {
       // Obtener fotos existentes
-      const { data: fotosExistentes } = await supabase
+      const { data: fotosExistentes, error: queryError } = await supabase
         .from('fotos_visita')
         .select('id_foto')
         .eq('id_local_ruta', localParaFoto.id_local_ruta);
+      
+      if (queryError) {
+        console.error('[Fotos] Error consultando fotos existentes:', queryError);
+        throw queryError;
+      }
       
       const ordenBase = (fotosExistentes?.length || 0) + 1;
       const urlsSubidas: string[] = [];
       
       for (let i = 0; i < fotosCapturadas.length; i++) {
         const { file } = fotosCapturadas[i];
+        console.log('[Fotos] Comprimiendo foto', i, 'size:', file.size);
+        
         const compressedBlob = await compressToWebP(file);
+        console.log('[Fotos] Foto comprimida, size:', compressedBlob.size);
+        
         const fileName = `${localParaFoto.id_local_ruta}_${Date.now()}_${i}.webp`;
         const filePath = `evidencia/${fileName}`;
+        
+        console.log('[Fotos] Subiendo a storage:', filePath);
         
         const { error: uploadError } = await supabase.storage
           .from('visitas_fotos')
           .upload(filePath, compressedBlob, { contentType: 'image/webp' });
         
-        if (!uploadError) {
-const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
-          await supabase.from('fotos_visita').insert({
-            id_local_ruta: localParaFoto.id_local_ruta,
-            foto_url: data.publicUrl,
-            orden: ordenBase + i,
-          });
-          
-          urlsSubidas.push(data.publicUrl);
+        if (uploadError) {
+          console.error('[Fotos] Error upload:', uploadError);
+          continue;
         }
+        
+        console.log('[Fotos] Upload OK, inserting to DB');
+        const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
+        await supabase.from('fotos_visita').insert({
+          id_local_ruta: localParaFoto.id_local_ruta,
+          foto_url: data.publicUrl,
+          orden: ordenBase + i,
+        });
+        
+        urlsSubidas.push(data.publicUrl);
       }
       
-      alert('✅ Fotos guardadas correctamente');
+      console.log('[Fotos] Completado, guardadas:', urlsSubidas.length);
+      alert(`✅ ${urlsSubidas.length} fotos guardadas correctamente`);
       setLocalParaFoto(null);
       setFotosCapturadas([]);
       setFotosExistentes([]);
