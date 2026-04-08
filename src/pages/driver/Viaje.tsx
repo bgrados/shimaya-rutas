@@ -23,7 +23,8 @@ import {
   Edit2,
   X,
   Check,
-  Camera
+  Camera,
+  Image
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -912,38 +913,26 @@ const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
               </div>
             )}
             
-            <div className="grid grid-cols-3 gap-2">
-              {fotosCapturadas.map((foto, idx) => (
-                <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-purple-500/50">
-                  <img src={foto.preview} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => handleEliminarFoto(idx)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-              
-              {fotosCapturadas.length < 5 && (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square border-2 border-dashed border-purple-500/50 rounded-lg flex flex-col items-center justify-center text-purple-400 hover:bg-purple-500/10"
-                >
-                  <Camera size={20} />
-                  <span className="text-[10px]">Agregar</span>
-                </button>
-              )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex items-center justify-center gap-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera size={18} />
+                Cámara
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex items-center justify-center gap-2"
+                onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) handleAgregarFoto({ target: { files: [file] } } as any); }; input.click(); }}
+              >
+                <Image size={18} />
+                Fototeca
+              </Button>
             </div>
-            
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={handleAgregarFoto}
-            />
             
             <div className="flex gap-2">
               <Button 
