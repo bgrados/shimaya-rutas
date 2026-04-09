@@ -354,7 +354,7 @@ const win = window.open('', '_blank');
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastos.forEach(gasto => {
-      const fecha = gasto.created_at ? new Date(new Date(gasto.created_at).getTime() + 5*60*60*1000).toISOString().split('T')[0] : 'sin fecha';
+      const fecha = gasto.created_at ? new Date(new Date(gasto.created_at).getTime() + 19*60*60*1000).toISOString().split('T')[0] : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });
