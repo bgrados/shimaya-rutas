@@ -6,6 +6,7 @@ import RegistrarCombustible from '../combustible/Registrar';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { ArrowLeft, CheckCircle2, XCircle, Clock, Navigation, Play, Flag, Fuel } from 'lucide-react';
+import { nowPeru } from '../../../lib/timezone';
 
 export default function EjecucionRuta() {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +64,7 @@ export default function EjecucionRuta() {
   const progreso = total === 0 ? 0 : Math.round((completados / total) * 100);
 
   const handleSalidaPlanta = async () => {
-    const now = new Date().toISOString();
+    const now = nowPeru();
     const { error } = await supabase
       .from('rutas')
       .update({ 
@@ -90,7 +91,7 @@ export default function EjecucionRuta() {
   };
 
   const handleLlegadaPlanta = async () => {
-    const now = new Date().toISOString();
+    const now = nowPeru();
     const { error } = await supabase
       .from('rutas')
       .update({ 

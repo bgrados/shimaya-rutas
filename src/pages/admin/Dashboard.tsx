@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatPeru } from '../../lib/timezone';
 import { Link } from 'react-router-dom';
 
 interface Stats {
@@ -416,7 +417,7 @@ export default function AdminDashboard() {
                     </div>
                     {ruta.hora_salida && (
                       <p className="text-text-muted text-xs mt-2">
-                        Salida: {format(new Date(ruta.hora_salida), 'HH:mm')}
+                        Salida: {formatPeru(ruta.hora_salida, 'HH:mm')}
                       </p>
                     )}
                   </div>
@@ -453,7 +454,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="text-right">
                       <p className="text-green-400 font-bold">S/ {chofer.total_gasto.toFixed(2)}</p>
-                      <p className="text-text-muted text-xs">{chofer.cargas} cargas</p>
+                      <p className="text-text-muted text-xs">{chofer.cargas} {chofer.tipo === 'otros' ? 'pagos' : 'cargas'}</p>
                     </div>
                   </div>
                 ))}

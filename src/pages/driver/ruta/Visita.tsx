@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Camera, MapPin, ArrowLeft, CheckCircle2, Navigation, X, Loader2, Image } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatPeru } from '../../../lib/timezone';
 
 interface PhotoItem {
   preview: string;
@@ -141,7 +142,7 @@ export default function VisitaLocal() {
 
   const handleFinalizar = async (estado: EstadoVisita) => {
     setSaving(true);
-    const now = new Date().toISOString();
+    const now = nowPeru();
 
     for (let i = 0; i < photos.length; i++) {
       const photo = photos[i];
@@ -187,7 +188,7 @@ export default function VisitaLocal() {
           <div className="flex justify-between items-center text-sm font-medium">
             <span className="text-text-muted">Llegada registrada:</span>
             {local.hora_llegada ? (
-              <span className="text-green-500 flex items-center gap-1"><CheckCircle2 size={16}/> {format(new Date(local.hora_llegada), 'HH:mm')}</span>
+              <span className="text-green-500 flex items-center gap-1"><CheckCircle2 size={16}/> {formatPeru(local.hora_llegada, 'HH:mm')}</span>
             ) : (
               <span className="text-yellow-500">No registrada</span>
             )}
@@ -208,7 +209,7 @@ export default function VisitaLocal() {
                   console.warn("GPS falló", err);
                 }
               }
-              const now = new Date().toISOString();
+              const now = nowPeru();
               await supabase.from('locales_ruta').update({
                 hora_llegada: now,
                 estado_visita: 'pendiente',

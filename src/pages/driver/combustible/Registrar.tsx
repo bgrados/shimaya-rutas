@@ -5,6 +5,7 @@ import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Camera, Fuel, Loader2, X, Check, AlertTriangle, Image } from 'lucide-react';
 import Tesseract from 'tesseract.js';
+import { nowPeru } from '../../../lib/timezone';
 
 interface RegistrarCombustibleProps {
   idRuta: string;
@@ -156,7 +157,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         foto_url: fotoUrl,
         notas: notas || null,
         estado: 'confirmado',
-        fecha: new Date().toISOString()
+        fecha: nowPeru()
       });
 
       if (insertError) {
