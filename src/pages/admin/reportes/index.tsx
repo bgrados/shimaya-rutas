@@ -32,7 +32,7 @@ function formatMins(mins: number | null) {
 }
 
 type Period = 'diario' | 'semanal' | 'mensual';
-type ReportType = 'rutas' | 'combustible' | 'otros';
+type ReportType = 'rutas' | 'combustible';
 
 interface RutaConBitacora extends Ruta { bitacora?: any[]; duracionMins?: number | null; localesRuta?: any[]; }
 interface Usuario { id_usuario: string; nombre: string; }
@@ -604,13 +604,6 @@ const win = window.open('', '_blank');
             <Fuel size={16} className="inline mr-2" />
             Combustible
           </button>
-          <button
-            onClick={() => setReportType('otros')}
-            className={`px-4 py-2 font-medium transition-colors ${reportType === 'otros' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
-          >
-            <Car size={16} className="inline mr-2" />
-            Otros
-          </button>
         </div>
       </div>
 
@@ -1012,16 +1005,6 @@ const win = window.open('', '_blank');
           </div>
         )}
       </>
-      )}
-
-      {reportType === 'otros' && (
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Otros Gastos</h2>
-          <p className="text-text-muted mb-4">Gastos de estacionamiento y peaje</p>
-          <a href="/admin/combustible/" className="text-blue-400 hover:underline">
-            Ver detalle completo →
-          </a>
-        </div>
       )}
     </div>
   );
