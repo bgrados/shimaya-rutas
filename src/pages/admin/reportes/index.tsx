@@ -79,7 +79,7 @@ export default function Reportes() {
   }
 
   useEffect(() => { loadData(); }, [period, selectedDate, reportType]);
-  useEffect(() => { loadCombustible(); }, [filtroFecha, filterTipo, reportType]);
+  useEffect(() => { loadCombustible(); }, [filtroFecha, reportType]);
 
   useEffect(() => {
     supabase.from('usuarios').select('id_usuario,nombre').eq('rol', 'chofer').then(r => { if (r.data) setChoferes(r.data); });
@@ -147,13 +147,6 @@ export default function Reportes() {
       } else if (filtroFecha === 'mes') {
         const mesInicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         query = query.gte('created_at', mesInicio.toISOString());
-      }
-
-      // Filter by tipo
-      if (filterTipo === 'combustible') {
-        query = query.neq('tipo_combustible', 'otro');
-      } else if (filterTipo === 'otros') {
-        query = query.eq('tipo_combustible', 'otro');
       }
 
       const { data } = await query;
@@ -821,27 +814,6 @@ const win = window.open('', '_blank');
             <option value="mes">Este mes</option>
             <option value="todo">Todo</option>
           </select>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilterTipo('todos')}
-              className={`px-3 py-2 rounded-lg font-medium transition-colors ${filterTipo === 'todos' ? 'bg-primary text-white' : 'bg-surface text-text-muted'}`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setFilterTipo('combustible')}
-              className={`px-3 py-2 rounded-lg font-medium transition-colors ${filterTipo === 'combustible' ? 'bg-green-600 text-white' : 'bg-surface text-text-muted'}`}
-            >
-              GLP/Gas/Diesel
-            </button>
-            <button
-              onClick={() => setFilterTipo('otros')}
-              className={`px-3 py-2 rounded-lg font-medium transition-colors ${filterTipo === 'otros' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'}`}
-            >
-              Est/Pej
-            </button>
-          </div>
 
           <div className="flex gap-2">
             <button
