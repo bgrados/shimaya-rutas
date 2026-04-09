@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Car } from 'lucide-react';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatPeru, formatGroupDate, formatGroupDatePdf } from '../../../lib/timezone';
@@ -64,7 +64,6 @@ export default function Reportes() {
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
   const [filterRuta, setFilterRuta] = useState('');
-  const [filterTipo, setFilterTipo] = useState<'todos' | 'combustible' | 'otros'>('todos');
 
   function getRange(p: Period, date: string): { from: string; to: string } {
     const d = parseISO(date);
@@ -80,7 +79,7 @@ export default function Reportes() {
   }
 
   useEffect(() => { loadData(); }, [period, selectedDate, reportType]);
-  useEffect(() => { loadCombustible(); }, [filtroFecha, filterTipo, reportType]);
+  useEffect(() => { loadCombustible(); }, [filtroFecha, reportType]);
 
   useEffect(() => {
     supabase.from('usuarios').select('id_usuario,nombre').eq('rol', 'chofer').then(r => { if (r.data) setChoferes(r.data); });
@@ -148,12 +147,6 @@ export default function Reportes() {
       } else if (filtroFecha === 'mes') {
         const mesInicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         query = query.gte('created_at', mesInicio.toISOString());
-      }
-
-      if (filterTipo === 'combustible') {
-        query = query.neq('tipo_combustible', 'otro');
-      } else if (filterTipo === 'otros') {
-        query = query.eq('tipo_combustible', 'otro');
       }
 
       const { data } = await query;
@@ -831,27 +824,6 @@ const win = window.open('', '_blank');
 
           <div className="flex gap-2">
             <button
-              onClick={() => setFilterTipo('todos')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterTipo === 'todos' ? 'bg-primary text-white' : 'bg-surface text-text-muted'}`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setFilterTipo('combustible')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterTipo === 'combustible' ? 'bg-green-600 text-white' : 'bg-surface text-text-muted'}`}
-            >
-              Combustible
-            </button>
-            <button
-              onClick={() => setFilterTipo('otros')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterTipo === 'otros' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'}`}
-            >
-              Otros (Est/Pej)
-            </button>
-          </div>
-
-          <div className="flex gap-2">
-            <button
               onClick={() => setAgruparPor('fecha')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${agruparPor === 'fecha' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'}`}
             >
@@ -871,9 +843,6 @@ const win = window.open('', '_blank');
             <Download size={18} />
             Exportar PDF
           </Button>
-          <a href="/admin/combustible/" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-            <Eye size={18} className="inline mr-2" /> Ver detalle completo
-          </a>
         </div>
 
         {/* Título para impresión */}
@@ -1046,17 +1015,14 @@ const win = window.open('', '_blank');
       )}
 
       {reportType === 'otros' && (
-        <Card className="border-surface-light">
-          <CardContent className="p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Otros Gastos</h2>
-            <p className="text-text-muted mb-4">Gastos de estacionamiento y peaje</p>
-            <a href="/admin/combustible/" className="text-blue-400 hover:underline">
-              Ver detalle completo →
-            </a>
-          </CardContent>
-        </Card>
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Otros Gastos</h2>
+          <p className="text-text-muted mb-4">Gastos de estacionamiento y peaje</p>
+          <a href="/admin/combustible/" className="text-blue-400 hover:underline">
+            Ver detalle completo →
+          </a>
+        </div>
       )}
-
     </div>
   );
 }
