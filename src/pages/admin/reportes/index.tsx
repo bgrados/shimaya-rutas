@@ -611,13 +611,6 @@ const win = window.open('', '_blank');
             <Fuel size={16} className="inline mr-2" />
             Combustible
           </button>
-          <button
-            onClick={() => setReportType('otros')}
-            className={`px-4 py-2 font-medium transition-colors ${reportType === 'otros' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
-          >
-            <Car size={16} className="inline mr-2" />
-            Otros
-          </button>
         </div>
       </div>
 
@@ -1045,14 +1038,6 @@ const win = window.open('', '_blank');
       </>
       )}
 
-      {reportType === 'otros' && (
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Otros Gastos</h2>
-          <p className="text-text-muted">
-            Esta sección muestra los gastos de tipo otro (estacionamiento, peaje).
-          </p>
-        </div>
-      )}
     </div>
   );
 }
