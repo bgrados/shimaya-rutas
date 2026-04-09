@@ -1046,20 +1046,12 @@ const win = window.open('', '_blank');
       )}
 
       {reportType === 'otros' && (
-        <Card className="border-surface-light">
-          <CardContent className="p-6">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Car className="text-blue-400" size={24} />
-              Otros Gastos (Estacionamiento / Peaje)
-            </h2>
-            <p className="text-text-muted mb-4">
-              Esta sección muestra los gastos de tipo "otro" (estacionamiento, peaje, etc.)
-            </p>
-            <a href="/admin/combustible/" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
-              Ver detalle completo
-            </a>
-          </CardContent>
-        </Card>
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Otros Gastos</h2>
+          <p className="text-text-muted">
+            Esta sección muestra los gastos de tipo otro (estacionamiento, peaje).
+          </p>
+        </div>
       )}
     </div>
   );
