@@ -68,6 +68,17 @@ export default function DriverViaje() {
   const [editHoraSalida, setEditHoraSalida] = useState('');
   const [editHoraLlegada, setEditHoraLlegada] = useState('');
 
+  const loadFotosExistentes = async (idLocalRuta: string) => {
+    const { data, error } = await supabase
+      .from('fotos_visita')
+      .select('id_foto, foto_url')
+      .eq('id_local_ruta', idLocalRuta);
+    
+    if (!error && data) {
+      setFotosExistentes(data);
+    }
+  };
+
   const handleEditarHora = (tramo: ViajeBitacora) => {
     setEditandoBitacora(tramo.id_bitacora);
     setEditHoraSalida(tramo.hora_salida ? formatoHoraInput(new Date(tramo.hora_salida)) : '');
@@ -756,6 +767,32 @@ export default function DriverViaje() {
         </Button>
       )}
 
+      {/* Botón para agregar fotos a cualquier local visitado */}
+      {ruta.estado !== 'finalizada' && locales.some(l => l.estado_visita === 'visitado') && (
+        <div className="mt-4 p-3 bg-surface-light/30 rounded-xl border border-white/5">
+          <p className="text-[10px] text-text-muted mb-2 uppercase font-bold">Agregar foto a local anterior:</p>
+          <select 
+            className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+            onChange={(e) => {
+              const local = locales.find(l => l.id_local_ruta === e.target.value);
+              if (local) {
+                setLocalParaFoto(local);
+                setFotosCapturadas([]);
+                loadFotosExistentes(local.id_local_ruta);
+              }
+            }}
+            value=""
+          >
+            <option value="">Seleccionar local...</option>
+            {locales.filter(l => l.estado_visita === 'visitado').map(local => (
+              <option key={local.id_local_ruta} value={local.id_local_ruta}>
+                {local.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {ruta.estado !== 'finalizada' && (
         <Card className="border-primary bg-primary/5 ring-1 ring-primary/20 overflow-hidden">
           <CardContent className="p-6">
@@ -1043,13 +1080,36 @@ export default function DriverViaje() {
       </div>
 
       {ruta.estado === 'finalizada' && (
-        <div className="bg-green-500/10 border-2 border-green-500/50 p-8 rounded-3xl text-center animate-in zoom-in-95 duration-700 shadow-2xl shadow-green-500/10">
-            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-black shadow-lg shadow-green-500/20">
-              <CheckCircle2 size={36} />
+        <>
+          <div className="bg-green-500/10 border-2 border-green-500/50 p-8 rounded-3xl text-center animate-in zoom-in-95 duration-700 shadow-2xl shadow-green-500/10">
+              <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-black shadow-lg shadow-green-500/20">
+                <CheckCircle2 size={36} />
+              </div>
+              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
+              <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
+          </div>
+          
+          {/* Botón para agregar fotos después del viaje */}
+          <div className="mt-6 p-4 bg-surface-light/30 rounded-2xl border border-white/10">
+            <p className="text-xs text-text-muted mb-3 uppercase font-bold">Agregar fotos de evidencia (opcional)</p>
+            <div className="grid grid-cols-2 gap-2">
+              {locales.filter(l => l.estado_visita === 'visitado').map(local => (
+                <button
+                  key={local.id_local_ruta}
+                  onClick={() => {
+                    setLocalParaFoto(local);
+                    setFotosCapturadas([]);
+                    loadFotosExistentes(local.id_local_ruta);
+                  }}
+                  className="bg-surface p-3 rounded-xl border border-white/10 hover:border-primary/50 text-left transition-all"
+                >
+                  <p className="text-xs font-bold text-white truncate">{local.nombre}</p>
+                  <p className="text-[10px] text-text-muted">{local.hora_llegada ? '✓ Con foto' : 'Sin foto'}</p>
+                </button>
+              ))}
             </div>
-            <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
-            <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
-        </div>
+          </div>
+        </>
       )}
 
       {showCombustible && (
