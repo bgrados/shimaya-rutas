@@ -164,7 +164,8 @@ export default function DriverViaje() {
     }
     setLoading(true);
     try {
-      const { data: rutaData, error: rError } = await supabase
+      // Primero buscar ruta activa (pendiente o en_progreso)
+      const { data: rutaActiva, error: rError } = await supabase
         .from('rutas')
         .select('*')
         .eq('id_chofer', profile.id_usuario)
@@ -172,16 +173,15 @@ export default function DriverViaje() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(); 
-        
-      if (rError) throw rError;
-
-      if (rutaData) {
-        setRuta(rutaData as Ruta);
+      
+      // Si hay ruta activa, usarla
+      if (rutaActiva) {
+        setRuta(rutaActiva as Ruta);
         
         const { data: localesData, error: locError } = await supabase
           .from('locales_ruta')
           .select('*')
-          .eq('id_ruta', rutaData.id_ruta)
+          .eq('id_ruta', rutaActiva.id_ruta)
           .order('orden', { ascending: true });
         
         if (locError) console.error('Error loading locales_ruta:', locError);
@@ -190,13 +190,54 @@ export default function DriverViaje() {
         const { data: bitacoraData, error: bitError } = await supabase
           .from('viajes_bitacora')
           .select('*')
-          .eq('id_ruta', rutaData.id_ruta)
+          .eq('id_ruta', rutaActiva.id_ruta)
           .order('created_at', { ascending: true });
         
         if (bitError) console.error('Error loading bitacora:', bitError);
         setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
       } else {
-        setRuta(null);
+        // Si no hay ruta activa, buscar la ruta finalizada de HOY
+        const today = new Date().toISOString().split('T')[0];
+        const { data: rutaFinalizada, error: rfError } = await supabase
+          .from('rutas')
+          .select('*')
+          .eq('id_chofer', profile.id_usuario)
+          .eq('estado', 'finalizada')
+          .eq('fecha', today)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (rfError) console.error('Error loading ruta finalizada:', rfError);
+        
+        if (rutaFinalizada) {
+          // Mostrar la ruta finalizada para poder agregar fotos
+          setRuta(rutaFinalizada as Ruta);
+          
+          const { data: localesData, error: locError } = await supabase
+            .from('locales_ruta')
+            .select('*')
+            .eq('id_ruta', rutaFinalizada.id_ruta)
+            .order('orden', { ascending: true });
+          
+          if (locError) console.error('Error loading locales_ruta:', locError);
+          if (localesData) setLocales(localesData as LocalRuta[]);
+
+          const { data: bitacoraData, error: bitError } = await supabase
+            .from('viajes_bitacora')
+            .select('*')
+            .eq('id_ruta', rutaFinalizada.id_ruta)
+            .order('created_at', { ascending: true });
+          
+          if (bitError) console.error('Error loading bitacora:', bitError);
+          setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
+        } else {
+          setRuta(null);
+          setLocales([]);
+          setBitacora([]);
+        }
+        
+        // Cargar rutas base para crear nuevo viaje
         const { data: baseData, error: rbError } = await supabase
           .from('rutas_base')
           .select('*')
