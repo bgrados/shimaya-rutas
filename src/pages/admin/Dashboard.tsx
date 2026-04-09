@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
-import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react';
+import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
@@ -17,6 +17,7 @@ interface Stats {
   totalChoferes: number;
   gastoCombustibleDia: number;
   gastoCombustibleSemana: number;
+  gastoOtrosDia: number;
   cargasHoy: number;
 }
 
@@ -52,6 +53,7 @@ export default function AdminDashboard() {
     totalChoferes: 0,
     gastoCombustibleDia: 0,
     gastoCombustibleSemana: 0,
+    gastoOtrosDia: 0,
     cargasHoy: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
@@ -120,7 +122,11 @@ export default function AdminDashboard() {
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       
-      console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana);
+      // Obtener gastos de "otros" (estacionamiento/peaje)
+      const otrosDiaRes = await supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', `${hoyStr}T00:00:00`);
+      const gastoOtrosDia = otrosDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+      
+      console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana, 'Otros dia:', gastoOtrosDia);
       
       setStats({
         rutasActivas: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
@@ -134,6 +140,7 @@ export default function AdminDashboard() {
         totalChoferes: choferesRes.count || 0,
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
+        gastoOtrosDia: gastoOtrosDia,
         cargasHoy: gastoDia
       });
 
@@ -319,6 +326,20 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {stats.gastoOtrosDia > 0 && (
+          <Card className="bg-blue-500/10 border border-blue-500/30">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 bg-blue-500/20 rounded-lg">
+                <Car className="text-blue-400" size={20} />
+              </div>
+              <div>
+                <p className="text-xs text-blue-300 uppercase font-bold">Otros (Estac./Peaje)</p>
+                <p className="text-2xl font-black text-white">S/ {stats.gastoOtrosDia.toFixed(2)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Secondary Stats */}
