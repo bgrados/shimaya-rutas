@@ -89,11 +89,27 @@ export default function DriverViaje() {
     nuevaSalida.setHours(hS, mS, 0, 0);
 
     let nuevaLlegada: Date | null = null;
-    if (editHoraLlegada && tramo.hora_llegada) {
+    if (editHoraLlegada && editHoraLlegada !== '') {
       const [hL, mL] = editHoraLlegada.split(':').map(Number);
-      const fechaBaseL = new Date(tramo.hora_llegada);
+      const fechaBaseL = new Date(tramo.hora_llegada || tramo.hora_salida);
       nuevaLlegada = new Date(fechaBaseL);
       nuevaLlegada.setHours(hL, mL, 0, 0);
+    }
+
+    // Validar que llegada no sea antes que salida
+    if (nuevaLlegada && nuevaLlegada <= nuevaSalida) {
+      alert('La hora de llegada no puede ser anterior a la hora de salida');
+      return;
+    }
+
+    // Validar que no sea antes que la llegada del tramo anterior
+    const idxActual = bitacora.findIndex(b => b.id_bitacora === tramo.id_bitacora);
+    if (idxActual > 0) {
+      const tramoAnterior = bitacora[idxActual - 1];
+      if (tramoAnterior.hora_llegada && nuevaSalida < new Date(tramoAnterior.hora_llegada)) {
+        alert('La hora de salida no puede ser anterior a la llegada del tramo anterior');
+        return;
+      }
     }
 
     const updates: any = { hora_salida: nuevaSalida.toISOString() };
