@@ -6,21 +6,8 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf } from '../../../lib/timezone';
-
-const urlToBase64 = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url, { method: 'GET', cache: 'no-store' });
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch { return null; }
-};
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 function localToday(): string { return format(new Date(), 'yyyy-MM-dd'); }
 
@@ -58,12 +45,11 @@ export default function Reportes() {
   const [combustibleLoading, setCombustibleLoading] = useState(true);
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
   const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
-  const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
-  const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
   const [filterRuta, setFilterRuta] = useState('');
+  const [filterTipo, setFilterTipo] = useState<'todos' | 'combustible' | 'otros'>('todos');
 
   function getRange(p: Period, date: string): { from: string; to: string } {
     const d = parseISO(date);
@@ -79,7 +65,7 @@ export default function Reportes() {
   }
 
   useEffect(() => { loadData(); }, [period, selectedDate, reportType]);
-  useEffect(() => { loadCombustible(); }, [filtroFecha, reportType]);
+  useEffect(() => { loadCombustible(); }, [filtroFecha, filterTipo, reportType]);
 
   useEffect(() => {
     supabase.from('usuarios').select('id_usuario,nombre').eq('rol', 'chofer').then(r => { if (r.data) setChoferes(r.data); });
@@ -144,7 +130,10 @@ export default function Reportes() {
       
       if (filtroFecha === 'semana') {
         query = query.gte('created_at', fechaInicio.toISOString());
-      } else if (filtroFecha === 'mes') {
+      } else if (filterTipo === 'combustible') { query = query.neq('tipo_combustible', 'otro'); }
+      else if (filterTipo === 'otros') { query = query.eq('tipo_combustible', 'otro'); }
+
+      if (filtroFecha === 'mes') {
         const mesInicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         query = query.gte('created_at', mesInicio.toISOString());
       }
@@ -158,18 +147,6 @@ export default function Reportes() {
           ruta_nombre: g.rutas?.nombre
         }));
         setGastos(mapped as GastoCombustible[]);
-        
-        // Cargar fotos de combustible
-        const fotosMap: Record<string, string> = {};
-        for (const gasto of data) {
-          if (gasto.foto_url) {
-            const base64 = await urlToBase64(gasto.foto_url);
-            if (base64) {
-              fotosMap[gasto.id_gasto] = base64;
-            }
-          }
-        }
-        setFotosCombustible(fotosMap);
       }
     } catch (err) {
       console.error('[Gastos] Error:', err);
@@ -234,8 +211,8 @@ export default function Reportes() {
         return `<tr>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : '⏳'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : '⏳'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
         </tr>`;
@@ -253,8 +230,8 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
           </div>
         </div>
         <div style="padding:8px 16px;background:#f8fafc;font-size:12px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;">
-          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatPeru(r.hora_salida_planta, 'HH:mm')}</strong></span>` : ''}
-          ${r.hora_llegada_planta ? `<span>🏁 Llegada planta: <strong>${formatPeru(r.hora_llegada_planta, 'HH:mm')}</strong></span>` : ''}
+          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${format(new Date(r.hora_salida_planta), 'HH:mm')}</strong></span>` : ''}
+          ${r.hora_llegada_planta ? `<span>🏁 Llegada planta: <strong>${format(new Date(r.hora_llegada_planta), 'HH:mm')}</strong></span>` : ''}
           ${r.duracionMins ? `<span>⏱ Duración total: <strong>${formatMins(r.duracionMins)}</strong></span>` : ''}
         </div>
         ${bits.length > 0 ? `
@@ -310,11 +287,9 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
   .content { padding: 20px 28px; }
   .footer { text-align: center; color: #94a3b8; font-size: 11px; padding: 16px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
   .print-btn { position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
-  .close-btn { position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; z-index: 9999; }
 </style>
 </head>
 <body>
-<button class="close-btn" onclick="if(window.opener){window.close();}else{history.back();}">✕ Cerrar</button>
 <div class="header">
   <div style="display:flex;align-items:center;gap:16px;">
     <div>
@@ -337,11 +312,11 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 <div class="content">
   ${rows || '<p style="color:#94a3b8;text-align:center;padding:40px;font-style:italic;">No hay rutas que coincidan con el filtro seleccionado.</p>'}
 </div>
-<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
+<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
-const win = window.open('', '_blank');
+    const win = window.open('', '_blank', 'width=960,height=750');
     if (win) {
       win.document.write(html);
       win.document.close();
@@ -354,7 +329,7 @@ const win = window.open('', '_blank');
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastos.forEach(gasto => {
-      const fecha = gasto.created_at ? new Date(gasto.created_at).toISOString().split('T')[0] : 'sin fecha';
+      const fecha = gasto.created_at ? format(new Date(gasto.created_at), 'yyyy-MM-dd') : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });
@@ -428,7 +403,7 @@ const win = window.open('', '_blank');
             const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
             
             return `<tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:8px;color:#475569;">${gasto.created_at ? formatPeru(gasto.created_at, 'HH:mm') : '-'}</td>
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'HH:mm') : '-'}</td>
               <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
               <td style="padding:8px;color:#475569;text-transform:uppercase;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
@@ -438,7 +413,7 @@ const win = window.open('', '_blank');
           
           return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
             <div style="background:#1e293b;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
-              <div><strong style="font-size:14px;">📅 ${formatGroupDatePdf(grupo.fecha)}</strong></div>
+              <div><strong style="font-size:14px;">📅 ${format(parseISO(grupo.fecha), 'dd MMMM yyyy', { locale: es })}</strong></div>
               <div style="background:#22c55e22;color:#22c55e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;">Total: S/ ${grupo.total.toFixed(2)}</div>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -470,7 +445,7 @@ const win = window.open('', '_blank');
             const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
             
             return `<tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:8px;color:#475569;">${gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM HH:mm') : '-'}</td>
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM HH:mm') : '-'}</td>
               <td style="padding:8px;color:#475569;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
               <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
@@ -511,11 +486,9 @@ const win = window.open('', '_blank');
   .content { padding: 20px 28px; }
   .footer { text-align: center; color: #94a3b8; font-size: 11px; padding: 16px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
   .print-btn { position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
-  .close-btn { position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; z-index: 9999; }
 </style>
 </head>
 <body>
-<button class="close-btn" onclick="if(window.opener){window.close();}else{history.back();}">✕ Cerrar</button>
 <div class="header">
   <div style="display:flex;align-items:center;gap:16px;">
     <div>
@@ -537,33 +510,12 @@ const win = window.open('', '_blank');
 <div class="content">
   <p style="font-size:12px;color:#64748b;margin-bottom:16px;">Agrupado por: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}</p>
   ${gruposHTML.join('')}
-  ${(() => {
-    const gastosConFoto = gastos.filter(g => fotosCombustible[g.id_gasto]);
-    if (gastosConFoto.length === 0) return '';
-    let fotosHTML = `<div style="margin-top:30px;">
-      <h3 style="color:#1e293b;font-size:16px;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">📸 Fotos de Comprobantes (${gastosConFoto.length})</h3>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">`;
-    gastosConFoto.forEach(gasto => {
-      const fotoBase64 = fotosCombustible[gasto.id_gasto];
-      if (fotoBase64) {
-        fotosHTML += `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-          <img src="${fotoBase64}" style="width:100%;height:120px;object-fit:cover;" />
-          <div style="padding:8px;font-size:10px;color:#64748b;">
-            <strong>${gasto.chofer_nombre || '-'}</strong><br/>
-            S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase() || '-'}<br/>
-            ${gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy HH:mm') : ''}
-          </div>
-        </div>`;
-      }
-    });
-    return fotosHTML + `</div></div>`;
-  })()}
 </div>
-<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
+<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno</div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
-const win = window.open('', '_blank');
+const win = window.open('', '_blank', 'width=960,height=750');
     if (win) {
       win.document.write(html);
       win.document.close();
@@ -726,8 +678,8 @@ const win = window.open('', '_blank');
                       <div className="flex items-center gap-3">
                         {ruta.hora_salida_planta && (
                           <span className="text-xs text-text-muted">
-                            🕐 {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
-                            {ruta.hora_llegada_planta && ` → ${formatPeru(ruta.hora_llegada_planta, 'HH:mm')}`}
+                            🕐 {format(new Date(ruta.hora_salida_planta), 'HH:mm')}
+                            {ruta.hora_llegada_planta && ` → ${format(new Date(ruta.hora_llegada_planta), 'HH:mm')}`}
                             {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
                           </span>
                         )}
@@ -753,8 +705,8 @@ const win = window.open('', '_blank');
                                 <tr key={b.id_bitacora} className="border-b border-white/5 hover:bg-white/5">
                                   <td className="px-4 py-2 text-primary font-black">{i + 1}</td>
                                   <td className="px-4 py-2 text-white font-bold italic">{b.origen_nombre} <span className="text-primary">→</span> {b.destino_nombre}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
                                   <td className="px-4 py-2 font-bold text-primary">{formatMins(dur)}</td>
                                 </tr>
                               );
@@ -814,6 +766,14 @@ const win = window.open('', '_blank');
         <div id="combustible-report-content" className="flex flex-wrap gap-4 mb-6">
           <select
             value={filtroFecha}
+            onChange={(e) => setFiltroFecha(e.target.value as any)}
+          />
+          <div className="flex gap-2">
+            <button onClick={() => setFilterTipo('todos')} className={`px-3 py-1 rounded ${filterTipo === 'todos' ? 'bg-primary text-white' : 'bg-surface text-text-muted'}`}>Todos</button>
+            <button onClick={() => setFilterTipo('combustible')} className={`px-3 py-1 rounded ${filterTipo === 'combustible' ? 'bg-green-600 text-white' : 'bg-surface text-text-muted'}`}>Comb</button>
+            <button onClick={() => setFilterTipo('otros')} className={`px-3 py-1 rounded ${filterTipo === 'otros' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'}`}>Otros</button>
+          </div>
+          <select
             onChange={(e) => setFiltroFecha(e.target.value as any)}
             className="bg-surface border border-surface-light rounded-lg px-4 py-2 text-white"
           >
@@ -900,7 +860,7 @@ const win = window.open('', '_blank');
                     <div className="flex items-center gap-2">
                       <Calendar className="text-blue-400" size={20} />
                       <span className="font-bold text-white">
-                        {formatGroupDate(grupo.fecha)}
+                        {format(new Date(grupo.fecha), "EEEE d 'de' MMMM", { locale: es })}
                       </span>
                     </div>
                     <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
@@ -946,7 +906,7 @@ const win = window.open('', '_blank');
                         <div className="flex items-center gap-2">
                           <Calendar size={14} className="text-text-muted" />
                           <span className="text-text-muted">
-                            {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy HH:mm') : '-'}
+                            {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
                           </span>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                             gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
@@ -972,58 +932,7 @@ const win = window.open('', '_blank');
             <p className="text-text-muted">No hay gastos registrados</p>
           </div>
         )}
-
-        {/* Fotos de comprobantes en la UI */}
-        {gastos.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
-          <Card className="mt-6">
-            <CardContent className="p-4">
-              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                📸 Fotos de Comprobantes
-                <span className="text-text-muted text-sm font-normal">({gastos.filter(g => fotosCombustible[g.id_gasto]).length})</span>
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {gastos.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
-                  <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                    <img 
-                      src={fotosCombustible[gasto.id_gasto]} 
-                      alt="Comprobante" 
-                      className="w-full h-40 object-cover cursor-pointer"
-                      onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
-                    />
-                    <div className="p-2 text-xs">
-                      <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
-                      <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {showFotoModal && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowFotoModal(null)}>
-            <div className="relative max-w-3xl w-full">
-              <button onClick={() => setShowFotoModal(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
-                <X size={24} />
-              </button>
-              <img src={showFotoModal} alt="Foto ampliada" className="max-h-[80vh] w-full object-contain rounded-lg" />
-            </div>
-          </div>
-        )}
       </>
-      )}
-
-      {reportType === 'otros' && (
-        <Card className="border-surface-light">
-          <CardContent className="p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Otros Gastos</h2>
-            <p className="text-text-muted mb-4">Gastos de estacionamiento y peaje</p>
-            <a href="/admin/combustible/" className="text-blue-400 hover:underline">
-              Ver detalle completo →
-            </a>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
