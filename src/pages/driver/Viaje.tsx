@@ -63,6 +63,54 @@ export default function DriverViaje() {
   const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Estado para editar horas de bitácora
+  const [editandoBitacora, setEditandoBitacora] = useState<string | null>(null);
+  const [editHoraSalida, setEditHoraSalida] = useState('');
+  const [editHoraLlegada, setEditHoraLlegada] = useState('');
+
+  const handleEditarHora = (tramo: ViajeBitacora) => {
+    setEditandoBitacora(tramo.id_bitacora);
+    setEditHoraSalida(tramo.hora_salida ? formatoHoraInput(new Date(tramo.hora_salida)) : '');
+    setEditHoraLlegada(tramo.hora_llegada ? formatoHoraInput(new Date(tramo.hora_llegada)) : '');
+  };
+
+  const formatoHoraInput = (date: Date) => {
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  const guardarEdicionHora = async (tramo: ViajeBitacora) => {
+    if (!editHoraSalida) return;
+    
+    const [hS, mS] = editHoraSalida.split(':').map(Number);
+    const fechaBase = new Date(tramo.hora_salida);
+    const nuevaSalida = new Date(fechaBase);
+    nuevaSalida.setHours(hS, mS, 0, 0);
+
+    let nuevaLlegada: Date | null = null;
+    if (editHoraLlegada && tramo.hora_llegada) {
+      const [hL, mL] = editHoraLlegada.split(':').map(Number);
+      const fechaBaseL = new Date(tramo.hora_llegada);
+      nuevaLlegada = new Date(fechaBaseL);
+      nuevaLlegada.setHours(hL, mL, 0, 0);
+    }
+
+    const updates: any = { hora_salida: nuevaSalida.toISOString() };
+    if (nuevaLlegada) {
+      updates.hora_llegada = nuevaLlegada.toISOString();
+    }
+
+    await supabase.from('viajes_bitacora').update(updates).eq('id_bitacora', tramo.id_bitacora);
+    
+    setBitacora(bitacora.map(b => 
+      b.id_bitacora === tramo.id_bitacora 
+        ? { ...b, ...updates } 
+        : b
+    ));
+    setEditandoBitacora(null);
+  };
+
   const loadCurrentRuta = async () => {
     if (!profile) {
       setLoading(false);
@@ -905,7 +953,49 @@ export default function DriverViaje() {
                        EN CAMINO
                     </div>
                   )}
+                  <button
+                    onClick={() => handleEditarHora(tramo)}
+                    className="text-[10px] text-text-muted hover:text-primary flex items-center gap-1 ml-2"
+                  >
+                    <Edit2 size={10} />
+                  </button>
                 </div>
+                {editandoBitacora === tramo.id_bitacora && (
+                  <div className="mt-3 p-3 bg-surface rounded-xl border border-primary/30 flex flex-wrap gap-3 items-center">
+                    <div className="flex flex-col">
+                      <label className="text-[8px] text-text-muted uppercase">Salida</label>
+                      <input
+                        type="time"
+                        value={editHoraSalida}
+                        onChange={e => setEditHoraSalida(e.target.value)}
+                        className="bg-surface-light text-white text-xs px-2 py-1 rounded border border-white/10"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="text-[8px] text-text-muted uppercase">Llegada</label>
+                      <input
+                        type="time"
+                        value={editHoraLlegada}
+                        onChange={e => setEditHoraLlegada(e.target.value)}
+                        className="bg-surface-light text-white text-xs px-2 py-1 rounded border border-white/10"
+                      />
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={() => guardarEdicionHora(tramo)}
+                        className="bg-green-500 text-white text-[10px] px-3 py-1 rounded font-bold"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        onClick={() => setEditandoBitacora(null)}
+                        className="bg-surface text-text-muted text-[10px] px-3 py-1 rounded"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))
