@@ -5,9 +5,14 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { format, differenceInMinutes } from 'date-fns';
-import { formatPeru } from '../../../lib/timezone';
+
 import { es } from 'date-fns/locale';
 import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer, RefreshCw } from 'lucide-react';
+
+const formatPeru = (dateStr: string | null | undefined, fmt: string): string => {
+  if (!dateStr) return '-';
+  return format(new Date(dateStr), fmt);
+};
 
 const parseLocalDate = (dateStr: string | null) => {
   if (!dateStr || dateStr === 'Sin fecha') return null;
