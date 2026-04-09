@@ -36,6 +36,7 @@ interface TopChofer {
   chofer_nombre: string;
   total_gasto: number;
   cargas: number;
+  tipo?: 'combustible' | 'otros';
 }
 
 export default function AdminDashboard() {
@@ -77,8 +78,8 @@ export default function AdminDashboard() {
       const rutasRes = await supabase.from('rutas').select('*');
       const choferesRes = await supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true);
       
-      const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').gte('created_at', `${hoyStr}T00:00:00`);
-      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('monto').gte('created_at', `${semanaStr}T00:00:00`);
+      const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', `${hoyStr}T00:00:00`);
+      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', `${semanaStr}T00:00:00`);
       
       console.log('[Dashboard] Combustible dia:', combustibleDiaRes.data);
       console.log('[Dashboard] Combustible semana:', combustibleSemanaRes.data);
@@ -180,21 +181,39 @@ export default function AdminDashboard() {
         .order('monto', { ascending: false });
 
       if (gastosChofer) {
-        const grouped: Record<string, { nombre: string; total: number; cargas: number }> = {};
+        const groupedCombustible: Record<string, { nombre: string; total: number; cargas: number }> = {};
+        const groupedOtros: Record<string, { nombre: string; total: number; cargas: number }> = {};
+        
         gastosChofer.forEach((g: any) => {
           const choferId = g.id_chofer;
-          if (!grouped[choferId]) {
-            grouped[choferId] = { nombre: g.usuarios?.nombre || 'Sin nombre', total: 0, cargas: 0 };
+          if (g.tipo_combustible === 'otro') {
+            // Es gasto de "otro" (estacionamiento, peaje, etc.)
+            if (!groupedOtros[choferId]) {
+              groupedOtros[choferId] = { nombre: g.usuarios?.nombre || 'Sin nombre', total: 0, cargas: 0 };
+            }
+            groupedOtros[choferId].total += g.monto || 0;
+            groupedOtros[choferId].cargas += 1;
+          } else {
+            // Es gasto de combustible
+            if (!groupedCombustible[choferId]) {
+              groupedCombustible[choferId] = { nombre: g.usuarios?.nombre || 'Sin nombre', total: 0, cargas: 0 };
+            }
+            groupedCombustible[choferId].total += g.monto || 0;
+            groupedCombustible[choferId].cargas += 1;
           }
-          grouped[choferId].total += g.monto || 0;
-          grouped[choferId].cargas += 1;
         });
         
-        const top = Object.entries(grouped)
-          .map(([id, data]) => ({ chofer_nombre: data.nombre, total_gasto: data.total, cargas: data.cargas }))
+        const topCombustible = Object.entries(groupedCombustible)
+          .map(([id, data]) => ({ chofer_nombre: data.nombre, total_gasto: data.total, cargas: data.cargas, tipo: 'combustible' }))
           .sort((a, b) => b.total_gasto - a.total_gasto)
           .slice(0, 5);
-        setTopChoferes(top);
+          
+        const topOtros = Object.entries(groupedOtros)
+          .map(([id, data]) => ({ chofer_nombre: data.nombre, total_gasto: data.total, cargas: data.cargas, tipo: 'otros' }))
+          .sort((a, b) => b.total_gasto - a.total_gasto)
+          .slice(0, 5);
+        
+        setTopChoferes([...topCombustible, ...topOtros]);
       }
     } catch (err) {
       console.error('Error loading dashboard:', err);
@@ -407,6 +426,9 @@ export default function AdminDashboard() {
                         #{index + 1}
                       </span>
                       <span className="text-white">{chofer.chofer_nombre}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded ${chofer.tipo === 'otros' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                        {chofer.tipo === 'otros' ? 'Otros' : 'Combustible'}
+                      </span>
                     </div>
                     <div className="text-right">
                       <p className="text-green-400 font-bold">S/ {chofer.total_gasto.toFixed(2)}</p>
