@@ -79,6 +79,13 @@ export default function DriverViaje() {
     }
   };
 
+  const iniciarNuevoViaje = () => {
+    setRuta(null);
+    setLocales([]);
+    setBitacora([]);
+    loadRutasBase();
+  };
+
   const handleEditarHora = (tramo: ViajeBitacora) => {
     setEditandoBitacora(tramo.id_bitacora);
     setEditHoraSalida(tramo.hora_salida ? formatoHoraInput(new Date(tramo.hora_salida)) : '');
@@ -237,34 +244,8 @@ export default function DriverViaje() {
           setBitacora([]);
         }
         
-        // Cargar rutas base para crear nuevo viaje
-        const { data: baseData, error: rbError } = await supabase
-          .from('rutas_base')
-          .select('*')
-          .eq('activo', true)
-          .order('nombre');
-          
-        if (rbError) throw rbError;
-
-        if (baseData) {
-          const withCounts = await Promise.all(baseData.map(async (rb) => {
-            try {
-              const { count, error: cError } = await supabase
-                .from('locales_base')
-                .select('id_local_base', { count: 'exact', head: true })
-                .eq('id_ruta_base', rb.id_ruta_base);
-              
-              if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
-              return { ...rb, locales_count: count ?? 0 };
-            } catch (e) {
-              return { ...rb, locales_count: 0 };
-            }
-          }));
-          
-          const validas = withCounts.filter(r => r.locales_count > 0);
-          setRutasBase(validas);
-          if (validas.length > 0) setSelectedRutaBase(validas[0].id_ruta_base);
-        }
+        // Siempre cargar rutas base para poder crear nuevo viaje si se necesita
+        loadRutasBase();
       }
     } catch (err: any) {
       console.error('Error cargando datos de viaje:', err);
@@ -275,6 +256,39 @@ export default function DriverViaje() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRutasBase = async () => {
+    const { data: baseData, error: rbError } = await supabase
+      .from('rutas_base')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre');
+      
+    if (rbError) {
+      console.error('Error loading rutas base:', rbError);
+      return;
+    }
+
+    if (baseData) {
+      const withCounts = await Promise.all(baseData.map(async (rb) => {
+        try {
+          const { count, error: cError } = await supabase
+            .from('locales_base')
+            .select('id_local_base', { count: 'exact', head: true })
+            .eq('id_ruta_base', rb.id_ruta_base);
+          
+          if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
+          return { ...rb, locales_count: count ?? 0 };
+        } catch (e) {
+          return { ...rb, locales_count: 0 };
+        }
+      }));
+      
+      const validas = withCounts.filter(r => r.locales_count > 0);
+      setRutasBase(validas);
+      if (validas.length > 0) setSelectedRutaBase(validas[0].id_ruta_base);
     }
   };
 
@@ -643,7 +657,18 @@ export default function DriverViaje() {
 
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
 
-  if (!ruta) {
+  // Helper: verificar si la ruta es de hoy
+  const esRutaDeHoy = (r: Ruta | null) => {
+    if (!r) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return r.fecha === today;
+  };
+
+  // Si no hay ruta O si hay ruta finalizada que NO es de hoy → mostrar formulario crear
+  // Si hay ruta activa O ruta finalizada de hoy → mostrar la ruta
+  const mostrarRuta = ruta && (ruta.estado !== 'finalizada' || esRutaDeHoy(ruta));
+
+  if (!mostrarRuta) {
     return (
       <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
         <div className="text-center space-y-2 pt-8">
@@ -1128,6 +1153,12 @@ export default function DriverViaje() {
               </div>
               <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
               <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
+              <button
+                onClick={iniciarNuevoViaje}
+                className="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm"
+              >
+                🚛 Iniciar Nuevo Viaje
+              </button>
           </div>
           
           {/* Botón para agregar fotos después del viaje */}
