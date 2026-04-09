@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Car } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatPeru, formatGroupDate, formatGroupDatePdf } from '../../../lib/timezone';
@@ -611,6 +611,13 @@ const win = window.open('', '_blank');
             <Fuel size={16} className="inline mr-2" />
             Combustible
           </button>
+          <button
+            onClick={() => setReportType('otros')}
+            className={`px-4 py-2 font-medium transition-colors ${reportType === 'otros' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
+          >
+            <Car size={16} className="inline mr-2" />
+            Otros
+          </button>
         </div>
       </div>
 
@@ -1036,6 +1043,23 @@ const win = window.open('', '_blank');
           </div>
         )}
       </>
+      )}
+
+      {reportType === 'otros' && (
+        <Card className="border-surface-light">
+          <CardContent className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Car className="text-blue-400" size={24} />
+              Otros Gastos (Estacionamiento / Peaje)
+            </h2>
+            <p className="text-text-muted mb-4">
+              Esta sección muestra los gastos de tipo "otro" (estacionamiento, peaje, etc.)
+            </p>
+            <a href="/admin/combustible/" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+              Ver detalle completo
+            </a>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
