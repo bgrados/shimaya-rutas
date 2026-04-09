@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf } from '../../../lib/timezone';
 
 const urlToBase64 = async (url: string): Promise<string | null> => {
   try {
@@ -438,7 +438,7 @@ const win = window.open('', '_blank');
           
           return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
             <div style="background:#1e293b;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
-              <div><strong style="font-size:14px;">📅 ${format(parseISO(grupo.fecha + ' 12:00:00'), 'dd MMMM yyyy', { locale: es })}</strong></div>
+              <div><strong style="font-size:14px;">📅 ${formatGroupDatePdf(grupo.fecha)}</strong></div>
               <div style="background:#22c55e22;color:#22c55e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;">Total: S/ ${grupo.total.toFixed(2)}</div>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -893,7 +893,7 @@ const win = window.open('', '_blank');
                     <div className="flex items-center gap-2">
                       <Calendar className="text-blue-400" size={20} />
                       <span className="font-bold text-white">
-                        {format(new Date(grupo.fecha + ' 12:00:00'), "EEEE d 'de' MMMM", { locale: es })}
+                        {formatGroupDate(grupo.fecha)}
                       </span>
                     </div>
                     <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
