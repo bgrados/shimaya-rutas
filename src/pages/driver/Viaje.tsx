@@ -9,6 +9,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { format, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatPeru, nowPeru } from '../../lib/timezone';
 import { 
   MapPin, 
   CheckCircle2, 
@@ -438,7 +439,7 @@ export default function DriverViaje() {
         id_chofer: profile?.id_usuario,
         origen_nombre: origen,
         destino_nombre: nuevoDestino,
-        hora_salida: new Date().toISOString(),
+        hora_salida: nowPeru(),
         gps_salida_lat: lat,
         gps_salida_lng: lng
       }])
@@ -483,7 +484,7 @@ export default function DriverViaje() {
       console.warn('GPS Error:', e);
     }
 
-    const now = new Date().toISOString();
+    const now = nowPeru();
     const { data, error } = await supabase
       .from('viajes_bitacora')
       .update({ hora_llegada: now, gps_llegada_lat: lat, gps_llegada_lng: lng })
@@ -939,7 +940,7 @@ export default function DriverViaje() {
                       </div>
                     )}
                     
-                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter mt-1">Salió de {tramoEnProgreso.origen_nombre} a las {format(new Date(tramoEnProgreso.hora_salida!), 'HH:mm')}</p>
+                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter mt-1">Salió de {tramoEnProgreso.origen_nombre} a las {formatPeru(tramoEnProgreso.hora_salida!, 'HH:mm')}</p>
                   </div>
                 </div>
                  <Button 
@@ -1073,10 +1074,10 @@ export default function DriverViaje() {
                       {tramo.origen_nombre} <span className="text-primary mx-1">→</span> {tramo.destino_nombre}
                     </h4>
                     <div className="flex items-center gap-3 text-[9px] text-text-muted font-bold uppercase tracking-widest">
-                      <span className="flex items-center gap-1"><Clock size={10}/> {format(new Date(tramo.hora_salida!), 'HH:mm', { locale: es })}</span>
+                      <span className="flex items-center gap-1"><Clock size={10}/> {formatPeru(tramo.hora_salida!, 'HH:mm')}</span>
                       {tramo.hora_llegada && (
                         <span className="flex items-center gap-1 text-green-500 border-l border-white/10 pl-3">
-                          <CheckCircle2 size={10}/> {format(new Date(tramo.hora_llegada), 'HH:mm', { locale: es })} ({Math.round(differenceInMinutes(new Date(tramo.hora_llegada), new Date(tramo.hora_salida!)))}m)
+                          <CheckCircle2 size={10}/> {formatPeru(tramo.hora_llegada, 'HH:mm')} ({Math.round(differenceInMinutes(new Date(tramo.hora_llegada), new Date(tramo.hora_salida!)))}m)
                         </span>
                       )}
                       {idx > 0 && bitacora[idx-1].hora_llegada && (

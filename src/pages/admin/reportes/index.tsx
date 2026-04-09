@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatPeru } from '../../../lib/timezone';
 
 const urlToBase64 = async (url: string): Promise<string | null> => {
   try {
@@ -233,8 +234,8 @@ export default function Reportes() {
         return `<tr>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : '⏳'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : '⏳'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
         </tr>`;
@@ -252,8 +253,8 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
           </div>
         </div>
         <div style="padding:8px 16px;background:#f8fafc;font-size:12px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;">
-          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${format(new Date(r.hora_salida_planta), 'HH:mm')}</strong></span>` : ''}
-          ${r.hora_llegada_planta ? `<span>🏁 Llegada planta: <strong>${format(new Date(r.hora_llegada_planta), 'HH:mm')}</strong></span>` : ''}
+          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatPeru(r.hora_salida_planta, 'HH:mm')}</strong></span>` : ''}
+          ${r.hora_llegada_planta ? `<span>🏁 Llegada planta: <strong>${formatPeru(r.hora_llegada_planta, 'HH:mm')}</strong></span>` : ''}
           ${r.duracionMins ? `<span>⏱ Duración total: <strong>${formatMins(r.duracionMins)}</strong></span>` : ''}
         </div>
         ${bits.length > 0 ? `
@@ -353,7 +354,7 @@ const win = window.open('', '_blank');
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastos.forEach(gasto => {
-      const fecha = gasto.created_at ? format(new Date(gasto.created_at), 'yyyy-MM-dd') : 'sin fecha';
+      const fecha = gasto.created_at ? formatPeru(gasto.created_at, 'yyyy-MM-dd') : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });
@@ -427,7 +428,7 @@ const win = window.open('', '_blank');
             const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
             
             return `<tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'HH:mm') : '-'}</td>
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? formatPeru(gasto.created_at, 'HH:mm') : '-'}</td>
               <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
               <td style="padding:8px;color:#475569;text-transform:uppercase;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
@@ -437,7 +438,7 @@ const win = window.open('', '_blank');
           
           return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
             <div style="background:#1e293b;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
-              <div><strong style="font-size:14px;">📅 ${format(parseISO(grupo.fecha), 'dd MMMM yyyy', { locale: es })}</strong></div>
+              <div><strong style="font-size:14px;">📅 ${format(parseISO(grupo.fecha + 'T12:00:00'), 'dd MMMM yyyy', { locale: es })}</strong></div>
               <div style="background:#22c55e22;color:#22c55e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;">Total: S/ ${grupo.total.toFixed(2)}</div>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -469,7 +470,7 @@ const win = window.open('', '_blank');
             const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
             
             return `<tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM HH:mm') : '-'}</td>
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM HH:mm') : '-'}</td>
               <td style="padding:8px;color:#475569;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
               <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
@@ -550,7 +551,7 @@ const win = window.open('', '_blank');
           <div style="padding:8px;font-size:10px;color:#64748b;">
             <strong>${gasto.chofer_nombre || '-'}</strong><br/>
             S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase() || '-'}<br/>
-            ${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : ''}
+            ${gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy HH:mm') : ''}
           </div>
         </div>`;
       }
@@ -718,8 +719,8 @@ const win = window.open('', '_blank');
                       <div className="flex items-center gap-3">
                         {ruta.hora_salida_planta && (
                           <span className="text-xs text-text-muted">
-                            🕐 {format(new Date(ruta.hora_salida_planta), 'HH:mm')}
-                            {ruta.hora_llegada_planta && ` → ${format(new Date(ruta.hora_llegada_planta), 'HH:mm')}`}
+                            🕐 {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
+                            {ruta.hora_llegada_planta && ` → ${formatPeru(ruta.hora_llegada_planta, 'HH:mm')}`}
                             {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
                           </span>
                         )}
@@ -745,8 +746,8 @@ const win = window.open('', '_blank');
                                 <tr key={b.id_bitacora} className="border-b border-white/5 hover:bg-white/5">
                                   <td className="px-4 py-2 text-primary font-black">{i + 1}</td>
                                   <td className="px-4 py-2 text-white font-bold italic">{b.origen_nombre} <span className="text-primary">→</span> {b.destino_nombre}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
                                   <td className="px-4 py-2 font-bold text-primary">{formatMins(dur)}</td>
                                 </tr>
                               );
@@ -892,7 +893,7 @@ const win = window.open('', '_blank');
                     <div className="flex items-center gap-2">
                       <Calendar className="text-blue-400" size={20} />
                       <span className="font-bold text-white">
-                        {format(new Date(grupo.fecha), "EEEE d 'de' MMMM", { locale: es })}
+                        {format(new Date(grupo.fecha + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es })}
                       </span>
                     </div>
                     <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
@@ -938,7 +939,7 @@ const win = window.open('', '_blank');
                         <div className="flex items-center gap-2">
                           <Calendar size={14} className="text-text-muted" />
                           <span className="text-text-muted">
-                            {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
+                            {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy HH:mm') : '-'}
                           </span>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                             gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :

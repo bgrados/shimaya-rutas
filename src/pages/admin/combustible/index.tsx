@@ -5,6 +5,7 @@ import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Fuel, Truck, Calendar, Download, FileText, FileSpreadsheet, Check, X, Eye, Image as ImageIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { formatPeru } from '../../../lib/timezone';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -185,7 +186,7 @@ export default function GastosCombustible() {
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastos.forEach(gasto => {
-      const fecha = gasto.created_at ? format(new Date(gasto.created_at), 'yyyy-MM-dd') : 'sin fecha';
+      const fecha = gasto.created_at ? formatPeru(gasto.created_at, 'yyyy-MM-dd') : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });
@@ -261,7 +262,7 @@ export default function GastosCombustible() {
             const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
             
             return `<tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'HH:mm') : '-'}</td>
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? formatPeru(gasto.created_at, 'HH:mm') : '-'}</td>
               <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
               <td style="padding:8px;color:#475569;text-transform:uppercase;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
@@ -304,7 +305,7 @@ export default function GastosCombustible() {
             const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente_revision' ? '#eab308' : '#ef4444';
             
             return `<tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM HH:mm') : '-'}</td>
+              <td style="padding:8px;color:#475569;">${gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM HH:mm') : '-'}</td>
               <td style="padding:8px;color:#475569;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
               <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
@@ -345,7 +346,8 @@ export default function GastosCombustible() {
             <div style="padding:8px;font-size:10px;color:#64748b;">
               <strong>${gasto.chofer_nombre || '-'}</strong><br/>
               S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase() || '-'}<br/>
-              ${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : ''}
+              const fechaPeru = gasto.created_at ? new Date(new Date(gasto.created_at).getTime() + 5 * 60 * 60 * 1000) : null;
+              fechaPeru ? format(fechaPeru, 'dd/MM/yyyy HH:mm') : ''
             </div>
           </div>`;
         }
@@ -463,8 +465,8 @@ export default function GastosCombustible() {
       [],
       ['Fecha', 'Hora', 'Chofer', 'Tipo Combustible', 'Monto (S/)', 'Estado', 'Foto URL'],
       ...gastos.map(g => [
-        g.created_at ? format(new Date(g.created_at), 'dd/MM/yyyy') : '-',
-        g.created_at ? format(new Date(g.created_at), 'HH:mm') : '-',
+        g.created_at ? formatPeru(g.created_at, 'dd/MM/yyyy') : '-',
+        g.created_at ? formatPeru(g.created_at, 'HH:mm') : '-',
         g.chofer_nombre || '-',
         g.tipo_combustible || '-',
         g.monto || 0,
@@ -601,16 +603,16 @@ export default function GastosCombustible() {
             <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-yellow-500/10 border-yellow-500/30">
+        <Card className="bg-blue-500/20 border-blue-500/40">
           <CardContent className="p-3 text-center">
-            <p className="text-xs text-yellow-300 uppercase font-bold">Cargas</p>
-            <p className="text-xl font-black text-yellow-400">{gastos.length}</p>
+            <p className="text-xs text-blue-300 uppercase font-bold">Otros (Est/Pej)</p>
+            <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.otro || 0).toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card className="bg-primary/10 border-primary/30">
           <CardContent className="p-3 text-center">
-            <p className="text-xs text-primary uppercase font-bold">TOTAL</p>
-            <p className="text-xl font-black text-primary">S/ {totalGeneral.toFixed(2)}</p>
+            <p className="text-xs text-primary uppercase font-bold">TOTAL Combustible</p>
+            <p className="text-xl font-black text-primary">S/ {((totalesPorTipo.glp || 0) + (totalesPorTipo.gasolina || 0) + (totalesPorTipo.diesel || 0)).toFixed(2)}</p>
           </CardContent>
         </Card>
       </div>
@@ -667,7 +669,7 @@ export default function GastosCombustible() {
                     {gastosPaginados.map(gasto => (
                       <tr key={gasto.id_gasto} className="border-b border-surface-light/30 hover:bg-surface-light/20">
                         <td className="py-3 px-2 text-white">
-                          {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
+                          {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy HH:mm') : '-'}
                         </td>
                         <td className="py-3 px-2 text-white">{gasto.chofer_nombre || 'Chofer'}</td>
                         <td className="py-3 px-2">

@@ -5,6 +5,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { format, differenceInMinutes } from 'date-fns';
+import { formatPeru } from '../../../lib/timezone';
 import { es } from 'date-fns/locale';
 import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer, RefreshCw } from 'lucide-react';
 
@@ -111,7 +112,7 @@ export default function AdminViajes() {
     if (!newSegment.origen_nombre || !newSegment.destino_nombre) return;
     setIsSubmitting(true);
     try {
-      const now = new Date().toISOString();
+      const now = nowPeru();
       await supabase.from('viajes_bitacora').insert({
         id_ruta: rutaId,
         origen_nombre: newSegment.origen_nombre,
@@ -184,8 +185,8 @@ export default function AdminViajes() {
               ${viaje.bitacora?.map((t: any) => `
                 <tr>
                   <td>${t.origen_nombre} -> ${t.destino_nombre}</td>
-                  <td>${t.hora_salida ? format(new Date(t.hora_salida), 'HH:mm') : '-'}</td>
-                  <td>${t.hora_llegada ? format(new Date(t.hora_llegada), 'HH:mm') : '-'}</td>
+                  <td>${t.hora_salida ? formatPeru(t.hora_salida, 'HH:mm') : '-'}</td>
+                  <td>${t.hora_llegada ? formatPeru(t.hora_llegada, 'HH:mm') : '-'}</td>
                   <td>${formatDuration(t.hora_salida, t.hora_llegada)}</td>
                 </tr>
               `).join('')}
@@ -362,7 +363,7 @@ export default function AdminViajes() {
                                          if (window.confirm('¿Finalizar viaje y cerrar bitácora?')) {
                                            setIsSubmitting(true);
                                            try {
-                                             const now = new Date().toISOString();
+                                             const now = nowPeru();
                                              if (viaje.bitacora && viaje.bitacora.length > 0) {
                                                const lastTramo = viaje.bitacora[viaje.bitacora.length - 1];
                                                if (!lastTramo.hora_llegada) {
@@ -433,10 +434,10 @@ export default function AdminViajes() {
                                                 {tramo.origen_nombre} <span className="text-primary mx-1">→</span> {tramo.destino_nombre}
                                               </p>
                                               <div className="flex items-center gap-4 text-[9px] text-text-muted font-bold uppercase tracking-widest">
-                                                <span className="flex items-center gap-1"><Clock size={10}/> SALIDA: {format(new Date(tramo.hora_salida), 'HH:mm', { locale: es })}</span>
+                                                <span className="flex items-center gap-1"><Clock size={10}/> SALIDA: {formatPeru(tramo.hora_salida, 'HH:mm')}</span>
                                                 {tramo.hora_llegada && (
                                                   <span className="flex items-center gap-1 text-green-500 border-l border-white/10 pl-3">
-                                                    <CheckCircle2 size={10}/> LLEGADA: {format(new Date(tramo.hora_llegada), 'HH:mm', { locale: es })} ({formatDuration(tramo.hora_salida, tramo.hora_llegada)})
+                                                    <CheckCircle2 size={10}/> LLEGADA: {formatPeru(tramo.hora_llegada, 'HH:mm')} ({formatDuration(tramo.hora_salida, tramo.hora_llegada)})
                                                   </span>
                                                 )}
                                                 {idx > 0 && viaje.bitacora && viaje.bitacora[idx-1].hora_llegada && (
