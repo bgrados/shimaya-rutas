@@ -32,7 +32,7 @@ function formatMins(mins: number | null) {
 }
 
 type Period = 'diario' | 'semanal' | 'mensual';
-type ReportType = 'rutas' | 'combustible' | 'otros';
+type ReportType = 'rutas' | 'combustible';
 
 interface RutaConBitacora extends Ruta { bitacora?: any[]; duracionMins?: number | null; localesRuta?: any[]; }
 interface Usuario { id_usuario: string; nombre: string; }
@@ -1048,7 +1048,9 @@ const win = window.open('', '_blank');
       {reportType === 'otros' && (
         <div className="p-6">
           <h2 className="text-xl font-bold text-white mb-4">Otros Gastos</h2>
-          <p className="text-text-muted">Otros gastos (estacionamiento, peaje)</p>
+          <p className="text-text-muted">
+            Esta sección muestra los gastos de tipo otro (estacionamiento, peaje).
+          </p>
         </div>
       )}
     </div>
