@@ -119,11 +119,30 @@ export default function DriverViaje() {
 
     await supabase.from('viajes_bitacora').update(updates).eq('id_bitacora', tramo.id_bitacora);
     
-    setBitacora(bitacora.map(b => 
+    // Ajustar horas de tramos siguientes si es necesario
+    let bitacoraActualizada = bitacora.map(b => 
       b.id_bitacora === tramo.id_bitacora 
         ? { ...b, ...updates } 
         : b
-    ));
+    );
+
+    // Si se editó la llegada, ajustar la salida del siguiente tramo
+    if (nuevaLlegada && idxActual < bitacoraActualizada.length - 1) {
+      const siguienteTramo = bitacoraActualizada[idxActual + 1];
+      const horaSalidaSiguiente = new Date(siguienteTramo.hora_salida);
+      if (nuevaLlegada > horaSalidaSiguiente) {
+        // Ajustar salida del siguiente para que sea igual o después de la llegada
+        const nuevaSalidaSiguiente = new Date(nuevaLlegada);
+        await supabase.from('viajes_bitacora').update({ hora_salida: nuevaSalidaSiguiente.toISOString() }).eq('id_bitacora', siguienteTramo.id_bitacora);
+        bitacoraActualizada = bitacoraActualizada.map(b => 
+          b.id_bitacora === siguienteTramo.id_bitacora 
+            ? { ...b, hora_salida: nuevaSalidaSiguiente.toISOString() } 
+            : b
+        );
+      }
+    }
+
+    setBitacora(bitacoraActualizada);
     setEditandoBitacora(null);
   };
 
