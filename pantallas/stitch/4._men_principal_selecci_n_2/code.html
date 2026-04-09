@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-effect {
+        backdrop-filter: blur(20px);
+        background: rgba(19, 19, 19, 0.6);
+      }
+      .bg-noir-gradient {
+        background: linear-gradient(135deg, #ffb4ac 0%, #ff544c 100%);
+      }
+      .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="bg-[#131313] flex justify-between items-center w-full px-6 fixed top-0 z-50 py-2">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#FFB4AC] cursor-pointer hover:bg-[#353535] transition-colors p-2 rounded-lg">menu</span>
+<img alt="SHIMAYA RUTAS Logo" class="h-12 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAY5klaA_lKCsapBywvmICLGtwdAJ8vJ5Ii_QzEGgzGf_Q0bgXtyCxvpLT88rnG10OQwDwdSMJbBOqUePEk02tygJgUUCtHE5mf-HPd0hVM8Uir0RT8hzX3rqRrv3XX9IxZayzl71rWEzV2Rw-OTmhnd1mSYFxSWa-ZNN2WbbXjNAye9yLI-RSGwAAp7D8fy3TdLO1ojFFApWfAEAXcR_qzjSVA7dZ-4lRQm2jpJnISqmCm-VX8gDcGWleLA8B7ggwHnMhG7u5IE-s"/>
+</div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="font-headline text-sm font-bold text-on-surface">Alex Shimaya</p>
+<p class="font-label text-[10px] uppercase tracking-widest text-primary">Master Controller</p>
+</div>
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20 hover:bg-[#353535] transition-colors cursor-pointer active:scale-95 duration-200">
+<img alt="User profile" data-alt="Close up professional portrait of a logistics manager" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGBGHnbWALWiBO5QAB93A85ycFpeGo0NOORoSAMm3AUXj6qfs28nmeJEl-iox01tuunPqLIeHfhuiqFpJhRALW9kWhn2aynfsVBl-SoXRmLE09ODpzAs3VcTfSoyR-vDVtisjkq015x-44fpm7WdN-o2OtY0ORaPArCQci07TV_n1g93KQKoWmRkYuFs3oqvht3iM8v7KAX0v6L82kOOlGDXL1RfnTDgJEqDM4LXp4XmQqrA9Z3LQaVbihVpXYmlYwQ2bB67gPhxI"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-7xl mx-auto min-h-screen">
+<!-- Welcome Section -->
+<section class="mb-10">
+<span class="font-label text-primary text-xs tracking-[0.3em] uppercase">Panel Principal</span>
+<h2 class="font-headline text-4xl font-extrabold mt-2 tracking-tight">Seleccione su <span class="text-primary">Módulo</span></h2>
+<div class="h-1 w-12 bg-primary-container mt-4"></div>
+</section>
+<!-- Asymmetric Dual Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Section: CHOFER -->
+<div class="lg:col-span-5 space-y-6">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary text-3xl">local_shipping</span>
+<h3 class="font-headline text-2xl font-bold tracking-tight uppercase">Chofer</h3>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<!-- Large Primary Card -->
+<div class="col-span-2 bg-surface-container-low p-6 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer border-l-4 border-primary">
+<div class="flex justify-between items-start mb-8">
+<span class="material-symbols-outlined text-primary-container text-4xl group-hover:scale-110 transition-transform">route</span>
+<span class="font-label text-[10px] text-on-surface-variant tracking-widest uppercase bg-surface-container-highest px-2 py-1 rounded">Activo</span>
+</div>
+<h4 class="font-headline text-xl font-bold text-on-surface">Mi Ruta</h4>
+<p class="text-on-surface-variant text-sm mt-1">Ver paradas y tiempos de entrega</p>
+</div>
+<!-- Regular Cards -->
+<div class="bg-surface-container-low p-5 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer">
+<span class="material-symbols-outlined text-secondary text-3xl mb-4 block group-hover:text-primary transition-colors">map</span>
+<h4 class="font-headline text-base font-bold text-on-surface">Mapa</h4>
+</div>
+<div class="bg-surface-container-low p-5 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer">
+<span class="material-symbols-outlined text-secondary text-3xl mb-4 block group-hover:text-primary transition-colors">history</span>
+<h4 class="font-headline text-base font-bold text-on-surface">Historial</h4>
+</div>
+<div class="col-span-2 bg-surface-container-low p-5 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary text-2xl group-hover:text-primary transition-colors">person</span>
+<h4 class="font-headline text-base font-bold text-on-surface">Perfil del Conductor</h4>
+</div>
+</div>
+</div>
+<!-- Visual Divider -->
+<div class="hidden lg:flex lg:col-span-1 items-center justify-center">
+<div class="w-px h-full bg-surface-container-highest"></div>
+</div>
+<!-- Right Section: ADMINISTRADOR -->
+<div class="lg:col-span-6 space-y-6">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-tertiary text-3xl">admin_panel_settings</span>
+<h3 class="font-headline text-2xl font-bold tracking-tight uppercase">Administrador</h3>
+</div>
+<div class="bento-grid">
+<!-- Dashboard Card -->
+<div class="col-span-2 bg-surface-container-low p-6 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer border-r-4 border-tertiary">
+<div class="flex items-center justify-between mb-6">
+<h4 class="font-headline text-xl font-bold text-on-surface">Dashboard Global</h4>
+<span class="material-symbols-outlined text-tertiary text-4xl group-hover:rotate-12 transition-transform">dashboard</span>
+</div>
+<div class="flex gap-4">
+<div class="bg-surface-container-highest px-3 py-2 rounded-lg">
+<span class="font-label text-[10px] text-tertiary block">ENTREGAS</span>
+<span class="font-headline font-bold text-lg">94%</span>
+</div>
+<div class="bg-surface-container-highest px-3 py-2 rounded-lg">
+<span class="font-label text-[10px] text-tertiary block">ALERTAS</span>
+<span class="font-headline font-bold text-lg text-error">02</span>
+</div>
+</div>
+</div>
+<!-- Routes Card -->
+<div class="bg-surface-container-low p-5 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer flex flex-col justify-between aspect-square">
+<span class="material-symbols-outlined text-secondary text-4xl group-hover:text-tertiary transition-colors">forklift</span>
+<h4 class="font-headline text-lg font-bold text-on-surface">Gestión Rutas</h4>
+</div>
+<!-- Reports Card -->
+<div class="bg-surface-container-low p-5 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer flex flex-col justify-between aspect-square">
+<span class="material-symbols-outlined text-secondary text-4xl group-hover:text-tertiary transition-colors">bar_chart</span>
+<h4 class="font-headline text-lg font-bold text-on-surface">Reportes</h4>
+</div>
+<!-- Users Card -->
+<div class="col-span-2 bg-surface-container-low p-6 rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary text-3xl group-hover:text-tertiary transition-colors">group</span>
+<div>
+<h4 class="font-headline text-lg font-bold text-on-surface uppercase">Usuarios</h4>
+<p class="text-on-surface-variant text-xs">Roles y Permisos</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">arrow_forward_ios</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Status Card (Editorial Element) -->
+<div class="mt-12 bg-surface-container-low overflow-hidden rounded-xl relative p-8 flex flex-col md:flex-row items-center gap-8">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
+<div class="relative z-10 text-center md:text-left">
+<span class="font-label text-[10px] tracking-[0.4em] text-on-surface-variant uppercase">Estado de Operaciones</span>
+<p class="font-headline text-3xl font-bold mt-2">Flota en movimiento: <span class="text-tertiary">14</span> de <span class="text-on-surface">18</span></p>
+</div>
+<div class="flex-1 flex justify-center md:justify-end gap-12 relative z-10">
+<div class="text-center">
+<p class="font-label text-xs text-on-surface-variant uppercase mb-1">Carga Total</p>
+<p class="font-headline text-2xl font-extrabold text-primary">82%</p>
+</div>
+<div class="text-center">
+<p class="font-label text-xs text-on-surface-variant uppercase mb-1">Incidentes</p>
+<p class="font-headline text-2xl font-extrabold text-on-surface">0</p>
+</div>
+<div class="text-center">
+<p class="font-label text-xs text-on-surface-variant uppercase mb-1">Región</p>
+<p class="font-headline text-2xl font-extrabold text-on-surface">LDN</p>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-[#131313]/60 backdrop-blur-xl fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 z-50 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<a class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">route</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Rutas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Mapa</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Historial</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Reportes</span>
+</a>
+</nav>
+</body></html>

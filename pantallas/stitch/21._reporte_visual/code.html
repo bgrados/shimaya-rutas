@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Visual Reports - SHIMAYA RUTAS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        background-color: #131313;
+        color: #e2e2e2;
+        font-family: 'Inter', sans-serif;
+      }
+      .font-plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+      .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .conic-donut {
+        background: conic-gradient(#ff544c 0% 82%, #e2e2e2 82% 95%, #353535 95% 100%);
+      }
+      .pie-chart-gradient {
+        background: conic-gradient(#72d4ef 0% 45%, #ff544c 45% 75%, #353535 75% 100%);
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface antialiased overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="bg-[#131313] fixed top-0 w-full z-50 flex justify-between items-center px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="text-[#FFB4AC] hover:bg-[#353535] transition-colors p-2 rounded-lg active:scale-95 duration-200">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-[#FFB4AC] font-black tracking-tighter text-xl uppercase font-plus-jakarta">SHIMAYA RUTAS</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest border border-outline-variant/20 overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="Close up of a professional logistics manager profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxLDiYrZN4ZCFfN1MJtNSaQKhlPsHSpygebyHj3XEmK3M8Of2E2iqFHz4oT_YS-98bL_qvVZuiQjmfPBDTLaRWhhLvh7nFgysd_iTLkrKiIgTTWBS7LW3BHbx44Dg8fDS6ljIMuL9dVQ7tkg32E4iLWayo3KcAHrkZ-bk-CrJiaNuRVftB1qc_-Vr51rMpTdA4zwkDsiNnFzeeRF3o-dxOb2ehdQNF-8dVMi-c4dmmNsYsZw6YASpO809xIobw10ioznrbfhbOFVA"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-7xl mx-auto">
+<!-- Dashboard Header -->
+<div class="mb-10">
+<p class="font-label text-primary uppercase tracking-[0.3em] text-xs mb-2">Internal Logistics Data</p>
+<h2 class="font-headline text-4xl font-extrabold tracking-tight text-on-surface">Visual Reports</h2>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Donut Chart: % Cumplimiento General -->
+<div class="md:col-span-4 bg-surface-container-low p-8 flex flex-col items-center justify-center relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-20">
+<span class="material-symbols-outlined text-6xl">analytics</span>
+</div>
+<h3 class="font-label text-xs uppercase tracking-widest text-secondary mb-8 self-start">% Cumplimiento General</h3>
+<div class="relative w-48 h-48 rounded-full conic-donut flex items-center justify-center shadow-[0_0_40px_rgba(255,84,76,0.15)] group-hover:scale-105 transition-transform duration-500">
+<div class="absolute inset-0 rounded-full border-[12px] border-background/20"></div>
+<div class="w-[75%] h-[75%] bg-background rounded-full flex flex-col items-center justify-center">
+<span class="font-headline text-4xl font-black text-primary">82%</span>
+<span class="font-label text-[10px] text-secondary tracking-tighter">KPI TARGET</span>
+</div>
+</div>
+<div class="mt-8 grid grid-cols-3 gap-4 w-full">
+<div class="flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-primary-container mb-2"></div>
+<span class="font-label text-[10px] text-on-surface-variant">Logrado</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-on-surface mb-2"></div>
+<span class="font-label text-[10px] text-on-surface-variant">Pendiente</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-surface-container-highest mb-2"></div>
+<span class="font-label text-[10px] text-on-surface-variant">Error</span>
+</div>
+</div>
+</div>
+<!-- Pie Chart: Rutas por estado -->
+<div class="md:col-span-8 bg-surface-container-low p-8 flex flex-col md:flex-row items-center gap-12">
+<div class="flex-1 w-full">
+<h3 class="font-label text-xs uppercase tracking-widest text-secondary mb-8">Estatus de Rutas Operativas</h3>
+<div class="space-y-6">
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-tertiary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary">check_circle</span>
+</div>
+<div>
+<p class="font-body text-sm font-semibold text-on-surface">Finalizadas</p>
+<p class="font-label text-[10px] text-secondary">45% de la carga total</p>
+</div>
+</div>
+<span class="font-headline text-xl font-bold text-tertiary">124</span>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-primary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container">schedule</span>
+</div>
+<div>
+<p class="font-body text-sm font-semibold text-on-surface">En proceso</p>
+<p class="font-label text-[10px] text-secondary">30% de la carga total</p>
+</div>
+</div>
+<span class="font-headline text-xl font-bold text-primary-container">82</span>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-surface-container-highest/50 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">pending</span>
+</div>
+<div>
+<p class="font-body text-sm font-semibold text-on-surface">Pendientes</p>
+<p class="font-label text-[10px] text-secondary">25% de la carga total</p>
+</div>
+</div>
+<span class="font-headline text-xl font-bold text-secondary">68</span>
+</div>
+</div>
+</div>
+<div class="relative w-64 h-64 flex-shrink-0">
+<div class="w-full h-full rounded-full pie-chart-gradient shadow-2xl"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-24 h-24 bg-surface-container-low rounded-full flex items-center justify-center blur-sm opacity-50"></div>
+<span class="absolute material-symbols-outlined text-4xl text-on-surface-variant opacity-20">pie_chart</span>
+</div>
+</div>
+</div>
+<!-- Bar Chart: Performance por chofer -->
+<div class="md:col-span-12 bg-surface-container-low p-8">
+<div class="flex justify-between items-end mb-12">
+<div>
+<h3 class="font-label text-xs uppercase tracking-widest text-secondary mb-2">Performance por Chofer</h3>
+<p class="font-body text-sm text-on-surface-variant">Eficiencia basada en tiempos de entrega y cumplimiento de ruta.</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 bg-surface-container-high rounded text-[10px] font-label uppercase tracking-tighter text-secondary hover:bg-surface-container-highest transition-colors">Semanal</button>
+<button class="px-4 py-2 bg-primary-container rounded text-[10px] font-label uppercase tracking-tighter text-on-primary-container font-bold">Mensual</button>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-6 gap-6 items-end h-64 border-b border-outline-variant/20 pb-2">
+<!-- Chofer 1 -->
+<div class="flex flex-col items-center group">
+<div class="relative w-full flex flex-col items-center justify-end h-48 gap-1">
+<span class="text-[10px] font-label text-primary mb-1 opacity-0 group-hover:opacity-100 transition-opacity">98%</span>
+<div class="w-full max-w-[40px] bg-primary rounded-t-sm group-hover:brightness-110 transition-all duration-300" style="height: 98%;"></div>
+</div>
+<p class="mt-4 font-label text-[10px] uppercase text-secondary group-hover:text-primary transition-colors">A. Tanaka</p>
+</div>
+<!-- Chofer 2 -->
+<div class="flex flex-col items-center group">
+<div class="relative w-full flex flex-col items-center justify-end h-48 gap-1">
+<span class="text-[10px] font-label text-primary mb-1 opacity-0 group-hover:opacity-100 transition-opacity">85%</span>
+<div class="w-full max-w-[40px] bg-primary/80 rounded-t-sm group-hover:brightness-110 transition-all duration-300" style="height: 85%;"></div>
+</div>
+<p class="mt-4 font-label text-[10px] uppercase text-secondary group-hover:text-primary transition-colors">M. Lopez</p>
+</div>
+<!-- Chofer 3 -->
+<div class="flex flex-col items-center group">
+<div class="relative w-full flex flex-col items-center justify-end h-48 gap-1">
+<span class="text-[10px] font-label text-tertiary mb-1 opacity-0 group-hover:opacity-100 transition-opacity">72%</span>
+<div class="w-full max-w-[40px] bg-tertiary/60 rounded-t-sm group-hover:brightness-110 transition-all duration-300" style="height: 72%;"></div>
+</div>
+<p class="mt-4 font-label text-[10px] uppercase text-secondary group-hover:text-tertiary transition-colors">S. Chen</p>
+</div>
+<!-- Chofer 4 -->
+<div class="flex flex-col items-center group">
+<div class="relative w-full flex flex-col items-center justify-end h-48 gap-1">
+<span class="text-[10px] font-label text-primary mb-1 opacity-0 group-hover:opacity-100 transition-opacity">92%</span>
+<div class="w-full max-w-[40px] bg-primary/90 rounded-t-sm group-hover:brightness-110 transition-all duration-300" style="height: 92%;"></div>
+</div>
+<p class="mt-4 font-label text-[10px] uppercase text-secondary group-hover:text-primary transition-colors">K. Sato</p>
+</div>
+<!-- Chofer 5 -->
+<div class="flex flex-col items-center group">
+<div class="relative w-full flex flex-col items-center justify-end h-48 gap-1">
+<span class="text-[10px] font-label text-secondary mb-1 opacity-0 group-hover:opacity-100 transition-opacity">64%</span>
+<div class="w-full max-w-[40px] bg-surface-container-highest rounded-t-sm group-hover:brightness-110 transition-all duration-300" style="height: 64%;"></div>
+</div>
+<p class="mt-4 font-label text-[10px] uppercase text-secondary group-hover:text-on-surface transition-colors">J. Doe</p>
+</div>
+<!-- Chofer 6 -->
+<div class="flex flex-col items-center group">
+<div class="relative w-full flex flex-col items-center justify-end h-48 gap-1">
+<span class="text-[10px] font-label text-primary mb-1 opacity-0 group-hover:opacity-100 transition-opacity">88%</span>
+<div class="w-full max-w-[40px] bg-primary/75 rounded-t-sm group-hover:brightness-110 transition-all duration-300" style="height: 88%;"></div>
+</div>
+<p class="mt-4 font-label text-[10px] uppercase text-secondary group-hover:text-primary transition-colors">R. Garcia</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Summary Statistics Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
+<div class="bg-surface-container-low p-6">
+<p class="font-label text-[10px] uppercase text-secondary tracking-widest mb-2">Km Recorridos</p>
+<h4 class="font-headline text-2xl font-black text-on-surface">12,482</h4>
+</div>
+<div class="bg-surface-container-low p-6">
+<p class="font-label text-[10px] uppercase text-secondary tracking-widest mb-2">Entregas Hoy</p>
+<h4 class="font-headline text-2xl font-black text-primary">852</h4>
+</div>
+<div class="bg-surface-container-low p-6">
+<p class="font-label text-[10px] uppercase text-secondary tracking-widest mb-2">Eficiencia Comb.</p>
+<h4 class="font-headline text-2xl font-black text-tertiary">94%</h4>
+</div>
+<div class="bg-surface-container-low p-6">
+<p class="font-label text-[10px] uppercase text-secondary tracking-widest mb-2">Alertas Crit.</p>
+<h4 class="font-headline text-2xl font-black text-error">03</h4>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full bg-[#131313]/60 backdrop-blur-xl flex justify-around items-center px-4 pb-6 pt-2 z-50 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined mb-1">route</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Rutas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined mb-1">map</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Mapa</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined mb-1">history</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Historial</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105 active:scale-90 duration-150 shadow-lg shadow-primary-container/20" href="#">
+<span class="material-symbols-outlined mb-1">bar_chart</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Reportes</span>
+</a>
+</nav>
+</body></html>

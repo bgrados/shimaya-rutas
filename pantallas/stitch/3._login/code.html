@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SHIMAYA RUTAS - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "surface-container-highest": "#353535",
+                "secondary-container": "#474746",
+                "surface-container-low": "#1b1b1b",
+                "inverse-surface": "#e2e2e2",
+                "on-primary-container": "#5c0005",
+                "on-surface-variant": "#e4beb9",
+                "surface-container-high": "#2a2a2a",
+                "secondary": "#c8c6c5",
+                "primary-container": "#ff544c",
+                "tertiary": "#72d4ef",
+                "on-tertiary-container": "#002e39",
+                "on-primary-fixed": "#410002",
+                "on-tertiary-fixed-variant": "#004e5d",
+                "on-error-container": "#ffdad6",
+                "on-error": "#690005",
+                "on-secondary-container": "#b7b5b4",
+                "error-container": "#93000a",
+                "error": "#ffb4ab",
+                "surface-container": "#1f1f1f",
+                "tertiary-fixed": "#afecff",
+                "on-tertiary": "#003641",
+                "secondary-fixed-dim": "#c8c6c5",
+                "on-secondary-fixed": "#1b1c1c",
+                "outline": "#ab8985",
+                "on-surface": "#e2e2e2",
+                "surface-tint": "#ffb4ac",
+                "primary": "#ffb4ac",
+                "surface-bright": "#393939",
+                "on-secondary": "#303030",
+                "on-secondary-fixed-variant": "#474746",
+                "primary-fixed-dim": "#ffb4ac",
+                "on-background": "#e2e2e2",
+                "background": "#131313",
+                "tertiary-fixed-dim": "#72d4ef",
+                "inverse-primary": "#bb171c",
+                "primary-fixed": "#ffdad6",
+                "on-primary": "#690006",
+                "on-primary-fixed-variant": "#93000d",
+                "surface": "#131313",
+                "tertiary-container": "#319db6",
+                "surface-container-lowest": "#0e0e0e",
+                "surface-dim": "#131313",
+                "secondary-fixed": "#e5e2e1",
+                "on-tertiary-fixed": "#001f27",
+                "outline-variant": "#5b403d",
+                "inverse-on-surface": "#303030",
+                "surface-variant": "#353535"
+              },
+              fontFamily: {
+                "headline": ["Plus Jakarta Sans"],
+                "body": ["Inter"],
+                "label": ["Space Grotesk"]
+              },
+              borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+        }
+        .editorial-gradient {
+            background: linear-gradient(45deg, #ffb4ac 0%, #ff544c 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col items-center justify-center p-6 selection:bg-primary selection:text-on-primary">
+<!-- Login Shell Suppression: No TopAppBar or BottomNavBar as per "The Destination Rule" (Transactional Flow) -->
+<main class="w-full max-w-md space-y-12">
+<!-- Brand Anchor -->
+<header class="text-center space-y-4">
+<h1 class="font-headline font-black tracking-tighter text-4xl uppercase text-primary">
+                SHIMAYA RUTAS
+            </h1>
+<p class="font-label text-on-surface-variant tracking-[0.2em] text-xs uppercase opacity-70">
+                Precision Logistics Interface
+            </p>
+</header>
+<!-- Focused Login Container -->
+<section class="bg-surface-container-low p-8 rounded-lg shadow-2xl relative overflow-hidden">
+<!-- Subtle Tonal Accent -->
+<div class="absolute top-0 left-0 w-1 h-full editorial-gradient"></div>
+<form class="space-y-8" onsubmit="return false;">
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-primary-container font-bold" for="email">
+                        Email
+                    </label>
+<div class="relative group">
+<input class="w-full h-14 px-4 bg-surface-container-lowest border border-outline-variant text-on-surface font-body rounded focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-surface-container-highest" id="email" placeholder="usuario@shimaya.com" type="email"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-surface-container-highest group-focus-within:text-primary">
+                            alternate_email
+                        </span>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="font-label text-xs uppercase tracking-widest text-primary-container font-bold" for="password">
+                            Password
+                        </label>
+<a class="font-label text-[10px] uppercase tracking-tighter text-tertiary hover:text-primary transition-colors" href="#">
+                            ¿Olvidaste tu contraseña?
+                        </a>
+</div>
+<div class="relative group">
+<input class="w-full h-14 px-4 bg-surface-container-lowest border border-outline-variant text-on-surface font-body rounded focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-surface-container-highest" id="password" placeholder="••••••••" type="password"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-surface-container-highest group-focus-within:text-primary">
+                            lock
+                        </span>
+</div>
+</div>
+<!-- Primary CTA: "Ingresar" -->
+<button class="w-full h-16 editorial-gradient text-on-primary-fixed font-headline font-extrabold uppercase tracking-widest text-lg rounded-xl shadow-[0_8px_32px_rgba(255,84,76,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3" type="submit">
+                    Ingresar
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'wght' 700;">
+                        arrow_forward
+                    </span>
+</button>
+</form>
+</section>
+<!-- Technical Footer -->
+<footer class="pt-8 text-center space-y-4">
+<div class="flex items-center justify-center gap-6">
+<div class="flex items-center gap-2 text-surface-container-highest">
+<span class="material-symbols-outlined text-sm">security</span>
+<span class="font-label text-[10px] uppercase tracking-widest">Encrypted</span>
+</div>
+<div class="flex items-center gap-2 text-surface-container-highest">
+<span class="material-symbols-outlined text-sm">terminal</span>
+<span class="font-label text-[10px] uppercase tracking-widest">v2.1.0-STABLE</span>
+</div>
+</div>
+<p class="font-label text-[10px] text-surface-container-highest uppercase tracking-tighter max-w-[200px] mx-auto leading-relaxed">
+                Logistics &amp; distribution editorial systems © 2024 Shimaya.
+            </p>
+</footer>
+</main>
+<!-- Background Atmospheric Elements (Ma Minimalism) -->
+<div class="fixed top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] -z-10 rounded-full"></div>
+<div class="fixed bottom-0 left-0 w-[300px] h-[300px] bg-tertiary/5 blur-[100px] -z-10 rounded-full"></div>
+</body></html>

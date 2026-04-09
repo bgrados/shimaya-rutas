@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Shimaya Rutas - Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .chart-gradient {
+        background: linear-gradient(180deg, rgba(255, 84, 76, 0.2) 0%, rgba(255, 84, 76, 0) 100%);
+      }
+      .bg-noir-mesh {
+        background-color: #131313;
+        background-image: radial-gradient(at 0% 0%, rgba(255, 180, 172, 0.03) 0, transparent 50%), 
+                          radial-gradient(at 100% 100%, rgba(114, 212, 239, 0.03) 0, transparent 50%);
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary selection:text-on-primary-container">
+<div class="flex h-screen overflow-hidden bg-noir-mesh">
+<!-- NavigationDrawer (Shared Component) -->
+<aside class="hidden md:flex flex-col h-full w-80 bg-[#131313] border-r-0 py-6 z-40">
+<div class="text-[#FFB4AC] font-headline font-bold text-2xl px-6 py-8">
+                SHIMAYA RUTAS
+            </div>
+<div class="px-6 mb-8 flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center overflow-hidden">
+<img alt="Admin User" class="w-full h-full object-cover" data-alt="Professional logistics administrator profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPgKZpLnocdTEq3ecG2YKJazG826VLy2_7KUYzaFvI79SzZlO6-GWgZizNDwB5ofLlyczvDiZaeeIBWEZtRSr5cvZZMFY9gyw4l0_m4c89CObr2_KR3rlQMRhCD8xhW4MtW-FmW5t7F-O3lbMCAIiKqn5bWJJ2c-MoI0LczxkNyEBvQQ0IM02MidMEP6-ZV4WklHdJIx7qpulU6sXq7uu70gIef2YHi_LjJu5T8q1EvGBxyj4Ibs38rZ7JVDdk13Bu9sC3E-E9eFg"/>
+</div>
+<div>
+<p class="font-headline font-bold text-on-surface">Shimaya Admin</p>
+<p class="font-label text-xs text-secondary uppercase tracking-tighter opacity-70">Logistics Controller</p>
+</div>
+</div>
+<nav class="flex-1 space-y-2 px-3">
+<a class="flex items-center gap-4 px-4 py-3 bg-[#353535] text-[#72D4EF] border-l-4 border-[#72D4EF] font-inter text-sm font-medium transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Panel Control</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-[#E2E2E2] hover:bg-[#1B1B1B] font-inter text-sm font-medium transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">group</span>
+<span>Gestión Usuarios</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-[#E2E2E2] hover:bg-[#1B1B1B] font-inter text-sm font-medium transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">forklift</span>
+<span>Rutas Base</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-[#E2E2E2] hover:bg-[#1B1B1B] font-inter text-sm font-medium transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">location_on</span>
+<span>Ubicaciones</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-[#E2E2E2] hover:bg-[#1B1B1B] font-inter text-sm font-medium transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Configuración</span>
+</a>
+</nav>
+<div class="px-6 py-4 mt-auto">
+<span class="font-label text-[10px] text-secondary opacity-40 uppercase tracking-[0.2em]">v2.1.0</span>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+<!-- TopAppBar (Shared Component) -->
+<header class="bg-[#131313] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="md:hidden text-[#FFB4AC] hover:bg-[#353535] transition-colors p-2 active:scale-95 duration-200">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-plus-jakarta text-lg font-bold tracking-tight text-[#FFB4AC] uppercase">Panel Control</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#E2E2E2] hover:bg-[#353535] transition-colors p-2 rounded-lg active:scale-95 duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant/20 overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="Small round user profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpWM4bkCwtsTrSxOXsNh0khZuB0sIeCeHidCpXEakY9bnuP68eDZl6LHJreW7EbYW8mnpM3uzZXZOVH-fok4mQMErzptZm4PPFislClvX6SMPReAKIsU4tHF7f8WRQwvDnKJk53vT2dO0kWOHCwxU6iHFdzdOOYLmwJB1PviYkijYiG1kmtD0jFRSkzLQ79o0g2T5I2ZWMFWPlwlXfsDKK9rLo07WeSq1pZIW05a6HS1VJvYTcK9gtKGZHDmRR1pj3I-UEGeaKSJo"/>
+</div>
+</div>
+</header>
+<div class="p-6 space-y-8">
+<!-- Metrics Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Total Routes -->
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between aspect-square md:aspect-auto h-48 group hover:bg-surface-container transition-all">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-primary text-3xl">route</span>
+<span class="font-label text-xs text-secondary/60 uppercase tracking-widest">Total Rutas</span>
+</div>
+<div>
+<p class="font-headline text-5xl font-extrabold text-on-surface">1,284</p>
+<div class="flex items-center gap-1 mt-2 text-tertiary">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span class="font-label text-xs font-bold">+12% vs ayer</span>
+</div>
+</div>
+</div>
+<!-- In Progress -->
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between h-48 group hover:bg-surface-container transition-all border-l-4 border-primary-container">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-primary-container text-3xl">pending_actions</span>
+<span class="font-label text-xs text-secondary/60 uppercase tracking-widest">En Progreso</span>
+</div>
+<div>
+<p class="font-headline text-5xl font-extrabold text-on-surface">42</p>
+<p class="font-label text-xs text-secondary mt-2">8 conductores activos ahora</p>
+</div>
+</div>
+<!-- Finished -->
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between h-48 group hover:bg-surface-container transition-all">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-tertiary text-3xl">task_alt</span>
+<span class="font-label text-xs text-secondary/60 uppercase tracking-widest">Completadas</span>
+</div>
+<div>
+<p class="font-headline text-5xl font-extrabold text-on-surface">1,242</p>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full mt-4 overflow-hidden">
+<div class="bg-tertiary h-full w-[96.7%]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Chart & Map Section -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Main Progress Chart -->
+<div class="lg:col-span-8 bg-surface-container-low rounded-xl p-6 flex flex-col min-h-[400px]">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h3 class="font-headline font-bold text-xl text-on-surface">Flujo de Entregas</h3>
+<p class="font-body text-sm text-secondary/60">Últimas 24 horas de operación logística</p>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-surface-container-highest text-xs font-label uppercase tracking-widest text-primary rounded-md">Hoy</button>
+<button class="px-3 py-1 text-xs font-label uppercase tracking-widest text-secondary hover:text-on-surface transition-colors">Semana</button>
+</div>
+</div>
+<!-- Visual Area Chart Mockup -->
+<div class="flex-1 relative flex items-end gap-1">
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
+<div class="border-b border-on-surface-variant w-full"></div>
+<div class="border-b border-on-surface-variant w-full"></div>
+<div class="border-b border-on-surface-variant w-full"></div>
+<div class="border-b border-on-surface-variant w-full"></div>
+<div class="border-b border-on-surface-variant w-full"></div>
+</div>
+<!-- Simple bar chart visual representation to simulate the data trend -->
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative group h-[40%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/40 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[55%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/50 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[45%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/45 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[70%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/60 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[85%] border-t-2 border-primary">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/80 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[60%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/50 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[40%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/30 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[50%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/40 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[65%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/55 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[95%] border-t-2 border-primary shadow-[0_0_20px_rgba(255,84,76,0.2)]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[80%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/70 h-full"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest/20 rounded-t-sm relative h-[70%]">
+<div class="absolute bottom-0 left-0 right-0 bg-primary-container/60 h-full"></div>
+</div>
+</div>
+<div class="flex justify-between mt-4 px-2">
+<span class="font-label text-[10px] text-secondary/40 uppercase tracking-widest">00:00</span>
+<span class="font-label text-[10px] text-secondary/40 uppercase tracking-widest">06:00</span>
+<span class="font-label text-[10px] text-secondary/40 uppercase tracking-widest">12:00</span>
+<span class="font-label text-[10px] text-secondary/40 uppercase tracking-widest">18:00</span>
+<span class="font-label text-[10px] text-secondary/40 uppercase tracking-widest">AHORA</span>
+</div>
+</div>
+<!-- Map Preview -->
+<div class="lg:col-span-4 bg-surface-container-low rounded-xl p-6 flex flex-col min-h-[400px] group overflow-hidden relative">
+<div class="flex justify-between items-center mb-6 z-10">
+<h3 class="font-headline font-bold text-xl text-on-surface">Ubicación Real</h3>
+<button class="text-primary hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+</div>
+<div class="flex-1 rounded-lg overflow-hidden relative grayscale contrast-125 border border-outline-variant/10">
+<img class="w-full h-full object-cover" data-alt="Dark stylized city map with logistics route markers" data-location="Tokyo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHAnpDjtuG8qiyAnAgN_4A1YyRmOJUPlFmXT7vkf8g-TkvtKhzRDncn9WOF8KUxfHONVwH-TLsEFQWxejhcRjiZcuKbBh-SMh469FkXOAwr1SVMyPDoagYWok_ON5eL86k_0wX0syTf_NzHoOFfodDsBv70zOz5ua_o7rF08Vp-z6ZlH7oHcf0OCKsV0qsFHcB_bhi4OrkEZCLsa7OmcsC44x9NRFkMvx-p_edYfNBuoBQxYK3NpmEFRT_rbl2zhNnTmsW4tqYOXw"/>
+<!-- Mock UI pins -->
+<div class="absolute top-1/4 left-1/3 w-3 h-3 bg-primary rounded-full ring-4 ring-primary/20 animate-pulse"></div>
+<div class="absolute bottom-1/3 right-1/4 w-3 h-3 bg-tertiary rounded-full ring-4 ring-tertiary/20"></div>
+<div class="absolute top-1/2 left-1/2 w-3 h-3 bg-primary rounded-full ring-4 ring-primary/20"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent pointer-events-none"></div>
+</div>
+<div class="mt-6 space-y-3 z-10">
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="font-body text-on-surface">Móvil 04 (Activo)</span>
+</div>
+<span class="font-label text-xs text-secondary">A 2.4km del destino</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-body text-on-surface">Móvil 12 (Detenido)</span>
+</div>
+<span class="font-label text-xs text-secondary">Carga completada</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Status Activity Section -->
+<section class="bg-surface-container-low rounded-xl p-6">
+<h3 class="font-headline font-bold text-xl text-on-surface mb-6">Actividad Reciente</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 bg-surface-container rounded-lg group hover:translate-x-1 transition-transform cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-tertiary/10 text-tertiary rounded flex items-center justify-center">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+<div>
+<p class="font-body font-bold text-on-surface">Ruta #9284 Finalizada</p>
+<p class="font-label text-xs text-secondary/60">Operador: Roberto S. • Hace 12m</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-label font-bold text-tertiary">EXITOSO</p>
+<p class="font-label text-[10px] text-secondary uppercase tracking-widest">32 ENTREGAS</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container rounded-lg group hover:translate-x-1 transition-transform cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-primary/10 text-primary rounded flex items-center justify-center">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<div>
+<p class="font-body font-bold text-on-surface">Retraso en Ruta #9290</p>
+<p class="font-label text-xs text-secondary/60">Operador: Andrea L. • Hace 45m</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-label font-bold text-error">ALERTA TRÁFICO</p>
+<p class="font-label text-[10px] text-secondary uppercase tracking-widest">ZONA NORTE</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Spacer for mobile nav -->
+<div class="h-24 md:hidden"></div>
+</main>
+<!-- BottomNavBar (Shared Component) - Visible only on Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 bg-[#131313]/60 backdrop-blur-xl flex justify-around items-center px-4 pb-6 pt-2 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<a class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">route</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Rutas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Mapa</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Historial</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Reportes</span>
+</a>
+</nav>
+</div>
+</body></html>

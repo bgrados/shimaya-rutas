@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SHIMAYA RUTAS - Splash</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Inter:wght@400;500&amp;family=Space+Grotesk:wght@300;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style innerhtml=".material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; } .loading-bar { width: 100%; height: 2px; background: #1b1b1b; position: relative; overflow: hidden; } .loading-bar::after { content: ''; position: absolute; left: -50%; height: 100%; width: 50%; background: #E53935; animation: progress 2s infinite linear; } @keyframes progress { 0% { left: -50%; } 100% { left: 100%; } } .kerning-tight { letter-spacing: -0.05em; }">
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .loading-bar {
+        width: 100%;
+        height: 2px;
+        background: #1b1b1b;
+        position: relative;
+        overflow: hidden;
+      }
+      .loading-bar::after {
+        content: '';
+        position: absolute;
+        left: -50%;
+        height: 100%;
+        width: 50%;
+        background: #FFB4AC;
+        animation: progress 2s infinite linear;
+      }
+      @keyframes progress {
+        0% { left: -50%; }
+        100% { left: 100%; }
+      }
+      .kerning-tight {
+        letter-spacing: -0.05em;
+      }
+    </style>
+<style innerhtml=".material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; } .loading-bar { width: 100%; height: 2px; background: #1b1b1b; position: relative; overflow: hidden; } .loading-bar::after { content: ''; position: absolute; left: -50%; height: 100%; width: 50%; background: #E53935; animation: progress 2s infinite linear; } @keyframes progress { 0% { left: -50%; } 100% { left: 100%; } } .kerning-tight { letter-spacing: -0.05em; }">
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-[#000000] text-on-surface font-body selection:bg-primary selection:text-on-primary-container overflow-hidden">
+<!-- Splash Container -->
+<main class="relative h-screen w-full flex flex-col items-center justify-center px-6">
+<!-- Minimalist Background Pattern (Subtle Gradient) -->
+<div class="absolute inset-0 opacity-20" data-alt="Abstract subtle dark radial gradient pattern" style="background: radial-gradient(circle at 50% 50%, #353535 0%, #000000 70%);"></div>
+<!-- Brand Anchor: TopAppBar Logic (Suppressed for Splash but Headline matches JSON) -->
+<div class="relative z-10 flex flex-col items-center gap-8">
+<!-- Japanese Aesthetic Kanji/Icon Placeholder (Simulated) -->
+<div class="flex flex-col items-center"><img alt="SHIMAYA RUTAS Logo" class="w-48 h-48 md:w-64 md:h-64 object-contain mb-8 animate-pulse" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAY5klaA_lKCsapBywvmICLGtwdAJ8vJ5Ii_QzEGgzGf_Q0bgXtyCxvpLT88rnG10OQwDwdSMJbBOqUePEk02tygJgUUCtHE5mf-HPd0hVM8Uir0RT8hzX3rqRrv3XX9IxZayzl71rWEzV2Rw-OTmhnd1mSYFxSWa-ZNN2WbbXjNAye9yLI-RSGwAAp7D8fy3TdLO1ojFFApWfAEAXcR_qzjSVA7dZ-4lRQm2jpJnISqmCm-VX8gDcGWleLA8B7ggwHnMhG7u5IE-s"/>
+<h1 class="font-headline font-extrabold text-5xl md:text-7xl kerning-tight tracking-tighter uppercase text-center text-[#E53935]">SHIMAYA<br/><span class="text-white">RUTAS</span></h1>
+<p class="font-label text-tertiary text-xs uppercase tracking-[0.4em] mt-6 opacity-80">
+                    Logistics Precision
+                </p>
+</div>
+<!-- Asymmetric Design Element -->
+</div>
+<!-- Footer / Loading Area -->
+<div class="absolute bottom-20 w-full max-w-[200px] px-4 space-y-4 flex flex-col items-center">
+<div class="loading-bar"></div>
+<span class="font-label text-[10px] text-secondary/40 uppercase tracking-widest">
+                Initializing System v2.1.0
+            </span>
+</div>
+<!-- Visual Anchor for high-end logistics -->
+<div class="absolute bottom-10 left-10 hidden md:block">
+<div class="font-label text-[9px] text-surface-container-highest flex flex-col gap-1">
+<span>COORD // 35.6895° N</span>
+<span>DEST // 139.6917° E</span>
+</div>
+</div>
+</main>
+<!-- Semantic Hidden Data for SEO/Accessibility -->
+<div class="sr-only">
+<h2>SHIMAYA RUTAS</h2>
+<p>Expert logistics and distribution routing system. Designed for precision and high-performance field operations.</p>
+</div>
+</body></html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SHIMAYA RUTAS - Reportes</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        background-color: #131313;
+        color: #e2e2e2;
+        font-family: 'Inter', sans-serif;
+      }
+      .font-plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+      .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#131313] dark:bg-[#131313] docked full-width top-0 z-50 sticky">
+<div class="flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#FFB4AC] dark:text-[#FFB4AC] cursor-pointer">menu</span>
+<h1 class="text-[#FFB4AC] font-black tracking-tighter text-xl uppercase font-plus-jakarta">SHIMAYA RUTAS</h1>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Profile avatar for logistics controller" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCl8Z9wHGCWAHncE0dSOhOsdxlJJ796qytdIXYLIOWw8KJ_L8dYCSPQYS_CrOZ421zBbhfuLcxXFXQE9WFLGSltq--IqEpHPvr4iN2Ws88T5Q5k4FYSlFdCxLXn8aLgvs4d7mzLodRgXyFe_ChLFvriVOXePeVJ_t1HWFZ8M1aEY0k6KHLjyJyatEXYxFJPQf7C1bvCK4mLi4yXL8D7pglNQMv2TBzQaE8Mkp8uWchZQnSwflGewmuGghkcsRqafm85jg3pQvSFCaE"/>
+</div>
+</div>
+</header>
+<main class="px-6 py-8 max-w-7xl mx-auto space-y-10">
+<!-- Header Section with Quick Navigation -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-1">
+<span class="font-label text-primary text-xs tracking-[0.2em] uppercase">Control Operativo</span>
+<h2 class="font-headline text-4xl font-extrabold tracking-tight text-on-surface">Reportes</h2>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-low hover:bg-surface-container-highest text-on-surface px-6 py-3 rounded-xl font-label text-xs tracking-widest uppercase transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">description</span> Reporte Detallado
+                </button>
+<button class="bg-primary-container text-white px-6 py-3 rounded-xl font-label text-xs tracking-widest uppercase transition-all flex items-center gap-2 shadow-lg shadow-primary-container/20">
+<span class="material-symbols-outlined text-sm">analytics</span> Reporte Visual
+                </button>
+</div>
+</div>
+<!-- Filter Section -->
+<section class="bg-surface-container-low p-6 rounded-2xl space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Date Range -->
+<div class="space-y-2">
+<label class="font-label text-[10px] text-outline uppercase tracking-[0.15em] ml-1">Rango de Fecha</label>
+<div class="bg-surface-container-lowest h-14 px-4 flex items-center justify-between rounded-xl group hover:ring-1 ring-outline/30 transition-all">
+<span class="text-on-surface text-sm font-medium">12 Oct - 19 Oct, 2023</span>
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+</div>
+</div>
+<!-- Driver Selection -->
+<div class="space-y-2">
+<label class="font-label text-[10px] text-outline uppercase tracking-[0.15em] ml-1">Conductor</label>
+<div class="bg-surface-container-lowest h-14 px-4 flex items-center justify-between rounded-xl group hover:ring-1 ring-outline/30 transition-all cursor-pointer">
+<span class="text-on-surface text-sm font-medium">Todos los conductores</span>
+<span class="material-symbols-outlined text-primary">expand_more</span>
+</div>
+</div>
+<!-- Route Selection -->
+<div class="space-y-2">
+<label class="font-label text-[10px] text-outline uppercase tracking-[0.15em] ml-1">Ruta Base</label>
+<div class="bg-surface-container-lowest h-14 px-4 flex items-center justify-between rounded-xl group hover:ring-1 ring-outline/30 transition-all cursor-pointer">
+<span class="text-on-surface text-sm font-medium">Zona Norte - Cluster A</span>
+<span class="material-symbols-outlined text-primary">route</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Summary Metrics Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<!-- Total Visitas -->
+<div class="bg-surface-container-low p-8 rounded-2xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl" style="font-variation-settings: 'FILL' 1;">groups</span>
+</div>
+<div class="relative z-10 space-y-4">
+<h3 class="font-label text-xs text-outline uppercase tracking-[0.2em]">Total Visitas</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-headline text-5xl font-black text-on-surface">1,248</span>
+<span class="text-tertiary text-xs font-bold">+12%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary w-full h-full"></div>
+</div>
+</div>
+</div>
+<!-- Visitados -->
+<div class="bg-surface-container-low p-8 rounded-2xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-tertiary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="relative z-10 space-y-4">
+<h3 class="font-label text-xs text-outline uppercase tracking-[0.2em]">Visitados</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-headline text-5xl font-black text-tertiary">1,180</span>
+<span class="text-on-surface/40 text-xs">94.5%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary w-[94.5%] h-full"></div>
+</div>
+</div>
+</div>
+<!-- No Atendidos -->
+<div class="bg-surface-container-low p-8 rounded-2xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-primary" style="font-variation-settings: 'FILL' 1;">cancel</span>
+</div>
+<div class="relative z-10 space-y-4">
+<h3 class="font-label text-xs text-outline uppercase tracking-[0.2em]">No atendidos</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-headline text-5xl font-black text-primary">68</span>
+<span class="text-primary text-xs font-bold">+5</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-primary w-[5.5%] h-full"></div>
+</div>
+</div>
+</div>
+<!-- Time Efficiency -->
+<div class="bg-surface-container-low p-8 rounded-2xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl" style="font-variation-settings: 'FILL' 1;">timer</span>
+</div>
+<div class="relative z-10 space-y-4">
+<h3 class="font-label text-xs text-outline uppercase tracking-[0.2em]">Promedio Parada</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-headline text-5xl font-black text-on-surface">8.4</span>
+<span class="text-on-surface/40 text-xs tracking-widest uppercase">MIN</span>
+</div>
+<div class="flex items-center gap-1 text-tertiary">
+<span class="material-symbols-outlined text-sm">trending_down</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">0.5m ahorro</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Visualization Canvas -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Delivery Performance Chart (Asymmetric) -->
+<div class="lg:col-span-2 bg-surface-container-low rounded-3xl p-8 space-y-8">
+<div class="flex justify-between items-center">
+<h4 class="font-headline text-xl font-bold tracking-tight">Evolución de Entregas</h4>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-tertiary"></div>
+<span class="font-label text-[10px] uppercase tracking-wider opacity-60">Exitosos</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-primary-container"></div>
+<span class="font-label text-[10px] uppercase tracking-wider opacity-60">Fallidos</span>
+</div>
+</div>
+</div>
+<!-- Stylized Mock Graph -->
+<div class="h-64 flex items-end gap-3 pb-6 border-b border-outline-variant/10">
+<div class="flex-1 bg-surface-container-highest rounded-t-lg relative h-[40%] group hover:bg-tertiary/20 transition-all">
+<div class="absolute bottom-0 w-full bg-tertiary h-[85%] rounded-t-lg"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest rounded-t-lg relative h-[60%] group hover:bg-tertiary/20 transition-all">
+<div class="absolute bottom-0 w-full bg-tertiary h-[90%] rounded-t-lg"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest rounded-t-lg relative h-[80%] group hover:bg-tertiary/20 transition-all">
+<div class="absolute bottom-0 w-full bg-tertiary h-[95%] rounded-t-lg"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest rounded-t-lg relative h-[100%] group hover:bg-tertiary/20 transition-all">
+<div class="absolute bottom-0 w-full bg-tertiary h-[92%] rounded-t-lg"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest rounded-t-lg relative h-[70%] group hover:bg-tertiary/20 transition-all">
+<div class="absolute bottom-0 w-full bg-tertiary h-[88%] rounded-t-lg"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest rounded-t-lg relative h-[90%] group hover:bg-tertiary/20 transition-all">
+<div class="absolute bottom-0 w-full bg-tertiary h-[96%] rounded-t-lg"></div>
+</div>
+<div class="flex-1 bg-surface-container-highest rounded-t-lg relative h-[85%] group hover:bg-tertiary/20 transition-all">
+<div class="absolute bottom-0 w-full bg-tertiary h-[90%] rounded-t-lg"></div>
+</div>
+</div>
+<div class="flex justify-between font-label text-[10px] text-outline uppercase tracking-widest px-2">
+<span>Lun</span><span>Mar</span><span>Mie</span><span>Jue</span><span>Vie</span><span>Sab</span><span>Dom</span>
+</div>
+</div>
+<!-- Incidents Breakdown -->
+<div class="bg-surface-container-low rounded-3xl p-8 space-y-8 border-l border-primary/5">
+<h4 class="font-headline text-xl font-bold tracking-tight">Motivos de No Entrega</h4>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between font-label text-[10px] uppercase tracking-widest">
+<span class="text-on-surface">Dirección Incorrecta</span>
+<span class="text-primary font-bold">42%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[42%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label text-[10px] uppercase tracking-widest">
+<span class="text-on-surface">Cliente Ausente</span>
+<span class="text-primary font-bold">35%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[35%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label text-[10px] uppercase tracking-widest">
+<span class="text-on-surface">Rechazo Mercancía</span>
+<span class="text-primary font-bold">18%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[18%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label text-[10px] uppercase tracking-widest">
+<span class="text-on-surface">Zona Inaccesible</span>
+<span class="text-primary font-bold">5%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[5%]"></div>
+</div>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full bg-surface-container-highest text-primary font-label text-[10px] uppercase tracking-[0.2em] py-4 rounded-xl hover:bg-primary/10 transition-colors">
+                        Ver Detalles de Incidentes
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-[#131313]/60 backdrop-blur-xl shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<div class="flex justify-around items-center px-4 pb-6 pt-2">
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">route</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Rutas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">map</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Mapa</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">history</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Historial</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105 transition-all cursor-pointer active:scale-90 duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bar_chart</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Reportes</span>
+</div>
+</div>
+</nav>
+</body></html>

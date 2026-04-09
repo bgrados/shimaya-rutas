@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .route-line::before {
+            content: '';
+            position: absolute;
+            left: 1.15rem;
+            top: 2rem;
+            bottom: -2rem;
+            width: 2px;
+            background: repeating-linear-gradient(to bottom, #353535 0, #353535 4px, transparent 4px, transparent 8px);
+        }
+        .route-line-last::before {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="bg-[#131313] dark:bg-[#131313] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-4 sticky">
+<div class="flex items-center gap-4">
+<button class="text-[#FFB4AC] active:scale-95 duration-200 hover:bg-[#353535] transition-colors p-2 rounded-xl">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline text-lg font-bold tracking-tight text-[#FFB4AC]">RUTA NORTE BASE A</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="text-[#E2E2E2] hover:bg-[#353535] transition-colors p-2 rounded-xl">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+<main class="pb-32 px-6 pt-6 max-w-4xl mx-auto">
+<!-- Hero Section / Map Integration -->
+<section class="mb-8">
+<div class="relative w-full h-48 rounded-xl overflow-hidden bg-surface-container-low">
+<img alt="Simplified route map visualization" class="w-full h-full object-cover opacity-40 grayscale contrast-125" data-alt="Digital dark themed logistics map with route lines" data-location="Lima, Peru" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPDLGcA-ZISbSMhhouc9m8jlPT00jXO7hJYnnWy5R4eRZ13yFu0JmVGAnAOxMk9bhd-Qxh9dhlfc6OKa2uklXcE9qUzLcb6fvo3TutlT5rqJ7TMXWcCbLxOM0DraSFTj-kWOBMRw_lrfnGzViW7hAGmwv061WDEfFPa6gWDwF6TGtYxdYxlLzQZjK6v4WcZ0lniFNysM7DgDQPsyvGwkxrPrmYXrEN1Ku90bxs6NTtXosoMHB93CBfB3HEwoqW8YU4yEc-amkXfUA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-4">
+<span class="font-label text-[10px] uppercase tracking-[0.2em] text-tertiary mb-1 block">Configuración de Base</span>
+<h2 class="font-headline text-2xl font-extrabold text-on-surface">Planificación de Paradas</h2>
+</div>
+</div>
+</section>
+<!-- Route Summary Bento -->
+<div class="grid grid-cols-2 gap-4 mb-10">
+<div class="bg-surface-container-low p-4 rounded-xl">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-1 block">Total Paradas</span>
+<p class="font-headline text-2xl font-bold text-primary">12</p>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-1 block">Distancia Est.</span>
+<p class="font-headline text-2xl font-bold text-tertiary">42.5 KM</p>
+</div>
+</div>
+<!-- Stops Timeline -->
+<section class="space-y-6 relative">
+<h3 class="font-label text-[12px] uppercase tracking-[0.3em] text-on-surface-variant opacity-60 mb-8 px-2">Secuencia de Distribución</h3>
+<!-- Stop 01 -->
+<div class="relative flex gap-6 route-line">
+<div class="flex-none">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center border border-outline-variant/20 z-10 relative">
+<span class="font-label text-sm font-bold text-primary">01</span>
+</div>
+</div>
+<div class="flex-grow bg-surface-container-low hover:bg-surface-container-high transition-colors p-5 rounded-xl group cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline text-base font-bold text-on-surface mb-1">Centro Logístico Shimaya</h4>
+<p class="text-sm text-on-surface-variant font-body">Av. Industrial 455, Callao</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant/40 group-hover:text-primary transition-colors">drag_indicator</span>
+</div>
+<div class="mt-4 flex items-center gap-3">
+<span class="bg-surface-container-highest px-2 py-1 rounded-md font-label text-[10px] text-tertiary">DEPÓSITO</span>
+</div>
+</div>
+</div>
+<!-- Stop 02 -->
+<div class="relative flex gap-6 route-line">
+<div class="flex-none">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center border border-outline-variant/20 z-10 relative">
+<span class="font-label text-sm font-bold text-on-surface">02</span>
+</div>
+</div>
+<div class="flex-grow bg-surface-container-low hover:bg-surface-container-high transition-colors p-5 rounded-xl group cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline text-base font-bold text-on-surface mb-1">Minimarket El Trébol</h4>
+<p class="text-sm text-on-surface-variant font-body">Jr. Libertad 892, San Miguel</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant/40 group-hover:text-primary transition-colors">drag_indicator</span>
+</div>
+</div>
+</div>
+<!-- Stop 03 -->
+<div class="relative flex gap-6 route-line">
+<div class="flex-none">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center border border-outline-variant/20 z-10 relative">
+<span class="font-label text-sm font-bold text-on-surface">03</span>
+</div>
+</div>
+<div class="flex-grow bg-surface-container-low hover:bg-surface-container-high transition-colors p-5 rounded-xl group cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline text-base font-bold text-on-surface mb-1">Restaurante Kyoto</h4>
+<p class="text-sm text-on-surface-variant font-body">Av. La Marina 2301, San Miguel</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant/40 group-hover:text-primary transition-colors">drag_indicator</span>
+</div>
+</div>
+</div>
+<!-- Stop 04 -->
+<div class="relative flex gap-6 route-line-last">
+<div class="flex-none">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center border border-outline-variant/20 z-10 relative">
+<span class="font-label text-sm font-bold text-on-surface">04</span>
+</div>
+</div>
+<div class="flex-grow bg-surface-container-low hover:bg-surface-container-high transition-colors p-5 rounded-xl group cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline text-base font-bold text-on-surface mb-1">Bodega Doña Rosa</h4>
+<p class="text-sm text-on-surface-variant font-body">Calle Los Pinos 112, Magdalena</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant/40 group-hover:text-primary transition-colors">drag_indicator</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Empty State Hint -->
+<div class="mt-12 py-10 border-2 border-dashed border-outline-variant/10 rounded-2xl flex flex-col items-center justify-center text-center px-6">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant/20 mb-4">add_location_alt</span>
+<p class="font-body text-sm text-on-surface-variant">Puedes añadir más locales a esta plantilla base para optimizar la logística recurrente.</p>
+</div>
+</main>
+<!-- Floating Action Button Cluster -->
+<div class="fixed bottom-32 right-6 flex flex-col items-end gap-4">
+<!-- Main CTA -->
+<button class="h-16 px-8 bg-gradient-to-br from-primary to-primary-container text-on-primary-fixed font-headline font-bold flex items-center gap-3 rounded-xl shadow-[0_8px_32px_rgba(255,84,76,0.3)] active:scale-95 transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+            AGREGAR LOCAL
+        </button>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#131313]/60 backdrop-blur-xl z-50 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<div class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">route</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Rutas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">map</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Mapa</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Historial</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Reportes</span>
+</div>
+</nav>
+</body></html>

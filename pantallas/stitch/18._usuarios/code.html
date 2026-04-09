@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+        
+        /* Ambient Depth for Glassmorphism */
+        .glass-panel {
+            background: rgba(19, 19, 19, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen selection:bg-primary selection:text-on-primary-container">
+<!-- Top Navigation Bar -->
+<header class="bg-[#131313] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#FFB4AC] hover:bg-[#353535] transition-colors p-2 rounded-lg cursor-pointer" data-icon="menu">menu</span>
+<h1 class="text-[#FFB4AC] font-black tracking-tighter text-xl uppercase font-plus-jakarta">SHIMAYA RUTAS</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/20">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="User avatar profile picture circular" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1oTwfj5_CKHfaLR8PnEXj1TAh4nVZHQvrv_kWFbB_donOE6c09sMHyD56bM3Vke4SGq0XVIxmaKF5ogPNhurJHi5Pz5QZqcqNaIlbsUvbh3E0Xnboz_8R_fxaKzlfhCbpjZOeRBD5TyZMwC9fTuuTS78IwhEzdu1XcX0B3-aDrQMLJd2qIjzlsr4v-BxxBMZ5L73bWFfsrupFh0qsiODOWEfNWlIvzZ5jaln3uMHsjvlH6ulKD9girdfDKYTyfXnFsEEjEqBMBGQ"/>
+</div>
+</div>
+</header>
+<main class="max-w-5xl mx-auto px-6 pt-24 pb-32">
+<!-- Header Section -->
+<div class="mb-10">
+<h2 class="font-headline text-4xl font-extrabold text-on-surface tracking-tight mb-2">Gestión Usuarios</h2>
+<p class="font-body text-secondary text-sm">Administra el personal logístico y accesos de plataforma.</p>
+</div>
+<!-- Search and Filter Bar -->
+<div class="mb-8 flex flex-col md:flex-row gap-4">
+<div class="relative flex-grow">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline text-lg" data-icon="search">search</span>
+</div>
+<input class="w-full h-14 bg-surface-container-lowest border-none rounded-xl pl-12 pr-4 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary-container font-body transition-all" placeholder="Buscar por nombre, ID o rol..." type="text"/>
+</div>
+<button class="h-14 px-6 bg-surface-container-low text-on-surface rounded-xl flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-colors font-label uppercase tracking-widest text-xs">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+                Filtrar
+            </button>
+</div>
+<!-- User List Bento Layout -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- User Card 1 (Admin) -->
+<div class="bg-surface-container-low rounded-xl p-6 group hover:translate-x-1 transition-transform duration-300">
+<div class="flex justify-between items-start mb-6">
+<div class="w-14 h-14 rounded-xl bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="admin_panel_settings">admin_panel_settings</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-[0.2em] px-2 py-1 bg-tertiary/10 text-tertiary rounded-md">Admin</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-headline text-lg font-bold text-on-surface">Shimaya Admin</h3>
+<p class="font-space-grotesk text-xs text-outline/70">ID: #SYS-001</p>
+</div>
+<div class="mt-6 pt-6 border-t border-outline-variant/10 flex justify-between items-center">
+<span class="text-xs font-body text-secondary">Logistics Controller</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- User Card 2 (Driver) -->
+<div class="bg-surface-container-low rounded-xl p-6 group hover:translate-x-1 transition-transform duration-300">
+<div class="flex justify-between items-start mb-6">
+<div class="w-14 h-14 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-[0.2em] px-2 py-1 bg-secondary-container/50 text-secondary rounded-md">Chofer</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-headline text-lg font-bold text-on-surface">Carlos Mendoza</h3>
+<p class="font-space-grotesk text-xs text-outline/70">ID: #DRV-882</p>
+</div>
+<div class="mt-6 pt-6 border-t border-outline-variant/10 flex justify-between items-center">
+<span class="text-xs font-body text-secondary">Ruta Norte-A</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- User Card 3 (Driver) -->
+<div class="bg-surface-container-low rounded-xl p-6 group hover:translate-x-1 transition-transform duration-300">
+<div class="flex justify-between items-start mb-6">
+<div class="w-14 h-14 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-[0.2em] px-2 py-1 bg-secondary-container/50 text-secondary rounded-md">Chofer</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-headline text-lg font-bold text-on-surface">Elena Rodriguez</h3>
+<p class="font-space-grotesk text-xs text-outline/70">ID: #DRV-412</p>
+</div>
+<div class="mt-6 pt-6 border-t border-outline-variant/10 flex justify-between items-center">
+<span class="text-xs font-body text-secondary">Ruta Centro-B</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- User Card 4 (Driver) -->
+<div class="bg-surface-container-low rounded-xl p-6 group hover:translate-x-1 transition-transform duration-300">
+<div class="flex justify-between items-start mb-6">
+<div class="w-14 h-14 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-[0.2em] px-2 py-1 bg-secondary-container/50 text-secondary rounded-md">Chofer</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-headline text-lg font-bold text-on-surface">Miguel Paz</h3>
+<p class="font-space-grotesk text-xs text-outline/70">ID: #DRV-092</p>
+</div>
+<div class="mt-6 pt-6 border-t border-outline-variant/10 flex justify-between items-center">
+<span class="text-xs font-body text-secondary">Mantenimiento</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- User Card 5 (Admin) -->
+<div class="bg-surface-container-low rounded-xl p-6 group hover:translate-x-1 transition-transform duration-300">
+<div class="flex justify-between items-start mb-6">
+<div class="w-14 h-14 rounded-xl bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="admin_panel_settings">admin_panel_settings</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-[0.2em] px-2 py-1 bg-tertiary/10 text-tertiary rounded-md">Admin</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-headline text-lg font-bold text-on-surface">Soporte Tecnico</h3>
+<p class="font-space-grotesk text-xs text-outline/70">ID: #SYS-005</p>
+</div>
+<div class="mt-6 pt-6 border-t border-outline-variant/10 flex justify-between items-center">
+<span class="text-xs font-body text-secondary">Full Access</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (FAB) -->
+<button class="fixed right-8 bottom-24 md:bottom-12 w-16 h-16 bg-[#FF544C] text-[#FFFFFF] rounded-xl shadow-[0_8px_32px_rgba(255,84,76,0.4)] flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 z-[60]">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#131313]/60 backdrop-blur-xl z-50 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer active:scale-90 duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="route">route</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Rutas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer active:scale-90 duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="map">map</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Mapa</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer active:scale-90 duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="history">history</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Historial</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all cursor-pointer active:scale-90 duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="bar_chart">bar_chart</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Reportes</span>
+</div>
+</nav>
+<!-- Side Navigation Drawer (Contextual) -->
+<aside class="hidden lg:flex fixed left-0 top-0 h-full w-80 bg-[#131313] flex-col py-6 z-[60] border-r border-outline-variant/10">
+<div class="text-[#FFB4AC] font-bold text-2xl px-6 py-8 font-plus-jakarta uppercase tracking-tighter">SHIMAYA</div>
+<div class="flex-grow flex flex-col gap-2 px-4">
+<div class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#E2E2E2] hover:bg-[#1B1B1B] hover:translate-x-1 transition-all cursor-pointer">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-inter text-sm font-medium">Panel Control</span>
+</div>
+<div class="flex items-center gap-4 px-4 py-3 rounded-lg bg-[#353535] text-[#72D4EF] border-l-4 border-[#72D4EF] cursor-default">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-inter text-sm font-medium">Gestión Usuarios</span>
+</div>
+<div class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#E2E2E2] hover:bg-[#1B1B1B] hover:translate-x-1 transition-all cursor-pointer">
+<span class="material-symbols-outlined" data-icon="forklift">forklift</span>
+<span class="font-inter text-sm font-medium">Rutas Base</span>
+</div>
+<div class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#E2E2E2] hover:bg-[#1B1B1B] hover:translate-x-1 transition-all cursor-pointer">
+<span class="material-symbols-outlined" data-icon="location_on">location_on</span>
+<span class="font-inter text-sm font-medium">Ubicaciones</span>
+</div>
+<div class="mt-auto pt-6 border-t border-outline-variant/10">
+<div class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#E2E2E2] hover:bg-[#1B1B1B] hover:translate-x-1 transition-all cursor-pointer">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-inter text-sm font-medium">Configuración</span>
+</div>
+</div>
+</div>
+<div class="px-6 py-6 mt-4 flex items-center gap-4 border-t border-outline-variant/10">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest overflow-hidden">
+<img alt="Admin User" class="w-full h-full object-cover" data-alt="Admin user profile picture square" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBm5Haop_nTnJIQw0ItPhDSHmte1AtsTB1yffXMD2txjsdGgUlFKLhmLdZoRwV0VFU4d9sCl1Cx5p2iOkDma1N-W5J3cp6qa1HxxdJrbOcJ7CeWXWraJC_7qctziKK4Mc0s8LxzgohcOTtFLz1wD24c2sI0xVPNfBNTABoK5Nr43Rtaa2opQVfA76uQ5v8ALJeQ4dDNulsUwQMFwwxNKD4esZWd3vhqo8P_0wr7S3Wosl8TdmE7OX7B71rB1JRQVF3DVMC_3OSdzgw"/>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">Shimaya Admin</span>
+<span class="text-[10px] text-outline uppercase font-label">v2.1.0</span>
+</div>
+</div>
+</aside>
+</body></html>

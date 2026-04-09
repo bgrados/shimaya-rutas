@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SHIMAYA RUTAS - Crear Ubicación</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&amp;family=Inter:wght@400;500&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-machined {
+            background: linear-gradient(45deg, #FFB4AC 0%, #FF544C 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="bg-[#131313] dark:bg-[#131313] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="text-[#FFB4AC] active:scale-95 duration-200 hover:bg-[#353535] p-2 rounded-lg">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-[#FFB4AC] font-black tracking-tighter text-xl uppercase font-headline">SHIMAYA RUTAS</h1>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="User profile avatar placeholder" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYwWNMgop96lBjSIGCvY0VxWDYXjteWzJyE65YsAFYoREaSaWHNVH9ggFv1CLab0PPfYsp2H36qtpJDIxJ7FgjT2Bft1NM5_UXXLRQ0vifCNlhw7A-wfaGzAOnddOvTrGMsrlDInu1C0SidravWERO5pZZ2nbXoxD5-bAr3xMBqkeiVNGXbn0GisbEGEYuzhjEccauiOhyQV30SY-8h7b3A9nhkhZ_D0j3ulio_mBKr2l700z-opWSKGI3b1yHFK-LAbbi2q9IOj0"/>
+</div>
+</div>
+</header>
+<main class="max-w-2xl mx-auto px-6 pt-12">
+<!-- Editorial Header -->
+<div class="mb-12">
+<span class="font-label text-primary text-[10px] uppercase tracking-[0.3em] mb-2 block">Administración de Red</span>
+<h2 class="font-headline text-4xl font-extrabold tracking-tighter text-on-surface">Nueva Ubicación</h2>
+</div>
+<!-- Form Section -->
+<div class="space-y-10">
+<!-- Input: Name -->
+<div class="group">
+<label class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-3 block">Nombre de la Ubicación</label>
+<div class="bg-surface-container-lowest p-1 rounded-md transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/30">
+<input class="w-full bg-transparent border-none text-on-surface placeholder:text-surface-container-highest font-body py-4 px-4 focus:ring-0" placeholder="Ej. Centro de Distribución Norte" type="text"/>
+</div>
+</div>
+<!-- Input: Address -->
+<div class="group">
+<label class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-3 block">Dirección Fiscal / Operativa</label>
+<div class="bg-surface-container-lowest p-1 rounded-md transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/30">
+<input class="w-full bg-transparent border-none text-on-surface placeholder:text-surface-container-highest font-body py-4 px-4 focus:ring-0" placeholder="Calle Industrial #405, Zona Industrial" type="text"/>
+</div>
+</div>
+<!-- Map Pin Location Picker -->
+<div class="group">
+<div class="flex justify-between items-end mb-3">
+<label class="font-label text-xs uppercase tracking-widest text-on-surface-variant block">Geolocalización (PIN)</label>
+<span class="font-label text-[10px] text-tertiary">COORD: 19.4326° N, 99.1332° W</span>
+</div>
+<div class="relative w-full aspect-video rounded-md overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover grayscale opacity-50" data-alt="Dark stylized map interface with shipping routes" data-location="Mexico City" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrZomKjfJMchyrsvhdCxKqixmxBlviwLecpbrUbkDpjnLYvEpaar9KxrOoEH-fdpp_gcg_YQ7qzSu7gbj9_6nqJ4u9LzaHRMcJgasjs9saKJxEbiyijjsIphEdcbiE8j9MOKUBst8sIHd5dfzVAcXUYTgJJF4opgegjJMaXc59K25YjCfXTtra15fcl5krIf5F1ECoAJ3hmgVTFdzVH8lT90wxvXjYl3osI455OILG81k_V0JSCDZZylcKp0idxNdMw2t_LJ_-Hx0"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="relative">
+<span class="material-symbols-outlined text-primary-container text-5xl drop-shadow-[0_0_10px_rgba(255,84,76,0.5)]" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-1 bg-black/40 blur-sm rounded-full"></div>
+</div>
+</div>
+<!-- Map Controls Overlay -->
+<div class="absolute top-4 right-4 flex flex-col gap-2">
+<button class="w-10 h-10 bg-surface-container-highest text-on-surface flex items-center justify-center rounded-md hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+<button class="w-10 h-10 bg-surface-container-highest text-on-surface flex items-center justify-center rounded-md hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined">remove</span>
+</button>
+</div>
+</div>
+<p class="mt-3 font-body text-xs text-on-surface-variant/60 italic">Arrastra el mapa para ajustar la posición exacta de entrega.</p>
+</div>
+<!-- Input: Phone -->
+<div class="group">
+<label class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-3 block">Teléfono de Contacto</label>
+<div class="bg-surface-container-lowest p-1 rounded-md transition-all duration-300 focus-within:ring-1 focus-within:ring-primary/30 flex items-center">
+<span class="pl-4 pr-2 text-on-surface-variant font-label">+52</span>
+<input class="w-full bg-transparent border-none text-on-surface placeholder:text-surface-container-highest font-body py-4 px-2 focus:ring-0" placeholder="55 1234 5678" type="tel"/>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="pt-6 flex flex-col gap-4">
+<button class="bg-machined text-on-primary-fixed w-full py-5 rounded-md font-headline font-extrabold uppercase tracking-widest text-lg shadow-[0_4px_24px_rgba(255,180,172,0.2)] active:scale-95 duration-200">
+                    Guardar Ubicación
+                </button>
+<button class="text-on-surface-variant font-label text-xs uppercase tracking-widest py-4 hover:text-on-surface transition-colors">
+                    Cancelar Cambios
+                </button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-[#131313]/60 backdrop-blur-xl fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 z-50 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150">
+<span class="material-symbols-outlined">route</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Rutas</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150">
+<span class="material-symbols-outlined">map</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Mapa</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150">
+<span class="material-symbols-outlined">history</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Historial</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105 active:scale-90 duration-150">
+<span class="material-symbols-outlined">location_on</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest mt-1">Ubicaciones</span>
+</div>
+</nav>
+</body></html>

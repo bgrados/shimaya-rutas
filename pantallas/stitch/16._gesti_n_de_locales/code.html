@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestión de Locales | SHIMAYA RUTAS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353535",
+              "secondary-container": "#474746",
+              "surface-container-low": "#1b1b1b",
+              "inverse-surface": "#e2e2e2",
+              "on-primary-container": "#5c0005",
+              "on-surface-variant": "#e4beb9",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c8c6c5",
+              "primary-container": "#ff544c",
+              "tertiary": "#72d4ef",
+              "on-tertiary-container": "#002e39",
+              "on-primary-fixed": "#410002",
+              "on-tertiary-fixed-variant": "#004e5d",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "on-secondary-container": "#b7b5b4",
+              "error-container": "#93000a",
+              "error": "#ffb4ab",
+              "surface-container": "#1f1f1f",
+              "tertiary-fixed": "#afecff",
+              "on-tertiary": "#003641",
+              "secondary-fixed-dim": "#c8c6c5",
+              "on-secondary-fixed": "#1b1c1c",
+              "outline": "#ab8985",
+              "on-surface": "#e2e2e2",
+              "surface-tint": "#ffb4ac",
+              "primary": "#ffb4ac",
+              "surface-bright": "#393939",
+              "on-secondary": "#303030",
+              "on-secondary-fixed-variant": "#474746",
+              "primary-fixed-dim": "#ffb4ac",
+              "on-background": "#e2e2e2",
+              "background": "#131313",
+              "tertiary-fixed-dim": "#72d4ef",
+              "inverse-primary": "#bb171c",
+              "primary-fixed": "#ffdad6",
+              "on-primary": "#690006",
+              "on-primary-fixed-variant": "#93000d",
+              "surface": "#131313",
+              "tertiary-container": "#319db6",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "secondary-fixed": "#e5e2e1",
+              "on-tertiary-fixed": "#001f27",
+              "outline-variant": "#5b403d",
+              "inverse-on-surface": "#303030",
+              "surface-variant": "#353535"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        background-color: #131313;
+        color: #e2e2e2;
+        font-family: 'Inter', sans-serif;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface antialiased min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#131313] dark:bg-[#131313] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="text-[#FFB4AC] hover:bg-[#353535] transition-colors p-2 rounded-lg active:scale-95 duration-200">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-[#FFB4AC] font-black tracking-tighter text-xl uppercase font-headline">SHIMAYA RUTAS</h1>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-label text-xs text-on-surface-variant tracking-widest hidden md:block uppercase">LOGISTICS CONTROLLER</span>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Professional logistics administrator portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgbChWD7Ht-A2eKbOjjtUr7BZ3gPRyGuDeojdGgLhKmyg4ZynGZESgvXvkvtQsLrb8uRjpeumQWL3dVQzfSj153sldHsUdAJe0WfL9pLA8DaliggQRddc4bDWUEmKa0BGI3GtpdmbYb3mvbKNR77_4Ibb-mvmHLyF6w8Wz-_c-57024Elty1IYCeoI4-NI53-yMA2ORg4hYKwftMovrRDKZCbSrVikhyBeKlmYudFOy72Ttz3XDOHBI-itGsu3ALLUPCveQa41fh4"/>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-6 pt-8 space-y-8">
+<!-- Editorial Header Section -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-1">
+<p class="font-label text-tertiary text-sm tracking-[0.2em] uppercase">Módulo de Gestión</p>
+<h2 class="font-headline text-4xl font-extrabold tracking-tight text-on-surface">Ubicaciones</h2>
+</div>
+<!-- Filter & Search Cluster -->
+<div class="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+<div class="relative group flex-grow md:w-80">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-variant">search</span>
+<input class="w-full bg-surface-container-lowest border-none h-14 pl-12 pr-4 text-on-surface placeholder:text-outline-variant rounded-none focus:ring-1 focus:ring-primary transition-all font-body" placeholder="Buscar por nombre o dirección..." type="text"/>
+</div>
+<button class="h-14 px-6 bg-surface-container-low hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2 group border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary group-hover:rotate-180 transition-transform duration-500">tune</span>
+<span class="font-label text-xs uppercase tracking-widest">Filtros</span>
+</button>
+</div>
+</section>
+<!-- Stats Bento Grid (High-End Pattern) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="bg-surface-container-low p-6 flex flex-col justify-between border-l-4 border-primary">
+<span class="font-label text-[10px] uppercase tracking-[0.3em] text-on-surface-variant">Locales Activos</span>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="font-headline text-5xl font-black text-on-surface">24</span>
+<span class="text-tertiary text-xs font-label">/ 30 TOTAL</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 flex flex-col justify-between">
+<span class="font-label text-[10px] uppercase tracking-[0.3em] text-on-surface-variant">Zona Cobertura</span>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="font-headline text-5xl font-black text-on-surface">12</span>
+<span class="text-on-surface-variant text-xs font-label">DISTRITOS</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 flex flex-col justify-between overflow-hidden relative group">
+<div class="absolute right-0 top-0 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[120px]">map</span>
+</div>
+<span class="font-label text-[10px] uppercase tracking-[0.3em] text-on-surface-variant">Eficiencia Logística</span>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="font-headline text-5xl font-black text-on-surface">98%</span>
+<span class="text-tertiary text-xs font-label">UPTIME</span>
+</div>
+</div>
+</div>
+<!-- Locations List - Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+<!-- Location Card 1 -->
+<div class="group bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<div class="flex gap-2">
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-sm">share</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col md:flex-row">
+<div class="md:w-1/3 h-48 md:h-auto overflow-hidden">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" data-alt="Modern retail store front at night" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBovCG0OPXu11Numt84EkgCK9FuMPUvPw39ruR6cHQC7E2meUd7u2AY1GqqTvk72zsx33M4FLwxV6tXdLSnYk_cjahuwcVS2PZumXI2K2rjM82_gJ3qT_o9IfPbIhNkEcE_pKaHmQzaUJM20kdST_nINhGlqDgCQU9wUiGDPBhoqrraKv7AzwybM6G44cAbm7zoos8JUA3WE1amCdSmxZ4rXYIZt6imB3lmQNSv1OnlLtoHwqVCf3cDEUbyO37VUdoQ2kSFrdatD4Q"/>
+</div>
+<div class="p-6 md:w-2/3 space-y-4">
+<div>
+<span class="font-label text-[10px] text-tertiary uppercase tracking-widest">Sede Central</span>
+<h3 class="font-headline text-xl font-bold text-on-surface mt-1">San Isidro HUB-01</h3>
+</div>
+<div class="space-y-2">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-sm mt-0.5">location_on</span>
+<p class="font-body text-sm text-on-surface-variant leading-relaxed">Av. Javier Prado Este 1240, <br/>San Isidro, Lima 15047</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm">phone</span>
+<p class="font-label text-sm text-on-surface-variant">+51 1 422 9000</p>
+</div>
+</div>
+<div class="pt-4 flex items-center justify-between border-t border-outline-variant/10">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-label text-[10px] uppercase text-tertiary tracking-tighter">Operativo</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">Updated: 2h ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Location Card 2 -->
+<div class="group bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<div class="flex gap-2">
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-sm">share</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col md:flex-row">
+<div class="md:w-1/3 h-48 md:h-auto overflow-hidden">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" data-alt="Warehouse loading dock with industrial lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDF0pKrmxge5b6A8PYRO4KJh1YTIr30c8cwllGrBzxsbDWNhIBV7D7fASDAj4HIblc-ENHsg99Pkq4uYNiI7tjZIgd7T5dShLEqw7WCJOvDyD8marBd1h5jAPYN-94LHwLaz4BYl6V83T-viDC0zBnbWMcKIIy7detzm2SXLV9pa7u-_zoVOeECTOJipmVgbeocOztnZxOLbRV_8BtYDopPznQCQAvzVRiF_XYB0vC3l6KNWbhJnqfvZh9JWR7cKGnLNXCle6oKAX4"/>
+</div>
+<div class="p-6 md:w-2/3 space-y-4">
+<div>
+<span class="font-label text-[10px] text-primary-container uppercase tracking-widest">Almacén Regional</span>
+<h3 class="font-headline text-xl font-bold text-on-surface mt-1">Callao Industrial C-4</h3>
+</div>
+<div class="space-y-2">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-sm mt-0.5">location_on</span>
+<p class="font-body text-sm text-on-surface-variant leading-relaxed">Av. Argentina 5600, <br/>Callao 07021</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm">phone</span>
+<p class="font-label text-sm text-on-surface-variant">+51 1 513 8000</p>
+</div>
+</div>
+<div class="pt-4 flex items-center justify-between border-t border-outline-variant/10">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></div>
+<span class="font-label text-[10px] uppercase text-primary-container tracking-tighter">Mantenimiento</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">Updated: 1d ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Location Card 3 -->
+<div class="group bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<div class="flex gap-2">
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-sm">share</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col md:flex-row">
+<div class="md:w-1/3 h-48 md:h-auto overflow-hidden">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" data-alt="Minimalist design studio office space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfCtCrFvTDDyfv1IqROXfBrjJwPfMjJDRkvOSGBUHRHbSCxrw7of5ckOdhxWizlRY8aOlY0RJe6dmTlhL09ZSQIfx7oN2WiiZoJCtE4fcZSLLRfyIg63mBV34ybhdH7QIgydFK_jmRgEwfz8P5dbqOK6SOkT9PtBmAXgNFjSjbtXJvRVzWebuTDESBJ0kEwtznXfylzr-eJ22DyNzvw_oHpnLULtsExl9ykD715qYCiNXbM_SQfKo0geL1zYbRwMxs6IAgyl4w5Xg"/>
+</div>
+<div class="p-6 md:w-2/3 space-y-4">
+<div>
+<span class="font-label text-[10px] text-tertiary uppercase tracking-widest">Punto de Entrega</span>
+<h3 class="font-headline text-xl font-bold text-on-surface mt-1">Miraflores Express</h3>
+</div>
+<div class="space-y-2">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-sm mt-0.5">location_on</span>
+<p class="font-body text-sm text-on-surface-variant leading-relaxed">Calle Shell 345, <br/>Miraflores, Lima 15074</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm">phone</span>
+<p class="font-label text-sm text-on-surface-variant">+51 1 241 5566</p>
+</div>
+</div>
+<div class="pt-4 flex items-center justify-between border-t border-outline-variant/10">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-label text-[10px] uppercase text-tertiary tracking-tighter">Operativo</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">Updated: 5m ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Location Card 4 -->
+<div class="group bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<div class="flex gap-2">
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center bg-surface-container-lowest text-on-surface hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-sm">share</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col md:flex-row">
+<div class="md:w-1/3 h-48 md:h-auto overflow-hidden">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" data-alt="Industrial storage building with flat roof" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhL6A-7qd-ewKq1Xdt47WQ0HrIQNGVWvofkVJJNOA4DY7xPFr1OX3z-IQQCK_bPk-TCNyi1YDKEZF6rhqNBKuGfktixRYaluNLj6_fk4sYtBMV6xVVunoQKsNsBHkyhH1OvoSeiKAoDB3Z2GQmI9JCbaqkP_8mEdi3Za5hjdhErRzh4b-4MLJ3pbd-F-tdj_L2KAXrA_aC71KeLtkCog1ZF8DUhJl80DXbQSRrbPGfjzlxhO4uNl0dyqseGZcoB6LCOBl1PSceIuc"/>
+</div>
+<div class="p-6 md:w-2/3 space-y-4">
+<div>
+<span class="font-label text-[10px] text-tertiary uppercase tracking-widest">Centro Logístico</span>
+<h3 class="font-headline text-xl font-bold text-on-surface mt-1">Lurín Sur Distribution</h3>
+</div>
+<div class="space-y-2">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-sm mt-0.5">location_on</span>
+<p class="font-body text-sm text-on-surface-variant leading-relaxed">Km 35 Panamericana Sur, <br/>Lurín, Lima 15823</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-sm">phone</span>
+<p class="font-label text-sm text-on-surface-variant">+51 1 311 4040</p>
+</div>
+</div>
+<div class="pt-4 flex items-center justify-between border-t border-outline-variant/10">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-label text-[10px] uppercase text-tertiary tracking-tighter">Operativo</span>
+</div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">Updated: 1h ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-28 right-6 w-16 h-16 bg-[#FF544C] text-white rounded-none flex items-center justify-center shadow-[0_8px_32px_rgba(255,84,76,0.3)] hover:scale-105 active:scale-90 transition-all z-[60] group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform duration-300">add</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#131313]/60 backdrop-blur-xl z-50 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">route</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Rutas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Mapa</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Historial</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">location_on</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Locales</span>
+</a>
+</nav>
+<!-- Overlay "Ma" Space for focus -->
+<div class="fixed top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-outline-variant/20 to-transparent"></div>
+</body></html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SHIMAYA RUTAS - Mapa de Ruta</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .font-plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Custom scrollbar for minimalist look */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #131313; }
+        ::-webkit-scrollbar-thumb { background: #353535; border-radius: 10px; }
+
+        .map-gradient-overlay {
+            background: radial-gradient(circle at center, transparent 0%, rgba(19, 19, 19, 0.4) 100%);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "surface-container-highest": "#353535",
+                "secondary-container": "#474746",
+                "surface-container-low": "#1b1b1b",
+                "inverse-surface": "#e2e2e2",
+                "on-primary-container": "#5c0005",
+                "on-surface-variant": "#e4beb9",
+                "surface-container-high": "#2a2a2a",
+                "secondary": "#c8c6c5",
+                "primary-container": "#ff544c",
+                "tertiary": "#72d4ef",
+                "on-tertiary-container": "#002e39",
+                "on-primary-fixed": "#410002",
+                "on-tertiary-fixed-variant": "#004e5d",
+                "on-error-container": "#ffdad6",
+                "on-error": "#690005",
+                "on-secondary-container": "#b7b5b4",
+                "error-container": "#93000a",
+                "error": "#ffb4ab",
+                "surface-container": "#1f1f1f",
+                "tertiary-fixed": "#afecff",
+                "on-tertiary": "#003641",
+                "secondary-fixed-dim": "#c8c6c5",
+                "on-secondary-fixed": "#1b1c1c",
+                "outline": "#ab8985",
+                "on-surface": "#e2e2e2",
+                "surface-tint": "#ffb4ac",
+                "primary": "#ffb4ac",
+                "surface-bright": "#393939",
+                "on-secondary": "#303030",
+                "on-secondary-fixed-variant": "#474746",
+                "primary-fixed-dim": "#ffb4ac",
+                "on-background": "#e2e2e2",
+                "background": "#131313",
+                "tertiary-fixed-dim": "#72d4ef",
+                "inverse-primary": "#bb171c",
+                "primary-fixed": "#ffdad6",
+                "on-primary": "#690006",
+                "on-primary-fixed-variant": "#93000d",
+                "surface": "#131313",
+                "tertiary-container": "#319db6",
+                "surface-container-lowest": "#0e0e0e",
+                "surface-dim": "#131313",
+                "secondary-fixed": "#e5e2e1",
+                "on-tertiary-fixed": "#001f27",
+                "outline-variant": "#5b403d",
+                "inverse-on-surface": "#303030",
+                "surface-variant": "#353535"
+              },
+              fontFamily: {
+                "headline": ["Plus Jakarta Sans"],
+                "body": ["Inter"],
+                "label": ["Space Grotesk"]
+              },
+              borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+            },
+          },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary-container overflow-hidden h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-[#131313] dark:bg-[#131313] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="text-[#FFB4AC] hover:bg-[#353535] transition-colors active:scale-95 duration-200 p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="text-[#FFB4AC] font-black tracking-tighter text-xl uppercase font-plus-jakarta">SHIMAYA RUTAS</h1>
+</div>
+<div class="flex items-center gap-3">
+<div class="hidden md:flex flex-col items-end mr-2">
+<span class="font-label text-[10px] uppercase tracking-widest text-[#E2E2E2]">Controlador</span>
+<span class="font-body text-sm font-semibold text-[#FFB4AC]">ID: 8842-X</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="Professional driver profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtp1xYbwxviswrJX6I7ZhUbRimfDzB9fvWJBK6yx2ZyzIWe7ed8ZJiUxbqIBIwMB-PRI9vIk1NZQHAK7PzgOID2eeS2AC2yG85Gj7DP39Xn3tW-fgbuQqpGmu23QD6DcRwuhMCUA-f-EFmjR6-bjIg8HBNPOM_hLDodVTZXWY3JOGjji5DadbPQovr-Y1zq2eQCaxSsHKjmjQqcXqrSVKt0Epl9EAETbrEYn0cuiHRQXy_GE17N5ICU6ANt97Oe0m5IIPuTn374k0"/>
+</div>
+</div>
+</header>
+<!-- Main Canvas: Map View -->
+<main class="relative flex-grow w-full bg-surface-container-lowest overflow-hidden">
+<!-- Mock Map Background -->
+<div class="absolute inset-0 w-full h-full z-0">
+<div class="absolute inset-0 bg-[#0e0e0e] map-gradient-overlay"></div>
+<!-- Simulating dark mode map lines with SVG -->
+<svg class="w-full h-full opacity-20" viewbox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 200 L1000 240 M0 500 L1000 480 M400 0 L420 1000 M700 0 L680 1000" fill="none" stroke="#353535" stroke-width="2"></path>
+<path d="M200 0 C 300 300, 400 200, 600 500 S 800 800, 1000 750" fill="none" stroke="#5b403d" stroke-width="1"></path>
+<!-- Route Path -->
+<path class="opacity-80" d="M200 800 L350 650 L500 680 L650 450 L800 300" fill="none" stroke="#FF544C" stroke-dasharray="8 4" stroke-width="4"></path>
+<path d="M100 900 L200 800" fill="none" stroke="#72d4ef" stroke-width="4"></path>
+</svg>
+<!-- Map Markers -->
+<!-- Visited Stop -->
+<div class="absolute top-[80%] left-[20%] -translate-x-1/2 -translate-y-1/2 group cursor-pointer">
+<div class="w-8 h-8 bg-tertiary text-on-tertiary rounded-full flex items-center justify-center shadow-lg border-2 border-surface transition-transform group-hover:scale-110">
+<span class="material-symbols-outlined text-lg" data-icon="check" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div class="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-surface-container-high px-2 py-1 rounded text-[10px] font-label text-tertiary whitespace-nowrap uppercase tracking-tighter">Visitado</div>
+</div>
+<!-- Current Driver Position -->
+<div class="absolute top-[80%] left-[20%] -translate-x-1/2 -translate-y-1/2 z-10">
+<div class="relative">
+<div class="absolute inset-0 bg-primary/20 rounded-full animate-ping scale-150"></div>
+<div class="w-10 h-10 bg-surface rounded-full flex items-center justify-center border-2 border-primary shadow-xl">
+<span class="material-symbols-outlined text-primary" data-icon="navigation" data-weight="fill" style="font-variation-settings: 'FILL' 1;">navigation</span>
+</div>
+</div>
+</div>
+<!-- Pending Stop 1 (Next) -->
+<div class="absolute top-[65%] left-[35%] -translate-x-1/2 -translate-y-1/2 group">
+<div class="w-10 h-10 bg-primary-container text-white rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,84,76,0.4)] border-2 border-surface-container-highest transition-transform group-hover:scale-110">
+<span class="font-headline font-extrabold text-sm">02</span>
+</div>
+<div class="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-primary-container px-3 py-1 rounded-sm shadow-xl">
+<p class="font-label text-[10px] text-white uppercase font-bold whitespace-nowrap">Próxima Parada</p>
+</div>
+</div>
+<!-- Pending Stop 2 -->
+<div class="absolute top-[68%] left-[50%] -translate-x-1/2 -translate-y-1/2 opacity-60">
+<div class="w-8 h-8 bg-surface-container-highest text-primary rounded-full flex items-center justify-center border-2 border-primary/40">
+<span class="font-headline font-bold text-xs">03</span>
+</div>
+</div>
+</div>
+<!-- Floating UI Overlays -->
+<!-- Search & Filters -->
+<div class="absolute top-6 left-6 z-20 flex flex-col gap-3">
+<div class="bg-surface-container-high/90 backdrop-blur-md p-1 rounded-xl shadow-2xl flex items-center border border-white/5">
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<input class="bg-transparent border-none focus:ring-0 text-sm font-body text-on-surface w-48 placeholder:text-on-surface-variant/40" placeholder="Buscar dirección..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="bg-surface-container-high/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 text-[10px] font-label uppercase tracking-widest text-primary flex items-center gap-2 shadow-lg">
+<span class="material-symbols-outlined text-xs" data-icon="layers">layers</span>
+                    Satélite
+                </button>
+<button class="bg-surface-container-high/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 text-[10px] font-label uppercase tracking-widest text-on-surface-variant flex items-center gap-2 shadow-lg">
+<span class="material-symbols-outlined text-xs" data-icon="traffic">traffic</span>
+                    Tráfico
+                </button>
+</div>
+</div>
+<!-- Route Progress Monolith (Side Overlay) -->
+<div class="absolute top-6 right-6 bottom-32 w-20 hidden md:flex flex-col items-center py-6 bg-surface-container-low/80 backdrop-blur-xl rounded-full border border-white/5 z-20">
+<div class="flex-1 w-1 bg-surface-container-highest rounded-full relative overflow-hidden">
+<div class="absolute bottom-0 w-full h-[40%] bg-primary rounded-full"></div>
+</div>
+<div class="mt-4 flex flex-col items-center gap-6">
+<div class="text-primary flex flex-col items-center">
+<span class="font-headline text-xl font-black">4</span>
+<span class="font-label text-[8px] uppercase">Stops</span>
+</div>
+<button class="w-12 h-12 bg-surface-container-highest rounded-full flex items-center justify-center text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="recenter">recenter</span>
+</button>
+</div>
+</div>
+<!-- Next Stop Info Floating Bar -->
+<div class="absolute bottom-10 left-6 right-6 md:left-1/2 md:-translate-x-1/2 md:w-[600px] z-30">
+<div class="bg-[#1B1B1B]/95 backdrop-blur-2xl rounded-2xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col gap-4 overflow-hidden relative">
+<!-- Progress Accent -->
+<div class="absolute top-0 left-0 h-1 bg-primary w-2/3"></div>
+<div class="flex justify-between items-start">
+<div class="flex gap-4 items-center">
+<div class="w-14 h-14 bg-primary-container rounded-xl flex flex-col items-center justify-center text-white shadow-lg">
+<span class="font-label text-[10px] font-bold uppercase leading-none opacity-80">Stop</span>
+<span class="font-headline text-2xl font-black leading-none">02</span>
+</div>
+<div>
+<h2 class="font-headline text-lg font-bold text-on-surface leading-tight">Distribuidora Central Norte</h2>
+<p class="font-body text-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="location_on">location_on</span>
+                                Av. Industrial #442, Zona 4
+                            </p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-label text-[10px] uppercase tracking-widest text-tertiary">Llegada Est.</p>
+<p class="font-plus-jakarta text-xl font-extrabold text-on-surface">14:25 <span class="text-xs font-normal text-on-surface-variant">min</span></p>
+</div>
+</div>
+<div class="flex items-center gap-3 w-full">
+<button class="flex-1 h-14 bg-primary-container hover:bg-primary transition-all active:scale-95 text-white font-headline font-bold rounded-xl flex items-center justify-center gap-2 uppercase tracking-wide">
+<span class="material-symbols-outlined" data-icon="directions">directions</span>
+                        Iniciar Navegación
+                    </button>
+<button class="w-14 h-14 bg-surface-container-highest hover:bg-surface-container-high transition-colors text-on-surface rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="call">call</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-[#131313]/60 backdrop-blur-xl fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 z-50 shadow-[0_-4px_24px_rgba(255,180,172,0.08)]">
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="route">route</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Rutas</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#FF544C] text-[#FFFFFF] rounded-xl p-2 scale-105 transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="map" data-weight="fill" style="font-variation-settings: 'FILL' 1;">map</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Mapa</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="history">history</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Historial</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#E2E2E2] opacity-60 p-2 hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="bar_chart">bar_chart</span>
+<span class="font-space-grotesk text-[10px] uppercase tracking-widest">Reportes</span>
+</a>
+</nav>
+<!-- Quick Actions Floating Button (Map Specific) -->
+<div class="fixed right-6 bottom-28 md:bottom-10 z-40 flex flex-col gap-3">
+<button class="w-14 h-14 bg-surface-container-high text-primary rounded-xl flex items-center justify-center shadow-2xl border border-white/5 active:scale-90 duration-150">
+<span class="material-symbols-outlined" data-icon="add_location">add_location</span>
+</button>
+<button class="w-14 h-14 bg-primary text-on-primary rounded-xl flex items-center justify-center shadow-[0_8px_32px_rgba(255,180,172,0.3)] active:scale-90 duration-150">
+<span class="material-symbols-outlined" data-icon="report" data-weight="fill" style="font-variation-settings: 'FILL' 1;">report</span>
+</button>
+</div>
+</body></html>
