@@ -1181,6 +1181,15 @@ export default function DriverViaje() {
               ))}
             </div>
           </div>
+
+          {/* Botón para agregar gastos de combustible después del viaje */}
+          <button
+            onClick={() => setShowCombustible(true)}
+            className="mt-4 w-full bg-green-600/20 text-green-400 border border-green-600/50 py-3 rounded-xl font-bold flex items-center justify-center gap-2"
+          >
+            <Fuel size={18} />
+            Agregar Comprobante de Combustible
+          </button>
         </>
       )}
 
