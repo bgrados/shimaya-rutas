@@ -121,3 +121,14 @@ export interface FotoVisita {
   orden: number;
   created_at: string;
 }
+
+export interface AuditLog {
+  id: number;
+  tabla: string;
+  registro_id: string;
+  accion: 'delete' | 'create' | 'update';
+  datos_anteriores: Record<string, unknown> | null;
+  datos_nuevos: Record<string, unknown> | null;
+  usuario_id: string | null;
+  created_at: string;
+}

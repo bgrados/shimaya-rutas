@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { logDelete } from '../../lib/audit';
 import type { Ruta, Usuario, ViajeBitacora } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -393,6 +394,7 @@ export default function AdminViajes() {
                                       if (window.confirm('¿Estás seguro de eliminar todo el registro de esta ruta diaria? Esta acción es irreversible.')) {
                                         setIsSubmitting(true);
                                         try {
+                                          await logDelete('rutas', viaje.id_ruta, viaje);
                                           await supabase.from('viajes_bitacora').delete().eq('id_ruta', viaje.id_ruta);
                                           await supabase.from('locales_ruta').delete().eq('id_ruta', viaje.id_ruta);
                                           await supabase.from('rutas').delete().eq('id_ruta', viaje.id_ruta);
