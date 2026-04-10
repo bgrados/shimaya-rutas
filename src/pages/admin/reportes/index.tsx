@@ -356,7 +356,7 @@ const win = window.open('', '_blank');
   // Funciones combustible
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
-    gastos.forEach(gasto => {
+    gastosCombustible.forEach(gasto => {
       const fecha = gasto.created_at ? new Date(new Date(gasto.created_at).getTime() + 19*60*60*1000).toISOString().split('T')[0] : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
@@ -372,7 +372,7 @@ const win = window.open('', '_blank');
 
   const gastosAgrupadosPorChofer = (): GrupoChofer[] => {
     const grupos: Record<string, { nombre: string; gastos: GastoCombustible[] }> = {};
-    gastos.forEach(gasto => {
+    gastosCombustible.forEach(gasto => {
       const choferId = gasto.id_chofer || 'sin chofer';
       const choferNombre = gasto.chofer_nombre || 'Sin nombre';
       if (!grupos[choferId]) {
@@ -390,13 +390,13 @@ const win = window.open('', '_blank');
       }));
   };
 
-  const totalesPorTipo = gastos.reduce((acc, g) => {
+  const totalesPorTipo = gastosCombustible.reduce((acc, g) => {
     const tipo = g.tipo_combustible || 'otro';
     acc[tipo] = (acc[tipo] || 0) + (g.monto || 0);
     return acc;
   }, {} as Record<string, number>);
 
-  const totalGeneral = gastos.reduce((sum, g) => sum + (g.monto || 0), 0);
+  const totalGeneral = gastosCombustible.reduce((sum, g) => sum + (g.monto || 0), 0);
 
   const getFiltroLabel = () => {
     if (filtroFecha === 'semana') return 'Esta semana';
@@ -531,7 +531,7 @@ const win = window.open('', '_blank');
 
 <div class="badge-row">
   <div class="badge"><span class="badge-val" style="color:#22c55e;">S/ ${totalGeneral.toFixed(2)}</span><span class="badge-lbl">Total General</span></div>
-  <div class="badge"><span class="badge-val">${gastos.length}</span><span class="badge-lbl">Total Cargas</span></div>
+  <div class="badge"><span class="badge-val">${gastosCombustible.length}</span><span class="badge-lbl">Total Cargas</span></div>
   <div class="badge"><span class="badge-val" style="color:#22c55e;">S/ ${(totalesPorTipo.glp || 0).toFixed(2)}</span><span class="badge-lbl">GLP</span></div>
   <div class="badge"><span class="badge-val" style="color:#3b82f6;">S/ ${(totalesPorTipo.gasolina || 0).toFixed(2)}</span><span class="badge-lbl">Gasolina</span></div>
   <div class="badge"><span class="badge-val" style="color:#f97316;">S/ ${(totalesPorTipo.diesel || 0).toFixed(2)}</span><span class="badge-lbl">Diesel</span></div>
@@ -541,7 +541,7 @@ const win = window.open('', '_blank');
   <p style="font-size:12px;color:#64748b;margin-bottom:16px;">Agrupado por: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}</p>
   ${gruposHTML.join('')}
   ${(() => {
-    const gastosConFoto = gastos.filter(g => fotosCombustible[g.id_gasto]);
+    const gastosConFoto = gastosCombustible.filter(g => fotosCombustible[g.id_gasto]);
     if (gastosConFoto.length === 0) return '';
     let fotosHTML = `<div style="margin-top:30px;">
       <h3 style="color:#1e293b;font-size:16px;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">📸 Fotos de Comprobantes (${gastosConFoto.length})</h3>
@@ -880,7 +880,7 @@ const win = window.open('', '_blank');
           <Card className="bg-yellow-500/10 border-yellow-500/30">
             <CardContent className="p-3 text-center">
               <p className="text-xs text-yellow-300 uppercase font-bold">Cargas</p>
-              <p className="text-xl font-black text-yellow-400">{gastos.length}</p>
+              <p className="text-xl font-black text-yellow-400">{gastosCombustible.length}</p>
             </CardContent>
           </Card>
           <Card className="bg-primary/10 border-primary/30">
