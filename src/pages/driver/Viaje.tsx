@@ -266,7 +266,6 @@ export default function DriverViaje() {
       const { data: baseData, error: rbError } = await supabase
         .from('rutas_base')
         .select('*')
-        .eq('activo', true)
         .order('nombre');
         
       if (rbError) {
@@ -291,9 +290,8 @@ export default function DriverViaje() {
           }
         }));
         
-        const validas = withCounts.filter(r => r.locales_count > 0);
-        setRutasBase(validas);
-        if (validas.length > 0) setSelectedRutaBase(validas[0].id_ruta_base);
+        setRutasBase(withCounts);
+        if (withCounts.length > 0) setSelectedRutaBase(withCounts[0].id_ruta_base);
       } else {
         setRutasBase([]);
       }
