@@ -268,6 +268,8 @@ export default function DriverViaje() {
         .select('*')
         .order('nombre');
         
+      console.log('[Viaje] rutas_base response:', baseData, rbError);
+        
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
         alert('Error al cargar plantillas: ' + rbError.message);
@@ -283,16 +285,20 @@ export default function DriverViaje() {
               .select('id_local_base', { count: 'exact', head: true })
               .eq('id_ruta_base', rb.id_ruta_base);
             
+            console.log(`[Viaje] count for ${rb.nombre}:`, count, cError);
             if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
             return { ...rb, locales_count: count ?? 0 };
           } catch (e) {
+            console.error(`Error counting locales for ${rb.nombre}:`, e);
             return { ...rb, locales_count: 0 };
           }
         }));
         
+        console.log('[Viaje] Final rutasBase:', withCounts);
         setRutasBase(withCounts);
         if (withCounts.length > 0) setSelectedRutaBase(withCounts[0].id_ruta_base);
       } else {
+        console.log('[Viaje] No hay rutas_base');
         setRutasBase([]);
       }
     } catch (err) {
@@ -696,19 +702,31 @@ export default function DriverViaje() {
            <CardContent className="p-8 space-y-6">
               <div className="space-y-4">
                   <div className="space-y-1">
-                     <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
-                     {rutasBase.length === 0 ? (
-                       <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
-                         <p className="text-yellow-400 text-sm font-bold">⚠️ No hay plantillas disponibles</p>
-                         <p className="text-yellow-400/70 text-xs mt-1">Contacta al administrador para configurar rutas base.</p>
-                         <button 
-                           onClick={loadRutasBase}
-                           className="mt-2 text-xs text-yellow-400 underline hover:text-yellow-300"
-                         >
-                           ⟳ Reintentar carga
-                         </button>
-                       </div>
-                     ) : (
+                      <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
+                      {loading ? (
+                        <div className="bg-surface-light rounded-xl px-4 py-3 text-text-muted text-sm">
+                          ⏳ Cargando plantillas...
+                        </div>
+                      ) : rutasBase.length === 0 ? (
+                        <div className="space-y-2">
+                          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+                            <p className="text-yellow-400 text-sm font-bold">⚠️ No hay plantillas disponibles</p>
+                            <p className="text-yellow-400/70 text-xs mt-1">Contacta al administrador para configurar rutas base.</p>
+                            <button 
+                              onClick={loadRutasBase}
+                              className="mt-2 text-xs text-yellow-400 underline hover:text-yellow-300"
+                            >
+                              ⟳ Reintentar carga
+                            </button>
+                          </div>
+                          <details className="text-xs text-text-muted">
+                            <summary className="cursor-pointer">Debug: klik para ver datos</summary>
+                            <pre className="mt-2 p-2 bg-surface-light rounded overflow-x-auto">
+                              {JSON.stringify(rutasBase, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      ) : (
                       <div className="relative">
                          <select 
                            className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors"
