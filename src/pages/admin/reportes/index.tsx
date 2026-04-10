@@ -894,7 +894,7 @@ const win = window.open('', '_blank');
         {/* Lista agrupada */}
         {combustibleLoading ? (
           <div className="text-center py-8 text-text-muted">Cargando...</div>
-        ) : agruparPor === 'fecha' ? (
+        ) : reportType === 'combustible' && agruparPor === 'fecha' ? (
           <div className="space-y-4">
             {gastosAgrupadosPorFecha().map(grupo => (
               <Card key={grupo.fecha}>
@@ -930,7 +930,7 @@ const win = window.open('', '_blank');
               </Card>
             ))}
           </div>
-        ) : (
+        ) : reportType === 'combustible' && (
           <div className="space-y-4">
             {gastosAgrupadosPorChofer().map(grupo => (
               <Card key={grupo.choferId}>
@@ -976,7 +976,7 @@ const win = window.open('', '_blank');
           </div>
         )}
 
-        {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+        {reportType === 'combustible' && gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
           <Card className="mt-6">
             <CardContent className="p-4">
               <h3 className="text-white font-bold mb-4 flex items-center gap-2">
