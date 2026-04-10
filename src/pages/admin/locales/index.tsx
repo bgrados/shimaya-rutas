@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logDelete } from '../../../lib/audit';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -367,9 +368,12 @@ export default function LocalesBase() {
     if (!confirm(`¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`)) return;
     setDeletingId(id);
 
+    const localToDelete = locales.find(l => l.id_local_base === id);
+    
     const { error } = await supabase.from('locales_base').delete().eq('id_local_base', id);
 
     if (!error) {
+      if (localToDelete) await logDelete('locales_base', id, localToDelete as unknown as Record<string, unknown>);
       setLocales(prev => prev.filter(l => l.id_local_base !== id));
     } else if (error.code === '23503') {
       const forzar = confirm(
@@ -388,6 +392,7 @@ export default function LocalesBase() {
         } else {
           const { error: delErr } = await supabase.from('locales_base').delete().eq('id_local_base', id);
           if (!delErr) {
+            if (localToDelete) await logDelete('locales_base', id, localToDelete as unknown as Record<string, unknown>);
             setLocales(prev => prev.filter(l => l.id_local_base !== id));
           } else {
             alert('Error al eliminar: ' + delErr.message);
