@@ -972,7 +972,7 @@ const win = window.open('', '_blank');
         {gastosCombustible.length === 0 && (
           <div className="text-center py-12 no-print">
             <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-            <p className="text-text-muted">No hay gastos de combustible registrados</p>
+            <p className="text-text-muted">Sin cargas de combustible en este período</p>
           </div>
         )}
 
