@@ -969,7 +969,7 @@ const win = window.open('', '_blank');
           </div>
         )}
 
-        {gastosCombustible.length === 0 && (
+        {reportType === 'combustible' && gastosCombustible.length === 0 && (
           <div className="text-center py-12 no-print">
             <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
             <p className="text-text-muted">Sin cargas de combustible en este período</p>
@@ -1039,7 +1039,7 @@ const win = window.open('', '_blank');
                 </div>
               </div>
 
-              {gastosOtros.length === 0 ? (
+              {reportType === 'otros' && gastosOtros.length === 0 ? (
                 <div className="text-center py-12 no-print">
                   <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
                   <p className="text-text-muted">No hay otros gastos registrados</p>
