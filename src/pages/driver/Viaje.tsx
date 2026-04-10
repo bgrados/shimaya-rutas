@@ -261,35 +261,46 @@ export default function DriverViaje() {
   };
 
   const loadRutasBase = async () => {
-    const { data: baseData, error: rbError } = await supabase
-      .from('rutas_base')
-      .select('*')
-      .eq('activo', true)
-      .order('nombre');
-      
-    if (rbError) {
-      console.error('Error loading rutas base:', rbError);
-      return;
-    }
+    setLoading(true);
+    try {
+      const { data: baseData, error: rbError } = await supabase
+        .from('rutas_base')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre');
+        
+      if (rbError) {
+        console.error('Error loading rutas base:', rbError);
+        alert('Error al cargar plantillas: ' + rbError.message);
+        setLoading(false);
+        return;
+      }
 
-    if (baseData) {
-      const withCounts = await Promise.all(baseData.map(async (rb) => {
-        try {
-          const { count, error: cError } = await supabase
-            .from('locales_base')
-            .select('id_local_base', { count: 'exact', head: true })
-            .eq('id_ruta_base', rb.id_ruta_base);
-          
-          if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
-          return { ...rb, locales_count: count ?? 0 };
-        } catch (e) {
-          return { ...rb, locales_count: 0 };
-        }
-      }));
-      
-      const validas = withCounts.filter(r => r.locales_count > 0);
-      setRutasBase(validas);
-      if (validas.length > 0) setSelectedRutaBase(validas[0].id_ruta_base);
+      if (baseData && baseData.length > 0) {
+        const withCounts = await Promise.all(baseData.map(async (rb) => {
+          try {
+            const { count, error: cError } = await supabase
+              .from('locales_base')
+              .select('id_local_base', { count: 'exact', head: true })
+              .eq('id_ruta_base', rb.id_ruta_base);
+            
+            if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
+            return { ...rb, locales_count: count ?? 0 };
+          } catch (e) {
+            return { ...rb, locales_count: 0 };
+          }
+        }));
+        
+        const validas = withCounts.filter(r => r.locales_count > 0);
+        setRutasBase(validas);
+        if (validas.length > 0) setSelectedRutaBase(validas[0].id_ruta_base);
+      } else {
+        setRutasBase([]);
+      }
+    } catch (err) {
+      console.error('Error loading rutas base:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -686,13 +697,20 @@ export default function DriverViaje() {
            </div>
            <CardContent className="p-8 space-y-6">
               <div className="space-y-4">
-                 <div className="space-y-1">
-                    <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
-                    {rutasBase.length === 0 ? (
-                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 text-yellow-400 text-sm font-bold">
-                        ⚠️ No hay plantillas disponibles. Contacta al administrador para configurar rutas base.
-                      </div>
-                    ) : (
+                  <div className="space-y-1">
+                     <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
+                     {rutasBase.length === 0 ? (
+                       <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+                         <p className="text-yellow-400 text-sm font-bold">⚠️ No hay plantillas disponibles</p>
+                         <p className="text-yellow-400/70 text-xs mt-1">Contacta al administrador para configurar rutas base.</p>
+                         <button 
+                           onClick={loadRutasBase}
+                           className="mt-2 text-xs text-yellow-400 underline hover:text-yellow-300"
+                         >
+                           ⟳ Reintentar carga
+                         </button>
+                       </div>
+                     ) : (
                       <div className="relative">
                          <select 
                            className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors"
