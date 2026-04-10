@@ -11,18 +11,23 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tabla para suscripciones push
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT UNIQUE,
+  subscription JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Habilitar RLS
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Policy para que solo administradores puedan ver logs
-CREATE POLICY "audit_log_select" ON audit_log
-  FOR SELECT USING (true);
+-- Policies
+CREATE POLICY "audit_log_all" ON audit_log FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "push_subscriptions_all" ON push_subscriptions FOR ALL USING (true) WITH CHECK (true);
 
--- Policy para que solo autenticados puedan insertar
-CREATE POLICY "audit_log_insert" ON audit_log
-  FOR INSERT WITH CHECK (true);
-
--- Crear función helper para logging
+-- Función helper para audit
 CREATE OR REPLACE FUNCTION registrar_audit(
   p_tabla TEXT,
   p_registro_id TEXT,
