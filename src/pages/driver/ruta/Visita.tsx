@@ -142,6 +142,11 @@ export default function VisitaLocal() {
   };
 
   const handleFinalizar = async (estado: EstadoVisita) => {
+    if (estado === 'visitado' && photos.length === 0 && existingPhotos.length === 0) {
+      alert('Para marcar como "visitado" debes agregar al menos una foto como evidencia.');
+      return;
+    }
+
     setSaving(true);
     const now = nowPeru();
 
