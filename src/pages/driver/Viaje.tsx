@@ -1206,8 +1206,8 @@ export default function DriverViaje() {
                   }}
                   className="bg-surface p-3 rounded-xl border border-white/10 hover:border-primary/50 text-left transition-all"
                 >
-                  <p className="text-xs font-bold text-white truncate">{local.nombre}</p>
-                  <p className="text-[10px] text-text-muted">{local.hora_llegada ? '✓ Con foto' : 'Sin foto'}</p>
+                  <p className="text-xs text-white truncate">{local.nombre}</p>
+                  <p className="text-[10px] text-text-muted">{local.hora_llegada ? '✓ Visitado' : 'Sin registrar'}</p>
                 </button>
               ))}
             </div>
