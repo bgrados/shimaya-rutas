@@ -261,7 +261,7 @@ export default function DriverViaje() {
   };
 
   const loadRutasBase = async () => {
-    setLoading(true);
+    console.log('[Viaje] loadRutasBase INICIADO, profile:', profile?.id_usuario);
     try {
       const { data: baseData, error: rbError } = await supabase
         .from('rutas_base')
@@ -272,8 +272,6 @@ export default function DriverViaje() {
         
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
-        alert('Error al cargar plantillas: ' + rbError.message);
-        setLoading(false);
         return;
       }
 
@@ -303,8 +301,6 @@ export default function DriverViaje() {
       }
     } catch (err) {
       console.error('Error loading rutas base:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
