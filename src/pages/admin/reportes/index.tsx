@@ -420,6 +420,91 @@ const win = window.open('', '_blank');
     }
   };
 
+  const handleExportarOtrosPDF = () => {
+    const periodoLabel = getFiltroLabel();
+    const totalOtros = gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0);
+    
+    const gastosHTML = gastosOtros.map(gasto => {
+      const estadoIcon = gasto.estado === 'confirmado' ? '✓' : gasto.estado === 'pendiente' ? '⏳' : '✗';
+      const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente' ? '#eab308' : '#ef4444';
+      
+      return `<tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:8px;color:#475569;">${gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}</td>
+        <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
+        <td style="padding:8px;color:#475569;">${gasto.ruta_nombre || '-'}</td>
+        <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
+        <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><title>Otros Gastos - ${periodoLabel}</title>
+<style>
+  @media print { @page { margin: 18mm 15mm; } button { display: none !important; } }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: white; }
+  .header { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); color: white; padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; }
+  .header-title { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; margin: 0; }
+  .header-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+  .badge-row { display: flex; gap: 10px; padding: 16px 28px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+  .badge { display: flex; flex-direction: column; align-items: center; padding: 8px 18px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .badge-val { font-size: 20px; font-weight: 900; color: #0f172a; }
+  .badge-lbl { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .content { padding: 20px 28px; }
+  .footer { text-align: center; color: #94a3b8; font-size: 11px; padding: 16px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
+  .close-btn { position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; z-index: 9999; }
+</style>
+</head>
+<body>
+<button class="close-btn" onclick="if(window.opener){window.close();}else{history.back();}">✕ Cerrar</button>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div>
+      <p class="header-title">💰 SHIMAYA RUTAS & LOGÍSTICA</p>
+      <p class="header-sub">📋 Otros Gastos · ${periodoLabel}</p>
+    </div>
+  </div>
+  <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(new Date(), "dd/MM/yyyy HH:mm")}</div>
+</div>
+
+<div class="badge-row">
+  <div class="badge"><span class="badge-val" style="color:#f59e0b;">S/ ${totalOtros.toFixed(2)}</span><span class="badge-lbl">Total General</span></div>
+  <div class="badge"><span class="badge-val">${gastosOtros.length}</span><span class="badge-lbl">Total Gastos</span></div>
+</div>
+
+<div class="content">
+  <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="background:#f1f5f9;">
+      <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Fecha</th>
+      <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Chofer</th>
+      <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Ruta</th>
+      <th style="padding:8px;text-align:center;color:#475569;font-weight:600;">Estado</th>
+      <th style="padding:8px;text-align:right;color:#475569;font-weight:600;">Monto</th>
+    </tr></thead>
+    <tbody>${gastosHTML}</tbody>
+    <tfoot style="background:#f1f5f9;font-weight:bold;">
+      <tr>
+        <td style="padding:8px;text-align:left;" colspan="4">Total</td>
+        <td style="padding:8px;text-align:right;color:#16a34a;">S/ ${totalOtros.toFixed(2)}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="footer">
+  Shimaya Rutas & Logística · Reporte de Otros Gastos
+</div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
+  };
+
   const handleExportarCombustiblePDF = () => {
     const periodoLabel = getFiltroLabel();
     const estadoLabel = 'Todos';
@@ -1032,6 +1117,13 @@ const win = window.open('', '_blank');
                 </div>
               ) : (
                 <>
+                  <div className="flex justify-between items-center mb-4">
+                    <Button onClick={handleExportarOtrosPDF} className="flex items-center gap-2">
+                      <Download size={18} />
+                      Exportar PDF
+                    </Button>
+                  </div>
+
                   <div className="bg-surface-light/30 rounded-xl overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-surface text-text-muted uppercase text-xs">
