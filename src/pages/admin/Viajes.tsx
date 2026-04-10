@@ -391,13 +391,32 @@ export default function AdminViajes() {
                                   <Button size="sm" variant="danger" disabled={isSubmitting} className="font-black bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-100"
                                     onClick={async (e) => {
                                       e.stopPropagation();
-                                      if (window.confirm('¿Estás seguro de eliminar todo el registro de esta ruta diaria? Esta acción es irreversible.')) {
+                                      if (window.confirm('¿Estás seguro de eliminar todo el registro de esta ruta diaria? Esta acción es irreversible.\n\nSe eliminarán: ruta, bitácora, locales visitados, gastos de combustible Y fotos.')) {
                                         setIsSubmitting(true);
                                         try {
-                                          await logDelete('rutas', viaje.id_ruta, viaje);
+                                          // Primero obtener los ids de locales_ruta para eliminar sus fotos
+                                          const { data: localesData } = await supabase
+                                            .from('locales_ruta')
+                                            .select('id_local_ruta')
+                                            .eq('id_ruta', viaje.id_ruta);
+                                          
+                                          const localesIds = localesData?.map(l => l.id_local_ruta) || [];
+                                          
+                                          // Eliminar fotos de esos locales
+                                          if (localesIds.length > 0) {
+                                            await supabase.from('fotos_visita').delete().in('id_local_ruta', localesIds);
+                                          }
+                                          
+                                          // Eliminar gastos de combustible de esta ruta
+                                          await supabase.from('gastos_combustible').delete().eq('id_ruta', viaje.id_ruta);
+                                          // Eliminar bitácora
                                           await supabase.from('viajes_bitacora').delete().eq('id_ruta', viaje.id_ruta);
+                                          // Eliminar locales_ruta
                                           await supabase.from('locales_ruta').delete().eq('id_ruta', viaje.id_ruta);
+                                          // Eliminar la ruta
+                                          await logDelete('rutas', viaje.id_ruta, viaje);
                                           await supabase.from('rutas').delete().eq('id_ruta', viaje.id_ruta);
+                                          
                                           await loadData();
                                         } catch (err) {
                                           console.error(err);
