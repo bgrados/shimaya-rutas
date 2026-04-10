@@ -32,7 +32,7 @@ function formatMins(mins: number | null) {
 }
 
 type Period = 'diario' | 'semanal' | 'mensual';
-type ReportType = 'rutas' | 'combustible';
+type ReportType = 'rutas' | 'combustible' | 'otros';
 
 interface RutaConBitacora extends Ruta { bitacora?: any[]; duracionMins?: number | null; localesRuta?: any[]; }
 interface Usuario { id_usuario: string; nombre: string; }
@@ -177,6 +177,9 @@ export default function Reportes() {
       setCombustibleLoading(false);
     }
   }
+
+  const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
+  const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
 
   const rutas = useMemo(() => {
     return allRutas.filter(r => {
@@ -604,6 +607,13 @@ const win = window.open('', '_blank');
             <Fuel size={16} className="inline mr-2" />
             Combustible
           </button>
+          <button
+            onClick={() => setReportType('otros')}
+            className={`px-4 py-2 font-medium transition-colors ${reportType === 'otros' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
+          >
+            <FileDown size={16} className="inline mr-2" />
+            Otros
+          </button>
         </div>
       </div>
 
@@ -959,23 +969,22 @@ const win = window.open('', '_blank');
           </div>
         )}
 
-        {gastos.length === 0 && (
+        {gastosCombustible.length === 0 && (
           <div className="text-center py-12 no-print">
             <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-            <p className="text-text-muted">No hay gastos registrados</p>
+            <p className="text-text-muted">No hay gastos de combustible registrados</p>
           </div>
         )}
 
-        {/* Fotos de comprobantes en la UI */}
-        {gastos.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+        {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
           <Card className="mt-6">
             <CardContent className="p-4">
               <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                 📸 Fotos de Comprobantes
-                <span className="text-text-muted text-sm font-normal">({gastos.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {gastos.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
+                {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
                   <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
                     <img 
                       src={fotosCombustible[gasto.id_gasto]} 
@@ -1005,6 +1014,88 @@ const win = window.open('', '_blank');
           </div>
         )}
       </>
+      )}
+
+      {reportType === 'otros' && (
+        <>
+          <Card className="border-surface-light">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <FileDown size={24} className="text-primary" />
+                  Otros Gastos
+                </h2>
+              </div>
+              <p className="text-text-muted mb-4">Gastos adicionales como estacionamiento, peajes y otros.</p>
+
+              <div className="flex flex-wrap gap-3 items-center mb-4">
+                <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
+                  {PERIODS.map(p => (
+                    <button key={p.key} onClick={() => setPeriod(p.key)}
+                      className={`px-5 py-2.5 text-sm font-black italic transition-all ${period === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {gastosOtros.length === 0 ? (
+                <div className="text-center py-12 no-print">
+                  <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+                  <p className="text-text-muted">No hay otros gastos registrados</p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-surface-light/30 rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-surface text-text-muted uppercase text-xs">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Fecha</th>
+                          <th className="px-4 py-3 text-left">Chofer</th>
+                          <th className="px-4 py-3 text-left">Ruta</th>
+                          <th className="px-4 py-3 text-right">Monto</th>
+                          <th className="px-4 py-3 text-center">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-surface-light">
+                        {gastosOtros.map(gasto => (
+                          <tr key={gasto.id_gasto} className="hover:bg-surface-light/50">
+                            <td className="px-4 py-3 text-white">
+                              {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-white">{gasto.chofer_nombre || '-'}</td>
+                            <td className="px-4 py-3 text-white">{gasto.ruta_nombre || '-'}</td>
+                            <td className="px-4 py-3 text-green-400 text-right font-bold">
+                              S/ {(gasto.monto || 0).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
+                                gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
+                                'bg-red-500/20 text-red-400'
+                              }`}>
+                                {gasto.estado || '-'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-surface font-bold">
+                        <tr>
+                          <td className="px-4 py-3 text-white" colSpan={3}>Total</td>
+                          <td className="px-4 py-3 text-green-400 text-right">
+                            S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

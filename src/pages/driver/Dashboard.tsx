@@ -4,13 +4,14 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { MapPin, Navigation, Map, RefreshCw } from 'lucide-react';
+import { MapPin, Navigation, Map, RefreshCw, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function DriverDashboard() {
   const { profile } = useAuth();
   const [rutas, setRutas] = useState<Ruta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadRutas = async () => {
     if (!profile) {
@@ -18,6 +19,7 @@ export default function DriverDashboard() {
       return;
     }
     setLoading(true);
+    setError(null);
     
     try {
       const { data, error } = await supabase
@@ -31,6 +33,7 @@ export default function DriverDashboard() {
       setRutas(data as Ruta[]);
     } catch (e) {
       console.error('Error loading dashboard routes:', e);
+      setError('Error al cargar rutas. Verifica tu conexión.');
     } finally {
       setLoading(false);
     }
@@ -66,6 +69,20 @@ export default function DriverDashboard() {
   const activeRoute = rutas[0];
 
   if (loading) return <div className="p-4 text-white text-center mt-10">Cargando tus rutas...</div>;
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
+          <AlertCircle className="mx-auto mb-2 text-red-500" size={32} />
+          <p className="text-red-400 mb-4">{error}</p>
+          <Button onClick={loadRutas} className="px-4 py-2">
+            Reintentar
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">

@@ -50,6 +50,7 @@ export default function VisitaLocal() {
   const { rId, vId } = useParams<{ rId: string; vId: string }>();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [local, setLocal] = useState<LocalRuta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,6 +208,7 @@ export default function VisitaLocal() {
                   setGps(currentGps);
                 } catch (err) {
                   console.warn("GPS falló", err);
+                  alert("No se pudo obtener tu ubicación. Igual se registrará la hora de llegada.");
                 }
               }
               const now = nowPeru();
@@ -260,7 +262,7 @@ export default function VisitaLocal() {
               variant="secondary"
               size="sm"
               className="flex items-center justify-center gap-1"
-              onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => handleAddPhoto(e as any); input.click(); }}
+              onClick={() => galleryInputRef.current?.click()}
               disabled={totalPhotos >= MAX_PHOTOS}
             >
               <Image size={16} />
@@ -273,6 +275,15 @@ export default function VisitaLocal() {
             accept="image/*" 
             capture="environment" 
             ref={fileInputRef} 
+            className="hidden" 
+            onChange={handleAddPhoto}
+            disabled={totalPhotos >= MAX_PHOTOS}
+          />
+          
+          <input 
+            type="file" 
+            accept="image/*" 
+            ref={galleryInputRef} 
             className="hidden" 
             onChange={handleAddPhoto}
             disabled={totalPhotos >= MAX_PHOTOS}
