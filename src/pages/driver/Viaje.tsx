@@ -865,7 +865,7 @@ export default function DriverViaje() {
       )}
 
       {/* Botón para agregar fotos a cualquier local visitado */}
-      {ruta.estado !== 'finalizada' && locales.some(l => l.estado_visita === 'visitado') && (
+      {ruta.estado !== 'finalizada' && locales.some(l => l.hora_llegada) && (
         <div className="mt-4 p-3 bg-surface-light/30 rounded-xl border border-white/5">
           <p className="text-[10px] text-text-muted mb-2 uppercase font-bold">Agregar foto a local anterior:</p>
           <select 
@@ -881,7 +881,7 @@ export default function DriverViaje() {
             value=""
           >
             <option value="">Seleccionar local...</option>
-            {locales.filter(l => l.estado_visita === 'visitado').map(local => (
+            {locales.filter(l => l.hora_llegada).map(local => (
               <option key={local.id_local_ruta} value={local.id_local_ruta}>
                 {local.nombre}
               </option>
@@ -1196,7 +1196,7 @@ export default function DriverViaje() {
           <div className="mt-6 p-4 bg-surface-light/30 rounded-2xl border border-white/10">
             <p className="text-xs text-text-muted mb-3 uppercase font-bold">Agregar fotos de evidencia (opcional)</p>
             <div className="grid grid-cols-2 gap-2">
-              {locales.filter(l => l.estado_visita === 'visitado').map(local => (
+              {locales.filter(l => l.hora_llegada).map(local => (
                 <button
                   key={local.id_local_ruta}
                   onClick={() => {
