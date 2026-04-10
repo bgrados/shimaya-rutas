@@ -1004,98 +1004,30 @@ const win = window.open('', '_blank');
         )}
 
         {showFotoModal && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowFotoModal(null)}>
-            <div className="relative max-w-3xl w-full">
-              <button onClick={() => setShowFotoModal(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
-                <X size={24} />
+          <div 
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setShowFotoModal(null)}
+          >
+            <div 
+              className="relative max-w-4xl w-full cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setShowFotoModal(null)} 
+                className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 bg-surface px-4 py-2 rounded-lg"
+              >
+                <X size={20} />
+                Cerrar
               </button>
-              <img src={showFotoModal} alt="Foto ampliada" className="max-h-[80vh] w-full object-contain rounded-lg" />
+              <img 
+                src={showFotoModal} 
+                alt="Foto ampliada" 
+                className="max-h-[80vh] w-full object-contain rounded-lg border border-surface-light"
+              />
             </div>
           </div>
         )}
       </>
-      )}
-
-      {reportType === 'otros' && (
-        <>
-          <Card className="border-surface-light">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <FileDown size={24} className="text-primary" />
-                  Otros Gastos
-                </h2>
-              </div>
-              <p className="text-text-muted mb-4">Gastos adicionales como estacionamiento, peajes y otros.</p>
-
-              <div className="flex flex-wrap gap-3 items-center mb-4">
-                <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
-                  {PERIODS.map(p => (
-                    <button key={p.key} onClick={() => setPeriod(p.key)}
-                      className={`px-5 py-2.5 text-sm font-black italic transition-all ${period === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {reportType === 'otros' && gastosOtros.length === 0 ? (
-                <div className="text-center py-12 no-print">
-                  <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-                  <p className="text-text-muted">No hay otros gastos registrados</p>
-                </div>
-              ) : (
-                <>
-                  <div className="bg-surface-light/30 rounded-xl overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-surface text-text-muted uppercase text-xs">
-                        <tr>
-                          <th className="px-4 py-3 text-left">Fecha</th>
-                          <th className="px-4 py-3 text-left">Chofer</th>
-                          <th className="px-4 py-3 text-left">Ruta</th>
-                          <th className="px-4 py-3 text-right">Monto</th>
-                          <th className="px-4 py-3 text-center">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-surface-light">
-                        {gastosOtros.map(gasto => (
-                          <tr key={gasto.id_gasto} className="hover:bg-surface-light/50">
-                            <td className="px-4 py-3 text-white">
-                              {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-white">{gasto.chofer_nombre || '-'}</td>
-                            <td className="px-4 py-3 text-white">{gasto.ruta_nombre || '-'}</td>
-                            <td className="px-4 py-3 text-green-400 text-right font-bold">
-                              S/ {(gasto.monto || 0).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
-                                gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
-                                'bg-red-500/20 text-red-400'
-                              }`}>
-                                {gasto.estado || '-'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-surface font-bold">
-                        <tr>
-                          <td className="px-4 py-3 text-white" colSpan={3}>Total</td>
-                          <td className="px-4 py-3 text-green-400 text-right">
-                            S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </>
       )}
     </div>
   );
