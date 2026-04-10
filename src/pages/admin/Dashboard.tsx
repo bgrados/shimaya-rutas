@@ -19,7 +19,7 @@ interface Stats {
   gastoCombustibleDia: number;
   gastoCombustibleSemana: number;
   gastoOtrosDia: number;
-  cargasHoy: number;
+  cargasCombustibleHoy: number;
 }
 
 interface RutaEnProgreso {
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
     gastoCombustibleDia: 0,
     gastoCombustibleSemana: 0,
     gastoOtrosDia: 0,
-    cargasHoy: 0
+    cargasCombustibleHoy: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
@@ -123,12 +123,13 @@ export default function AdminDashboard() {
       
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+      const cargasCombustibleDia = combustibleDiaRes.data?.length || 0;
       
       // Obtener gastos de "otros" (estacionamiento/peaje)
       const otrosDiaRes = await supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', `${hoyStr}T00:00:00`);
       const gastoOtrosDia = otrosDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       
-      console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana, 'Otros dia:', gastoOtrosDia);
+      console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana, 'Otros dia:', gastoOtrosDia, 'Cargas:', cargasCombustibleDia);
       
       setStats({
         rutasActivas: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
@@ -143,7 +144,7 @@ export default function AdminDashboard() {
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia: gastoOtrosDia,
-        cargasHoy: gastoDia
+        cargasCombustibleHoy: cargasCombustibleDia
       });
 
       const { data: rutasProgreso } = await supabase
@@ -385,7 +386,7 @@ export default function AdminDashboard() {
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-3 text-center">
             <p className="text-text-muted text-xs">Cargas Hoy</p>
-            <p className="text-xl font-bold text-primary">{stats.cargasHoy}</p>
+            <p className="text-xl font-bold text-primary">{stats.cargasCombustibleHoy}</p>
           </CardContent>
         </Card>
       </div>
@@ -497,7 +498,7 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center p-3 bg-yellow-500/10 rounded-lg">
-                  <p className="text-yellow-400 text-xl font-bold">{stats.cargasHoy}</p>
+                  <p className="text-yellow-400 text-xl font-bold">{stats.cargasCombustibleHoy}</p>
                   <p className="text-text-muted text-xs">Cargas Hoy</p>
                 </div>
                 <div className="text-center p-3 bg-blue-500/10 rounded-lg">

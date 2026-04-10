@@ -132,6 +132,7 @@ export default function GastosCombustible() {
       let query = supabase
         .from('gastos_combustible')
         .select('id_gasto, id_chofer, id_ruta, tipo_combustible, monto, foto_url, estado, created_at, usuarios(nombre), rutas(nombre)')
+        .neq('tipo_combustible', 'otro')
         .order('created_at', { ascending: false });
 
       if (filtroFechaDesde) {
