@@ -26,10 +26,14 @@ export default function EjecucionRuta() {
 
       if (rutaRes.data) {
         setRuta(rutaRes.data as Ruta);
-        // Si el estado es pendiente, lo cambiamos a en_progreso
         if (rutaRes.data.estado === 'pendiente') {
-          await supabase.from('rutas').update({ estado: 'en_progreso' }).eq('id_ruta', id);
-          setRuta({...rutaRes.data as Ruta, estado: 'en_progreso'});
+          const { data: existingRoute } = await supabase.from('rutas').select('estado').eq('id_ruta', id).single();
+          if (existingRoute?.estado === 'pendiente') {
+            await supabase.from('rutas').update({ estado: 'en_progreso' }).eq('id_ruta', id);
+            setRuta({...rutaRes.data as Ruta, estado: 'en_progreso'});
+          } else {
+            setRuta({...rutaRes.data as Ruta, estado: existingRoute?.estado || rutaRes.data.estado});
+          }
         }
       }
       if (localesRes.data) setLocales(localesRes.data as LocalRuta[]);

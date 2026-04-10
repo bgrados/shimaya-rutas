@@ -1,11 +1,23 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Map, LogOut, Truck } from 'lucide-react';
+import { Map, LogOut, Truck, WifiOff } from 'lucide-react';
 
 export const DriverLayout: React.FC = () => {
   const { user, profile, loading, signOut } = useAuth();
   const location = useLocation();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
 
   if (loading) {
@@ -35,9 +47,16 @@ export const DriverLayout: React.FC = () => {
               <h1 className="text-lg font-bold text-white">Hola, {profile.nombre}</h1>
               <p className="text-sm text-text-muted">Conductor</p>
             </div>
-            <button onClick={() => signOut()} className="p-2 text-text-muted hover:text-white rounded-full bg-surface-light">
-              <LogOut size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              {!isOnline && (
+                <span className="flex items-center gap-1 text-yellow-500 text-xs bg-yellow-500/10 px-2 py-1 rounded-full">
+                  <WifiOff size={14} /> Sin conexión
+                </span>
+              )}
+              <button onClick={() => signOut()} className="p-2 text-text-muted hover:text-white rounded-full bg-surface-light">
+                <LogOut size={20} />
+              </button>
+            </div>
           </div>
         </header>
       )}
