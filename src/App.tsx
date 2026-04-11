@@ -11,20 +11,21 @@ import RutasDiarias from './pages/admin/rutas';
 import NuevaRuta from './pages/admin/rutas/Nuevo';
 import RutasBase from './pages/admin/rutas-base';
 import DetalleRutaBase from './pages/admin/rutas-base/Detalle';
-import LocalesBase from './pages/admin/locales';
-import NuevoLocal from './pages/admin/locales/Nuevo';
-import Usuarios from './pages/admin/usuarios';
-import NuevoUsuario from './pages/admin/usuarios/Nuevo';
 import Reportes from './pages/admin/reportes';
 import GastosCombustible from './pages/admin/combustible';
 import AdminViajes from './pages/admin/Viajes';
+import Usuarios from './pages/admin/usuarios';
+import NuevoUsuario from './pages/admin/usuarios/Nuevo';
 
 import DriverDashboard from './pages/driver/Dashboard';
 import DriverViaje from './pages/driver/Viaje';
 import EjecucionRuta from './pages/driver/ruta';
 import VisitaLocal from './pages/driver/ruta/Visita';
 
+// Lazy load para componentes con Leaflet
 const MapaGeneral = lazy(() => import('./pages/admin/MapaGeneral'));
+const LocalesBaseLazy = lazy(() => import('./pages/admin/locales'));
+const NuevoLocalLazy = lazy(() => import('./pages/admin/locales/Nuevo'));
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -116,8 +117,16 @@ function App() {
               <Route path="rutas/nueva" element={<NuevaRuta />} />
               <Route path="rutas-base" element={<RutasBase />} />
               <Route path="rutas-base/:id" element={<DetalleRutaBase />} />
-              <Route path="locales" element={<LocalesBase />} />
-              <Route path="locales/nuevo" element={<NuevoLocal />} />
+              <Route path="locales" element={
+                <Suspense fallback={<div className="p-4 text-white">Cargando...</div>}>
+                  <LocalesBaseLazy />
+                </Suspense>
+              } />
+              <Route path="locales/nuevo" element={
+                <Suspense fallback={<div className="p-4 text-white">Cargando...</div>}>
+                  <NuevoLocalLazy />
+                </Suspense>
+              } />
               <Route path="reportes" element={<Reportes />} />
               <Route path="combustible" element={<GastosCombustible />} />
               <Route path="mapa" element={
