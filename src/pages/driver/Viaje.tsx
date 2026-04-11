@@ -1325,7 +1325,20 @@ export default function DriverViaje() {
                 type="button"
                 variant="secondary"
                 className="flex items-center justify-center gap-2"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => { 
+                  const input = document.createElement('input'); 
+                  input.type = 'file'; 
+                  input.accept = 'image/*'; 
+                  input.capture = 'environment'; // Abre cámara directamente
+                  input.onchange = (e) => { 
+                    const files = (e.target as HTMLInputElement).files; 
+                    if (files && files.length > 0) {
+                      console.log('[Cámara] Archivo seleccionado:', files.length);
+                      handleAgregarFoto({ target: { files } } as any); 
+                    }
+                  }; 
+                  input.click(); 
+                }}
               >
                 <Camera size={18} />
                 Cámara
