@@ -3,20 +3,13 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
-import type { RutaBase, LocalBase, Ruta } from '../../types';
-import { Loader2, Map as MapIcon, Info, Truck, MapPin } from 'lucide-react';
-
-interface RutaActiva extends Ruta {
-  locales_ruta?: { nombre: string; latitud: number | null; longitud: number | null; estado_visita: string; orden: number }[];
-  usuarios?: { nombre: string };
-  rutas_base?: { nombre: string };
-}
+import type { RutaBase, LocalBase } from '../../types';
+import { Loader2, Map as MapIcon, Info } from 'lucide-react';
 
 export default function MapaGeneral() {
   const [rutasBase, setRutasBase] = useState<RutaBase[]>([]);
   const [locales, setLocales] = useState<LocalBase[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rutasActivas, setRutasActivas] = useState<RutaActiva[]>([]);
 
   const ROUTE_COLORS: Record<string, string> = {
     'negra':    '#64748b',
@@ -136,64 +129,6 @@ export default function MapaGeneral() {
           console.log(`[Mapa] Locales cargados: ${localesRes.data.length}`);
           setLocales(localesRes.data);
         }
-
-        // Cargar rutas del día
-        const fechaHoy = new Date().toISOString().split('T')[0];
-        console.log('[Mapa] Fecha hoy:', fechaHoy);
-        
-        const { data: rutasData, error: rutasError } = await supabase
-          .from('rutas')
-          .select('*')
-          .eq('fecha', fechaHoy);
-
-        console.log('[Mapa] Rutas encontradas:', rutasData?.length, 'error:', rutasError);
-        if (rutasData) {
-          console.log('[Mapa] Estados de rutas:', rutasData.map(r => r.estado));
-        }
-
-        if (rutasData && rutasData.length > 0) {
-          // Obtener datos de usuarios y rutas_base por separado
-          const { data: usuariosData } = await supabase.from('usuarios').select('id_usuario, nombre');
-          const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, nombre');
-
-          // Filtrar solo rutas activas
-          const rutasActivasFiltradas = rutasData.filter(r => 
-            r.estado === 'en_progreso' || r.estado === 'pendiente'
-          );
-
-          // Enriquecer con nombres
-          const rutasEnriquecidas = rutasActivasFiltradas.map(ruta => ({
-            ...ruta,
-            usuarios: usuariosData?.find(u => u.id_usuario === ruta.id_chofer),
-            rutas_base: rutasBaseData?.find(rb => rb.id_ruta_base === ruta.id_ruta_base)
-          }));
-
-          // Obtener locales_ruta para cada ruta
-          const rutasConLocales = await Promise.all(
-            rutasEnriquecidas.map(async (ruta) => {
-              const { data: localesRutaData } = await supabase
-                .from('locales_ruta')
-                .select('*, locales_base(nombre, latitud, longitud, direccion)')
-                .eq('id_ruta', ruta.id_ruta)
-                .order('orden', { ascending: true });
-              
-              // Transformar para tener las coordenadas directamente
-              const localesTransformados = localesRutaData?.map(lr => ({
-                id_local_ruta: lr.id_local_ruta,
-                nombre: lr.locales_base?.nombre || lr.nombre,
-                latitud: lr.locales_base?.latitud || lr.latitud,
-                longitud: lr.locales_base?.longitud || lr.longitud,
-                estado_visita: lr.estado_visita,
-                orden: lr.orden
-              })) || [];
-
-              return { ...ruta, locales_ruta: localesTransformados };
-            })
-          );
-
-          console.log('[Mapa] Rutas activas:', rutasConLocales.length);
-          setRutasActivas(rutasConLocales);
-        }
       } catch (err) {
         console.error('[Mapa] Error loading map data', err);
       } finally {
@@ -297,7 +232,7 @@ export default function MapaGeneral() {
               {route.positions.length > 1 && (
                 <Polyline
                   positions={route.positions}
-                  pathOptions={{ color: route.color, weight: 4, opacity: 0.8, dashArray: '8, 8' }}
+                  pathOptions={{ color: route.color, weight: 3, opacity: 0.6, dashArray: '10, 10' }}
                 />
               )}
               {route.locales.map(local =>
@@ -366,131 +301,6 @@ export default function MapaGeneral() {
             ) : null
           )}
         </MapContainer>
-
-        {/* Rutas activas del día - líneas continuas */}
-        {rutasActivas.map((ruta) => {
-          const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
-          
-          // Obtener posiciones de locales_ruta ordenados por 'orden'
-          const localesOrdenados = [...(ruta.locales_ruta || [])]
-            .filter(l => l.latitud && l.longitud)
-            .sort((a, b) => (a.orden || 0) - (b.orden || 0));
-          
-          let posiciones: [number, number][] = [];
-          
-          // Agregar planta al inicio si existe
-          if (plantaLocal?.latitud && plantaLocal?.longitud) {
-            posiciones.push([plantaLocal.latitud, plantaLocal.longitud]);
-          }
-          
-          // Agregar todos los locales
-          localesOrdenados.forEach(l => {
-            posiciones.push([l.latitud!, l.longitud!]);
-          });
-          
-          // Agregar planta al final si existe
-          if (plantaLocal?.latitud && plantaLocal?.longitud) {
-            posiciones.push([plantaLocal.latitud, plantaLocal.longitud]);
-          }
-
-          console.log('[Mapa] Ruta:', ruta.rutas_base?.nombre, 'posiciones:', posiciones.length, 'planta:', !!plantaLocal);
-
-          // Solo dibujar si hay al menos 2 puntos
-          if (posiciones.length < 2) return null;
-
-          return (
-            <React.Fragment key={ruta.id_ruta}>
-              {/* Línea de la ruta con planta */}
-              <Polyline
-                positions={posiciones}
-                pathOptions={{ color, weight: 5, opacity: 0.7 }}
-              />
-              
-              {/* Marcador de planta si existe */}
-              {plantaLocal && plantaLocal.latitud && plantaLocal.longitud && (
-                <Marker
-                  key={`${ruta.id_ruta}-planta`}
-                  position={[plantaLocal.latitud, plantaLocal.longitud]}
-                  icon={L.divIcon({
-                    html: `
-                      <div style="
-                        background-color: #3b82f6;
-                        width: 32px;
-                        height: 32px;
-                        border-radius: 50%;
-                        border: 3px solid #ffffff;
-                        box-shadow: 0 0 15px #3b82f688;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 14px;
-                        font-weight: bold;
-                        color: white;
-                      ">🏠</div>
-                    `,
-                    className: 'custom-div-icon',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16],
-                  })}
-                >
-                  <Popup>
-                    <div className="p-1">
-                      <h4 className="font-bold text-gray-900">{plantaLocal.nombre}</h4>
-                      <p className="text-[10px] text-gray-600">{plantaLocal.direccion}</p>
-                      <p className="text-[10px] text-blue-600 font-bold">PUNTO DE PARTIDA Y LLEGADA</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-              
-              {/* Marcadores para cada local de la ruta activa (excluyendo planta que ya se mostró) */}
-              {localesOrdenados.map((local, idx) => (
-                <Marker
-                  key={`${ruta.id_ruta}-${local.id_local_ruta}`}
-                  position={[local.latitud!, local.longitud!]}
-                  icon={L.divIcon({
-                    html: `
-                      <div style="
-                        background-color: ${color};
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 50%;
-                        border: 3px solid #ffffff;
-                        box-shadow: 0 0 10px ${color}88;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 10px;
-                        font-weight: bold;
-                        color: white;
-                      ">${idx + 1}</div>
-                    `,
-                    className: 'custom-div-icon',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12],
-                  })}
-                >
-                  <Popup>
-                    <div className="p-1">
-                      <h4 style={{ fontWeight: 'bold', color: '#111', fontSize: '12px' }}>{local.nombre}</h4>
-                      <p style={{ fontSize: '10px', color: '#666' }}>{ruta.rutas_base?.nombre}</p>
-                      <p style={{ fontSize: '9px', color: '#999' }}>Orden: {local.orden}</p>
-                      <span style={{ 
-                        background: local.estado_visita === 'visitado' ? '#22c55e' : '#eab308',
-                        color: 'white', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px', 
-                        fontSize: '9px' 
-                      }}>
-                        {local.estado_visita === 'visitado' ? '✓ Visitado' : '⏳ Pendiente'}
-                      </span>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </React.Fragment>
-          );
-        })}
 
         <div className="absolute bottom-6 right-6 z-[1000] bg-surface/90 backdrop-blur-md p-4 rounded-xl border border-surface-light shadow-xl text-white max-w-[200px]">
           <h4 className="text-[10px] font-black uppercase italic tracking-widest text-primary mb-2 flex items-center gap-1">
