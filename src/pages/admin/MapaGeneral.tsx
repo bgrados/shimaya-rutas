@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -19,6 +19,21 @@ function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }
   return null;
 }
 
+function MapRefrescar({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!refreshing) return;
+    
+    async function recargar() {
+      onRefresh();
+    }
+    recargar();
+  }, [refreshing, onRefresh, map]);
+  
+  return null;
+}
+
 export default function MapaGeneral() {
   const [rutasBase, setRutasBase] = useState<RutaBase[]>([]);
   const [locales, setLocales] = useState<LocalBase[]>([]);
@@ -26,6 +41,22 @@ export default function MapaGeneral() {
   const [selectedRuta, setSelectedRuta] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshRutasActivas = useCallback(async () => {
+    const { data } = await supabase
+      .from('rutas')
+      .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
+      .eq('fecha', new Date().toISOString().split('T')[0])
+      .in('estado', ['en_progreso', 'pendiente'])
+      .order('hora_salida', { ascending: true });
+    
+    if (data) {
+      setRutasActivas(data as unknown as RutaActiva[]);
+      setLastUpdate(new Date());
+    }
+    setRefreshing(false);
+  }, []);
 
   const ROUTE_COLORS: Record<string, string> = {
     'negra':    '#64748b',
@@ -221,22 +252,9 @@ export default function MapaGeneral() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from('rutas')
-        .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
-        .eq('fecha', new Date().toISOString().split('T')[0])
-        .in('estado', ['en_progreso', 'pendiente'])
-        .order('hora_salida', { ascending: true });
-      
-      if (data) {
-        setRutasActivas(data as unknown as RutaActiva[]);
-        setLastUpdate(new Date());
-      }
-    }, 30000);
-
+    const interval = setInterval(refreshRutasActivas, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshRutasActivas]);
 
   if (loading) {
     return (
@@ -326,6 +344,7 @@ export default function MapaGeneral() {
             attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
+          <MapRefrescar onRefresh={refreshRutasActivas} refreshing={refreshing} />
 
           {routesData.map(route => (
             <React.Fragment key={route.id_ruta_base}>
@@ -468,18 +487,11 @@ export default function MapaGeneral() {
               <Truck size={14} /> Rutas en Vivo
             </h4>
             <button 
-              onClick={async () => {
-                const { data } = await supabase
-                  .from('rutas')
-                  .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
-                  .eq('fecha', new Date().toISOString().split('T')[0])
-                  .in('estado', ['en_progreso', 'pendiente']);
-                if (data) setRutasActivas(data as unknown as RutaActiva[]);
-                setLastUpdate(new Date());
-              }}
-              className="p-1 hover:bg-surface-light rounded"
+              onClick={refreshRutasActivas}
+              className="p-1 hover:bg-surface-light rounded disabled:opacity-50"
+              disabled={refreshing}
             >
-              <RefreshCw size={12} />
+              <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
             </button>
           </div>
           
