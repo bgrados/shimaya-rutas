@@ -25,7 +25,8 @@ import {
   X,
   Check,
   Camera,
-  Image
+  Image,
+  ListTodo
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -74,6 +75,7 @@ export default function DriverViaje() {
 
   // Estado para volver a local anterior
   const [mostrarLocalesVisitados, setMostrarLocalesVisitados] = useState(false);
+  const [showResumenRuta, setShowResumenRuta] = useState(false);
 
   const loadFotosExistentes = async (idLocalRuta: string) => {
     const { data, error } = await supabase
@@ -1090,19 +1092,18 @@ export default function DriverViaje() {
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-dashed border-white/10">
                    <div className="flex items-center gap-2">
                       <Clock size={16} className="text-primary" />
-                      <span className="text-xs text-text-muted uppercase font-bold">Tiempo Actual</span>
+                      <span className="text-xs text-text-muted uppercase font-bold">Hora actual</span>
                    </div>
-                   <div className="flex gap-2">
-                    <Button 
-                      variant="secondary" 
-                      className="flex-1 bg-white/5 border border-white/10 text-white hover:bg-white/10"
-                      onClick={() => navigate(`/driver/ruta/${ruta.id_ruta}`)}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <MapPin size={18} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Ver Lista</span>
-                      </div>
-                    </Button>
+                   <div className="flex items-center gap-3">
+                     <span className="text-white font-black text-lg italic">
+                       {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                     </span>
+                     <button 
+                       onClick={() => setShowResumenRuta(true)}
+                       className="bg-green-600/20 border border-green-500/30 p-2 rounded-lg hover:bg-green-600/30"
+                     >
+                       <ListTodo size={18} className="text-green-400" />
+                     </button>
                    </div>
                 </div>
 
@@ -1413,6 +1414,53 @@ export default function DriverViaje() {
           <button className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2" onClick={() => setFotoAmpliada(null)}>
             <X size={24} />
           </button>
+        </div>
+      )}
+
+      {/* Modal Resumen de Ruta */}
+      {showResumenRuta && ruta && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setShowResumenRuta(false)}>
+          <div className="bg-surface rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-lg font-black text-white">📋 Mi Ruta</h3>
+              <button onClick={() => setShowResumenRuta(false)} className="text-text-muted hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {locales.map((local, idx) => {
+                const tramo = bitacora.find(b => b.destino_nombre === local.nombre);
+                const estaEnCurso = !tramo?.hora_llegada && (tramo?.hora_salida || idx === 0);
+                const yaVisitado = !!tramo?.hora_llegada;
+                
+                return (
+                  <div key={local.id_local_ruta} className={`p-3 rounded-xl border ${
+                    yaVisitado ? 'bg-green-500/10 border-green-500/30' :
+                    estaEnCurso ? 'bg-primary/10 border-primary/30' :
+                    'bg-white/5 border-white/10'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {yaVisitado ? <CheckCircle2 size={18} className="text-green-500" /> :
+                       estaEnCurso ? <Clock size={18} className="text-primary" /> :
+                       <div className="w-4 h-4 rounded-full border-2 border-white/20" />}
+                      <span className={`font-bold ${yaVisitado ? 'text-green-400' : 'text-white'}`}>
+                        {local.nombre}
+                      </span>
+                    </div>
+                    {yaVisitado && (
+                      <div className="mt-2 text-xs text-text-muted pl-6">
+                        Llegada: {formatPeru(tramo.hora_llegada, 'HH:mm')}
+                        {tramo.hora_salida && <span className="ml-2">• Salida: {formatPeru(tramo.hora_salida, 'HH:mm')}</span>}
+                      </div>
+                    )}
+                    {estaEnCurso && !yaVisitado && (
+                      <div className="mt-2 text-xs text-primary pl-6">En curso...</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
