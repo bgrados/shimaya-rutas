@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
@@ -9,14 +9,6 @@ import { Loader2, Map as MapIcon, Info, Truck, MapPin, Navigation, Clock, Refres
 interface RutaActiva extends Ruta {
   chofer_nombre?: string;
   locales_ruta?: { nombre: string; latitud: number | null; longitud: number | null; estado_visita: string }[];
-}
-
-function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
-  return null;
 }
 
 export default function MapaGeneral() {
@@ -393,7 +385,6 @@ export default function MapaGeneral() {
             attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
-          <MapRefrescar onRefresh={refreshRutasActivas} refreshing={refreshing} />
 
           {routesData.map(route => (
             <React.Fragment key={route.id_ruta_base}>
