@@ -3,7 +3,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AuthLayout } from './layouts/AuthLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { DriverLayout } from './layouts/DriverLayout';
-import { Component, ReactNode } from 'react';
+import { Component, ReactNode, Suspense, lazy } from 'react';
 
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -18,12 +18,13 @@ import NuevoUsuario from './pages/admin/usuarios/Nuevo';
 import Reportes from './pages/admin/reportes';
 import GastosCombustible from './pages/admin/combustible';
 import AdminViajes from './pages/admin/Viajes';
-import MapaGeneral from './pages/admin/MapaGeneral';
 
 import DriverDashboard from './pages/driver/Dashboard';
 import DriverViaje from './pages/driver/Viaje';
 import EjecucionRuta from './pages/driver/ruta';
 import VisitaLocal from './pages/driver/ruta/Visita';
+
+const MapaGeneral = lazy(() => import('./pages/admin/MapaGeneral'));
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -119,7 +120,11 @@ function App() {
               <Route path="locales/nuevo" element={<NuevoLocal />} />
               <Route path="reportes" element={<Reportes />} />
               <Route path="combustible" element={<GastosCombustible />} />
-              <Route path="mapa" element={<MapaGeneral />} />
+              <Route path="mapa" element={
+                <Suspense fallback={<div className="p-4 text-white">Cargando...</div>}>
+                  <MapaGeneral />
+                </Suspense>
+              } />
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
             </Route>
