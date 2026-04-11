@@ -156,6 +156,30 @@ export default function MapaGeneral() {
     });
   };
 
+  const createCamionIcon = (color: string, nombreCorto: string) => {
+    return L.divIcon({
+      html: `
+        <div style="
+          background: linear-gradient(135deg, ${color} 0%, ${color}cc 100%);
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          border: 3px solid #ffffff;
+          box-shadow: 0 4px 15px ${color}88, 0 6px 20px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+        ">
+          🚛
+        </div>
+      `,
+      className: 'custom-div-icon',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+  };
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -379,25 +403,63 @@ export default function MapaGeneral() {
         </MapContainer>
 
         {/* Marcadores de rutas activas con animación de pulso */}
-        {rutasActivas.map((ruta, idx) => (
-          ruta.locales_ruta?.filter(l => l.latitud && l.longitud && l.estado_visita !== 'visitado').slice(0, 1).map(local => (
-            <Marker
-              key={`${ruta.id_ruta}-active`}
-              position={[local.latitud!, local.longitud!]}
-              icon={createActivoIcon(getRouteColor(ruta.rutas_base?.nombre || 'default'), idx + 1)}
-            >
-              <Popup>
-                <div className="p-1">
-                  <h4 className="font-bold text-gray-900">{ruta.rutas_base?.nombre || 'Ruta'}</h4>
-                  <p className="text-[10px] text-gray-600 mb-1">Chofer: {ruta.usuarios?.nombre || 'Sin asignar'}</p>
-                  <p className="text-[10px] text-green-600 font-bold flex items-center gap-1">
-                    <Navigation size={10} /> En ruta - Local actual
-                  </p>
-                </div>
-              </Popup>
-            </Marker>
-          ))
-        ))}
+        {rutasActivas.map((ruta, idx) => {
+          const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
+          
+          // Obtener posiciones de la ruta (visitados + pendientes)
+          const localesOrdenados = [...(ruta.locales_ruta || [])]
+            .filter(l => l.latitud && l.longitud)
+            .sort((a, b) => a.orden - b.orden);
+          
+          const posicionesRuta = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
+          
+          // Encontrar el local actual (el primero no visitado)
+          const localActual = localesOrdenados.find(l => l.estado_visita !== 'visitado');
+          
+          // Encontrar último local visitado para la polyline de progreso
+          const visitados = localesOrdenados.filter(l => l.estado_visita === 'visitado');
+          const posicionesVisitados = visitados.map(l => [l.latitud!, l.longitud!] as [number, number]);
+          
+          return (
+            <React.Fragment key={ruta.id_ruta}>
+              {/* Polyline de la ruta completa (segmentos por hacer) */}
+              {posicionesRuta.length > 1 && (
+                <Polyline
+                  positions={posicionesRuta}
+                  pathOptions={{ color, weight: 3, opacity: 0.4, dashArray: '8, 8' }}
+                />
+              )}
+              
+              {/* Polyline de progreso (visitados) */}
+              {posicionesVisitados.length > 0 && (
+                <Polyline
+                  positions={posicionesVisitados}
+                  pathOptions={{ color, weight: 4, opacity: 1 }}
+                />
+              )}
+              
+              {/* Marcador del camión en posición actual */}
+              {localActual && localActual.latitud && localActual.longitud && (
+                <Marker
+                  key={`${ruta.id_ruta}-camion`}
+                  position={[localActual.latitud, localActual.longitud]}
+                  icon={createCamionIcon(color, ruta.rutas_base?.nombre?.substring(0, 2) || 'R')}
+                >
+                  <Popup>
+                    <div className="p-1">
+                      <h4 className="font-bold text-gray-900">{ruta.rutas_base?.nombre || 'Ruta'}</h4>
+                      <p className="text-[10px] text-gray-600 mb-1">Chofer: {ruta.usuarios?.nombre || 'Sin asignar'}</p>
+                      <p className="text-[10px] text-green-600 font-bold">🚛 En curso</p>
+                      {localActual.nombre && (
+                        <p className="text-[10px] text-blue-600 font-bold mt-1">Próximo: {localActual.nombre}</p>
+                      )}
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+            </React.Fragment>
+          );
+        })}
 
         {/* Panel de Rutas Activas */}
         <div className="absolute top-6 left-6 z-[1000] bg-surface/95 backdrop-blur-md p-4 rounded-xl border border-surface-light shadow-xl text-white max-w-[280px] max-h-[calc(100vh-120px)] overflow-y-auto">
