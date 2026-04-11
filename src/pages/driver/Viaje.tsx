@@ -743,18 +743,20 @@ export default function DriverViaje() {
                       ) : (
                       <div className="relative">
                          <select 
-                           className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors"
+                           className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors cursor-pointer"
                            value={selectedRutaBase}
                            onChange={e => setSelectedRutaBase(e.target.value)}
                          >
-                           <option value="">Elige tu ruta</option>
+                           <option value="" disabled>Elige tu ruta...</option>
                            {rutasBase.map(r => (
-                             <option key={r.id_ruta_base} value={r.id_ruta_base}>
+                             <option key={r.id_ruta_base} value={r.id_ruta_base} className="bg-surface text-white">
                                {r.nombre} ({r.locales_count} paradas)
                              </option>
                            ))}
                          </select>
-                         <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary pointer-events-none" />
+                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2">
+                           <ChevronDown size={20} className="text-primary" />
+                         </div>
                       </div>
                     )}
                  </div>
