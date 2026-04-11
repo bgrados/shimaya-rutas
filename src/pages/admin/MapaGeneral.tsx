@@ -139,10 +139,17 @@ export default function MapaGeneral() {
 
         // Cargar rutas del día
         const fechaHoy = new Date().toISOString().split('T')[0];
-        const { data: rutasData } = await supabase
+        console.log('[Mapa] Fecha hoy:', fechaHoy);
+        
+        const { data: rutasData, error: rutasError } = await supabase
           .from('rutas')
           .select('*')
           .eq('fecha', fechaHoy);
+
+        console.log('[Mapa] Rutas encontradas:', rutasData?.length, 'error:', rutasError);
+        if (rutasData) {
+          console.log('[Mapa] Estados de rutas:', rutasData.map(r => r.estado));
+        }
 
         if (rutasData && rutasData.length > 0) {
           // Obtener datos de usuarios y rutas_base por separado
@@ -350,13 +357,16 @@ export default function MapaGeneral() {
         </MapContainer>
 
         {/* Rutas activas del día - líneas continuas */}
-        {rutasActivas.map((ruta) => {
+        {console.log('[Mapa] Render rutasActivas:', rutasActivas.length) || rutasActivas.map((ruta) => {
           const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
+          console.log('[Mapa] Ruta:', ruta.rutas_base?.nombre, 'locales_ruta:', ruta.locales_ruta?.length);
           
           // Obtener posiciones de locales_ruta ordenados por 'orden'
           const localesOrdenados = [...(ruta.locales_ruta || [])]
             .filter(l => l.latitud && l.longitud)
             .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+          
+          console.log('[Mapa] locales con coords:', localesOrdenados.length);
           
           let posiciones = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
 
