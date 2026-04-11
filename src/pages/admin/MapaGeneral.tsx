@@ -44,12 +44,18 @@ export default function MapaGeneral() {
   const [refreshing, setRefreshing] = useState(false);
 
   const refreshRutasActivas = useCallback(async () => {
+    setRefreshing(true);
     const { data } = await supabase
       .from('rutas')
-      .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
+      .select('*, usuarios:usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(id_local_ruta, nombre, latitud, longitud, estado_visita, orden), rutas_base(nombre)')
       .eq('fecha', new Date().toISOString().split('T')[0])
       .in('estado', ['en_progreso', 'pendiente'])
       .order('hora_salida', { ascending: true });
+    
+    console.log('[Mapa] Rutas activas refresh:', data?.length);
+    if (data && data.length > 0) {
+      console.log('[Mapa] Primera ruta locales_ruta:', JSON.stringify(data[0].locales_ruta));
+    }
     
     if (data) {
       setRutasActivas(data as unknown as RutaActiva[]);
