@@ -51,14 +51,22 @@ export default function MapaGeneral() {
       const { data: rutasData } = await supabase
         .from('rutas')
         .select('*')
-        .eq('fecha', fechaHoy)
-        .order('hora_salida', { ascending: true });
+        .eq('fecha', fechaHoy);
 
       console.log('[Mapa] Refresh rutas:', rutasData?.length);
 
       if (rutasData && rutasData.length > 0) {
+        const { data: usuariosData } = await supabase.from('usuarios').select('id_usuario, nombre');
+        const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, nombre');
+        
+        const rutasEnriquecidas = rutasData.map(ruta => ({
+          ...ruta,
+          usuarios: usuariosData?.find(u => u.id_usuario === ruta.id_chofer) || null,
+          rutas_base: rutasBaseData?.find(rb => rb.id_ruta_base === ruta.id_ruta_base) || null
+        }));
+
         const rutasConLocales = await Promise.all(
-          rutasData.map(async (ruta) => {
+          rutasEnriquecidas.map(async (ruta) => {
             const { data: localesRuta } = await supabase
               .from('locales_ruta')
               .select('*')
@@ -258,15 +266,26 @@ export default function MapaGeneral() {
         const { data: rutasData, error: rutasError } = await supabase
           .from('rutas')
           .select('*')
-          .eq('fecha', fechaHoy)
-          .order('hora_salida', { ascending: true });
+          .eq('fecha', fechaHoy);
 
         console.log('[Mapa] Rutas hoy:', rutasData?.length, 'error:', rutasError);
+        console.log('[Mapa] Primer ruta:', rutasData?.[0]);
 
         if (rutasData && rutasData.length > 0) {
+          // Obtener información de usuarios y rutas_base por separado
+          const { data: usuariosData } = await supabase.from('usuarios').select('id_usuario, nombre');
+          const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, nombre');
+          
+          // Enriquecer rutas con nombres
+          const rutasEnriquecidas = rutasData.map(ruta => ({
+            ...ruta,
+            usuarios: usuariosData?.find(u => u.id_usuario === ruta.id_chofer) || null,
+            rutas_base: rutasBaseData?.find(rb => rb.id_ruta_base === ruta.id_ruta_base) || null
+          }));
+          
           // Por cada ruta, obtener locales_ruta por separado
           const rutasConLocales = await Promise.all(
-            rutasData.map(async (ruta) => {
+            rutasEnriquecidas.map(async (ruta) => {
               const { data: localesRuta } = await supabase
                 .from('locales_ruta')
                 .select('*')
