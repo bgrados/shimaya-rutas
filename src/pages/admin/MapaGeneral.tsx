@@ -6,6 +6,14 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta, RutaBase, LocalBase } from '../../types';
 import { Loader2, Map as MapIcon, Info, Truck, MapPin, Navigation, Clock, RefreshCw } from 'lucide-react';
 
+// Fix Leaflet iconos
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
 interface RutaActiva extends Ruta {
   chofer_nombre?: string;
   locales_ruta?: { nombre: string; latitud: number | null; longitud: number | null; estado_visita: string }[];
