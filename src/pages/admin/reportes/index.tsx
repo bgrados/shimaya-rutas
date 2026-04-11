@@ -60,6 +60,7 @@ export default function Reportes() {
   const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
+  const [incluirFotosEnPDF, setIncluirFotosEnPDF] = useState(true);
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
@@ -273,7 +274,7 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
           <tbody>${paradas}</tbody>
         </table>` :
         '<p style="padding:10px 16px;color:#94a3b8;font-size:12px;font-style:italic;margin:0;">Sin movimientos registrados</p>'}
-        ${(r.localesRuta || []).length > 0 ? (() => {
+        ${incluirFotosEnPDF && (r.localesRuta || []).length > 0 ? (() => {
           let fotosHtml = '';
           (r.localesRuta || []).forEach((local: any) => {
             const fotos = fotosPorLocal[local.id_local_ruta] || [];
@@ -625,7 +626,7 @@ const win = window.open('', '_blank');
 <div class="content">
   <p style="font-size:12px;color:#64748b;margin-bottom:16px;">Agrupado por: ${agruparPor === 'fecha' ? 'Fecha' : 'Chofer'}</p>
   ${gruposHTML.join('')}
-  ${(() => {
+  ${incluirFotosEnPDF ? (() => {
     const gastosConFoto = gastosCombustible.filter(g => fotosCombustible[g.id_gasto]);
     if (gastosConFoto.length === 0) return '';
     let fotosHTML = `<div style="margin-top:30px;">
@@ -645,7 +646,7 @@ const win = window.open('', '_blank');
       }
     });
     return fotosHTML + `</div></div>`;
-  })()}
+  })() : ''}
 </div>
 <div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
@@ -754,13 +755,22 @@ const win = window.open('', '_blank');
           </Card>
 
           {/* BOTONES EXPORTAR */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <Button onClick={handleShareWhatsApp} disabled={rutas.length === 0} className="bg-[#25D366] hover:bg-[#1fb85a] flex items-center gap-2 font-black">
               <Share2 size={18} /> WhatsApp
             </Button>
             <Button onClick={handleGeneratePDF} disabled={generating} className="bg-green-600 hover:bg-green-700 flex items-center gap-2 font-black">
               <FileDown size={18} /> {generating ? 'Generando...' : 'Exportar PDF'}
             </Button>
+            <label className="flex items-center gap-2 cursor-pointer bg-surface-light px-3 py-2 rounded-xl border border-white/10">
+              <input 
+                type="checkbox" 
+                checked={incluirFotosEnPDF} 
+                onChange={(e) => setIncluirFotosEnPDF(e.target.checked)}
+                className="w-4 h-4 accent-primary"
+              />
+              <span className="text-white text-sm">Incluir fotos</span>
+            </label>
           </div>
 
           {/* STATS */}
@@ -931,6 +941,15 @@ const win = window.open('', '_blank');
             <Download size={18} />
             Exportar PDF
           </Button>
+          <label className="flex items-center gap-2 cursor-pointer bg-surface-light px-3 py-2 rounded-xl border border-white/10">
+            <input 
+              type="checkbox" 
+              checked={incluirFotosEnPDF} 
+              onChange={(e) => setIncluirFotosEnPDF(e.target.checked)}
+              className="w-4 h-4 accent-primary"
+            />
+            <span className="text-white text-sm">Incluir fotos</span>
+          </label>
         </div>
 
         {/* Título para impresión */}
