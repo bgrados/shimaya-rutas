@@ -561,15 +561,20 @@ export default function DriverViaje() {
   const handleAgregarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('[handleAgregarFoto] called, files:', e.target.files?.length);
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      console.log('[handleAgregarFoto] file:', file.name, file.size, file.type);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        console.log('[handleAgregarFoto] FileReader loaded, setting state');
-        setFotosCapturadas(prev => [...prev, { preview: ev.target?.result as string, file }]);
-      };
-      reader.onerror = () => console.error('[handleAgregarFoto] FileReader error');
-      reader.readAsDataURL(file);
+      // Procesar cada archivo con límite de 5 fotos máximo
+      const fotosActuales = fotosCapturadas.length;
+      const disponibles = 5 - fotosActuales;
+      
+      Array.from(e.target.files).slice(0, disponibles).forEach(file => {
+        console.log('[handleAgregarFoto] file:', file.name, file.size, file.type);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          console.log('[handleAgregarFoto] FileReader loaded, setting state');
+          setFotosCapturadas(prev => [...prev, { preview: ev.target?.result as string, file }]);
+        };
+        reader.onerror = () => console.error('[handleAgregarFoto] FileReader error');
+        reader.readAsDataURL(file);
+      });
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -1333,11 +1338,16 @@ export default function DriverViaje() {
                   const input = document.createElement('input'); 
                   input.type = 'file'; 
                   input.accept = 'image/*'; 
+                  input.multiple = true; // Permite seleccionar varias fotos
                   input.onchange = (e) => { 
-                    const file = (e.target as HTMLInputElement).files?.[0]; 
-                    if (file) {
-                      console.log('[Fototeca] Archivo seleccionado:', file.name, file.size);
-                      handleAgregarFoto({ target: { files: [file] } } as any); 
+                    const files = (e.target as HTMLInputElement).files; 
+                    if (files && files.length > 0) {
+                      console.log('[Fototeca] Archivos seleccionados:', files.length);
+                      // Agregar cada archivo
+                      Array.from(files).slice(0, 5 - fotosCapturadas.length).forEach(file => {
+                        console.log('[Fototeca] Agregando:', file.name, file.size);
+                        handleAgregarFoto({ target: { files: [file] } } as any); 
+                      });
                     }
                   }; 
                   input.click(); 
