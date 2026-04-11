@@ -46,34 +46,25 @@ export default function MapaGeneral() {
   const refreshRutasActivas = useCallback(async () => {
     setRefreshing(true);
     try {
-      const { data: rutasDelDia } = await supabase
+      const fechaHoy = new Date().toISOString().split('T')[0];
+      const { data: rutasData } = await supabase
         .from('rutas')
-        .select('*, usuarios(nombre), rutas_base(nombre)')
-        .eq('fecha', new Date().toISOString().split('T')[0])
+        .select('*')
+        .eq('fecha', fechaHoy)
         .in('estado', ['en_progreso', 'pendiente'])
         .order('hora_salida', { ascending: true });
 
-      console.log('[Mapa] Rutas refresh:', rutasDelDia?.length);
+      console.log('[Mapa] Refresh rutas:', rutasData?.length);
 
-      if (rutasDelDia && rutasDelDia.length > 0) {
+      if (rutasData && rutasData.length > 0) {
         const rutasConLocales = await Promise.all(
-          rutasDelDia.map(async (ruta) => {
-            const { data: localesRutaData } = await supabase
+          rutasData.map(async (ruta) => {
+            const { data: localesRuta } = await supabase
               .from('locales_ruta')
-              .select('*, locales_base(nombre, latitud, longitud, direccion)')
+              .select('*')
               .eq('id_ruta', ruta.id_ruta)
               .order('orden', { ascending: true });
-            
-            const localesTransformados = localesRutaData?.map(lr => ({
-              id_local_ruta: lr.id_local_ruta,
-              nombre: lr.locales_base?.nombre || lr.nombre,
-              latitud: lr.locales_base?.latitud || lr.latitud,
-              longitud: lr.locales_base?.longitud || lr.longitud,
-              estado_visita: lr.estado_visita,
-              orden: lr.orden
-            })) || [];
-
-            return { ...ruta, locales_ruta: localesTransformados };
+            return { ...ruta, locales_ruta: localesRuta || [] };
           })
         );
         setRutasActivas(rutasConLocales as unknown as RutaActiva[]);
@@ -243,67 +234,45 @@ export default function MapaGeneral() {
   useEffect(() => {
     async function loadData() {
       try {
-        // Primero obtener rutas del día
-        const { data: rutasDelDia, error: errorRutas } = await supabase
-          .from('rutas')
-          .select('*, usuarios(nombre), rutas_base(nombre)')
-          .eq('fecha', new Date().toISOString().split('T')[0])
-          .in('estado', ['en_progreso', 'pendiente'])
-          .order('hora_salida', { ascending: true });
-
-        console.log('[Mapa] Rutas del día:', rutasDelDia?.length, errorRutas);
-
-        if (rutasDelDia && rutasDelDia.length > 0) {
-          console.log('[Mapa] Primera ruta:', JSON.stringify(rutasDelDia[0]));
-          
-          // Por cada ruta, obtener sus locales_ruta con coordenadas
-          const rutasConLocales = await Promise.all(
-            rutasDelDia.map(async (ruta) => {
-              const { data: localesRutaData } = await supabase
-                .from('locales_ruta')
-                .select('*, locales_base(nombre, latitud, longitud, direccion)')
-                .eq('id_ruta', ruta.id_ruta)
-                .order('orden', { ascending: true });
-              
-              console.log('[Mapa] locales_ruta para', ruta.id_ruta, ':', localesRutaData?.length);
-              
-              // Transformar para tener las coordenadas directamente
-              const localesTransformados = localesRutaData?.map(lr => ({
-                id_local_ruta: lr.id_local_ruta,
-                nombre: lr.locales_base?.nombre || lr.nombre,
-                latitud: lr.locales_base?.latitud || lr.latitud,
-                longitud: lr.locales_base?.longitud || lr.longitud,
-                estado_visita: lr.estado_visita,
-                orden: lr.orden
-              })) || [];
-
-              return { ...ruta, locales_ruta: localesTransformados };
-            })
-          );
-          
-          console.log('[Mapa] rutasConLocales:', JSON.stringify(rutasConLocales[0]?.locales_ruta));
-          setRutasActivas(rutasConLocales as unknown as RutaActiva[]);
-        }
-
-        // Cargar rutas base y locales
+        // Cargar rutas base y locales primero
         const [rutasRes, localesRes] = await Promise.all([
           supabase.from('rutas_base').select('*'),
-          supabase
-            .from('locales_base')
-            .select('*')
-            .not('latitud', 'is', null)
-            .not('longitud', 'is', null)
-            .order('orden', { ascending: true })
+          supabase.from('locales_base').select('*').not('latitud', 'is', null).not('longitud', 'is', null).order('orden', { ascending: true })
         ]);
 
         if (rutasRes.data) setRutasBase(rutasRes.data);
         if (localesRes.data) {
-          console.log(`[Mapa] Locales cargados: ${localesRes.data.length}`);
+          console.log('[Mapa] Locales:', localesRes.data.length);
           setLocales(localesRes.data);
         }
+
+        // Obtener rutas del día - consulta simple sin joins
+        const fechaHoy = new Date().toISOString().split('T')[0];
+        const { data: rutasData } = await supabase.from('rutas').select('*').eq('fecha', fechaHoy).in('estado', ['en_progreso', 'pendiente']).order('hora_salida', { ascending: true });
+
+        console.log('[Mapa] Rutas hoy:', rutasData?.length, rutasData?.map(r => ({ id: r.id_ruta, estado: r.estado })));
+
+        if (rutasData && rutasData.length > 0) {
+          // Por cada ruta, obtener locales_ruta por separado
+          const rutasConLocales = await Promise.all(
+            rutasData.map(async (ruta) => {
+              const { data: localesRuta } = await supabase
+                .from('locales_ruta')
+                .select('*')
+                .eq('id_ruta', ruta.id_ruta)
+                .order('orden', { ascending: true });
+              
+              return { ...ruta, locales_ruta: localesRuta || [] };
+            })
+          );
+
+          console.log('[Mapa] Rutas con locales:', rutasConLocales.length);
+          setRutasActivas(rutasConLocales as unknown as RutaActiva[]);
+        }
+
         setLastUpdate(new Date());
       } catch (err) {
-        console.error('[Mapa] Error loading map data', err);
+        console.error('[Mapa] Error:', err);
       } finally {
         setLoading(false);
       }
