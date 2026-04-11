@@ -42,8 +42,11 @@ export default function DriverViaje() {
   // Selection/Creation state
   const [rutasBase, setRutasBase] = useState<any[]>([]);
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
-  const [nuevaPlaca, setNuevaPlaca] = useState('');
+  const [nuevaPlaca, setNuevaPlaca] = useState(profile?.placa_camion || '');
   const [createError, setCreateError] = useState('');
+
+  // Si el perfil ya tiene placa, usarla por defecto y deshabilitar edición
+  const tienePlacaAsignada = !!(profile?.placa_camion);
 
   const handlePlacaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -339,7 +342,7 @@ export default function DriverViaje() {
 
   const handleCreateViaje = async () => {
     if (!selectedRutaBase || !profile) return;
-    if (!nuevaPlaca.trim()) {
+    if (!nuevaPlaca.trim() && !tienePlacaAsignada) {
       setCreateError('Por favor ingresa la placa del vehículo.');
       return;
     }
@@ -755,16 +758,24 @@ export default function DriverViaje() {
                     )}
                  </div>
 
-                 <div className="space-y-1">
-                    <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Placa del Vehículo</label>
-                    <Input 
-                      placeholder="ABC-123" 
-                      className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg tracking-widest"
-                      value={nuevaPlaca}
-                      onChange={handlePlacaChange}
-                      maxLength={7}
-                    />
-                 </div>
+                  <div className="space-y-1">
+                     <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">
+                       {tienePlacaAsignada ? '🚛 Vehículo Asignado' : 'Placa del Vehículo'}
+                     </label>
+                     {tienePlacaAsignada ? (
+                       <div className="bg-green-500/10 border-2 border-green-500/30 rounded-xl px-4 py-3 text-green-400 font-black italic uppercase text-lg tracking-widest text-center">
+                         {nuevaPlaca}
+                       </div>
+                     ) : (
+                       <Input 
+                         placeholder="ABC-123" 
+                         className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg tracking-widest"
+                         value={nuevaPlaca}
+                         onChange={handlePlacaChange}
+                         maxLength={7}
+                       />
+                     )}
+                  </div>
 
                  {createError && (
                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm font-bold">
@@ -780,7 +791,7 @@ export default function DriverViaje() {
 
               <Button 
                 onClick={handleCreateViaje}
-                disabled={isCreating || !nuevaPlaca.trim() || rutasBase.length === 0}
+                disabled={isCreating || (!nuevaPlaca.trim() && !tienePlacaAsignada) || rutasBase.length === 0}
                 className="w-full h-16 text-xl font-black italic bg-primary hover:bg-primary-hover shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isCreating ? '⏳ CREANDO RUTA...' : '🚛 INICIAR MI RUTA'}
