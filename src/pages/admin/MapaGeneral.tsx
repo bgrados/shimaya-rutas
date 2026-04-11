@@ -254,6 +254,8 @@ export default function MapaGeneral() {
         console.log('[Mapa] Rutas del día:', rutasDelDia?.length, errorRutas);
 
         if (rutasDelDia && rutasDelDia.length > 0) {
+          console.log('[Mapa] Primera ruta:', JSON.stringify(rutasDelDia[0]));
+          
           // Por cada ruta, obtener sus locales_ruta con coordenadas
           const rutasConLocales = await Promise.all(
             rutasDelDia.map(async (ruta) => {
@@ -262,6 +264,8 @@ export default function MapaGeneral() {
                 .select('*, locales_base(nombre, latitud, longitud, direccion)')
                 .eq('id_ruta', ruta.id_ruta)
                 .order('orden', { ascending: true });
+              
+              console.log('[Mapa] locales_ruta para', ruta.id_ruta, ':', localesRutaData?.length);
               
               // Transformar para tener las coordenadas directamente
               const localesTransformados = localesRutaData?.map(lr => ({
@@ -276,6 +280,8 @@ export default function MapaGeneral() {
               return { ...ruta, locales_ruta: localesTransformados };
             })
           );
+          
+          console.log('[Mapa] rutasConLocales:', JSON.stringify(rutasConLocales[0]?.locales_ruta));
           setRutasActivas(rutasConLocales as unknown as RutaActiva[]);
         }
 
