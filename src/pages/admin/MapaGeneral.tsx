@@ -3,13 +3,20 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
-import type { RutaBase, LocalBase } from '../../types';
-import { Loader2, Map as MapIcon, Info } from 'lucide-react';
+import type { RutaBase, LocalBase, Ruta } from '../../types';
+import { Loader2, Map as MapIcon, Info, Truck, MapPin } from 'lucide-react';
+
+interface RutaActiva extends Ruta {
+  locales_ruta?: { nombre: string; latitud: number | null; longitud: number | null; estado_visita: string; orden: number }[];
+  usuarios?: { nombre: string };
+  rutas_base?: { nombre: string };
+}
 
 export default function MapaGeneral() {
   const [rutasBase, setRutasBase] = useState<RutaBase[]>([]);
   const [locales, setLocales] = useState<LocalBase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rutasActivas, setRutasActivas] = useState<RutaActiva[]>([]);
 
   const ROUTE_COLORS: Record<string, string> = {
     'negra':    '#64748b',
@@ -129,6 +136,46 @@ export default function MapaGeneral() {
           console.log(`[Mapa] Locales cargados: ${localesRes.data.length}`);
           setLocales(localesRes.data);
         }
+
+        // Cargar rutas del día
+        const fechaHoy = new Date().toISOString().split('T')[0];
+        const { data: rutasData } = await supabase
+          .from('rutas')
+          .select('*')
+          .eq('fecha', fechaHoy);
+
+        if (rutasData && rutasData.length > 0) {
+          // Obtener datos de usuarios y rutas_base por separado
+          const { data: usuariosData } = await supabase.from('usuarios').select('id_usuario, nombre');
+          const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, nombre');
+
+          // Filtrar solo rutas activas
+          const rutasActivasFiltradas = rutasData.filter(r => 
+            r.estado === 'en_progreso' || r.estado === 'pendiente'
+          );
+
+          // Enriquecer con nombres
+          const rutasEnriquecidas = rutasActivasFiltradas.map(ruta => ({
+            ...ruta,
+            usuarios: usuariosData?.find(u => u.id_usuario === ruta.id_chofer),
+            rutas_base: rutasBaseData?.find(rb => rb.id_ruta_base === ruta.id_ruta_base)
+          }));
+
+          // Obtener locales_ruta para cada ruta
+          const rutasConLocales = await Promise.all(
+            rutasEnriquecidas.map(async (ruta) => {
+              const { data: localesRutaData } = await supabase
+                .from('locales_ruta')
+                .select('*')
+                .eq('id_ruta', ruta.id_ruta)
+                .order('orden', { ascending: true });
+              return { ...ruta, locales_ruta: localesRutaData || [] };
+            })
+          );
+
+          console.log('[Mapa] Rutas activas:', rutasConLocales.length);
+          setRutasActivas(rutasConLocales);
+        }
       } catch (err) {
         console.error('[Mapa] Error loading map data', err);
       } finally {
@@ -232,7 +279,7 @@ export default function MapaGeneral() {
               {route.positions.length > 1 && (
                 <Polyline
                   positions={route.positions}
-                  pathOptions={{ color: route.color, weight: 3, opacity: 0.6, dashArray: '10, 10' }}
+                  pathOptions={{ color: route.color, weight: 4, opacity: 0.8, dashArray: '8, 8' }}
                 />
               )}
               {route.locales.map(local =>
@@ -301,6 +348,77 @@ export default function MapaGeneral() {
             ) : null
           )}
         </MapContainer>
+
+        {/* Rutas activas del día - líneas continuas */}
+        {rutasActivas.map((ruta) => {
+          const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
+          
+          // Obtener posiciones de locales_ruta ordenados por 'orden'
+          const localesOrdenados = [...(ruta.locales_ruta || [])]
+            .filter(l => l.latitud && l.longitud)
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+          
+          const posiciones = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
+
+          // Solo dibujar si hay al menos 2 puntos
+          if (posiciones.length < 2) return null;
+
+          return (
+            <React.Fragment key={ruta.id_ruta}>
+              {/* Línea punteada de la ruta completa */}
+              <Polyline
+                positions={posiciones}
+                pathOptions={{ color, weight: 5, opacity: 0.5, dashArray: '12, 8' }}
+              />
+              
+              {/* Marcadores para cada local de la ruta activa */}
+              {localesOrdenados.map((local, idx) => (
+                <Marker
+                  key={`${ruta.id_ruta}-${local.id_local_ruta}`}
+                  position={[local.latitud!, local.longitud!]}
+                  icon={L.divIcon({
+                    html: `
+                      <div style="
+                        background-color: ${color};
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        border: 3px solid #ffffff;
+                        box-shadow: 0 0 10px ${color}88;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 10px;
+                        font-weight: bold;
+                        color: white;
+                      ">${idx + 1}</div>
+                    `,
+                    className: 'custom-div-icon',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  })}
+                >
+                  <Popup>
+                    <div className="p-1">
+                      <h4 style={{ fontWeight: 'bold', color: '#111', fontSize: '12px' }}>{local.nombre}</h4>
+                      <p style={{ fontSize: '10px', color: '#666' }}>{ruta.rutas_base?.nombre}</p>
+                      <p style={{ fontSize: '9px', color: '#999' }}>Orden: {local.orden}</p>
+                      <span style={{ 
+                        background: local.estado_visita === 'visitado' ? '#22c55e' : '#eab308',
+                        color: 'white', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        fontSize: '9px' 
+                      }}>
+                        {local.estado_visita === 'visitado' ? '✓ Visitado' : '⏳ Pendiente'}
+                      </span>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </React.Fragment>
+          );
+        })}
 
         <div className="absolute bottom-6 right-6 z-[1000] bg-surface/90 backdrop-blur-md p-4 rounded-xl border border-surface-light shadow-xl text-white max-w-[200px]">
           <h4 className="text-[10px] font-black uppercase italic tracking-widest text-primary mb-2 flex items-center gap-1">
