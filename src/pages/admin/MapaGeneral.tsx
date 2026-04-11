@@ -358,20 +358,66 @@ export default function MapaGeneral() {
             .filter(l => l.latitud && l.longitud)
             .sort((a, b) => (a.orden || 0) - (b.orden || 0));
           
-          const posiciones = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
+          let posiciones = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
+
+          // Agregar planta al inicio y final si existe
+          if (plantaLocal && plantaLocal.latitud && plantaLocal.longitud) {
+            posiciones = [
+              [plantaLocal.latitud, plantaLocal.longitud] as [number, number],
+              ...posiciones,
+              [plantaLocal.latitud, plantaLocal.longitud] as [number, number]
+            ];
+          }
 
           // Solo dibujar si hay al menos 2 puntos
           if (posiciones.length < 2) return null;
 
           return (
             <React.Fragment key={ruta.id_ruta}>
-              {/* Línea punteada de la ruta completa */}
+              {/* Línea de la ruta con planta */}
               <Polyline
                 positions={posiciones}
-                pathOptions={{ color, weight: 5, opacity: 0.5, dashArray: '12, 8' }}
+                pathOptions={{ color, weight: 5, opacity: 0.7 }}
               />
               
-              {/* Marcadores para cada local de la ruta activa */}
+              {/* Marcador de planta si existe */}
+              {plantaLocal && plantaLocal.latitud && plantaLocal.longitud && (
+                <Marker
+                  key={`${ruta.id_ruta}-planta`}
+                  position={[plantaLocal.latitud, plantaLocal.longitud]}
+                  icon={L.divIcon({
+                    html: `
+                      <div style="
+                        background-color: #3b82f6;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        border: 3px solid #ffffff;
+                        box-shadow: 0 0 15px #3b82f688;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 14px;
+                        font-weight: bold;
+                        color: white;
+                      ">🏠</div>
+                    `,
+                    className: 'custom-div-icon',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16],
+                  })}
+                >
+                  <Popup>
+                    <div className="p-1">
+                      <h4 className="font-bold text-gray-900">{plantaLocal.nombre}</h4>
+                      <p className="text-[10px] text-gray-600">{plantaLocal.direccion}</p>
+                      <p className="text-[10px] text-blue-600 font-bold">PUNTO DE PARTIDA Y LLEGADA</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+              
+              {/* Marcadores para cada local de la ruta activa (excluyendo planta que ya se mostró) */}
               {localesOrdenados.map((local, idx) => (
                 <Marker
                   key={`${ruta.id_ruta}-${local.id_local_ruta}`}
