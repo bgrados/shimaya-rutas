@@ -51,18 +51,18 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ 
-          background: '#111', 
-          color: '#fff', 
-          minHeight: '100vh', 
+        <div style={{
+          background: '#111',
+          color: '#fff',
+          minHeight: '100vh',
           padding: '40px 20px',
           fontFamily: 'system-ui, sans-serif'
         }}>
           <h1 style={{ color: '#E50914', marginBottom: '20px' }}>Algo salió mal</h1>
           <p style={{ marginBottom: '20px' }}>Ha ocurrido un error inesperado.</p>
-          <details style={{ 
-            background: '#222', 
-            padding: '16px', 
+          <details style={{
+            background: '#222',
+            padding: '16px',
             borderRadius: '8px',
             overflow: 'auto',
             maxHeight: '300px'
@@ -74,7 +74,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               {this.state.error?.toString()}
             </pre>
           </details>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             style={{
               marginTop: '20px',
@@ -107,7 +107,7 @@ function App() {
               <Route index element={<Navigate to="/login" replace />} />
               <Route path="login" element={<Login />} />
             </Route>
-            
+
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="viajes" element={<AdminViajes />} />
