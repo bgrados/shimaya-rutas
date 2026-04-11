@@ -1,31 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
-import type { Ruta, RutaBase, LocalBase } from '../../types';
-import { Loader2, Map as MapIcon, Info, Truck, MapPin, Navigation, Clock, RefreshCw } from 'lucide-react';
-
-interface RutaActiva extends Ruta {
-  chofer_nombre?: string;
-  locales_ruta?: { nombre: string; latitud: number | null; longitud: number | null; estado_visita: string }[];
-}
-
-function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
-  return null;
-}
+import type { RutaBase, LocalBase } from '../../types';
+import { Loader2, Map as MapIcon, Info } from 'lucide-react';
 
 export default function MapaGeneral() {
   const [rutasBase, setRutasBase] = useState<RutaBase[]>([]);
   const [locales, setLocales] = useState<LocalBase[]>([]);
-  const [rutasActivas, setRutasActivas] = useState<RutaActiva[]>([]);
-  const [selectedRuta, setSelectedRuta] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const ROUTE_COLORS: Record<string, string> = {
     'negra':    '#64748b',
@@ -124,79 +108,17 @@ export default function MapaGeneral() {
     });
   };
 
-  const createActivoIcon = (color: string, numero: number) => {
-    return L.divIcon({
-      html: `
-        <div style="
-          background-color: ${color};
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          border: 3px solid #ffffff;
-          box-shadow: 0 0 15px ${color}88, 0 0 30px ${color}44;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          font-weight: bold;
-          color: white;
-          animation: pulse 1.5s ease-in-out infinite;
-        ">${numero}</div>
-        <style>
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.15); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-        </style>
-      `,
-      className: 'custom-div-icon',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-    });
-  };
-
-  const createCamionIcon = (color: string, nombreCorto: string) => {
-    return L.divIcon({
-      html: `
-        <div style="
-          background: linear-gradient(135deg, ${color} 0%, ${color}cc 100%);
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
-          border: 3px solid #ffffff;
-          box-shadow: 0 4px 15px ${color}88, 0 6px 20px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
-        ">
-          🚛
-        </div>
-      `,
-      className: 'custom-div-icon',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
-    });
-  };
-
   useEffect(() => {
     async function loadData() {
       try {
-        const [rutasRes, localesRes, rutasActivasRes] = await Promise.all([
+        const [rutasRes, localesRes] = await Promise.all([
           supabase.from('rutas_base').select('*'),
           supabase
             .from('locales_base')
             .select('*')
             .not('latitud', 'is', null)
             .not('longitud', 'is', null)
-            .order('orden', { ascending: true }),
-          supabase
-            .from('rutas')
-            .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
-            .eq('fecha', new Date().toISOString().split('T')[0])
-            .in('estado', ['en_progreso', 'pendiente'])
-            .order('hora_salida', { ascending: true })
+            .order('orden', { ascending: true })
         ]);
 
         if (rutasRes.error) console.error('[Mapa] Error rutas:', rutasRes.error);
@@ -207,10 +129,6 @@ export default function MapaGeneral() {
           console.log(`[Mapa] Locales cargados: ${localesRes.data.length}`);
           setLocales(localesRes.data);
         }
-        if (rutasActivasRes.data) {
-          setRutasActivas(rutasActivasRes.data as unknown as RutaActiva[]);
-        }
-        setLastUpdate(new Date());
       } catch (err) {
         console.error('[Mapa] Error loading map data', err);
       } finally {
@@ -218,24 +136,6 @@ export default function MapaGeneral() {
       }
     }
     loadData();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from('rutas')
-        .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
-        .eq('fecha', new Date().toISOString().split('T')[0])
-        .in('estado', ['en_progreso', 'pendiente'])
-        .order('hora_salida', { ascending: true });
-      
-      if (data) {
-        setRutasActivas(data as unknown as RutaActiva[]);
-        setLastUpdate(new Date());
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -401,138 +301,6 @@ export default function MapaGeneral() {
             ) : null
           )}
         </MapContainer>
-
-        {/* Marcadores de rutas activas con animación de pulso */}
-        {rutasActivas.map((ruta, idx) => {
-          const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
-          
-          // Obtener posiciones de la ruta (visitados + pendientes)
-          const localesOrdenados = [...(ruta.locales_ruta || [])]
-            .filter(l => l.latitud && l.longitud)
-            .sort((a, b) => a.orden - b.orden);
-          
-          const posicionesRuta = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
-          
-          // Encontrar el local actual (el primero no visitado)
-          const localActual = localesOrdenados.find(l => l.estado_visita !== 'visitado');
-          
-          // Encontrar último local visitado para la polyline de progreso
-          const visitados = localesOrdenados.filter(l => l.estado_visita === 'visitado');
-          const posicionesVisitados = visitados.map(l => [l.latitud!, l.longitud!] as [number, number]);
-          
-          return (
-            <React.Fragment key={ruta.id_ruta}>
-              {/* Polyline de la ruta completa (segmentos por hacer) */}
-              {posicionesRuta.length > 1 && (
-                <Polyline
-                  positions={posicionesRuta}
-                  pathOptions={{ color, weight: 3, opacity: 0.4, dashArray: '8, 8' }}
-                />
-              )}
-              
-              {/* Polyline de progreso (visitados) */}
-              {posicionesVisitados.length > 0 && (
-                <Polyline
-                  positions={posicionesVisitados}
-                  pathOptions={{ color, weight: 4, opacity: 1 }}
-                />
-              )}
-              
-              {/* Marcador del camión en posición actual */}
-              {localActual && localActual.latitud && localActual.longitud && (
-                <Marker
-                  key={`${ruta.id_ruta}-camion`}
-                  position={[localActual.latitud, localActual.longitud]}
-                  icon={createCamionIcon(color, ruta.rutas_base?.nombre?.substring(0, 2) || 'R')}
-                >
-                  <Popup>
-                    <div className="p-1">
-                      <h4 className="font-bold text-gray-900">{ruta.rutas_base?.nombre || 'Ruta'}</h4>
-                      <p className="text-[10px] text-gray-600 mb-1">Chofer: {ruta.usuarios?.nombre || 'Sin asignar'}</p>
-                      <p className="text-[10px] text-green-600 font-bold">🚛 En curso</p>
-                      {localActual.nombre && (
-                        <p className="text-[10px] text-blue-600 font-bold mt-1">Próximo: {localActual.nombre}</p>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-            </React.Fragment>
-          );
-        })}
-
-        {/* Panel de Rutas Activas */}
-        <div className="absolute top-6 left-6 z-[1000] bg-surface/95 backdrop-blur-md p-4 rounded-xl border border-surface-light shadow-xl text-white max-w-[280px] max-h-[calc(100vh-120px)] overflow-y-auto">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-black uppercase italic tracking-widest text-primary flex items-center gap-1">
-              <Truck size={14} /> Rutas en Vivo
-            </h4>
-            <button 
-              onClick={async () => {
-                const { data } = await supabase
-                  .from('rutas')
-                  .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
-                  .eq('fecha', new Date().toISOString().split('T')[0])
-                  .in('estado', ['en_progreso', 'pendiente']);
-                if (data) setRutasActivas(data as unknown as RutaActiva[]);
-                setLastUpdate(new Date());
-              }}
-              className="p-1 hover:bg-surface-light rounded"
-            >
-              <RefreshCw size={12} />
-            </button>
-          </div>
-          
-          <p className="text-[9px] text-text-muted mb-3 flex items-center gap-1">
-            <Clock size={10} /> Actualizado: {lastUpdate.toLocaleTimeString()}
-          </p>
-
-          {rutasActivas.length === 0 ? (
-            <p className="text-[10px] text-text-muted italic">No hay rutas activas ahora</p>
-          ) : (
-            <div className="space-y-2">
-              {rutasActivas.map((ruta, idx) => (
-                <div 
-                  key={ruta.id_ruta}
-                  onClick={() => setSelectedRuta(ruta.id_ruta)}
-                  className={`p-2 rounded-lg cursor-pointer transition-all ${
-                    selectedRuta === ruta.id_ruta 
-                      ? 'bg-primary/20 border border-primary' 
-                      : 'bg-surface-light/50 border border-transparent hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-                        style={{ backgroundColor: getRouteColor(ruta.rutas_base?.nombre || 'default') }}
-                      >
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold">{ruta.rutas_base?.nombre || 'Ruta'}</p>
-                        <p className="text-[9px] text-text-muted">{ruta.usuarios?.nombre || 'Sin chofer'}</p>
-                      </div>
-                    </div>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
-                      ruta.estado === 'en_progreso' 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {ruta.estado === 'en_progreso' ? 'En ruta' : 'Pendiente'}
-                    </span>
-                  </div>
-                  {ruta.locales_ruta && ruta.locales_ruta.length > 0 && (
-                    <div className="mt-1 text-[9px] text-text-muted flex items-center gap-1">
-                      <MapPin size={10} />
-                      {ruta.locales_ruta.filter(l => l.estado_visita === 'visitado').length}/{ruta.locales_ruta.length} visitas
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         <div className="absolute bottom-6 right-6 z-[1000] bg-surface/90 backdrop-blur-md p-4 rounded-xl border border-surface-light shadow-xl text-white max-w-[200px]">
           <h4 className="text-[10px] font-black uppercase italic tracking-widest text-primary mb-2 flex items-center gap-1">
