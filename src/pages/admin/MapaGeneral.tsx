@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
 import type { Ruta, RutaBase, LocalBase } from '../../types';
 import { Loader2, Map as MapIcon, Info, Truck, MapPin, Navigation, Clock, RefreshCw } from 'lucide-react';
 
-// Fix Leaflet iconos
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
 interface RutaActiva extends Ruta {
   chofer_nombre?: string;
   locales_ruta?: { nombre: string; latitud: number | null; longitud: number | null; estado_visita: string }[];
+}
+
+function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
 }
 
 export default function MapaGeneral() {
@@ -26,55 +26,6 @@ export default function MapaGeneral() {
   const [selectedRuta, setSelectedRuta] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [refreshing, setRefreshing] = useState(false);
-
-  const refreshRutasActivas = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const fechaHoy = new Date().toISOString().split('T')[0];
-      
-      const { data: rutasData } = await supabase
-        .from('rutas')
-        .select('*')
-        .eq('fecha', fechaHoy);
-
-      console.log('[Mapa] Refresh rutas:', rutasData?.length);
-
-      if (rutasData && rutasData.length > 0) {
-        const { data: usuariosData } = await supabase.from('usuarios').select('id_usuario, nombre');
-        const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, nombre');
-        
-        const rutasEnriquecidas = rutasData.map(ruta => ({
-          ...ruta,
-          usuarios: usuariosData?.find(u => u.id_usuario === ruta.id_chofer) || null,
-          rutas_base: rutasBaseData?.find(rb => rb.id_ruta_base === ruta.id_ruta_base) || null
-        }));
-
-        const rutasConLocales = await Promise.all(
-          rutasEnriquecidas.map(async (ruta) => {
-            const { data: localesRuta } = await supabase
-              .from('locales_ruta')
-              .select('*')
-              .eq('id_ruta', ruta.id_ruta)
-              .order('orden', { ascending: true });
-            return { ...ruta, locales_ruta: localesRuta || [] };
-          })
-        );
-        
-        const rutasActivasFiltradas = rutasConLocales.filter(r => 
-          r.estado === 'en_progreso' || r.estado === 'pendiente'
-        );
-        
-        setRutasActivas(rutasActivasFiltradas as unknown as RutaActiva[]);
-      } else {
-        setRutasActivas([]);
-      }
-      setLastUpdate(new Date());
-    } catch (err) {
-      console.error('[Mapa] Error refresh:', err);
-    }
-    setRefreshing(false);
-  }, []);
 
   const ROUTE_COLORS: Record<string, string> = {
     'negra':    '#64748b',
@@ -232,67 +183,36 @@ export default function MapaGeneral() {
   useEffect(() => {
     async function loadData() {
       try {
-        // Cargar rutas base y locales primero
-        const [rutasRes, localesRes] = await Promise.all([
+        const [rutasRes, localesRes, rutasActivasRes] = await Promise.all([
           supabase.from('rutas_base').select('*'),
-          supabase.from('locales_base').select('*').not('latitud', 'is', null).not('longitud', 'is', null).order('orden', { ascending: true })
+          supabase
+            .from('locales_base')
+            .select('*')
+            .not('latitud', 'is', null)
+            .not('longitud', 'is', null)
+            .order('orden', { ascending: true }),
+          supabase
+            .from('rutas')
+            .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
+            .eq('fecha', new Date().toISOString().split('T')[0])
+            .in('estado', ['en_progreso', 'pendiente'])
+            .order('hora_salida', { ascending: true })
         ]);
+
+        if (rutasRes.error) console.error('[Mapa] Error rutas:', rutasRes.error);
+        if (localesRes.error) console.error('[Mapa] Error locales:', localesRes.error);
 
         if (rutasRes.data) setRutasBase(rutasRes.data);
         if (localesRes.data) {
-          console.log('[Mapa] Locales:', localesRes.data.length);
+          console.log(`[Mapa] Locales cargados: ${localesRes.data.length}`);
           setLocales(localesRes.data);
         }
-
-        // Obtener rutas del día - consulta simple
-        const fechaHoy = new Date().toISOString().split('T')[0];
-        console.log('[Mapa] Fecha hoy:', fechaHoy);
-        
-        const { data: rutasData, error: rutasError } = await supabase
-          .from('rutas')
-          .select('*')
-          .eq('fecha', fechaHoy);
-
-        console.log('[Mapa] Rutas hoy:', rutasData?.length, 'error:', rutasError);
-        console.log('[Mapa] Primer ruta:', rutasData?.[0]);
-
-        if (rutasData && rutasData.length > 0) {
-          // Obtener información de usuarios y rutas_base por separado
-          const { data: usuariosData } = await supabase.from('usuarios').select('id_usuario, nombre');
-          const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, nombre');
-          
-          // Enriquecer rutas con nombres
-          const rutasEnriquecidas = rutasData.map(ruta => ({
-            ...ruta,
-            usuarios: usuariosData?.find(u => u.id_usuario === ruta.id_chofer) || null,
-            rutas_base: rutasBaseData?.find(rb => rb.id_ruta_base === ruta.id_ruta_base) || null
-          }));
-          
-          // Por cada ruta, obtener locales_ruta por separado
-          const rutasConLocales = await Promise.all(
-            rutasEnriquecidas.map(async (ruta) => {
-              const { data: localesRuta } = await supabase
-                .from('locales_ruta')
-                .select('*')
-                .eq('id_ruta', ruta.id_ruta)
-                .order('orden', { ascending: true });
-              
-              return { ...ruta, locales_ruta: localesRuta || [] };
-            })
-          );
-
-          // Filtrar solo rutas en_progreso o pendiente
-          const rutasActivasFiltradas = rutasConLocales.filter(r => 
-            r.estado === 'en_progreso' || r.estado === 'pendiente'
-          );
-          
-          console.log('[Mapa] Rutas activas:', rutasActivasFiltradas.length);
-          setRutasActivas(rutasActivasFiltradas as unknown as RutaActiva[]);
+        if (rutasActivasRes.data) {
+          setRutasActivas(rutasActivasRes.data as unknown as RutaActiva[]);
         }
-
         setLastUpdate(new Date());
       } catch (err) {
-        console.error('[Mapa] Error:', err);
+        console.error('[Mapa] Error loading map data', err);
       } finally {
         setLoading(false);
       }
@@ -301,9 +221,22 @@ export default function MapaGeneral() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(refreshRutasActivas, 30000);
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('rutas')
+        .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
+        .eq('fecha', new Date().toISOString().split('T')[0])
+        .in('estado', ['en_progreso', 'pendiente'])
+        .order('hora_salida', { ascending: true });
+      
+      if (data) {
+        setRutasActivas(data as unknown as RutaActiva[]);
+        setLastUpdate(new Date());
+      }
+    }, 30000);
+
     return () => clearInterval(interval);
-  }, [refreshRutasActivas]);
+  }, []);
 
   if (loading) {
     return (
@@ -469,7 +402,7 @@ export default function MapaGeneral() {
           )}
         </MapContainer>
 
-        {/* Marcadores de rutas activas */}
+        {/* Marcadores de rutas activas con animación de pulso */}
         {rutasActivas.map((ruta, idx) => {
           const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
           
@@ -535,11 +468,18 @@ export default function MapaGeneral() {
               <Truck size={14} /> Rutas en Vivo
             </h4>
             <button 
-              onClick={refreshRutasActivas}
-              className="p-1 hover:bg-surface-light rounded disabled:opacity-50"
-              disabled={refreshing}
+              onClick={async () => {
+                const { data } = await supabase
+                  .from('rutas')
+                  .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
+                  .eq('fecha', new Date().toISOString().split('T')[0])
+                  .in('estado', ['en_progreso', 'pendiente']);
+                if (data) setRutasActivas(data as unknown as RutaActiva[]);
+                setLastUpdate(new Date());
+              }}
+              className="p-1 hover:bg-surface-light rounded"
             >
-              <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={12} />
             </button>
           </div>
           
