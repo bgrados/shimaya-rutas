@@ -300,7 +300,7 @@ export default function DriverViaje() {
         
         console.log('[Viaje] Final rutasBase:', withCounts);
         setRutasBase(withCounts);
-        if (withCounts.length > 0) setSelectedRutaBase(withCounts[0].id_ruta_base);
+        // No seleccionar ninguna ruta por defecto - el chofer debe elegir
       } else {
         console.log('[Viaje] No hay rutas_base');
         setRutasBase([]);
