@@ -230,7 +230,7 @@ export default function MapaGeneral() {
             .order('orden', { ascending: true }),
           supabase
             .from('rutas')
-            .select('*, usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(*), rutas_base(nombre)')
+            .select('*, usuarios:usuarios!rutas_id_chofer_fkey(nombre), locales_ruta(id_local_ruta, nombre, latitud, longitud, estado_visita, orden), rutas_base(nombre)')
             .eq('fecha', new Date().toISOString().split('T')[0])
             .in('estado', ['en_progreso', 'pendiente'])
             .order('hora_salida', { ascending: true })
@@ -245,6 +245,7 @@ export default function MapaGeneral() {
           setLocales(localesRes.data);
         }
         if (rutasActivasRes.data) {
+          console.log('[Mapa] Rutas activas inicial:', rutasActivasRes.data.length);
           setRutasActivas(rutasActivasRes.data as unknown as RutaActiva[]);
         }
         setLastUpdate(new Date());
@@ -428,13 +429,16 @@ export default function MapaGeneral() {
         </MapContainer>
 
         {/* Marcadores de rutas activas con animación de pulso */}
-        {rutasActivas.map((ruta, idx) => {
+        {console.log('[Mapa] render rutasActivas:', rutasActivas.length, 'primera ruta:', rutasActivas[0]?.locales_ruta?.length) || rutasActivas.map((ruta, idx) => {
           const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
+          console.log(`[Mapa] ruta ${idx}:`, ruta.rutas_base?.nombre, 'locales_ruta:', ruta.locales_ruta?.length);
           
           // Obtener posiciones de la ruta (visitados + pendientes)
           const localesOrdenados = [...(ruta.locales_ruta || [])]
             .filter(l => l.latitud && l.longitud)
             .sort((a, b) => a.orden - b.orden);
+          
+          console.log(`[Mapa] locales con coords:`, localesOrdenados.length);
           
           const posicionesRuta = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
           
