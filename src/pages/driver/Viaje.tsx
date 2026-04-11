@@ -69,6 +69,9 @@ export default function DriverViaje() {
   const [editHoraSalida, setEditHoraSalida] = useState('');
   const [editHoraLlegada, setEditHoraLlegada] = useState('');
 
+  // Estado para volver a local anterior
+  const [mostrarLocalesVisitados, setMostrarLocalesVisitados] = useState(false);
+
   const loadFotosExistentes = async (idLocalRuta: string) => {
     const { data, error } = await supabase
       .from('fotos_visita')
@@ -400,6 +403,9 @@ export default function DriverViaje() {
 
   const localesRegistrados = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
   const localesDisponibles = locales.filter(l => !localesRegistrados.includes(l.nombre || ''));
+  const localesVisitados = locales.filter(l => 
+    localesRegistrados.includes(l.nombre || '') && l.nombre !== 'Planta'
+  );
   const tramoEnProgreso = bitacora.find(b => !b.hora_llegada);
 
   useEffect(() => {
@@ -505,7 +511,11 @@ export default function DriverViaje() {
 
     if (!error && data) {
       setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
-      if (data.destino_nombre !== 'Planta') {
+      
+      // Solo marcar como visitado si NO era un detour (ya estaba registrado previamente)
+      const eraDetour = localesRegistrados.includes(data.destino_nombre || '');
+      
+      if (data.destino_nombre !== 'Planta' && !eraDetour) {
         await supabase.from('locales_ruta').update({ hora_llegada: now, estado_visita: 'visitado' }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.destino_nombre);
       }
       if (data.destino_nombre === 'Planta') {
@@ -1017,6 +1027,46 @@ export default function DriverViaje() {
                     </div>
                   </div>
                 </div>
+
+                {mostrarLocalesVisitados ? (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3">
+                    <p className="text-yellow-400 text-xs font-bold uppercase">↩️ Selecciona a dónde vuelves:</p>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {localesVisitados.map((l, idx) => {
+                        const tramo = bitacora.find(b => b.destino_nombre === l.nombre);
+                        const tiempoHace = tramo?.hora_llegada 
+                          ? Math.round((new Date().getTime() - new Date(tramo.hora_llegada).getTime()) / 60000)
+                          : 0;
+                        return (
+                          <button
+                            key={l.id_local_ruta}
+                            onClick={() => {
+                              setNuevoDestino(l.nombre || '');
+                              setMostrarLocalesVisitados(false);
+                            }}
+                            className="w-full text-left p-2 bg-surface rounded-lg border border-yellow-500/20 hover:bg-yellow-500/20 flex justify-between items-center"
+                          >
+                            <span className="text-white text-sm font-bold">{l.nombre}</span>
+                            <span className="text-yellow-400 text-xs">hace {tiempoHace} min</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setMostrarLocalesVisitados(false)}
+                      className="text-xs text-text-muted underline hover:text-white"
+                    >
+                      ← Volver al flujo normal
+                    </button>
+                  </div>
+                ) : localesVisitados.length > 0 && (
+                  <button 
+                    onClick={() => setMostrarLocalesVisitados(true)}
+                    className="text-xs text-yellow-400 underline hover:text-yellow-300 w-full text-left mt-2 flex items-center gap-1"
+                  >
+                    ↩️ ¿Necesitas volver a un local anterior?
+                  </button>
+                )}
                 
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-dashed border-white/10">
                    <div className="flex items-center gap-2">
