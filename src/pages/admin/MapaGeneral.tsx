@@ -173,10 +173,21 @@ export default function MapaGeneral() {
             rutasEnriquecidas.map(async (ruta) => {
               const { data: localesRutaData } = await supabase
                 .from('locales_ruta')
-                .select('*')
+                .select('*, locales_base(nombre, latitud, longitud, direccion)')
                 .eq('id_ruta', ruta.id_ruta)
                 .order('orden', { ascending: true });
-              return { ...ruta, locales_ruta: localesRutaData || [] };
+              
+              // Transformar para tener las coordenadas directamente
+              const localesTransformados = localesRutaData?.map(lr => ({
+                id_local_ruta: lr.id_local_ruta,
+                nombre: lr.locales_base?.nombre || lr.nombre,
+                latitud: lr.locales_base?.latitud || lr.latitud,
+                longitud: lr.locales_base?.longitud || lr.longitud,
+                estado_visita: lr.estado_visita,
+                orden: lr.orden
+              })) || [];
+
+              return { ...ruta, locales_ruta: localesTransformados };
             })
           );
 
@@ -357,27 +368,32 @@ export default function MapaGeneral() {
         </MapContainer>
 
         {/* Rutas activas del día - líneas continuas */}
-        {console.log('[Mapa] Render rutasActivas:', rutasActivas.length) || rutasActivas.map((ruta) => {
+        {rutasActivas.map((ruta) => {
           const color = getRouteColor(ruta.rutas_base?.nombre || 'default');
-          console.log('[Mapa] Ruta:', ruta.rutas_base?.nombre, 'locales_ruta:', ruta.locales_ruta?.length);
           
           // Obtener posiciones de locales_ruta ordenados por 'orden'
           const localesOrdenados = [...(ruta.locales_ruta || [])]
             .filter(l => l.latitud && l.longitud)
             .sort((a, b) => (a.orden || 0) - (b.orden || 0));
           
-          console.log('[Mapa] locales con coords:', localesOrdenados.length);
+          let posiciones: [number, number][] = [];
           
-          let posiciones = localesOrdenados.map(l => [l.latitud!, l.longitud!] as [number, number]);
-
-          // Agregar planta al inicio y final si existe
-          if (plantaLocal && plantaLocal.latitud && plantaLocal.longitud) {
-            posiciones = [
-              [plantaLocal.latitud, plantaLocal.longitud] as [number, number],
-              ...posiciones,
-              [plantaLocal.latitud, plantaLocal.longitud] as [number, number]
-            ];
+          // Agregar planta al inicio si existe
+          if (plantaLocal?.latitud && plantaLocal?.longitud) {
+            posiciones.push([plantaLocal.latitud, plantaLocal.longitud]);
           }
+          
+          // Agregar todos los locales
+          localesOrdenados.forEach(l => {
+            posiciones.push([l.latitud!, l.longitud!]);
+          });
+          
+          // Agregar planta al final si existe
+          if (plantaLocal?.latitud && plantaLocal?.longitud) {
+            posiciones.push([plantaLocal.latitud, plantaLocal.longitud]);
+          }
+
+          console.log('[Mapa] Ruta:', ruta.rutas_base?.nombre, 'posiciones:', posiciones.length, 'planta:', !!plantaLocal);
 
           // Solo dibujar si hay al menos 2 puntos
           if (posiciones.length < 2) return null;
