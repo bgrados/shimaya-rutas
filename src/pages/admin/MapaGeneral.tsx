@@ -19,21 +19,6 @@ function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }
   return null;
 }
 
-function MapRefrescar({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (!refreshing) return;
-    
-    async function recargar() {
-      onRefresh();
-    }
-    recargar();
-  }, [refreshing, onRefresh, map]);
-  
-  return null;
-}
-
 export default function MapaGeneral() {
   const [rutasBase, setRutasBase] = useState<RutaBase[]>([]);
   const [locales, setLocales] = useState<LocalBase[]>([]);
