@@ -747,6 +747,7 @@ export default function DriverViaje() {
                            value={selectedRutaBase}
                            onChange={e => setSelectedRutaBase(e.target.value)}
                          >
+                           <option value="">Elige tu ruta</option>
                            {rutasBase.map(r => (
                              <option key={r.id_ruta_base} value={r.id_ruta_base}>
                                {r.nombre} ({r.locales_count} paradas)
@@ -791,7 +792,7 @@ export default function DriverViaje() {
 
               <Button 
                 onClick={handleCreateViaje}
-                disabled={isCreating || (!nuevaPlaca.trim() && !tienePlacaAsignada) || rutasBase.length === 0}
+                disabled={isCreating || !selectedRutaBase || (!nuevaPlaca.trim() && !tienePlacaAsignada) || rutasBase.length === 0}
                 className="w-full h-16 text-xl font-black italic bg-primary hover:bg-primary-hover shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isCreating ? '⏳ CREANDO RUTA...' : '🚛 INICIAR MI RUTA'}
