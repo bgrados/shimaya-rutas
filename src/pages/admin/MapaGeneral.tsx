@@ -236,6 +236,11 @@ export default function MapaGeneral() {
             .order('hora_salida', { ascending: true })
         ]);
 
+        console.log('[Mapa] Query rutas result:', rutasActivasRes);
+        console.log('[Mapa] Query rutas data:', rutasActivasRes.data);
+        console.log('[Mapa] Query rutas error:', rutasActivasRes.error);
+        console.log('[Mapa] Query rutas count:', rutasActivasRes.count);
+
         if (rutasRes.error) console.error('[Mapa] Error rutas:', rutasRes.error);
         if (localesRes.error) console.error('[Mapa] Error locales:', localesRes.error);
 
