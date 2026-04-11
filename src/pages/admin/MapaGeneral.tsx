@@ -47,11 +47,11 @@ export default function MapaGeneral() {
     setRefreshing(true);
     try {
       const fechaHoy = new Date().toISOString().split('T')[0];
+      
       const { data: rutasData } = await supabase
         .from('rutas')
         .select('*')
         .eq('fecha', fechaHoy)
-        .in('estado', ['en_progreso', 'pendiente'])
         .order('hora_salida', { ascending: true });
 
       console.log('[Mapa] Refresh rutas:', rutasData?.length);
@@ -67,7 +67,12 @@ export default function MapaGeneral() {
             return { ...ruta, locales_ruta: localesRuta || [] };
           })
         );
-        setRutasActivas(rutasConLocales as unknown as RutaActiva[]);
+        
+        const rutasActivasFiltradas = rutasConLocales.filter(r => 
+          r.estado === 'en_progreso' || r.estado === 'pendiente'
+        );
+        
+        setRutasActivas(rutasActivasFiltradas as unknown as RutaActiva[]);
       } else {
         setRutasActivas([]);
       }
@@ -246,11 +251,17 @@ export default function MapaGeneral() {
           setLocales(localesRes.data);
         }
 
-        // Obtener rutas del día - consulta simple sin joins
+        // Obtener rutas del día - consulta simple
         const fechaHoy = new Date().toISOString().split('T')[0];
-        const { data: rutasData } = await supabase.from('rutas').select('*').eq('fecha', fechaHoy).in('estado', ['en_progreso', 'pendiente']).order('hora_salida', { ascending: true });
+        console.log('[Mapa] Fecha hoy:', fechaHoy);
+        
+        const { data: rutasData, error: rutasError } = await supabase
+          .from('rutas')
+          .select('*')
+          .eq('fecha', fechaHoy)
+          .order('hora_salida', { ascending: true });
 
-        console.log('[Mapa] Rutas hoy:', rutasData?.length, rutasData?.map(r => ({ id: r.id_ruta, estado: r.estado })));
+        console.log('[Mapa] Rutas hoy:', rutasData?.length, 'error:', rutasError);
 
         if (rutasData && rutasData.length > 0) {
           // Por cada ruta, obtener locales_ruta por separado
@@ -266,8 +277,13 @@ export default function MapaGeneral() {
             })
           );
 
-          console.log('[Mapa] Rutas con locales:', rutasConLocales.length);
-          setRutasActivas(rutasConLocales as unknown as RutaActiva[]);
+          // Filtrar solo rutas en_progreso o pendiente
+          const rutasActivasFiltradas = rutasConLocales.filter(r => 
+            r.estado === 'en_progreso' || r.estado === 'pendiente'
+          );
+          
+          console.log('[Mapa] Rutas activas:', rutasActivasFiltradas.length);
+          setRutasActivas(rutasActivasFiltradas as unknown as RutaActiva[]);
         }
 
         setLastUpdate(new Date());
