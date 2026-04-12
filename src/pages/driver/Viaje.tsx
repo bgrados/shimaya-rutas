@@ -780,11 +780,14 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               <div className="space-y-4">
                   <div className="space-y-1">
 <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
-                      {/* Simple debug */}
                       {loadingRutasBase ? (
-                        <div style={{background:'blue',color:'white',padding:8}}>CARGA: YES</div>
+                        <div className="bg-surface-light rounded-xl px-4 py-3 text-text-muted text-sm">
+                          ⏳ Cargando plantillas...
+                        </div>
                       ) : !rutasBase.length ? (
-                        <div style={{background:'red',color:'white',padding:8}}>NO HAY</div>
+                        <div className="bg-surface-light rounded-xl px-4 py-3 text-text-muted text-sm">
+                          Selecciona una plantilla...
+                        </div>
                       ) : (
                       <div className="relative">
                        <select
