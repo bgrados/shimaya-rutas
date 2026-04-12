@@ -46,16 +46,24 @@ export const AdminLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background text-text flex">
+      {/* Overlay para cerrar sidebar en móvil */}
+      {isSidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 z-20 bg-black/50" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
       {/* Mobile sidebar toggle */}
       <div className="lg:hidden fixed top-0 left-0 w-full bg-surface z-20 border-b border-surface-light p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-white">Shimaya Rutas</h1>
-        <button onClick={() => setIsSidebarOpen(true)} className="text-white">
+        <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2 -ml-2">
           <Menu size={24} />
         </button>
+        <h1 className="text-xl font-bold text-white">Shimaya Rutas</h1>
+        <div className="w-10"></div>
       </div>
 
       {/* Sidebar - Desktop & Mobile */}
-      <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-surface border-r border-surface-light transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static`}>
+      <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-surface border-r border-surface-light transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:z-0`}>
         <div className="p-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
