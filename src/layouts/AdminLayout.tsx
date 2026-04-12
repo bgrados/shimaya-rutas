@@ -62,7 +62,7 @@ export const AdminLayout: React.FC = () => {
       </div>
 
       {/* Sidebar - Desktop & Mobile */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light lg:static ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transform transition-transform duration-300 ease-in-out z-50`}>
+      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transform transition-transform duration-300 ease-in-out z-50`}>
         <div className="p-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
