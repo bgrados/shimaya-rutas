@@ -43,26 +43,30 @@ export const AdminLayout: React.FC = () => {
     { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   ];
 
+  // Original working layout - sidebar as fixed, main with ml-64
   return (
     <div className="min-h-screen bg-background text-text flex">
-      {/* Header mobile */}
-      <div className="lg:hidden fixed top-0 left-0 w-full bg-surface z-30 border-b border-surface-light p-4 flex justify-between items-center">
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-white p-2 -ml-2">
+      {/* Mobile header with menu and SALIR */}
+      <div className="lg:hidden fixed top-0 left-0 w-full bg-surface z-50 border-b border-surface-light p-4 flex justify-between items-center">
+        <button onClick={() => setIsSidebarOpen(true)} className="text-white">
           <Menu size={24} />
         </button>
         <h1 className="text-xl font-bold text-white">Shimaya Rutas</h1>
-        <button onClick={() => signOut()} className="text-red-400 font-bold text-sm">
+        <button onClick={() => signOut()} className="text-red-400 font-bold">
           SALIR
         </button>
       </div>
 
-      {/* Sidebar - simple flex column */}
-      <div className="w-64 bg-surface border-r border-surface-light h-screen fixed left-0 top-0 flex flex-col">
-        <div className="p-6 flex justify-between items-center flex-shrink-0">
+      {/* Sidebar - fixed on desktop, slides on mobile */}
+      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <div className="p-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
+            <X size={24} />
+          </button>
         </div>
 
-        <nav className="mt-2 px-4 space-y-1 flex-1 overflow-y-auto">
+        <nav className="mt-6 px-4 space-y-2">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -81,24 +85,27 @@ export const AdminLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-surface-light flex-shrink-0">
-          <div className="text-sm mb-2">
-            <p className="text-white font-medium truncate">{profile.nombre}</p>
-            <p className="text-text-muted capitalize text-xs">{profile.rol}</p>
+        <div className="absolute bottom-0 w-full p-4 border-t border-surface-light">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="text-sm">
+              <p className="text-white font-medium truncate w-32">{profile.nombre}</p>
+              <p className="text-text-muted capitalize">{profile.rol}</p>
+            </div>
+            <button onClick={() => signOut()} className="text-text-muted hover:text-primary transition-colors">
+              <LogOut size={20} />
+            </button>
           </div>
-          <button 
-            onClick={() => signOut()} 
-            className="w-full flex items-center justify-center px-4 py-2 rounded-xl bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors font-bold text-sm"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            SALIR
-          </button>
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 ml-64 pt-16 lg:pt-0">
-        <main className="p-6 lg:p-8 overflow-y-auto">
+      {/* Overlay for mobile when sidebar is open */}
+      {isSidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
+      {/* Main content - with left margin for sidebar */}
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-64 pt-16 lg:pt-0">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>
