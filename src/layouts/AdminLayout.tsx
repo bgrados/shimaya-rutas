@@ -82,15 +82,22 @@ export const AdminLayout: React.FC = () => {
           })}
         </nav>
 
+        <div className="mt-8 px-4">
+          <button 
+            onClick={() => signOut()} 
+            className="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors font-bold"
+          >
+            <LogOut className="mr-3 h-5 w-5" />
+            SALIR
+          </button>
+        </div>
+
         <div className="absolute bottom-0 w-full p-4 border-t border-surface-light">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="text-sm">
               <p className="text-white font-medium truncate w-32">{profile.nombre}</p>
               <p className="text-text-muted capitalize">{profile.rol}</p>
             </div>
-            <button onClick={() => signOut()} className="text-text-muted hover:text-primary transition-colors">
-              <LogOut size={20} />
-            </button>
           </div>
         </div>
       </div>
