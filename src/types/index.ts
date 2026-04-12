@@ -122,6 +122,23 @@ export interface FotoVisita {
   created_at: string;
 }
 
+export type TipoPeaje = 'normal' | 'semanal' | 'mensual';
+
+export interface GastoPeaje {
+  id_peaje: string;
+  id_ruta: string | null;
+  id_chofer: string | null;
+  nombre_peaje: string | null;
+  monto: number | null;
+  fecha: string | null;
+  tipo: TipoPeaje | null;
+  foto_url: string | null;
+  notas: string | null;
+  created_at: string;
+  chofer_nombre?: string;
+  ruta_nombre?: string;
+}
+
 export interface AuditLog {
   id: number;
   tabla: string;
