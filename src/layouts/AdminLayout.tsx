@@ -62,8 +62,8 @@ export const AdminLayout: React.FC = () => {
         <div className="w-10"></div>
       </div>
 
-      {/* Sidebar - Desktop & Mobile */}
-      <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-surface border-r border-surface-light transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:z-0`}>
+      {/* Sidebar - Desktop & Mobile - always visible on desktop */}
+      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} z-40`}>
         <div className="p-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
@@ -90,10 +90,10 @@ export const AdminLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="mt-8 px-4">
+        <div className="mt-8 px-4 pb-4">
           <button 
             onClick={() => signOut()} 
-            className="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors font-bold"
+            className="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors font-bold z-50 relative"
           >
             <LogOut className="mr-3 h-5 w-5" />
             SALIR
