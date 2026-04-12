@@ -45,16 +45,9 @@ export const AdminLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background text-text flex">
-      {/* Overlay para cerrar sidebar en móvil */}
-      {isSidebarOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 z-40 bg-black/50" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-      {/* Header con boton SALIR */}
+      {/* Header mobile siempre visible */}
       <div className="lg:hidden fixed top-0 left-0 w-full bg-surface z-30 border-b border-surface-light p-4 flex justify-between items-center">
-        <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2 -ml-2">
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-white p-2 -ml-2">
           <Menu size={24} />
         </button>
         <h1 className="text-xl font-bold text-white">Shimaya Rutas</h1>
@@ -63,8 +56,8 @@ export const AdminLayout: React.FC = () => {
         </button>
       </div>
 
-      {/* Sidebar - Desktop always visible, Mobile fixed */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light lg:static ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transform transition-transform duration-300 ease-in-out z-50`}>
+      {/* Sidebar - Desktop visible always, Mobile slides in/out */}
+      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light lg:block ${isSidebarOpen ? 'block' : 'hidden'} z-50`}>
         <div className="p-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
@@ -112,7 +105,7 @@ export const AdminLayout: React.FC = () => {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen lg:pt-0 pt-16">
+      <div className="flex-1 flex flex-col min-h-screen lg:pt-0 pt-20">
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-7xl mx-auto">
             <Outlet />
