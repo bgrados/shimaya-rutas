@@ -52,13 +52,15 @@ export const AdminLayout: React.FC = () => {
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-      {/* Mobile sidebar toggle */}
+      {/* Header con boton SALIR */}
       <div className="lg:hidden fixed top-0 left-0 w-full bg-surface z-30 border-b border-surface-light p-4 flex justify-between items-center">
         <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2 -ml-2">
           <Menu size={24} />
         </button>
         <h1 className="text-xl font-bold text-white">Shimaya Rutas</h1>
-        <div className="w-10"></div>
+        <button onClick={() => signOut()} className="text-red-400 font-bold text-sm">
+          SALIR
+        </button>
       </div>
 
       {/* Sidebar - Desktop always visible, Mobile fixed */}
