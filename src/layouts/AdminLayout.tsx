@@ -40,7 +40,6 @@ export const AdminLayout: React.FC = () => {
     { name: 'Locales Base', href: '/admin/locales', icon: MapPin },
     { name: 'Reportes', href: '/admin/reportes', icon: BarChart3 },
     { name: 'Gastos Combustible', href: '/admin/combustible', icon: Fuel },
-    { name: 'Gastos Peaje', href: '/admin/peaje', icon: Route },
     { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   ];
 
@@ -49,12 +48,12 @@ export const AdminLayout: React.FC = () => {
       {/* Overlay para cerrar sidebar en móvil */}
       {isSidebarOpen && (
         <div 
-          className="lg:hidden fixed inset-0 z-20 bg-black/50" 
+          className="lg:hidden fixed inset-0 z-40 bg-black/50" 
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
       {/* Mobile sidebar toggle */}
-      <div className="lg:hidden fixed top-0 left-0 w-full bg-surface z-20 border-b border-surface-light p-4 flex justify-between items-center">
+      <div className="lg:hidden fixed top-0 left-0 w-full bg-surface z-30 border-b border-surface-light p-4 flex justify-between items-center">
         <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2 -ml-2">
           <Menu size={24} />
         </button>
@@ -62,8 +61,8 @@ export const AdminLayout: React.FC = () => {
         <div className="w-10"></div>
       </div>
 
-      {/* Sidebar - Desktop & Mobile - always visible on desktop */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} z-40`}>
+      {/* Sidebar - Desktop & Mobile */}
+      <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light lg:static ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transform transition-transform duration-300 ease-in-out z-50`}>
         <div className="p-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
