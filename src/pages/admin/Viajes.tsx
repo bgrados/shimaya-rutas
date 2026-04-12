@@ -59,6 +59,26 @@ export default function AdminViajes() {
     return { bg: '#1e3a5f', border: '#3b82f6', text: '#93c5fd', icon: '#60a5fa' };
   };
 
+  const handleCloseViaje = async (viaje: any) => {
+    setIsSubmitting(true);
+    try {
+      const now = nowPeru();
+      if (viaje.bitacora && viaje.bitacora.length > 0) {
+        const lastTramo = viaje.bitacora[viaje.bitacora.length - 1];
+        if (!lastTramo.hora_llegada) {
+          await supabase.from('viajes_bitacora').update({ hora_llegada: now }).eq('id_bitacora', lastTramo.id_bitacora);
+        }
+        if (lastTramo.destino_nombre !== 'Planta') {
+          await supabase.from('viajes_bitacora').insert({ id_ruta: viaje.id_ruta, id_chofer: viaje.id_chofer, origen_nombre: lastTramo.destino_nombre, destino_nombre: 'Planta', hora_salida: now, hora_llegada: now });
+        }
+      }
+      await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', viaje.id_ruta);
+      await loadData();
+    } finally { 
+      setIsSubmitting(false); 
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     const { data: rutasData, error: rutasError } = await supabase
@@ -335,7 +355,17 @@ export default function AdminViajes() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3">
+                            {viaje.estado !== 'finalizada' && (
+                              <Button size="sm" variant="danger" className="font-black text-xs bg-red-600 hover:bg-red-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm('¿Finalizar viaje y cerrar bitácora?')) {
+                                    handleCloseViaje(viaje);
+                                  }
+                                }}
+                              > CERRAR </Button>
+                            )}
                             <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${detailedStatus.color}`}>
                               {detailedStatus.label}
                             </span>
@@ -360,34 +390,10 @@ export default function AdminViajes() {
                                         setShowForm(viaje.id_ruta);
                                         setNewSegment({ origen_nombre: viaje.bitacora?.length ? (viaje.bitacora[viaje.bitacora.length-1].destino_nombre || 'Local') : 'Planta', destino_nombre: '' });
                                       }}
-                                    > <Plus size={16} className="mr-1" /> AGREGAR </Button>
+> <Plus size={16} className="mr-1" /> AGREGAR </Button>
                                   )}
-                                  {viaje.estado !== 'finalizada' && (
-                                     <Button size="sm" variant="danger" disabled={isSubmitting} className="font-black italic bg-red-600 hover:bg-red-700 shadow-lg shadow-red-900/20"
-                                       onClick={async (e) => {
-                                         e.stopPropagation();
-                                         if (window.confirm('¿Finalizar viaje y cerrar bitácora?')) {
-                                           setIsSubmitting(true);
-                                           try {
-                                             const now = nowPeru();
-                                             if (viaje.bitacora && viaje.bitacora.length > 0) {
-                                               const lastTramo = viaje.bitacora[viaje.bitacora.length - 1];
-                                               if (!lastTramo.hora_llegada) {
-                                                 await supabase.from('viajes_bitacora').update({ hora_llegada: now }).eq('id_bitacora', lastTramo.id_bitacora);
-                                               }
-                                               if (lastTramo.destino_nombre !== 'Planta') {
-                                                  await supabase.from('viajes_bitacora').insert({ id_ruta: viaje.id_ruta, id_chofer: viaje.id_chofer, origen_nombre: lastTramo.destino_nombre, destino_nombre: 'Planta', hora_salida: now, hora_llegada: now });
-                                               }
-                                             }
-                                             await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', viaje.id_ruta);
-                                             await loadData();
-                                           } finally { setIsSubmitting(false); }
-                                         }
-                                       }}
-                                     > {isSubmitting ? 'CERRANDO...' : 'CERRAR VIAJE'} </Button>
-                                  )}
-                                  
-                                  {/* Botón de eliminar solo para administradores */}
+                                   
+                                   {/* Botón de eliminar solo para administradores */}
                                   <Button size="sm" variant="danger" disabled={isSubmitting} className="font-black bg-red-900/50 hover:bg-red-900 border border-red-800 text-red-100"
                                     onClick={async (e) => {
                                       e.stopPropagation();
