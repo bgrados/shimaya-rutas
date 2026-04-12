@@ -42,6 +42,9 @@ export default function DriverViaje() {
   
   // Selection/Creation state
   const [rutasBase, setRutasBase] = useState<any[]>([]);
+  const [loadingRutasBase, setLoadingRutasBase] = useState(true); // true inicialmente para evitar flash
+  const [rutasBaseLoaded, setRutasBaseLoaded] = useState(false); // Flag para evitar recargas duplicadas
+  const [loadedAtLeastOnce, setLoadedAtLeastOnce] = useState(false); // Track si ya intentamos cargar
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
   const [nuevaPlaca, setNuevaPlaca] = useState(profile?.placa_camion || '');
   const [createError, setCreateError] = useState('');
@@ -174,11 +177,15 @@ export default function DriverViaje() {
   };
 
   const loadCurrentRuta = async () => {
+    console.log('%c[loadCurrentRuta] INICIO', 'color: cyan; font-weight: bold');
+    console.log('%c  ruta antes:', 'color: cyan', ruta?.id_ruta, 'loading:', loading);
     if (!profile) {
       setLoading(false);
+      console.log('[loadCurrentRuta] SIN PERFIL, return');
       return;
     }
     setLoading(true);
+    console.log('%c  loading=true', 'color: cyan');
     try {
       // Primero buscar ruta activa (pendiente o en_progreso)
       const { data: rutaActiva, error: rError } = await supabase
@@ -209,8 +216,11 @@ export default function DriverViaje() {
           .eq('id_ruta', rutaActiva.id_ruta)
           .order('created_at', { ascending: true });
         
-        if (bitError) console.error('Error loading bitacora:', bitError);
+if (bitError) console.error('Error loading bitacora:', bitError);
         setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
+        
+        // Cargar rutas base SIEMPRE (para el selector) - aquí fuera del if para ejecutarse siempre
+        await loadRutasBase();
       } else {
         // Si no hay ruta activa, buscar la ruta finalizada de HOY
         const today = new Date().toISOString().split('T')[0];
@@ -253,8 +263,8 @@ export default function DriverViaje() {
           setBitacora([]);
         }
         
-        // Siempre cargar rutas base para poder crear nuevo viaje si se necesita
-        loadRutasBase();
+        // Cargar rutas base SIEMPRE (para el selector)
+        await loadRutasBase();
       }
     } catch (err: any) {
       console.error('Error cargando datos de viaje:', err);
@@ -264,12 +274,21 @@ export default function DriverViaje() {
         setLoadError('No se pudo cargar la información. Reintenta.');
       }
     } finally {
+      console.log('[loadCurrentRuta] FIN loading=false');
       setLoading(false);
     }
   };
 
-  const loadRutasBase = async () => {
-    console.log('[Viaje] loadRutasBase INICIADO, profile:', profile?.id_usuario);
+  const loadRutasBase = async (force = false) => {
+    console.log('[loadRutasBase] INICIO force:', force, 'loadingRutasBase:', loadingRutasBase, 'rutasBaseLoaded:', rutasBaseLoaded);
+    // Evitar cargas duplicadas si ya se cargó (a menos que force=true)
+    if (rutasBaseLoaded && !force && rutasBase.length > 0) {
+      console.log('[loadRutasBase] SKIP (ya cargado)');
+      return;
+    }
+    console.log('[loadRutasBase] EJECUTANDO, profile:', profile?.id_usuario);
+    setLoadingRutasBase(true);
+    console.log('[Viaje] loadRutasBase -> loadingRutasBase=true');
     try {
       const { data: baseData, error: rbError } = await supabase
         .from('rutas_base')
@@ -280,6 +299,7 @@ export default function DriverViaje() {
         
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
+        setLoadingRutasBase(false);
         return;
       }
 
@@ -301,14 +321,22 @@ export default function DriverViaje() {
         }));
         
         console.log('[Viaje] Final rutasBase:', withCounts);
+        console.log('[loadRutasBase] ACABA DE CARGAR, count:', withCounts.length);
         setRutasBase(withCounts);
-        // No seleccionar ninguna ruta por defecto - el chofer debe elegir
+        setRutasBaseLoaded(true);
+        setLoadedAtLeastOnce(true);
+        console.log('[loadRutasBase] setRutasBase + flags DONE, total:', withCounts.length);
+        setLoadingRutasBase(false);
       } else {
-        console.log('[Viaje] No hay rutas_base');
+        console.log('[loadRutasBase] No hay plantillas');
         setRutasBase([]);
+        setRutasBaseLoaded(true);
+        setLoadedAtLeastOnce(true);
+        setLoadingRutasBase(false);
       }
     } catch (err) {
       console.error('Error loading rutas base:', err);
+      setLoadingRutasBase(false);
     }
   };
 
@@ -319,7 +347,7 @@ export default function DriverViaje() {
       return;
     }
 
-    loadCurrentRuta();
+    loadCurrentRuta(); // Esto internamente llama loadRutasBase si necesita
 
     // Suscripción Realtime específica para ESTE chofer
     const channel = supabase
@@ -700,6 +728,39 @@ export default function DriverViaje() {
   // Si hay ruta activa O ruta finalizada de hoy → mostrar la ruta
   const mostrarRuta = ruta && (ruta.estado !== 'finalizada' || esRutaDeHoy(ruta));
 
+  // NO mostrar formulario hasta que loading principal termine
+  if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
+
+  // Mientras cargan las plantillas, mostrar spinner (pero NO el formulario)
+  if (!mostrarRuta && (loadingRutasBase || !rutasBaseLoaded)) {
+    return (
+      <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
+        <div className="text-center space-y-2 pt-8">
+           <div className="bg-primary/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-primary">
+              <Truck size={40} />
+           </div>
+           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">Nueva Jornada</h1>
+           <p className="text-text-muted text-sm animate-pulse">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // NEW: Si loadingRutasBase aún está trueno mostrar loading en lugar del formulario
+  if (!mostrarRuta && loadingRutasBase) {
+    return (
+      <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
+        <div className="text-center space-y-2 pt-8">
+           <div className="bg-primary/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-primary">
+              <Truck size={40} />
+           </div>
+           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">Nueva Jornada</h1>
+           <p className="text-text-muted text-sm animate-pulse">Cargando plantillas...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!mostrarRuta) {
     return (
       <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
@@ -718,49 +779,31 @@ export default function DriverViaje() {
            <CardContent className="p-8 space-y-6">
               <div className="space-y-4">
                   <div className="space-y-1">
-                      <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
-                      {loading ? (
-                        <div className="bg-surface-light rounded-xl px-4 py-3 text-text-muted text-sm">
-                          ⏳ Cargando plantillas...
-                        </div>
-                      ) : rutasBase.length === 0 ? (
-                        <div className="space-y-2">
-                          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
-                            <p className="text-yellow-400 text-sm font-bold">⚠️ No hay plantillas disponibles</p>
-                            <p className="text-yellow-400/70 text-xs mt-1">Contacta al administrador para configurar rutas base.</p>
-                            <button 
-                              onClick={loadRutasBase}
-                              className="mt-2 text-xs text-yellow-400 underline hover:text-yellow-300"
-                            >
-                              ⟳ Reintentar carga
-                            </button>
-                          </div>
-                          <details className="text-xs text-text-muted">
-                            <summary className="cursor-pointer">Debug: klik para ver datos</summary>
-                            <pre className="mt-2 p-2 bg-surface-light rounded overflow-x-auto">
-                              {JSON.stringify(rutasBase, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+<label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
+                      {/* Simple debug */}
+                      {loadingRutasBase ? (
+                        <div style={{background:'blue',color:'white',padding:8}}>CARGA: YES</div>
+                      ) : !rutasBase.length ? (
+                        <div style={{background:'red',color:'white',padding:8}}>NO HAY</div>
                       ) : (
                       <div className="relative">
-                         <select 
-                           className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors cursor-pointer"
-                           value={selectedRutaBase}
-                           onChange={e => setSelectedRutaBase(e.target.value)}
-                         >
-                           <option value="" disabled>Elige tu ruta...</option>
-                           {rutasBase.map(r => (
-                             <option key={r.id_ruta_base} value={r.id_ruta_base} className="bg-surface text-white">
-                               {r.nombre} ({r.locales_count} paradas)
-                             </option>
-                           ))}
-                         </select>
-                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2">
-                           <ChevronDown size={20} className="text-primary" />
-                         </div>
-                      </div>
-                    )}
+                       <select
+                            className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors cursor-pointer"
+                            value={selectedRutaBase}
+                            onChange={e => setSelectedRutaBase(e.target.value)}
+                          >
+                            <option value="" disabled>Elige tu ruta...</option>
+                            {rutasBase.map(r => (
+                              <option key={r.id_ruta_base} value={r.id_ruta_base} className="bg-surface text-white">
+                                {r.nombre} ({r.locales_count} paradas)
+                              </option>
+                            ))}
+                          </select>
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2">
+                            <ChevronDown size={20} className="text-primary" />
+                          </div>
+                       </div>
+                      )}
                  </div>
 
                   <div className="space-y-1">

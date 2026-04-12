@@ -17,6 +17,7 @@ import Usuarios from './pages/admin/usuarios';
 import NuevoUsuario from './pages/admin/usuarios/Nuevo';
 import Reportes from './pages/admin/reportes';
 import GastosCombustible from './pages/admin/combustible';
+import GastosPeaje from './pages/admin/peaje';
 import AdminViajes from './pages/admin/Viajes';
 import MapaGeneral from './pages/admin/MapaGeneral';
 
@@ -119,6 +120,7 @@ function App() {
               <Route path="locales/nuevo" element={<NuevoLocal />} />
               <Route path="reportes" element={<Reportes />} />
               <Route path="combustible" element={<GastosCombustible />} />
+              <Route path="peaje" element={<GastosPeaje />} />
               <Route path="mapa" element={<MapaGeneral />} />
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
