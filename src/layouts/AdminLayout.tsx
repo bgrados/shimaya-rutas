@@ -56,16 +56,13 @@ export const AdminLayout: React.FC = () => {
         </button>
       </div>
 
-      {/* Sidebar siempre visible */}
-      <div className="w-64 bg-surface border-r border-surface-light fixed inset-y-0 left-0 z-10 overflow-y-auto">
-        <div className="p-6 flex justify-between items-center">
+      {/* Sidebar - simple flex column */}
+      <div className="w-64 bg-surface border-r border-surface-light h-screen fixed left-0 top-0 flex flex-col">
+        <div className="p-6 flex justify-between items-center flex-shrink-0">
           <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
-            <X size={24} />
-          </button>
         </div>
 
-        <nav className="mt-6 px-4 space-y-2">
+        <nav className="mt-2 px-4 space-y-1 flex-1 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -84,29 +81,24 @@ export const AdminLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="mt-8 px-4 pb-4">
+        <div className="p-4 border-t border-surface-light flex-shrink-0">
+          <div className="text-sm mb-2">
+            <p className="text-white font-medium truncate">{profile.nombre}</p>
+            <p className="text-text-muted capitalize text-xs">{profile.rol}</p>
+          </div>
           <button 
             onClick={() => signOut()} 
-            className="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors font-bold z-50 relative"
+            className="w-full flex items-center justify-center px-4 py-2 rounded-xl bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/30 transition-colors font-bold text-sm"
           >
-            <LogOut className="mr-3 h-5 w-5" />
+            <LogOut className="mr-2 h-4 w-4" />
             SALIR
           </button>
         </div>
-
-        <div className="absolute bottom-0 w-full p-4 border-t border-surface-light">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="text-sm">
-              <p className="text-white font-medium truncate w-32">{profile.nombre}</p>
-              <p className="text-text-muted capitalize">{profile.rol}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Main content - with left margin for sidebar */}
-      <div className="flex-1 flex flex-col min-h-screen lg:ml-64 pt-20 z-0">
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+      {/* Main content */}
+      <div className="flex-1 ml-64 pt-16 lg:pt-0">
+        <main className="p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>
