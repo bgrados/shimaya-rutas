@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Usuario } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Plus, Shield, Truck, User, Edit2, Trash2, Key, Loader2, CheckCircle, X, Smartphone, Mail, Camera } from 'lucide-react';
+import { Plus, Shield, Truck, User, Edit2, Trash2, Key, Loader2, CheckCircle, X, Smartphone, Mail, Camera, Phone, Circle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Input } from '../../../components/ui/Input';
 import { useNavigate } from 'react-router-dom';
+
+interface UsuarioExtendido extends Usuario {
+  connected?: boolean;
+  lastSeen?: string;
+}
 
 
 /* ───────────── Sub-componente EditForm ───────────── */
@@ -151,7 +156,7 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
 /* ───────────── Página principal Usuarios ───────────── */
 export default function Usuarios() {
   const navigate = useNavigate();
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioExtendido[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -160,7 +165,17 @@ export default function Usuarios() {
     setLoading(true);
     try {
       const { data } = await supabase.from('usuarios').select('*').order('nombre');
-      if (data) setUsuarios(data as Usuario[]);
+      if (data) {
+        // Verificar último acceso de cada usuario
+        const usuariosConEstado = await Promise.all(
+          (data as Usuario[]).map(async (u) => {
+            const { data: authData } = await supabase.auth.getSession();
+            const connected = authData.session?.user?.id === u.id_usuario;
+            return { ...u, connected, lastSeen: new Date().toISOString() };
+          })
+        );
+        setUsuarios(usuariosConEstado);
+      }
     } catch(err) {
       console.error('Error load:', err);
     } finally {
@@ -168,9 +183,24 @@ export default function Usuarios() {
     }
   };
 
+  // Realtime para detectar usuarios conectados
+  useEffect(() => {
+    load();
+    
+    const channel = supabase.channel('admin_usuarios_online')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, () => {
+        load();
+      })
+      .subscribe();
 
-
-  useEffect(() => { load(); }, []);
+    // Actualizar estado cada 30 segundos
+    const interval = setInterval(load, 30000);
+    
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleSaveEdit = async (id: string, payload: any) => {
     // 1. Update in Table
@@ -292,17 +322,28 @@ export default function Usuarios() {
                   <tr className={`hover:bg-surface-light/20 transition-colors ${editId === user.id_usuario ? 'bg-primary/5' : ''}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-surface border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                          {user.foto_url ? (
-                            <img src={user.foto_url} alt="" className="w-full h-full object-cover" onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                            }} />
-                          ) : null}
-                          <User size={20} className={`text-text-muted opacity-50 ${user.foto_url ? 'hidden' : ''}`}/>
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-full bg-surface border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            {user.foto_url ? (
+                              <img src={user.foto_url} alt="" className="w-full h-full object-cover" onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                              }} />
+                            ) : null}
+                            <User size={20} className={`text-text-muted opacity-50 ${user.foto_url ? 'hidden' : ''}`}/>
+                          </div>
+                          {/* Indicador de conexión */}
+                          {user.connected && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-surface" title="Conectado"></div>
+                          )}
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-bold text-white mb-0.5">{user.nombre}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white mb-0.5">{user.nombre}</span>
+                            {user.connected && (
+                              <span className="text-[10px] text-green-400 font-bold">● En línea</span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-3 text-[11px] text-text-muted">
                             <span className="flex items-center gap-1"><Mail size={10} /> {user.email}</span>
                             {user.telefono && <span className="flex items-center gap-1"><Smartphone size={10} /> {user.telefono}</span>}
@@ -326,6 +367,17 @@ export default function Usuarios() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {user.telefono && (
+                          <a
+                            href={`https://wa.me/51${user.telefono.replace(/\D/g, '')}?text=Hola ${user.nombre}, tienes una consulta`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-green-500/20 rounded-lg text-green-500 transition-all"
+                            title="Llamar por WhatsApp"
+                          >
+                            <Phone size={16} />
+                          </a>
+                        )}
                         <button 
                           onClick={() => setEditId(editId === user.id_usuario ? null : user.id_usuario)}
                           className="p-2 hover:bg-primary/20 rounded-lg text-text-muted hover:text-primary transition-all"
