@@ -160,16 +160,21 @@ export default function Reportes() {
         }));
         setGastos(mapped as GastoCombustible[]);
         
-        // Cargar fotos de combustible
+        // Cargar fotos de TODOS los gastos
         const fotosMap: Record<string, string> = {};
         for (const gasto of data) {
           if (gasto.foto_url) {
-            const base64 = await urlToBase64(gasto.foto_url);
-            if (base64) {
-              fotosMap[gasto.id_gasto] = base64;
+            try {
+              const base64 = await urlToBase64(gasto.foto_url);
+              if (base64) {
+                fotosMap[gasto.id_gasto] = base64;
+              }
+            } catch (e) {
+              console.warn('[Gastos] Error loading foto:', gasto.id_gasto);
             }
           }
         }
+        console.log('[Gastos] Fotos loaded:', Object.keys(fotosMap).length, 'de', data.length);
         setFotosCombustible(fotosMap);
       }
     } catch (err) {
