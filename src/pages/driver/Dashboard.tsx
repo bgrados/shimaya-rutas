@@ -4,14 +4,30 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { MapPin, Navigation, Map, RefreshCw, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+
+interface RutaHistorica {
+  id_ruta: string;
+  nombre: string;
+  fecha: string;
+  estado: string;
+  placa: string | null;
+  hora_salida_planta: string | null;
+  hora_llegada_planta: string | null;
+  locales_count?: number;
+}
 
 export default function DriverDashboard() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [rutas, setRutas] = useState<Ruta[]>([]);
+  const [rutasHistoricas, setRutasHistoricas] = useState<RutaHistorica[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadRutas = async () => {
     if (!profile) {
@@ -39,10 +55,32 @@ export default function DriverDashboard() {
     }
   };
 
+  const loadRutasHistoricas = async () => {
+    if (!profile) return;
+    setLoadingHistory(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('rutas')
+        .select('id_ruta, nombre, fecha, estado, placa, hora_salida_planta, hora_llegada_planta')
+        .eq('id_chofer', profile.id_usuario)
+        .eq('estado', 'finalizada')
+        .order('fecha', { ascending: false })
+        .limit(30);
+        
+      if (error) throw error;
+      setRutasHistoricas(data || []);
+    } catch (e) {
+      console.error('Error loading rutas históricas:', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     loadRutas();
+    loadRutasHistoricas();
 
-    // Suscripción Realtime para detectar cambios de estado desde Admin
     const channel = supabase
       .channel('driver_dashboard_updates')
       .on('postgres_changes', { 
@@ -50,21 +88,26 @@ export default function DriverDashboard() {
         schema: 'public', 
         table: 'rutas',
         filter: `id_chofer=eq.${profile?.id_usuario}`
-      }, () => loadRutas())
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          loadRutas(); // Reintentar carga al conectar o error
-        }
-      });
+      }, () => {
+        loadRutas();
+        loadRutasHistoricas();
+      })
+      .subscribe();
 
-    // Escuchar cuando el teléfono vuelve a tener internet
-    window.addEventListener('online', loadRutas);
+    window.addEventListener('online', () => {
+      loadRutas();
+      loadRutasHistoricas();
+    });
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('online', loadRutas);
     };
   }, [profile?.id_usuario]);
+
+  const handleVerViajeHistorico = (ruta: RutaHistorica) => {
+    navigate(`/driver/viaje/historial/${ruta.id_ruta}`);
+  };
 
   const activeRoute = rutas[0];
 
@@ -91,7 +134,10 @@ export default function DriverDashboard() {
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={loadRutas} 
+          onClick={() => {
+            loadRutas();
+            loadRutasHistoricas();
+          }} 
           isLoading={loading}
           className="text-text-muted hover:text-white"
         >
@@ -158,7 +204,74 @@ export default function DriverDashboard() {
             <p className="text-text-muted">No tienes rutas pendientes o en progreso para el día de hoy.</p>
           </div>
         )}
+
+        {/* Sección Viajes Anteriores */}
+        <div className="mt-8">
+          <button
+            onClick={() => {
+              setShowHistory(!showHistory);
+              if (!showHistory && rutasHistoricas.length === 0) {
+                loadRutasHistoricas();
+              }
+            }}
+            className="w-full flex items-center justify-between p-4 bg-surface-light/30 rounded-xl border border-white/10 hover:border-primary/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <History size={20} className="text-primary" />
+              <span className="text-white font-bold">Viajes Anteriores</span>
+              <span className="text-text-muted text-sm">({rutasHistoricas.length})</span>
+            </div>
+            <ChevronDownIcon className={`text-text-muted transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showHistory && (
+            <div className="mt-4 space-y-2">
+              {loadingHistory ? (
+                <p className="text-text-muted text-center py-4">Cargando...</p>
+              ) : rutasHistoricas.length === 0 ? (
+                <p className="text-text-muted text-center py-4">No hay viajes anteriores</p>
+              ) : (
+                rutasHistoricas.map(ruta => (
+                  <Card key={ruta.id_ruta} className="bg-surface-light/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-white font-bold text-sm">{ruta.nombre}</p>
+                          <div className="flex items-center gap-2 text-text-muted text-xs mt-1">
+                            <Calendar size={12} />
+                            <span>{format(new Date(ruta.fecha), 'dd/MM/yyyy')}</span>
+                            {ruta.hora_salida_planta && (
+                              <>
+                                <Clock size={12} />
+                                <span>{ruta.hora_salida_planta?.substring(0, 5)} - {ruta.hora_llegada_planta?.substring(0, 5)}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleVerViajeHistorico(ruta)}
+                        >
+                          Ver / Editar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
   );
 }

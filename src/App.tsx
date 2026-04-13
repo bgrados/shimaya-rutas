@@ -142,6 +142,7 @@ function App() {
             <Route path="/driver" element={<DriverLayout />}>
               <Route index element={<DriverDashboard />} />
               <Route path="viaje" element={<DriverViaje />} />
+              <Route path="viaje/historial/:id" element={<DriverViaje />} />
               <Route path="ruta/:id" element={<EjecucionRuta />} />
               <Route path="ruta/:rId/visita/:vId" element={<VisitaLocal />} />
             </Route>
