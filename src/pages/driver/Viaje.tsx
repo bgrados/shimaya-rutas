@@ -70,6 +70,7 @@ export default function DriverViaje() {
   const [capturando, setCapturando] = useState(false);
   const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Estado para editar horas de bitácora
   const [editandoBitacora, setEditandoBitacora] = useState<string | null>(null);
@@ -1408,24 +1409,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 variant="secondary"
                 className="flex items-center justify-center gap-2"
                 disabled={fotosCapturadas.length >= 5}
-                onClick={() => { 
-                  const input = document.createElement('input'); 
-                  input.type = 'file'; 
-                  input.accept = 'image/*'; 
-                  input.capture = 'environment';
-                  input.multiple = true; // Permite tomar varias fotos
-                  input.onchange = (e) => { 
-                    const files = (e.target as HTMLInputElement).files; 
-                    if (files && files.length > 0) {
-                      console.log('[Cámara] Archivos seleccionados:', files.length);
-                      const disponibles = 5 - fotosCapturadas.length;
-                      Array.from(files).slice(0, disponibles).forEach(file => {
-                        handleAgregarFoto({ target: { files: [file] } } as any); 
-                      });
-                    }
-                  }; 
-                  input.click(); 
-                }}
+                onClick={() => fileInputRef.current?.click()}
               >
                 <Camera size={18} />
                 Cámara
@@ -1435,28 +1419,47 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 variant="secondary"
                 className="flex items-center justify-center gap-2"
                 disabled={fotosCapturadas.length >= 5}
-                onClick={() => { 
-                  const input = document.createElement('input'); 
-                  input.type = 'file'; 
-                  input.accept = 'image/*'; 
-                  input.multiple = true;
-                  input.onchange = (e) => { 
-                    const files = (e.target as HTMLInputElement).files; 
-                    if (files && files.length > 0) {
-                      console.log('[Fototeca] Archivos seleccionados:', files.length);
-                      const disponibles = 5 - fotosCapturadas.length;
-                      Array.from(files).slice(0, disponibles).forEach(file => {
-                        handleAgregarFoto({ target: { files: [file] } } as any); 
-                      });
-                    }
-                  }; 
-                  input.click(); 
-                }}
+                onClick={() => galleryInputRef.current?.click()}
               >
                 <Image size={18} />
                 Fototeca
               </Button>
             </div>
+            
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              accept="image/*" 
+              capture="environment"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const disponibles = 5 - fotosCapturadas.length;
+                  Array.from(e.target.files).slice(0, disponibles).forEach(file => {
+                    handleAgregarFoto({ target: { files: [file] } } as any);
+                  });
+                }
+                e.target.value = '';
+              }}
+            />
+            
+            <input 
+              type="file" 
+              ref={galleryInputRef}
+              accept="image/*" 
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const disponibles = 5 - fotosCapturadas.length;
+                  Array.from(e.target.files).slice(0, disponibles).forEach(file => {
+                    handleAgregarFoto({ target: { files: [file] } } as any);
+                  });
+                }
+                e.target.value = '';
+              }}
+            />
             
             <div className="flex gap-2">
               <Button 
