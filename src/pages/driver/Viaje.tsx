@@ -595,7 +595,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   const handleAgregarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('[handleAgregarFoto] called, files:', e.target.files?.length);
     if (e.target.files && e.target.files.length > 0) {
-      // Procesar cada archivo con límite de 5 fotos máximo
       const fotosActuales = fotosCapturadas.length;
       const disponibles = 5 - fotosActuales;
       
@@ -610,7 +609,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         reader.readAsDataURL(file);
       });
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    e.target.value = '';
   };
 
   const handleEliminarFoto = (index: number) => {
@@ -1409,10 +1408,22 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 variant="secondary"
                 className="flex items-center justify-center gap-2"
                 disabled={fotosCapturadas.length >= 5}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.capture = 'environment';
+                  input.onchange = (e) => {
+                    const files = (e.target as HTMLInputElement).files;
+                    if (files && files.length > 0) {
+                      handleAgregarFoto({ target: { files } } as any);
+                    }
+                  };
+                  input.click();
+                }}
               >
                 <Camera size={18} />
-                Cámara
+                Cámara ({fotosCapturadas.length}/5)
               </Button>
               <Button
                 type="button"
@@ -1422,27 +1433,9 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 onClick={() => galleryInputRef.current?.click()}
               >
                 <Image size={18} />
-                Fototeca
+                Galeria ({fotosCapturadas.length}/5)
               </Button>
             </div>
-            
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              accept="image/*" 
-              capture="environment"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  const disponibles = 5 - fotosCapturadas.length;
-                  Array.from(e.target.files).slice(0, disponibles).forEach(file => {
-                    handleAgregarFoto({ target: { files: [file] } } as any);
-                  });
-                }
-                e.target.value = '';
-              }}
-            />
             
             <input 
               type="file" 
