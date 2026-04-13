@@ -1481,7 +1481,9 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                     ];
                     
                     const mensaje = encodeURIComponent(lineas.join('\n'));
-                    window.open(`https://wa.me/?text=${mensaje}`, '_blank');
+                    // Número de admin desde variable de entorno o valor por defecto
+                    const whatsappNumero = import.meta.env.VITE_WHATSAPP_ADMIN || '51948800569';
+                    window.open(`https://wa.me/${whatsappNumero}?text=${mensaje}`, '_blank');
                     
                   } catch (err) {
                     console.error('[WhatsApp] Error:', err);
