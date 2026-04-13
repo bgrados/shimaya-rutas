@@ -108,6 +108,8 @@ export default function GastosCombustible() {
   const [paginaActual, setPaginaActual] = useState(1);
   const registrosPorPagina = 20;
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
+  const [editandoTipo, setEditandoTipo] = useState<string | null>(null);
+  const [tipoEditando, setTipoEditando] = useState('');
 
   useEffect(() => {
     loadChoferes();
@@ -493,6 +495,36 @@ export default function GastosCombustible() {
     }
   };
 
+  const actualizarTipo = async (idGasto: string) => {
+    if (!tipoEditando) return;
+    
+    const { error } = await supabase
+      .from('gastos_combustible')
+      .update({ tipo_combustible: tipoEditando })
+      .eq('id_gasto', idGasto);
+    
+    if (!error) {
+      setGastos(gastos.map(g => 
+        g.id_gasto === idGasto ? { ...g, tipo_combustible: tipoEditando as any } : g
+      ));
+    }
+    setEditandoTipo(null);
+    setTipoEditando('');
+  };
+
+  const eliminarGasto = async (idGasto: string) => {
+    if (!confirm('¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.')) return;
+    
+    const { error } = await supabase
+      .from('gastos_combustible')
+      .delete()
+      .eq('id_gasto', idGasto);
+    
+    if (!error) {
+      setGastos(gastos.filter(g => g.id_gasto !== idGasto));
+    }
+  };
+
   const tabs = [
     { key: 'todos', label: 'Todos' },
     { key: 'pendientes', label: 'Pendientes' },
@@ -713,27 +745,54 @@ export default function GastosCombustible() {
                           )}
                         </td>
                         <td className="py-3 px-2 text-center">
-                          {gasto.estado === 'pendiente_revision' && (
-                            <div className="flex justify-center gap-1">
-                              <button
-                                onClick={() => actualizarEstado(gasto.id_gasto, 'confirmado')}
-                                className="p-1 hover:bg-green-500/20 rounded"
-                                title="Confirmar"
+                          {editandoTipo === gasto.id_gasto ? (
+                            <div className="flex items-center gap-1">
+                              <select
+                                value={tipoEditando}
+                                onChange={(e) => setTipoEditando(e.target.value)}
+                                className="bg-surface border border-primary rounded px-1 py-0.5 text-xs text-white"
                               >
-                                <Check size={16} className="text-green-400" />
+                                <option value="glp">GLP</option>
+                                <option value="gasolina">Gasolina</option>
+                                <option value="diesel">Diesel</option>
+                                <option value="otro">Otro</option>
+                              </select>
+                              <button
+                                onClick={() => actualizarTipo(gasto.id_gasto)}
+                                className="p-1 hover:bg-green-500/20 rounded"
+                                title="Guardar"
+                              >
+                                <Check size={14} className="text-green-400" />
                               </button>
                               <button
                                 onClick={() => {
-                                  const motivo = prompt('Ingrese el motivo del rechazo (obligatorio):');
-                                  if (motivo && motivo.trim()) {
-                                    actualizarEstado(gasto.id_gasto, 'rechazado');
-                                    supabase.from('gastos_combustible').update({ notas: motivo.trim() }).eq('id_gasto', gasto.id_gasto);
-                                  }
+                                  setEditandoTipo(null);
+                                  setTipoEditando('');
                                 }}
                                 className="p-1 hover:bg-red-500/20 rounded"
-                                title="Rechazar"
+                                title="Cancelar"
                               >
-                                <X size={16} className="text-red-400" />
+                                <X size={14} className="text-red-400" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditandoTipo(gasto.id_gasto);
+                                  setTipoEditando(gasto.tipo_combustible || 'glp');
+                                }}
+                                className="p-1 hover:bg-primary/20 rounded"
+                                title="Cambiar tipo"
+                              >
+                                <Fuel size={14} className="text-primary" />
+                              </button>
+                              <button
+                                onClick={() => eliminarGasto(gasto.id_gasto)}
+                                className="p-1 hover:bg-red-500/20 rounded"
+                                title="Eliminar"
+                              >
+                                <X size={14} className="text-red-400" />
                               </button>
                             </div>
                           )}
