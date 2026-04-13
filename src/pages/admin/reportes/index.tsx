@@ -995,6 +995,24 @@ const win = window.open('', '_blank');
           </Card>
         </div>
 
+        {/* Cards de Otros (Estacionamiento/Peaje) */}
+        {gastosOtros.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <Card className="bg-blue-500/10 border-blue-500/30">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-blue-300 uppercase font-bold">Otros Hoy</p>
+                <p className="text-xl font-black text-blue-400">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-blue-500/10 border-blue-500/30">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-blue-300 uppercase font-bold">Transacciones</p>
+                <p className="text-xl font-black text-blue-400">{gastosOtros.length}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Lista agrupada */}
         {combustibleLoading ? (
           <div className="text-center py-8 text-text-muted">Cargando...</div>
