@@ -1443,16 +1443,16 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       }
                     }
                     
-                    // Obtener gastos de combustible
+                    // Obtener gastos de combustible (separado de otros)
                     const { data: gastos } = await supabase
                       .from('gastos_combustible')
                       .select('monto, tipo_combustible')
                       .eq('id_ruta', ruta.id_ruta);
                     
-                    const gastoTotal = gastos?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
-                    const gastoTipo = gastos?.[0]?.tipo_combustible?.toUpperCase() || 'NINGUNO';
+                    const gastoCombustible = gastos?.filter(g => g.tipo_combustible !== 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+                    const gastoOtros = gastos?.filter(g => g.tipo_combustible === 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
                     
-                    // Calcular duración
+                    // Calcular duración total
                     let duracion = 'No registrado';
                     if (ruta.hora_salida_planta && ruta.hora_llegada_planta) {
                       const salida = new Date(ruta.hora_salida_planta);
@@ -1461,21 +1461,41 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       duracion = mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
                     }
                     
+                    // Calcular tiempo entre locales (bitácora)
+                    const tiempoEntreLocales = bitacora.map((tramo, idx) => {
+                      if (!tramo.hora_salida || !tramo.hora_llegada) return null;
+                      
+                      // Tiempo de tránsito (origen -> destino)
+                      const llegada = new Date(tramo.hora_llegada);
+                      const salida = new Date(tramo.hora_salida);
+                      const transito = Math.round((llegada.getTime() - salida.getTime()) / 60000);
+                      
+                      // Tiempo de permanencia (en el destino)
+                      let permanencia = 0;
+                      if (idx < bitacora.length - 1 && bitacora[idx + 1].hora_salida) {
+                        const sigSalida = new Date(bitacora[idx + 1].hora_salida);
+                        permanencia = Math.round((sigSalida.getTime() - llegada.getTime()) / 60000);
+                      }
+                      
+                      return {
+                        destino: tramo.destino_nombre,
+                        transito: transito >= 60 ? `${Math.floor(transito/60)}h${transito%60}m` : `${transito}min`,
+                        permanencia: permanencia > 0 ? (permanencia >= 60 ? `${Math.floor(permanencia/60)}h${permanencia%60}m` : `${permanencia}min`) : '-'
+                      };
+                    }).filter(Boolean);
+                    
                     // Construir mensaje
                     const lineas = [
                       `🚛 *Resumen de Ruta - ${ruta.nombre}*`,
                       `━━━━━━━━━━━━━━━━━━━━`,
                       `📅 ${ruta.fecha || 'Hoy'}`,
                       `🚚 Unidad: ${ruta.placa || 'No asignada'}`,
-                      `⏱️ Duración: ${duracion}`,
+                      `⏱️ Duración total: ${duracion}`,
                       `📍 Locales visitados: ${localesVisitados.length}`,
-                      `⛽ Combustible: S/ ${gastoTotal.toFixed(2)} (${gastoTipo})`,
+                      `⛽ GLP: S/ ${gastoCombustible.toFixed(2)} | 💵 Otros: S/ ${gastoOtros.toFixed(2)}`,
                       ``,
-                      `📋 *Locales Visitados:*`,
-                      ...localesVisitados.map(l => {
-                        const fotosCount = fotosPorLocal[l.nombre || '']?.length || 0;
-                        return `• ${l.nombre} ${fotosCount > 0 ? `(${fotosCount} 📸)` : ''}`;
-                      }),
+                      `⏱️ *Tiempos por Local:*`,
+                      ...tiempoEntreLocales.map((t: any) => `• ${t.destino}: 🚗 ${t.transito} | ⏱️ ${t.permanencia}`),
                       ``,
                       `_Enviado desde Shimaya Rutas_`
                     ];
