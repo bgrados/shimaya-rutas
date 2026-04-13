@@ -1103,40 +1103,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                           {(function() {
                             const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
                             if (localActual?.latitud && localActual?.longitud) {
-                              // Obtener locales desde el inicio hasta el actual (incluyendo Planta)
-                              const idxActual = locales.findIndex(l => l.nombre === localActual.nombre);
-                              const localesHastaAhora = locales.slice(0, idxActual + 1).filter(l => l.latitud && l.longitud);
-                              
-                              if (localesHastaAhora.length < 2) {
-                                // Solo el destino actual, abrir directo
-                                return (
-                                  <>
-                                    <a
-                                      href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors"
-                                      title="Ver ruta"
-                                    >
-                                      <MapPin size={16} />
-                                    </a>
-                                    <a
-                                      href={`https://www.waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-1.5 rounded-md transition-colors"
-                                      title="Navegación Waze"
-                                    >
-                                      <Navigation size={16} />
-                                    </a>
-                                  </>
-                                );
-                              }
-                              
-                              // Construir ruta: origen = primer local visitable, destino = local actual, waypoints = intermedios
-                              const waypoints = localesHastaAhora.slice(1, -1).map(l => `${l.latitud},${l.longitud}`);
-                              const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${localesHastaAhora[0].latitud},${localesHastaAhora[0].longitud}&destination=${localActual.latitud},${localActual.longitud}${waypoints.length > 0 ? '&waypoints=' + waypoints.join('|') : ''}&travelmode=driving`;
-                              
+                              // Solo ruta al destino actual (desde donde está ahora)
+                              const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving`;
                               const wazeUrl = `https://www.waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`;
                               
                               return (
@@ -1146,7 +1114,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors"
-                                    title="Ver ruta completa"
+                                    title="Cómo llegar"
                                   >
                                     <MapPin size={16} />
                                   </a>
@@ -1164,6 +1132,20 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                             }
                             return null;
                           })()}
+                          <button 
+                            onClick={() => {
+                              const localesConCoords = locales.filter(l => l.latitud && l.longitud);
+                              if (localesConCoords.length > 1) {
+                                const waypoints = localesConCoords.slice(1, -1).map(l => `${l.latitud},${l.longitud}`);
+                                const url = `https://www.google.com/maps/dir/?api=1&origin=${localesConCoords[0].latitud},${localesConCoords[0].longitud}&destination=${localesConCoords[localesConCoords.length - 1].latitud},${localesConCoords[localesConCoords.length - 1].longitud}${waypoints.length > 0 ? '&waypoints=' + waypoints.join('|') : ''}&travelmode=driving`;
+                                window.open(url, '_blank');
+                              }
+                            }}
+                            className="text-green-400 hover:text-green-300 bg-green-500/20 hover:bg-green-500/30 p-1.5 rounded-md transition-colors"
+                            title="Ver ruta completa"
+                          >
+                            <Truck size={16} />
+                          </button>
                           <button 
                             onClick={() => {
                               setDestinoEditado(tramoEnProgreso.destino_nombre || '');
