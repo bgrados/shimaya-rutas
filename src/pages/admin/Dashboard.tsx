@@ -19,6 +19,7 @@ interface Stats {
   gastoCombustibleDia: number;
   gastoCombustibleSemana: number;
   gastoOtrosDia: number;
+  gastoOtrosSemana: number;
   cargasCombustibleHoy: number;
 }
 
@@ -127,7 +128,9 @@ export default function AdminDashboard() {
       
       // Obtener gastos de "otros" (estacionamiento/peaje)
       const otrosDiaRes = await supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', `${hoyStr}T00:00:00`);
+      const otrosSemanaRes = await supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', `${semanaStr}T00:00:00`);
       const gastoOtrosDia = otrosDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+      const gastoOtrosSemana = otrosSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       
       console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana, 'Otros dia:', gastoOtrosDia, 'Cargas:', cargasCombustibleDia);
       
@@ -144,6 +147,7 @@ export default function AdminDashboard() {
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia: gastoOtrosDia,
+        gastoOtrosSemana: gastoOtrosSemana,
         cargasCombustibleHoy: cargasCombustibleDia
       });
 
@@ -343,24 +347,24 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-xs text-yellow-300 uppercase font-bold">Combustible Hoy</p>
                 <p className="text-2xl font-black text-white">S/ {stats.gastoCombustibleDia.toFixed(2)}</p>
+                <p className="text-xs text-yellow-400/60">Sem: S/ {stats.gastoCombustibleSemana.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {stats.gastoOtrosDia > 0 && (
-          <Card className="bg-blue-500/10 border border-blue-500/30">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Car className="text-blue-400" size={20} />
-              </div>
-              <div>
-                <p className="text-xs text-blue-300 uppercase font-bold">Otros (Estac./Peaje)</p>
-                <p className="text-2xl font-black text-white">S/ {stats.gastoOtrosDia.toFixed(2)}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card className="bg-blue-500/10 border border-blue-500/30">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
+              <Car className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-blue-300 uppercase font-bold">Otros Hoy</p>
+              <p className="text-2xl font-black text-white">S/ {stats.gastoOtrosDia.toFixed(2)}</p>
+              <p className="text-xs text-blue-400/60">Sem: S/ {stats.gastoOtrosSemana.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Secondary Stats */}

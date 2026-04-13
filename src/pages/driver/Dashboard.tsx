@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock } from 'lucide-react';
+import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
@@ -19,6 +19,12 @@ interface RutaHistorica {
   locales_count?: number;
 }
 
+interface GastoDelDia {
+  monto: number;
+  tipo_combustible: string;
+  foto_url: string | null;
+}
+
 export default function DriverDashboard() {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -28,6 +34,8 @@ export default function DriverDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [gastosCombustible, setGastosCombustible] = useState<GastoDelDia | null>(null);
+  const [gastosOtros, setGastosOtros] = useState<GastoDelDia | null>(null);
 
   const loadRutas = async () => {
     if (!profile) {
@@ -77,6 +85,50 @@ export default function DriverDashboard() {
     }
   };
 
+  const loadGastosDelDia = async () => {
+    if (!profile) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    try {
+      const { data: gastoComb } = await supabase
+        .from('gastos_combustible')
+        .select('monto, tipo_combustible, foto_url')
+        .eq('id_chofer', profile.id_usuario)
+        .neq('tipo_combustible', 'otro')
+        .gte('created_at', `${today}T00:00:00`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (gastoComb && gastoComb.length > 0) {
+        setGastosCombustible({
+          monto: gastoComb[0].monto || 0,
+          tipo_combustible: gastoComb[0].tipo_combustible,
+          foto_url: gastoComb[0].foto_url
+        });
+      }
+      
+      const { data: gastoOt } = await supabase
+        .from('gastos_combustible')
+        .select('monto, tipo_combustible, foto_url')
+        .eq('id_chofer', profile.id_usuario)
+        .eq('tipo_combustible', 'otro')
+        .gte('created_at', `${today}T00:00:00`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (gastoOt && gastoOt.length > 0) {
+        setGastosOtros({
+          monto: gastoOt[0].monto || 0,
+          tipo_combustible: gastoOt[0].tipo_combustible,
+          foto_url: gastoOt[0].foto_url
+        });
+      }
+    } catch (e) {
+      console.error('Error loading gastos:', e);
+    }
+  };
+
   useEffect(() => {
     loadRutas();
     loadRutasHistoricas();
@@ -91,18 +143,26 @@ export default function DriverDashboard() {
       }, () => {
         loadRutas();
         loadRutasHistoricas();
+        loadGastosDelDia();
       })
       .subscribe();
 
     window.addEventListener('online', () => {
       loadRutas();
       loadRutasHistoricas();
+      loadGastosDelDia();
     });
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('online', loadRutas);
     };
+  }, [profile?.id_usuario]);
+
+  useEffect(() => {
+    if (profile?.id_usuario) {
+      loadGastosDelDia();
+    }
   }, [profile?.id_usuario]);
 
   const handleVerViajeHistorico = (ruta: RutaHistorica) => {
@@ -146,6 +206,63 @@ export default function DriverDashboard() {
       </div>
 
       <div className="space-y-4">
+        {/* Cards de Gastos del Día */}
+        {(gastosCombustible?.monto || gastosOtros?.monto) && (
+          <div className="grid grid-cols-2 gap-3">
+            {gastosCombustible?.monto ? (
+              <Card className="bg-yellow-500/10 border-yellow-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500/20 rounded-lg">
+                      <Fuel className="text-yellow-400" size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-yellow-300 uppercase font-bold">Combustible</p>
+                      <p className="text-xl font-black text-white">S/ {gastosCombustible.monto.toFixed(2)}</p>
+                      {gastosCombustible.foto_url && (
+                        <a href={gastosCombustible.foto_url} target="_blank" rel="noopener noreferrer" className="text-xs text-yellow-400/60 hover:underline">Ver comprobante</a>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-yellow-500/10 border-yellow-500/30 opacity-50">
+                <CardContent className="p-4 text-center">
+                  <Fuel className="text-yellow-400 mx-auto mb-1" size={20} />
+                  <p className="text-xs text-yellow-300">Sin gasto</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {gastosOtros?.monto ? (
+              <Card className="bg-blue-500/10 border-blue-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <Car className="text-blue-400" size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-blue-300 uppercase font-bold">Otros</p>
+                      <p className="text-xl font-black text-white">S/ {gastosOtros.monto.toFixed(2)}</p>
+                      {gastosOtros.foto_url && (
+                        <a href={gastosOtros.foto_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400/60 hover:underline">Ver comprobante</a>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-blue-500/10 border-blue-500/30 opacity-50">
+                <CardContent className="p-4 text-center">
+                  <Car className="text-blue-400 mx-auto mb-1" size={20} />
+                  <p className="text-xs text-blue-300">Sin gasto</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
         <Card className="bg-primary border-none shadow-lg shadow-primary/20 overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
