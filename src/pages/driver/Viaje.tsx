@@ -27,7 +27,8 @@ import {
   Camera,
   Image,
   ListTodo,
-  Navigation
+  Navigation,
+  MessageCircle
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -63,6 +64,7 @@ export default function DriverViaje() {
 
   const [nuevoDestino, setNuevoDestino] = useState('');
   const [showCombustible, setShowCombustible] = useState(false);
+  const [enviandoWhatsapp, setEnviandoWhatsapp] = useState(false);
   
   // Estado para capturar fotos de evidencia
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
@@ -1418,6 +1420,80 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 className="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm"
               >
                 🚛 Iniciar Nuevo Viaje
+              </button>
+              
+              <button
+                onClick={async () => {
+                  if (enviandoWhatsapp) return;
+                  setEnviandoWhatsapp(true);
+                  
+                  try {
+                    // Obtener locales visitados con fotos
+                    const localesVisitados = locales.filter(l => l.hora_llegada);
+                    const fotosPorLocal: Record<string, { id_foto: string; foto_url: string }[]> = {};
+                    
+                    for (const local of localesVisitados) {
+                      const { data: fotos } = await supabase
+                        .from('fotos_visita')
+                        .select('id_foto, foto_url')
+                        .eq('id_local_ruta', local.id_local_ruta);
+                      
+                      if (fotos && fotos.length > 0) {
+                        fotosPorLocal[local.nombre || 'Local'] = fotos;
+                      }
+                    }
+                    
+                    // Obtener gastos de combustible
+                    const { data: gastos } = await supabase
+                      .from('gastos_combustible')
+                      .select('monto, tipo_combustible')
+                      .eq('id_ruta', ruta.id_ruta);
+                    
+                    const gastoTotal = gastos?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+                    const gastoTipo = gastos?.[0]?.tipo_combustible?.toUpperCase() || 'NINGUNO';
+                    
+                    // Calcular duración
+                    let duracion = 'No registrado';
+                    if (ruta.hora_salida_planta && ruta.hora_llegada_planta) {
+                      const salida = new Date(ruta.hora_salida_planta);
+                      const llegada = new Date(ruta.hora_llegada_planta);
+                      const mins = Math.round((llegada.getTime() - salida.getTime()) / 60000);
+                      duracion = mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
+                    }
+                    
+                    // Construir mensaje
+                    const lineas = [
+                      `🚛 *Resumen de Ruta - ${ruta.nombre}*`,
+                      `━━━━━━━━━━━━━━━━━━━━`,
+                      `📅 ${ruta.fecha || 'Hoy'}`,
+                      `🚚 Unidad: ${ruta.placa || 'No asignada'}`,
+                      `⏱️ Duración: ${duracion}`,
+                      `📍 Locales visitados: ${localesVisitados.length}`,
+                      `⛽ Combustible: S/ ${gastoTotal.toFixed(2)} (${gastoTipo})`,
+                      ``,
+                      `📋 *Locales Visitados:*`,
+                      ...localesVisitados.map(l => {
+                        const fotosCount = fotosPorLocal[l.nombre || '']?.length || 0;
+                        return `• ${l.nombre} ${fotosCount > 0 ? `(${fotosCount} 📸)` : ''}`;
+                      }),
+                      ``,
+                      `_Enviado desde Shimaya Rutas_`
+                    ];
+                    
+                    const mensaje = encodeURIComponent(lineas.join('\n'));
+                    window.open(`https://wa.me/?text=${mensaje}`, '_blank');
+                    
+                  } catch (err) {
+                    console.error('[WhatsApp] Error:', err);
+                    alert('Error al generar resumen');
+                  } finally {
+                    setEnviandoWhatsapp(false);
+                  }
+                }}
+                disabled={enviandoWhatsapp}
+                className="mt-4 ml-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
+              >
+                {enviandoWhatsapp ? '⏳ Generando...' : '📤 Enviar Resumen'}
               </button>
           </div>
           
