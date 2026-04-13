@@ -3,10 +3,11 @@ import { supabase } from '../../../lib/supabase';
 import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel } from 'lucide-react';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatPeru, formatGroupDate, formatGroupDatePdf } from '../../../lib/timezone';
+import JSZip from 'jszip';
 
 const urlToBase64 = async (url: string): Promise<string | null> => {
   try {
@@ -61,6 +62,7 @@ export default function Reportes() {
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
   const [incluirFotosEnPDF, setIncluirFotosEnPDF] = useState(true);
+  const [descargandoZip, setDescargandoZip] = useState(false);
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
@@ -208,6 +210,53 @@ export default function Reportes() {
   }[period];
 
   const choferNombre = filterChofer ? choferes.find(c => c.id_usuario === filterChofer)?.nombre || '' : '';
+
+  const handleDownloadFoto = (base64Data: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = base64Data;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportarFotosZip = async () => {
+    const fotosConGastos = [...gastosCombustible, ...gastosOtros].filter(g => fotosCombustible[g.id_gasto]);
+    if (fotosConGastos.length === 0) {
+      alert('No hay fotos para exportar');
+      return;
+    }
+
+    setDescargandoZip(true);
+    try {
+      const zip = new JSZip();
+      const fecha = format(new Date(), 'yyyy-MM-dd');
+      
+      for (const gasto of fotosConGastos) {
+        const fotoBase64 = fotosCombustible[gasto.id_gasto];
+        if (fotoBase64) {
+          const nombreArchivo = `${gasto.chofer_nombre || 'chofer'}_${gasto.tipo_combustible}_${gasto.monto}.jpg`;
+          const base64Data = fotoBase64.split(',')[1];
+          zip.file(nombreArchivo, base64Data, { base64: true });
+        }
+      }
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `fotos_gastos_${fecha}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[Zip] Error:', err);
+      alert('Error al exportar fotos');
+    } finally {
+      setDescargandoZip(false);
+    }
+  };
 
   const handleShareWhatsApp = () => {
     const lines = [
@@ -1106,22 +1155,45 @@ const win = window.open('', '_blank');
         {reportType === 'combustible' && (
           <Card className="mt-6">
             <CardContent className="p-4">
-              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                📸 Fotos de Comprobantes
-                <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-bold flex items-center gap-2">
+                  📸 Fotos de Comprobantes
+                  <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                </h3>
+                {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleExportarFotosZip}
+                    disabled={descargandoZip}
+                    className="flex items-center gap-1"
+                  >
+                    <DownloadIcon size={14} />
+                    {descargandoZip ? 'Descargando...' : 'Descargar ZIP'}
+                  </Button>
+                )}
+              </div>
               {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length === 0 ? (
                 <p className="text-text-muted text-sm">No hay fotos de combustible</p>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
                     <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                      <img 
-                        src={fotosCombustible[gasto.id_gasto]} 
-                        alt="Comprobante" 
-                        className="w-full h-40 object-cover cursor-pointer"
-                        onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
-                      />
+                      <div className="relative">
+                        <img 
+                          src={fotosCombustible[gasto.id_gasto]} 
+                          alt="Comprobante" 
+                          className="w-full h-40 object-cover cursor-pointer"
+                          onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
+                        />
+                        <button
+                          onClick={() => handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`)}
+                          className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded-full hover:bg-black/80"
+                          title="Descargar"
+                        >
+                          <DownloadIcon size={14} className="text-white" />
+                        </button>
+                      </div>
                       <div className="p-2 text-xs">
                         <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
                         <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>

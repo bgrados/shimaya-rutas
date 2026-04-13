@@ -220,7 +220,20 @@ export default function DriverDashboard() {
                       <p className="text-xs text-yellow-300 uppercase font-bold">Combustible</p>
                       <p className="text-xl font-black text-white">S/ {gastosCombustible.monto.toFixed(2)}</p>
                       {gastosCombustible.foto_url && (
-                        <a href={gastosCombustible.foto_url} target="_blank" rel="noopener noreferrer" className="text-xs text-yellow-400/60 hover:underline">Ver comprobante</a>
+                        <button 
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = gastosCombustible.foto_url!;
+                            link.download = `combustible_${Date.now()}.jpg`;
+                            link.target = '_blank';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="text-xs text-yellow-400 hover:underline"
+                        >
+                          📥 Descargar comprobante
+                        </button>
                       )}
                     </div>
                   </div>
@@ -246,7 +259,20 @@ export default function DriverDashboard() {
                       <p className="text-xs text-blue-300 uppercase font-bold">Otros</p>
                       <p className="text-xl font-black text-white">S/ {gastosOtros.monto.toFixed(2)}</p>
                       {gastosOtros.foto_url && (
-                        <a href={gastosOtros.foto_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400/60 hover:underline">Ver comprobante</a>
+                        <button 
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = gastosOtros.foto_url!;
+                            link.download = `otro_gasto_${Date.now()}.jpg`;
+                            link.target = '_blank';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="text-xs text-blue-400 hover:underline"
+                        >
+                          📥 Descargar comprobante
+                        </button>
                       )}
                     </div>
                   </div>
