@@ -91,37 +91,37 @@ export default function DriverDashboard() {
     const today = new Date().toISOString().split('T')[0];
     
     try {
-      const { data: gastoComb } = await supabase
+      // Obtener TODOS los gastos de combustible del día y sumar
+      const { data: gastosComb } = await supabase
         .from('gastos_combustible')
         .select('monto, tipo_combustible, foto_url')
         .eq('id_chofer', profile.id_usuario)
         .neq('tipo_combustible', 'otro')
-        .gte('created_at', `${today}T00:00:00`)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .gte('created_at', `${today}T00:00:00`);
       
-      if (gastoComb && gastoComb.length > 0) {
+      if (gastosComb && gastosComb.length > 0) {
+        const totalComb = gastosComb.reduce((sum, g) => sum + (g.monto || 0), 0);
         setGastosCombustible({
-          monto: gastoComb[0].monto || 0,
-          tipo_combustible: gastoComb[0].tipo_combustible,
-          foto_url: gastoComb[0].foto_url
+          monto: totalComb,
+          tipo_combustible: 'mixto',
+          foto_url: gastosComb.find(g => g.foto_url)?.foto_url || null
         });
       }
       
-      const { data: gastoOt } = await supabase
+      // Obtener TODOS los gastos de otros del día y sumar
+      const { data: gastosOt } = await supabase
         .from('gastos_combustible')
         .select('monto, tipo_combustible, foto_url')
         .eq('id_chofer', profile.id_usuario)
         .eq('tipo_combustible', 'otro')
-        .gte('created_at', `${today}T00:00:00`)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .gte('created_at', `${today}T00:00:00`);
       
-      if (gastoOt && gastoOt.length > 0) {
+      if (gastosOt && gastosOt.length > 0) {
+        const totalOt = gastosOt.reduce((sum, g) => sum + (g.monto || 0), 0);
         setGastosOtros({
-          monto: gastoOt[0].monto || 0,
-          tipo_combustible: gastoOt[0].tipo_combustible,
-          foto_url: gastoOt[0].foto_url
+          monto: totalOt,
+          tipo_combustible: 'otro',
+          foto_url: gastosOt.find(g => g.foto_url)?.foto_url || null
         });
       }
     } catch (e) {
