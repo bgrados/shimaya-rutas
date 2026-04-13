@@ -1365,12 +1365,33 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               </button>
             </div>
             
-            <p className="text-sm text-text-muted">Máximo 5 fotos • Compresión automática</p>
+            <p className="text-sm text-text-muted">Máximo 5 fotos • Toca cámara o fototeca para agregar más</p>
+            
+            {/* Preview de fotos capturadas (sin guardar aún) */}
+            {fotosCapturadas.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-yellow-400 font-bold">Por guardar ({fotosCapturadas.length}/5):</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {fotosCapturadas.map((foto, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-yellow-500/50">
+                      <img src={foto.preview} alt={`Captura ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleEliminarFoto(idx)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Fotos existentes */}
             {fotosExistentes.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs text-purple-400 font-bold">Fotos guardadas:</p>
+                <p className="text-xs text-purple-400 font-bold">Fotos guardadas ({fotosExistentes.length}):</p>
                 <div className="grid grid-cols-3 gap-2">
                   {fotosExistentes.map((foto) => (
                     <div key={foto.id_foto} className="relative aspect-square rounded-lg overflow-hidden border border-green-500/50 cursor-pointer" onClick={() => setFotoAmpliada(foto.foto_url)}>
@@ -1386,16 +1407,21 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 type="button"
                 variant="secondary"
                 className="flex items-center justify-center gap-2"
+                disabled={fotosCapturadas.length >= 5}
                 onClick={() => { 
                   const input = document.createElement('input'); 
                   input.type = 'file'; 
                   input.accept = 'image/*'; 
-                  input.capture = 'environment'; // Abre cámara directamente
+                  input.capture = 'environment';
+                  input.multiple = true; // Permite tomar varias fotos
                   input.onchange = (e) => { 
                     const files = (e.target as HTMLInputElement).files; 
                     if (files && files.length > 0) {
-                      console.log('[Cámara] Archivo seleccionado:', files.length);
-                      handleAgregarFoto({ target: { files } } as any); 
+                      console.log('[Cámara] Archivos seleccionados:', files.length);
+                      const disponibles = 5 - fotosCapturadas.length;
+                      Array.from(files).slice(0, disponibles).forEach(file => {
+                        handleAgregarFoto({ target: { files: [file] } } as any); 
+                      });
                     }
                   }; 
                   input.click(); 
@@ -1408,18 +1434,18 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 type="button"
                 variant="secondary"
                 className="flex items-center justify-center gap-2"
+                disabled={fotosCapturadas.length >= 5}
                 onClick={() => { 
                   const input = document.createElement('input'); 
                   input.type = 'file'; 
                   input.accept = 'image/*'; 
-                  input.multiple = true; // Permite seleccionar varias fotos
+                  input.multiple = true;
                   input.onchange = (e) => { 
                     const files = (e.target as HTMLInputElement).files; 
                     if (files && files.length > 0) {
                       console.log('[Fototeca] Archivos seleccionados:', files.length);
-                      // Agregar cada archivo
-                      Array.from(files).slice(0, 5 - fotosCapturadas.length).forEach(file => {
-                        console.log('[Fototeca] Agregando:', file.name, file.size);
+                      const disponibles = 5 - fotosCapturadas.length;
+                      Array.from(files).slice(0, disponibles).forEach(file => {
                         handleAgregarFoto({ target: { files: [file] } } as any); 
                       });
                     }
@@ -1443,10 +1469,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               <Button 
                 className="flex-1 bg-green-600 hover:bg-green-700"
                 onClick={handleSubirFotosEvidencia}
-                disabled={fotosCapturadas.length === 0 || capturando}
+                disabled={(fotosCapturadas.length === 0 && fotosExistentes.length === 0) || capturando}
                 isLoading={capturando}
               >
-                ✓ Guardar {fotosCapturadas.length > 0 && `(${fotosCapturadas.length})`}
+                {fotosCapturadas.length > 0 ? `✓ Guardar (${fotosCapturadas.length})` : 'Listo'}
               </Button>
             </div>
           </div>

@@ -113,9 +113,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return
         }
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[Auth] Cache parse error:', e)
+    }
 
-    let profileFound: any = null
+    let profileFound: Usuario | null = null
 
     if (userId) {
       console.log('[Auth] Buscando por id_usuario:', userId)

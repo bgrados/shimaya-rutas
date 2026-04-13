@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
+import { ToastProvider } from './components/ui/Toast';
 import { AuthLayout } from './layouts/AuthLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { DriverLayout } from './layouts/DriverLayout';
+import { Spinner } from './components/ui/Spinner';
 import { Component, ReactNode } from 'react';
 
 import Login from './pages/Login';
@@ -98,12 +101,22 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <Spinner size="lg" />
+    </div>
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
+      <ToastProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
             <Route path="/" element={<AuthLayout />}>
               <Route index element={<Navigate to="/login" replace />} />
               <Route path="login" element={<Login />} />
@@ -134,9 +147,11 @@ function App() {
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </AuthProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

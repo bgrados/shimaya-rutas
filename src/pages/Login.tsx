@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { useNavigate } from 'react-router-dom';
 import { Truck, CheckCircle2, MoveRight } from 'lucide-react';
 
 export default function Login() {
@@ -13,7 +12,6 @@ export default function Login() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (user && profile && !loading && !showSuccess) {
@@ -29,8 +27,8 @@ export default function Login() {
     try {
       const cleanEmail = email.trim().replace('@shimaya.com', '');
       await signIn(`${cleanEmail}@shimaya.com`, password);
-    } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesión. Verifica tus credenciales.');
       setIsLoggingIn(false);
     }
   };
@@ -44,8 +42,6 @@ export default function Login() {
   };
 
   if (showSuccess && user && profile && !loading) {
-    const targetUrl = (profile.rol === 'administrador' || profile.rol === 'supervisor') ? '/admin' : '/driver';
-    
     return (
       <div className="w-full max-w-md bg-surface p-10 rounded-2xl shadow-2xl border border-primary/50 text-center animate-in zoom-in-95 duration-500">
         <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -89,13 +85,13 @@ export default function Login() {
             <MoveRight size={12} className="text-primary/40" />
           </div>
         </div>
-        <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Shimaya Rutas 🚛 v2</h2>
-        <p className="text-text-muted text-xs uppercase tracking-widest font-bold opacity-60">Logística Avanzada - TEST DEPLOY</p>
+        <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Shimaya Rutas v2</h2>
+        <p className="text-text-muted text-xs uppercase tracking-widest font-bold opacity-60">Logística Avanzada</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-danger/20 border border-danger text-danger text-sm p-3 rounded-xl animate-in fade-in duration-300">
+          <div className="bg-red-500/20 border border-red-500 text-red-400 text-sm p-3 rounded-xl animate-in fade-in duration-300">
             {error}
           </div>
         )}
