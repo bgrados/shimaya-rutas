@@ -63,6 +63,7 @@ export default function Reportes() {
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
   const [incluirFotosEnPDF, setIncluirFotosEnPDF] = useState(true);
   const [descargandoZip, setDescargandoZip] = useState(false);
+  const [descargandoZipEvidencia, setDescargandoZipEvidencia] = useState(false);
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
@@ -255,6 +256,58 @@ export default function Reportes() {
       alert('Error al exportar fotos');
     } finally {
       setDescargandoZip(false);
+    }
+  };
+
+  const handleExportarEvidenciaZip = async () => {
+    const todasLasFotos: { foto: FotoVisita; local: any; ruta: any }[] = [];
+    
+    allRutas.forEach((ruta: any) => {
+      if (ruta.localesRuta) {
+        ruta.localesRuta.forEach((local: any) => {
+          const fotos = fotosPorLocal[local.id_local_ruta] || [];
+          fotos.forEach((foto: FotoVisita) => {
+            todasLasFotos.push({ foto, local, ruta });
+          });
+        });
+      }
+    });
+
+    if (todasLasFotos.length === 0) {
+      alert('No hay fotos de evidencia para exportar');
+      return;
+    }
+
+    setDescargandoZipEvidencia(true);
+    try {
+      const zip = new JSZip();
+      const fecha = format(new Date(), 'yyyy-MM-dd');
+      
+      for (const item of todasLasFotos) {
+        try {
+          const response = await fetch(item.foto.foto_url);
+          const blob = await response.blob();
+          const nombreArchivo = `${item.ruta.nombre || 'ruta'}_${item.local.nombre || 'local'}_${item.foto.id_foto}.jpg`;
+          zip.file(nombreArchivo, blob);
+        } catch (err) {
+          console.warn('[Evidencia] Error descargando foto:', item.foto.id_foto);
+        }
+      }
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `evidencia_fotos_${fecha}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[Evidencia Zip] Error:', err);
+      alert('Error al exportar evidencia');
+    } finally {
+      setDescargandoZipEvidencia(false);
     }
   };
 
@@ -921,7 +974,17 @@ const win = window.open('', '_blank');
                     {/* Fotos de evidencia por local */}
                     {ruta.localesRuta && ruta.localesRuta.length > 0 && (
                       <div className="p-4 bg-surface-light/20 border-t border-white/5">
-                        <p className="text-xs text-text-muted font-bold mb-2 uppercase">📸 Evidencia por Local</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-text-muted font-bold uppercase">📸 Evidencia por Local</p>
+                          <button
+                            onClick={handleExportarEvidenciaZip}
+                            disabled={descargandoZipEvidencia}
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                          >
+                            <DownloadIcon size={12} />
+                            {descargandoZipEvidencia ? 'Descargando...' : 'Descargar todas'}
+                          </button>
+                        </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                           {ruta.localesRuta.map((local: any) => {
                             const fotos = fotosPorLocal[local.id_local_ruta] || [];
@@ -930,16 +993,27 @@ const win = window.open('', '_blank');
                               <div key={local.id_local_ruta} className="bg-surface rounded-lg p-2 border border-surface-light">
                                 <p className="text-[10px] text-white font-medium truncate mb-1">{local.nombre || 'Local'}</p>
                                 <div className="grid grid-cols-3 gap-1">
-                                  {fotos.slice(0, 3).map((foto: any, idx: number) => (
-                                    <a key={foto.id_foto} href={foto.foto_url} target="_blank" rel="noopener noreferrer">
-                                      <img src={foto.foto_url} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded" />
-                                    </a>
-                                  ))}
-                                  {fotos.length > 3 && (
-                                    <div className="w-full aspect-square bg-surface-light rounded flex items-center justify-center text-[10px] text-text-muted">
-                                      +{fotos.length - 3}
+                                  {fotos.map((foto: any, idx: number) => (
+                                    <div key={foto.id_foto} className="relative group">
+                                      <a href={foto.foto_url} target="_blank" rel="noopener noreferrer">
+                                        <img src={foto.foto_url} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded" />
+                                      </a>
+                                      <button
+                                        onClick={() => {
+                                          const link = document.createElement('a');
+                                          link.href = foto.foto_url;
+                                          link.download = `${local.nombre}_evidencia_${idx + 1}.jpg`;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                        }}
+                                        className="absolute bottom-0 right-0 bg-black/60 p-1 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Descargar"
+                                      >
+                                        <DownloadIcon size={10} className="text-white" />
+                                      </button>
                                     </div>
-                                  )}
+                                  ))}
                                 </div>
                               </div>
                             );
