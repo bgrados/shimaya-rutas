@@ -86,9 +86,6 @@ export default function AdminDashboard() {
       const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', `${hoyStr}T00:00:00`);
       const combustibleSemanaRes = await supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', `${semanaStr}T00:00:00`);
       
-      console.log('[Dashboard] Combustible dia:', combustibleDiaRes.data);
-      console.log('[Dashboard] Combustible semana:', combustibleSemanaRes.data);
-
       const rutas = rutasRes.data || [];
       
       console.log('[Dashboard] Todas las rutas estados:', rutas.map(r => ({ fecha: r.fecha, estado: r.estado })));
