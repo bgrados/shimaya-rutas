@@ -13,13 +13,6 @@ export function usePushNotifications() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
 
-  useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
-    }
-    checkExistingSubscription();
-  }, []);
-
   const checkExistingSubscription = async () => {
     const existing = await navigator.serviceWorker?.ready.then(reg => 
       reg.pushManager.getSubscription()
@@ -28,6 +21,13 @@ export function usePushNotifications() {
       setSubscription(existing as unknown as PushSubscription);
     }
   };
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setPermission(Notification.permission);
+    }
+    checkExistingSubscription();
+  }, []);
 
   const requestPermission = async () => {
     if (!('Notification' in window)) {

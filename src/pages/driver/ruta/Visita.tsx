@@ -279,6 +279,7 @@ export default function VisitaLocal() {
             type="file" 
             accept="image/*" 
             capture="environment" 
+            multiple
             ref={fileInputRef} 
             className="hidden" 
             onChange={handleAddPhoto}
@@ -288,6 +289,7 @@ export default function VisitaLocal() {
           <input 
             type="file" 
             accept="image/*" 
+            multiple
             ref={galleryInputRef} 
             className="hidden" 
             onChange={handleAddPhoto}

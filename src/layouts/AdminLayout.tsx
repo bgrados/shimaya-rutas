@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Map, Users, Settings, LogOut, Menu, X, LayoutDashboard, MapPin, BarChart3, Truck, Fuel, Route } from 'lucide-react';
+import { Map, Users, Settings, LogOut, Menu, X, LayoutDashboard, MapPin, BarChart3, Truck, Fuel } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
   const { user, profile, loading, signOut } = useAuth();
