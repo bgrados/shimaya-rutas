@@ -1103,29 +1103,33 @@ const win = window.open('', '_blank');
           </div>
         )}
 
-        {reportType === 'combustible' && gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+        {reportType === 'combustible' && (
           <Card className="mt-6">
             <CardContent className="p-4">
               <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                 📸 Fotos de Comprobantes
                 <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
-                  <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                    <img 
-                      src={fotosCombustible[gasto.id_gasto]} 
-                      alt="Comprobante" 
-                      className="w-full h-40 object-cover cursor-pointer"
-                      onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
-                    />
-                    <div className="p-2 text-xs">
-                      <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
-                      <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>
+              {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length === 0 ? (
+                <p className="text-text-muted text-sm">No hay fotos de combustible</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
+                    <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                      <img 
+                        src={fotosCombustible[gasto.id_gasto]} 
+                        alt="Comprobante" 
+                        className="w-full h-40 object-cover cursor-pointer"
+                        onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
+                      />
+                      <div className="p-2 text-xs">
+                        <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
+                        <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
