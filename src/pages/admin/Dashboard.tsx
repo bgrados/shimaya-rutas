@@ -88,10 +88,7 @@ export default function AdminDashboard() {
       
       const rutas = rutasRes.data || [];
       
-      console.log('[Dashboard] Todas las rutas estados:', rutas.map(r => ({ fecha: r.fecha, estado: r.estado })));
-      
       const rutasDeHoy = rutas.filter(r => r.fecha === hoyStr);
-      console.log('[Dashboard] Rutas de hoy:', rutasDeHoy.map(r => ({ nombre: r.nombre, estado: r.estado })));
       
       const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
       const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
@@ -116,9 +113,6 @@ export default function AdminDashboard() {
       
       const numeroViajes = rutasFinalizadas.length;
       
-      console.log('[Dashboard] Rutas:', rutas.map(r => r.estado));
-      console.log('[Dashboard] Visitas - completadas:', visitasCompletadas, 'pendientes:', visitasPendientes, 'locales:', localesVisitados);
-      
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const cargasCombustibleDia = combustibleDiaRes.data?.length || 0;
@@ -128,8 +122,6 @@ export default function AdminDashboard() {
       const otrosSemanaRes = await supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', `${semanaStr}T00:00:00`);
       const gastoOtrosDia = otrosDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoOtrosSemana = otrosSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
-      
-      console.log('[Dashboard] Gasto dia:', gastoDia, 'Gasto semana:', gastoSemana, 'Otros dia:', gastoOtrosDia, 'Cargas:', cargasCombustibleDia);
       
       setStats({
         rutasActivas: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
