@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { Ruta, LocalRuta, ViajeBitacora } from '../../types';
@@ -80,6 +80,7 @@ export default function DriverViaje() {
   // Estado para volver a local anterior
   const [mostrarLocalesVisitados, setMostrarLocalesVisitados] = useState(false);
   const [showResumenRuta, setShowResumenRuta] = useState(false);
+  const [esHistorial, setEsHistorial] = useState(false);
 
   const loadFotosExistentes = async (idLocalRuta: string) => {
     const { data, error } = await supabase
@@ -93,10 +94,15 @@ export default function DriverViaje() {
   };
 
   const iniciarNuevoViaje = () => {
-    setRuta(null);
-    setLocales([]);
-    setBitacora([]);
-    loadRutasBase();
+    if (esHistorial) {
+      navigate('/driver/viaje');
+    } else {
+      setRuta(null);
+      setLocales([]);
+      setBitacora([]);
+      setEsHistorial(false);
+      loadRutasBase();
+    }
   };
 
   const handleEditarHora = (tramo: ViajeBitacora) => {
@@ -178,16 +184,59 @@ export default function DriverViaje() {
   };
 
   const loadCurrentRuta = async () => {
-    console.log('%c[loadCurrentRuta] INICIO', 'color: cyan; font-weight: bold');
-    console.log('%c  ruta antes:', 'color: cyan', ruta?.id_ruta, 'loading:', loading);
+    console.log('[loadCurrentRuta] INICIO');
     if (!profile) {
       setLoading(false);
-      console.log('[loadCurrentRuta] SIN PERFIL, return');
+      console.log('[loadCurrentRuta] SIN PERFIL');
       return;
     }
     setLoading(true);
-    console.log('%c  loading=true', 'color: cyan');
+
+    // Verificar si hay un ID de ruta histórico en la URL
+    const pathParts = window.location.pathname.split('/historial/');
+    
     try {
+      // Si hay ID en URL, cargar esa ruta específica
+      if (pathParts.length > 1) {
+        const rutaIdFromUrl = pathParts[1];
+        console.log('[loadCurrentRuta] Cargando ruta histórica:', rutaIdFromUrl);
+        const { data: rutaHistorica, error: rhError } = await supabase
+          .from('rutas')
+          .select('*')
+          .eq('id_ruta', rutaIdFromUrl)
+          .eq('id_chofer', profile.id_usuario)
+          .maybeSingle();
+        
+        if (rhError) console.error('Error loading ruta histórica:', rhError);
+        
+        if (rutaHistorica) {
+          setRuta(rutaHistorica as Ruta);
+          setEsHistorial(true);
+          
+          const { data: localesData, error: locError } = await supabase
+            .from('locales_ruta')
+            .select('*')
+            .eq('id_ruta', rutaHistorica.id_ruta)
+            .order('orden', { ascending: true });
+          
+          if (locError) console.error('Error loading locales_ruta:', locError);
+          if (localesData) setLocales(localesData as LocalRuta[]);
+
+          const { data: bitacoraData, error: bitError } = await supabase
+            .from('viajes_bitacora')
+            .select('*')
+            .eq('id_ruta', rutaHistorica.id_ruta)
+            .order('created_at', { ascending: true });
+          
+          if (bitError) console.error('Error loading bitacora:', bitError);
+          setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
+          
+          await loadRutasBase();
+          setLoading(false);
+          return;
+        }
+      }
+
       // Primero buscar ruta activa (pendiente o en_progreso)
       const { data: rutaActiva, error: rError } = await supabase
         .from('rutas')
@@ -401,6 +450,12 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         return;
       }
 
+      if (esHistorial) {
+        setCreateError('No puedes crear un nuevo viaje desde el historial.');
+        setIsCreating(false);
+        return;
+      }
+
       const { data: newRuta, error: rError } = await supabase.from('rutas').insert({
         nombre: baseRuta.nombre,
         id_ruta_base: selectedRutaBase,
@@ -461,6 +516,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   const handleRegistrarSalida = async () => {
     if (!ruta || !nuevoDestino || actionLoading) return;
+    if (esHistorial) {
+      alert('No puedes modificar un viaje histórico');
+      return;
+    }
     const origen = proximoOrigen;
     
     setActionLoading(true);
@@ -514,6 +573,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   const handleRegistrarLlegada = async (idBitacora: string) => {
     if (actionLoading) return; 
+    if (esHistorial) {
+      alert('No puedes modificar un viaje histórico');
+      return;
+    }
     
     setActionLoading(true);
     let lat = null, lng = null;
@@ -717,15 +780,16 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
 
-  // Helper: verificar si la ruta es de hoy
+  // Helper: verificar si la ruta es de hoy o es historial
   const esRutaDeHoy = (r: Ruta | null) => {
     if (!r) return false;
+    if (esHistorial) return true; // Si es modo historial, siempre mostrar
     const today = new Date().toISOString().split('T')[0];
     return r.fecha === today;
   };
 
   // Si no hay ruta O si hay ruta finalizada que NO es de hoy → mostrar formulario crear
-  // Si hay ruta activa O ruta finalizada de hoy → mostrar la ruta
+  // Si hay ruta activa O ruta finalizada de hoy O es historial → mostrar la ruta
   const mostrarRuta = ruta && (ruta.estado !== 'finalizada' || esRutaDeHoy(ruta));
 
   // NO mostrar formulario hasta que loading principal termine
