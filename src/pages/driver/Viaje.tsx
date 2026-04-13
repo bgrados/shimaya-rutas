@@ -1106,11 +1106,11 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                               return (
                                 <>
                                   <a
-                                    href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving`}
+                                    href={`https://www.google.com/maps/dir/?api=1&origin=&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors"
-                                    title="Abrir en Google Maps"
+                                    title="Abrir en Google Maps con ruta"
                                   >
                                     <MapPin size={16} />
                                   </a>
@@ -1119,7 +1119,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-1.5 rounded-md transition-colors"
-                                    title="Abrir en Waze"
+                                    title="Abrir en Waze con navegación"
                                   >
                                     <Navigation size={16} />
                                   </a>
