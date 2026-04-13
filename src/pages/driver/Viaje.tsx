@@ -26,7 +26,8 @@ import {
   Check,
   Camera,
   Image,
-  ListTodo
+  ListTodo,
+  Navigation
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -1098,16 +1099,46 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                     ) : (
                       <div className="flex justify-between items-start">
                         <h3 className="text-xl font-black text-white italic leading-tight">{tramoEnProgreso.destino_nombre}</h3>
-                        <button 
-                          onClick={() => {
-                            setDestinoEditado(tramoEnProgreso.destino_nombre || '');
-                            setIsEditingDestino(true);
-                          }}
-                          className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors ml-2"
-                          title="Corregir destino"
-                        >
-                          <Edit2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {(function() {
+                            const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
+                            if (localActual?.latitud && localActual?.longitud) {
+                              return (
+                                <>
+                                  <a
+                                    href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors"
+                                    title="Abrir en Google Maps"
+                                  >
+                                    <MapPin size={16} />
+                                  </a>
+                                  <a
+                                    href={`https://www.waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-1.5 rounded-md transition-colors"
+                                    title="Abrir en Waze"
+                                  >
+                                    <Navigation size={16} />
+                                  </a>
+                                </>
+                              );
+                            }
+                            return null;
+                          })()}
+                          <button 
+                            onClick={() => {
+                              setDestinoEditado(tramoEnProgreso.destino_nombre || '');
+                              setIsEditingDestino(true);
+                            }}
+                            className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors"
+                            title="Corregir destino"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     )}
                     
