@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      maximumFileSizeToCacheInBytes: 3000000,
       manifest: {
         name: 'Shimaya Rutas',
         short_name: 'Rutas',
