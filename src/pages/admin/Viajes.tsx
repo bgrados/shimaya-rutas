@@ -303,7 +303,7 @@ export default function AdminViajes() {
             <div className="grid grid-cols-1 gap-4">
                {groupedRutas[date].map(viaje => {
                   const isExpanded = expandedRuta === viaje.id_ruta;
-                  const stopsCount = viaje.bitacora?.filter(b => b.hora_llegada).length || 0;
+                  const stopsCount = viaje.bitacora?.filter(b => b.hora_llegada && b.destino_nombre !== 'Planta').length || 0;
                   const theme = getRouteTheme(viaje.nombre);
                   
                   // Status detailed logic
