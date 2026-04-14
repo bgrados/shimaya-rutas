@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatPeru } from '../../lib/timezone';
+import { formatPeru, formatHoraPeru } from '../../lib/timezone';
 import { Link } from 'react-router-dom';
 
 interface Stats {
@@ -432,7 +432,7 @@ export default function AdminDashboard() {
                     </div>
                     {ruta.hora_salida && (
                       <p className="text-text-muted text-xs mt-2">
-                        Salida: {formatPeru(ruta.hora_salida, 'HH:mm')}
+                        Salida: {formatHoraPeru(ruta.hora_salida)}
                       </p>
                     )}
                   </div>
