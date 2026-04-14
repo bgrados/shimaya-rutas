@@ -8,6 +8,7 @@ import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parse
 import { es } from 'date-fns/locale';
 import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate } from '../../../lib/timezone';
 import JSZip from 'jszip';
+import { ImageModal } from '../../../components/ui/ImageModal';
 
 const urlToBase64 = async (url: string): Promise<string | null> => {
   try {
@@ -58,7 +59,8 @@ export default function Reportes() {
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [combustibleLoading, setCombustibleLoading] = useState(true);
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
+  const [activePhoto, setActivePhoto] = useState<{ url: string; title: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'ventas' | 'gastos' | 'peajes'>('ventas');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
   const [incluirFotosEnPDF, setIncluirFotosEnPDF] = useState(true);
@@ -1009,11 +1011,15 @@ const win = window.open('', '_blank');
                                 <div className="grid grid-cols-3 gap-1">
                                   {fotos.map((foto: any, idx: number) => (
                                     <div key={foto.id_foto} className="relative group">
-                                      <a href={foto.foto_url} target="_blank" rel="noopener noreferrer">
-                                        <img src={foto.foto_url} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded" />
-                                      </a>
+                                      <button 
+                                        onClick={() => setActivePhoto({ url: foto.foto_url, title: local.nombre || 'Evidencia' })}
+                                        className="w-full"
+                                      >
+                                        <img src={foto.foto_url} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded cursor-zoom-in hover:brightness-110 transition-all" />
+                                      </button>
                                       <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           const link = document.createElement('a');
                                           link.href = foto.foto_url;
                                           link.download = `${local.nombre}_evidencia_${idx + 1}.jpg`;
@@ -1021,10 +1027,10 @@ const win = window.open('', '_blank');
                                           link.click();
                                           document.body.removeChild(link);
                                         }}
-                                        className="absolute bottom-0 right-0 bg-black/60 p-1 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute bottom-1 right-1 bg-black/60 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                                         title="Descargar"
                                       >
-                                        <DownloadIcon size={10} className="text-white" />
+                                        <DownloadIcon size={12} className="text-white" />
                                       </button>
                                     </div>
                                   ))}
@@ -1425,6 +1431,13 @@ const win = window.open('', '_blank');
         )}
       </>
       )}
+      {/* Visor de Imágenes */}
+      <ImageModal 
+        isOpen={!!activePhoto}
+        onClose={() => setActivePhoto(null)}
+        imageUrl={activePhoto?.url || ''}
+        title={activePhoto?.title}
+      />
     </div>
   );
 }
