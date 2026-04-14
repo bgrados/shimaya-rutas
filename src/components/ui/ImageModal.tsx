@@ -96,10 +96,11 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
         <div className="flex gap-3">
           <button 
             onClick={(e) => { e.stopPropagation(); setIsMagnifierActive(!isMagnifierActive); }}
-            className={`p-3 rounded-full transition-all ${isMagnifierActive ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${isMagnifierActive ? 'bg-primary text-white shadow-lg shadow-primary/40 scale-105 border-primary' : 'bg-white/10 text-white/70 hover:bg-white/20 border-white/10'} border`}
             title={isMagnifierActive ? "Desactivar Lupa" : "Activar Lupa"}
           >
-            {isMagnifierActive ? <ZoomOut size={22} /> : <Search size={22} />}
+            {isMagnifierActive ? <ZoomOut size={20} /> : <Search size={20} />}
+            <span className="text-sm font-bold truncate">{isMagnifierActive ? 'Lupa: ON' : 'Activar Lupa'}</span>
           </button>
           <button 
             onClick={handleDownload}
@@ -125,17 +126,17 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
           <>
             <button 
               onClick={handlePrev}
-              className="absolute left-4 z-[1000] p-4 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-md border border-white/20 shadow-2xl"
+              className="absolute left-6 z-[1000] p-5 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-md border border-white/20 shadow-2xl hover:scale-110 active:scale-95"
               title="Anterior (Flecha Izquierda)"
             >
-              <ChevronLeft size={40} />
+              <ChevronLeft size={44} />
             </button>
             <button 
               onClick={handleNext}
-              className="absolute right-4 z-[1000] p-4 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-md border border-white/20 shadow-2xl"
+              className="absolute right-6 z-[1000] p-5 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-md border border-white/20 shadow-2xl hover:scale-110 active:scale-95"
               title="Siguiente (Flecha Derecha)"
             >
-              <ChevronRight size={40} />
+              <ChevronRight size={44} />
             </button>
           </>
         )}
@@ -143,33 +144,44 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
         {/* Unified Image Container */}
         <div 
           ref={containerRef}
-          className="relative w-full max-w-5xl h-full flex items-center justify-center animate-in zoom-in-95 duration-300 pointer-events-auto"
-          onMouseMove={handleMouseMove}
+          className="relative w-full max-w-5xl h-[70vh] flex items-center justify-center animate-in zoom-in-95 duration-300 pointer-events-auto"
+          onMouseMove={(e) => {
+            if (!isMagnifierActive || !containerRef.current) return;
+            const { left, top, width, height } = containerRef.current.getBoundingClientRect();
+            const x = ((e.clientX - left) / width) * 100;
+            const y = ((e.clientY - top) / height) * 100;
+            setMagnifierPos({ x, y, show: true });
+          }}
           onMouseLeave={() => setMagnifierPos(prev => ({ ...prev, show: false }))}
           onClick={(e) => e.stopPropagation()}
         >
           <img 
             src={currentImage.url} 
             alt={currentImage.title} 
-            className={`max-w-full max-h-[75vh] object-contain rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 transition-transform ${isMagnifierActive ? 'cursor-none' : ''}`}
+            className={`max-w-full max-h-full object-contain rounded-xl shadow-[0_0_60px_rgba(0,0,0,0.6)] border border-white/10 transition-all duration-300 ${isMagnifierActive ? 'cursor-none opacity-90 scale-[1.01]' : 'cursor-default'}`}
             draggable={false}
           />
 
-          {/* Lupa (Magnifier) Overlay */}
+          {/* Lupa (Magnifier) Overlay - Advanced Optics */}
           {isMagnifierActive && magnifierPos.show && (
             <div 
-              className="absolute pointer-events-none border-4 border-primary rounded-full shadow-2xl overflow-hidden z-[100] w-64 h-64 md:w-80 md:h-80 transition-opacity duration-200"
+              className="absolute pointer-events-none border-4 border-primary rounded-full shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden z-[2000] w-72 h-72 md:w-96 md:h-96 animate-in fade-in zoom-in-50 duration-200"
               style={{
                 left: `${magnifierPos.x}%`,
                 top: `${magnifierPos.y}%`,
                 transform: 'translate(-50%, -50%)',
                 backgroundImage: `url(${currentImage.url})`,
                 backgroundRepeat: 'no-repeat',
-                backgroundSize: '800%', // High zoom level
+                backgroundSize: '800%', // High definition zoom
                 backgroundPosition: `${magnifierPos.x}% ${magnifierPos.y}%`,
-                boxShadow: '0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.2)'
               }}
-            />
+            >
+              {/* Target Hairline */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-6 h-0.5 bg-primary/40 rounded-full" />
+                <div className="h-6 w-0.5 bg-primary/40 absolute rounded-full" />
+              </div>
+            </div>
           )}
         </div>
       </div>
