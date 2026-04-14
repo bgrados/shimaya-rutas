@@ -4,9 +4,9 @@ import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon } from 'lucide-react';
-import { format, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate } from '../../../lib/timezone';
 import JSZip from 'jszip';
 
 const urlToBase64 = async (url: string): Promise<string | null> => {
@@ -72,10 +72,14 @@ export default function Reportes() {
   function getRange(p: Period, date: string): { from: string; to: string } {
     const d = parseISO(date);
     if (p === 'diario') return { from: date, to: date };
-    if (p === 'semanal') return {
-      from: format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-      to: format(endOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-    };
+    if (p === 'semanal') {
+      const fromDate = new Date(d);
+      fromDate.setDate(d.getDate() - 7);
+      return { 
+        from: format(fromDate, 'yyyy-MM-dd'), 
+        to: date 
+      };
+    }
     return {
       from: format(startOfMonth(d), 'yyyy-MM-dd'),
       to: format(endOfMonth(d), 'yyyy-MM-dd'),
@@ -359,7 +363,7 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
             <span style="margin-left:10px;font-size:12px;opacity:0.6;">${r.placa || 'Sin placa'}</span>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
-            <span style="font-size:12px;opacity:0.7;">📅 ${r.fecha ? format(parseISO(r.fecha), "EEEE d MMM", { locale: es }) : '-'}</span>
+            <span style="font-size:12px;opacity:0.7;">📅 ${r.fecha ? formatFriendlyDate(r.fecha) : '-'}</span>
             <span style="background:${estadoBadge}22;color:${estadoBadge};padding:2px 10px;border-radius:20px;font-size:11px;font-weight:bold;border:1px solid ${estadoBadge}44;">${r.estado?.replace('_', ' ').toUpperCase()}</span>
           </div>
         </div>
@@ -449,7 +453,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
   ${rows || '<p style="color:#94a3b8;text-align:center;padding:40px;font-style:italic;">No hay rutas que coincidan con el filtro seleccionado.</p>'}
 </div>
 <div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
-<button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+<button class="print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
 const win = window.open('', '_blank');
@@ -924,7 +928,7 @@ const win = window.open('', '_blank');
                           <p className="font-black text-white italic">{ruta.nombre}</p>
                           <p className="text-xs text-text-muted">
                             🚛 {ruta.placa || 'Sin placa'} &nbsp;·&nbsp;
-                            📅 {ruta.fecha ? format(parseISO(ruta.fecha), "EEE d MMM", { locale: es }) : '-'}
+                            📅 {ruta.fecha ? formatFriendlyDate(ruta.fecha) : '-'}
                           </p>
                         </div>
                       </div>

@@ -9,10 +9,11 @@ import { format, differenceInMinutes } from 'date-fns';
 
 import { es } from 'date-fns/locale';
 import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer, RefreshCw } from 'lucide-react';
+import { nowPeru, getStartOfCurrentWeek } from '../../lib/timezone';
 
 const formatPeru = (dateStr: string | null | undefined, fmt: string): string => {
   if (!dateStr) return '-';
-  return format(new Date(dateStr), fmt);
+  return format(new Date(dateStr + 'T12:00:00'), fmt);
 };
 
 const parseLocalDate = (dateStr: string | null) => {
@@ -81,9 +82,13 @@ export default function AdminViajes() {
 
   const loadData = async () => {
     setLoading(true);
+    // El usuario solicita ver desde el lunes 06 de Abril en adelante
+    const mondayStr = '2026-04-06';
+    
     const { data: rutasData, error: rutasError } = await supabase
       .from('rutas')
       .select('*, chofer:usuarios!id_chofer (*)')
+      .gte('fecha', mondayStr)
       .order('fecha', { ascending: false })
       .limit(100);
       

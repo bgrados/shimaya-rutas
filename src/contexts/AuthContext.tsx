@@ -52,8 +52,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const presenceChannel = supabase.channel('auth_presence')
     presenceChannelRef.current = presenceChannel
     
-    // Suscribir al canal primero
-    presenceChannel.subscribe()
+    // Suscribir al canal primero y esperar a que esté listo
+    presenceChannel.subscribe((status) => {
+      console.log('[Presence] Channel status:', status);
+    })
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, newSession: Session | null) => {
@@ -64,12 +66,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newSession?.user ?? null)
         if (newSession?.user) {
           await fetchProfile(newSession.user.email, newSession.user.id)
-          // Track presence cuando se loguea
-          await presenceChannel.track({
-            user_id: newSession.user.id,
-            email: newSession.user.email,
-            online_at: new Date().toISOString()
-          })
+          // Track presence cuando se loguea - esperar un poco para que el canal esté listo
+          setTimeout(async () => {
+            console.log('[Presence] Tracking user:', newSession.user.id, newSession.user.email);
+            await presenceChannel.track({
+              user_id: newSession.user.id,
+              email: newSession.user.email,
+              online_at: new Date().toISOString()
+            })
+          }, 500)
         } else {
           localStorage.removeItem('user_profile')
           setProfile(null)

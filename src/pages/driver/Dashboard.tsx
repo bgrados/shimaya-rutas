@@ -6,7 +6,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { formatFriendlyDate } from '../../lib/timezone';
 
 interface RutaHistorica {
   id_ruta: string;
@@ -63,32 +63,30 @@ export default function DriverDashboard() {
     }
   };
 
-  const loadRutasHistoricas = async () => {
+const loadRutasHistoricas = async () => {
     if (!profile) return;
     setLoadingHistory(true);
     
-    try {
-      const { data, error } = await supabase
-        .from('rutas')
-        .select('id_ruta, nombre, fecha, estado, placa, hora_salida_planta, hora_llegada_planta')
-        .eq('id_chofer', profile.id_usuario)
-        .eq('estado', 'finalizada')
-        .order('fecha', { ascending: false })
-        .limit(30);
-        
-      if (error) throw error;
-      setRutasHistoricas(data || []);
-    } catch (e) {
-      console.error('Error loading rutas históricas:', e);
-    } finally {
-      setLoadingHistory(false);
-    }
+    // El usuario solicita ver desde el lunea 06 de Abril en adelante
+    const minDate = '2026-04-06';
+    
+    const { data, error } = await supabase
+      .from('rutas')
+      .select('id_ruta, nombre, fecha')
+      .eq('id_chofer', profile.id_usuario)
+      .eq('estado', 'finalizada')
+      .gte('fecha', minDate)
+      .order('fecha', { ascending: false });
+       
+    setRutasHistoricas(data || []);
+    setLoadingHistory(false);
   };
 
   const loadGastosDelDia = async () => {
     if (!profile) return;
     
-    const today = new Date().toISOString().split('T')[0];
+    // Obtener fecha local YYYY-MM-DD
+    const today = new Date().toLocaleDateString('sv-SE'); 
     
     try {
       // Obtener TODOS los gastos de combustible del día y sumar
@@ -353,9 +351,7 @@ export default function DriverDashboard() {
           <button
             onClick={() => {
               setShowHistory(!showHistory);
-              if (!showHistory && rutasHistoricas.length === 0) {
-                loadRutasHistoricas();
-              }
+              loadRutasHistoricas();
             }}
             className="w-full flex items-center justify-between p-4 bg-surface-light/30 rounded-xl border border-white/10 hover:border-primary/50 transition-colors"
           >
@@ -382,13 +378,7 @@ export default function DriverDashboard() {
                           <p className="text-white font-bold text-sm">{ruta.nombre}</p>
                           <div className="flex items-center gap-2 text-text-muted text-xs mt-1">
                             <Calendar size={12} />
-                            <span>{format(new Date(ruta.fecha), 'dd/MM/yyyy')}</span>
-                            {ruta.hora_salida_planta && (
-                              <>
-                                <Clock size={12} />
-                                <span>{ruta.hora_salida_planta?.substring(0, 5)} - {ruta.hora_llegada_planta?.substring(0, 5)}</span>
-                              </>
-                            )}
+                            <span>{formatFriendlyDate(ruta.fecha)}</span>
                           </div>
                         </div>
                         <Button
