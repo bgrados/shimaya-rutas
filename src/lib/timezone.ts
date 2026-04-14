@@ -57,3 +57,45 @@ export function getEndOfCurrentWeek(baseDate: Date = new Date()): string {
   const sunday = new Date(d.setDate(diff));
   return format(sunday, 'yyyy-MM-dd');
 }
+
+/**
+ * Convierte una fecha ISO (UTC) a HH:mm en hora de Perú (UTC-5)
+ */
+export function formatHoraPeru(isoString: string | null | undefined): string {
+  if (!isoString) return '-';
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    
+    return new Intl.DateTimeFormat('es-PE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'America/Lima'
+    }).format(date);
+  } catch (e) {
+    return '-';
+  }
+}
+
+/**
+ * Calcula la duración entre dos fechas ISO en minutos/horas
+ */
+export function formatDuration(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start || !end) return '-';
+  try {
+    const s = new Date(start);
+    const e = new Date(end);
+    const diffMs = e.getTime() - s.getTime();
+    if (isNaN(diffMs) || diffMs < 0) return '-';
+    
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    if (totalMinutes < 60) return `${totalMinutes} min`;
+    
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  } catch {
+    return '-';
+  }
+}
