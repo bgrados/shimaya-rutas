@@ -36,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   })
   const [loading, setLoading] = useState(true)
   const authEventFired = useRef(false)
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -47,6 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }, 8000)
 
+    const presenceChannel = supabase.channel('auth_presence')
+    presenceChannelRef.current = presenceChannel
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, newSession: Session | null) => {
         if (!mounted) return
@@ -56,10 +60,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newSession?.user ?? null)
         if (newSession?.user) {
           await fetchProfile(newSession.user.email, newSession.user.id)
+          // Track presence cuando se loguea
+          await presenceChannelRef.current?.track({
+            user_id: newSession.user.id,
+            email: newSession.user.email,
+            online_at: new Date().toISOString()
+          })
         } else {
           localStorage.removeItem('user_profile')
           setProfile(null)
           setLoading(false)
+          // Untrack cuando hace logout
+          await presenceChannelRef.current?.untrack()
         }
       }
     )
@@ -88,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false
       clearTimeout(loadingTimeout)
       subscription.unsubscribe()
+      presenceChannelRef.current?.unsubscribe()
     }
   }, [])
 

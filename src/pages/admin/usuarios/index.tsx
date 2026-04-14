@@ -160,21 +160,20 @@ export default function Usuarios() {
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [usuariosOnline, setUsuariosOnline] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
     try {
       const { data } = await supabase.from('usuarios').select('*').order('nombre');
       if (data) {
-        // Verificar último acceso de cada usuario
-        const usuariosConEstado = await Promise.all(
-          (data as Usuario[]).map(async (u) => {
-            const { data: authData } = await supabase.auth.getSession();
-            const connected = authData.session?.user?.id === u.id_usuario;
-            return { ...u, connected, lastSeen: new Date().toISOString() };
-          })
-        );
-        setUsuarios(usuariosConEstado);
+        // Combinar con estado online
+        const usuariosActualizados = (data as Usuario[]).map(u => ({
+          ...u,
+          connected: usuariosOnline.has(u.id_usuario),
+          lastSeen: new Date().toISOString()
+        }));
+        setUsuarios(usuariosActualizados);
       }
     } catch(err) {
       console.error('Error load:', err);
@@ -183,15 +182,32 @@ export default function Usuarios() {
     }
   };
 
-  // Realtime para detectar usuarios conectados
+  // Realtime para detectar usuarios conectados usando Presence
   useEffect(() => {
     load();
     
-    const channel = supabase.channel('admin_usuarios_online')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, () => {
-        load();
+    const channel = supabase.channel('usuarios_online_presence')
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const onlineIds = new Set<string>();
+        Object.keys(state).forEach(key => {
+          const users = state[key] as any[];
+          users.forEach(u => {
+            if (u.user_id) onlineIds.add(u.user_id);
+          });
+        });
+        setUsuariosOnline(onlineIds);
+        load(); // Recargar lista con estado actualizado
       })
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            user_id: 'admin_view',
+            nombre: 'Panel Admin',
+            online_at: new Date().toISOString()
+          });
+        }
+      });
 
     // Actualizar estado cada 30 segundos
     const interval = setInterval(load, 30000);
