@@ -398,9 +398,9 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
 
           return `<div style="padding:15px; background:#fff; border-top:1px solid #e2e8f0;">
             <p style="font-size:12px; font-weight:bold; color:#1e293b; margin:0 0 10px 0; border-bottom:2px solid #3b82f6; display:inline-block;">📸 EVIDENCIAS FOTOGRÁFICAS</p>
-            <div style="display:flex; flex-wrap:wrap; gap:12px;">
+            <div style="width:100%;">
               ${allFotos.map(f => `
-                <div style="width:calc(50% - 6px); break-inside:avoid; margin-bottom:10px; border:1px solid #f1f5f9; border-radius:8px; overflow:hidden; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                <div style="width:48.5%; display:inline-block; vertical-align:top; margin-right:1%; margin-bottom:12px; break-inside:avoid; border:1px solid #f1f5f9; border-radius:8px; overflow:hidden; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
                   <img src="${f.url}" style="width:100%; height:160px; object-fit:cover; display:block;" />
                   <div style="padding:6px 8px; background:#f8fafc; border-top:1px solid #f1f5f9;">
                     <p style="font-size:10px; color:#475569; font-weight:600; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📍 ${f.localName}</p>
