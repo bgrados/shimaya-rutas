@@ -1139,7 +1139,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       <div className="bg-surface/50 p-4 rounded-2xl border border-white/5 space-y-3">
          <div className="flex justify-between text-[10px] uppercase font-black text-text-muted tracking-[0.2em]">
             <span>LOCALES VISITADOS</span>
-            <span className="text-primary">{localesRegistrados.filter(l => l !== 'Planta').length} / {locales.length}</span>
+            <span className="text-primary">{localesRegistrados.filter(l => l !== 'Planta').length} / {locales.filter(l => l.nombre !== 'Planta').length}</span>
          </div>
          <div className="h-3 bg-surface-light rounded-full overflow-hidden flex p-0.5 shadow-inner">
             {locales.map((l, i) => (
