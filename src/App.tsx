@@ -19,6 +19,7 @@ import NuevoLocal from './pages/admin/locales/Nuevo';
 import Usuarios from './pages/admin/usuarios';
 import NuevoUsuario from './pages/admin/usuarios/Nuevo';
 import Reportes from './pages/admin/reportes';
+import AnalisisRutas from './pages/admin/analisis';
 import GastosCombustible from './pages/admin/combustible';
 import GastosPeaje from './pages/admin/peaje';
 import AdminViajes from './pages/admin/Viajes';
@@ -132,6 +133,7 @@ function App() {
               <Route path="locales" element={<LocalesBase />} />
               <Route path="locales/nuevo" element={<NuevoLocal />} />
               <Route path="reportes" element={<Reportes />} />
+              <Route path="analisis" element={<AnalisisRutas />} />
               <Route path="combustible" element={<GastosCombustible />} />
               <Route path="peaje" element={<GastosPeaje />} />
               <Route path="mapa" element={<MapaGeneral />} />

@@ -39,6 +39,7 @@ export const AdminLayout: React.FC = () => {
     { name: 'Rutas Base (Plantillas)', href: '/admin/rutas-base', icon: Settings },
     { name: 'Locales Base', href: '/admin/locales', icon: MapPin },
     { name: 'Reportes', href: '/admin/reportes', icon: BarChart3 },
+    { name: 'Análisis de Rutas', href: '/admin/analisis', icon: BarChart3 },
     { name: 'Gastos Combustible', href: '/admin/combustible', icon: Fuel },
     { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   ];
