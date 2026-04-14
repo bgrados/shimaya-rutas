@@ -76,15 +76,31 @@ const EFICIENCIA_COLORS = {
 
 function formatHora(hora: string | null): string {
   if (!hora) return '-';
-  return hora.substring(0, 5);
+  try {
+    if (hora.includes('T')) {
+      return hora.split('T')[1].substring(0, 5);
+    }
+    return hora.substring(0, 5);
+  } catch {
+    return '-';
+  }
+}
+
+function formatDurationHuman(mins: number): string {
+  if (!mins || mins <= 0) return '0 min';
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m} min`;
 }
 
 function calcularTiempoMinutos(horaInicio: string | null, horaFin: string | null): number {
   if (!horaInicio || !horaFin) return 0;
   try {
-    const h1 = parseISO('2024-01-01T' + horaInicio);
-    const h2 = parseISO('2024-01-01T' + horaFin);
-    return differenceInMinutes(h2, h1);
+    const s = new Date(horaInicio);
+    const e = new Date(horaFin);
+    const diff = e.getTime() - s.getTime();
+    return diff > 0 ? Math.floor(diff / (1000 * 60)) : 0;
   } catch {
     return 0;
   }
@@ -95,38 +111,7 @@ function getDiaSemana(fecha: string): string {
   return dias[new Date(fecha).getDay()];
 }
 
-// Mock data para demo
-const generateMockData = (): RutaData[] => {
-  const rutas: RutaData[] = [];
-  const choferes = ['Ben Grados', 'Carlos M.', 'Miguel R.'];
-  const nombresRuta = ['Ruta Puruchuco', 'Ruta Minka', 'Ruta Norte', 'Ruta Sur'];
-  
-  for (let i = 0; i < 14; i++) {
-    const fecha = format(subDays(new Date(), i), 'yyyy-MM-dd');
-    const tiempoReal = 4 + Math.random() * 2;
-    const tiempoEstimado = tiempoReal * (0.8 + Math.random() * 0.4);
-    const entregas = 4 + Math.floor(Math.random() * 4);
-    const horaFin = 7 + Math.floor(tiempoReal);
-    const minFin = Math.floor((tiempoReal % 1) * 60);
-    const horaLlegada = `${horaFin.toString().padStart(2, '0')}:${minFin.toString().padStart(2, '0')}:00`;
-    
-    rutas.push({
-      id_ruta: `ruta-${i}`,
-      nombre: nombresRuta[i % nombresRuta.length],
-      fecha,
-      hora_salida_planta: '07:00:00',
-      hora_llegada_planta: horaLlegada,
-      estado: 'finalizada',
-      id_chofer: `chofer-${i % 3}`,
-      chofer_nombre: choferes[i % 3],
-      tiempo_real: tiempoReal * 60,
-      tiempo_estimado: tiempoEstimado * 60,
-      eficiencia: (tiempoEstimado / tiempoReal) * 100,
-      entregas,
-    });
-  }
-  return rutas;
-};
+// Datos reales desde Supabase
 
 export default function AnalisisRutas() {
   const [loading, setLoading] = useState(true);
@@ -143,31 +128,38 @@ export default function AnalisisRutas() {
       return true;
     });
 
-    const totalEntregas = filtered.reduce((sum, r) => sum + (r.entregas || 0), 0);
+    const totalLocales = filtered.reduce((sum, r) => sum + (r.entregas || 0), 0);
     const tiempoPromedio = filtered.length > 0 
       ? filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / filtered.length 
       : 0;
-    const eficienciaGlobal = filtered.length > 0
-      ? filtered.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / filtered.length
-      : 0;
+    
+    // Solo calculamos si hay tiempos reales
+    const conEficiencia = filtered.filter(r => (r.tiempo_estimado || 0) > 0);
+    const eficienciaGlobal = conEficiencia.length > 0
+      ? conEficiencia.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEficiencia.length
+      : null;
+
     const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
-    const rutasPendientes = filtered.filter(r => r.estado !== 'finalizada').length;
 
     return {
-      totalEntregas,
+      totalLocales,
       tiempoPromedio,
       eficienciaGlobal,
       rutasCompletadas,
-      rutasPendientes,
+      totalRutas: filtered.length
     };
   }, [rutas, choferFilter]);
 
   const comparacionSemanal = useMemo((): DiaStats[] => {
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    // 0: Domingo, 1: Lunes, ...
+    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const result: DiaStats[] = [];
     
-    for (let i = 0; i < 7; i++) {
-      const fechaActual = subDays(new Date(), 6 - i);
+    // Mostramos los últimos 7 días terminando en 'hoy' (fechaFin)
+    const end = parseISO(fechaFin);
+    
+    for (let i = 6; i >= 0; i--) {
+      const fechaActual = subDays(end, i);
       const fechaAnterior = subDays(fechaActual, 7);
       
       const rutasActual = rutas.filter(r => r.fecha === format(fechaActual, 'yyyy-MM-dd'));
@@ -176,8 +168,10 @@ export default function AnalisisRutas() {
       const tiempoActual = rutasActual.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
       const tiempoAnterior = rutasAnterior.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
       const entregas = rutasActual.reduce((sum, r) => sum + (r.entregas || 0), 0);
-      const eficiencia = rutasActual.length > 0
-        ? rutasActual.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / rutasActual.length
+      
+      const conEff = rutasActual.filter(r => (r.tiempo_estimado || 0) > 0);
+      const eficiencia = conEff.length > 0
+        ? conEff.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEff.length
         : 0;
 
       result.push({
@@ -190,7 +184,7 @@ export default function AnalisisRutas() {
       });
     }
     return result;
-  }, [rutas]);
+  }, [rutas, fechaFin]);
 
   const eficienciaDiaria = useMemo(() => {
     const result: {dia: string; fecha: string; eficiencia: number}[] = [];
@@ -257,36 +251,38 @@ export default function AnalisisRutas() {
   const generateInsights = () => {
     const newInsights: Insight[] = [];
     
-    // Insight: mejor día
-    const mejorDia = comparacionSemanal.reduce((prev, curr) => 
-      curr.semanaActual < prev.semanaActual ? curr : prev, comparacionSemanal[0]);
-    if (mejorDia) {
+    if (rutas.length === 0) return;
+
+    // Insight: día con más entregas
+    const diaMasEntregas = [...comparacionSemanal].sort((a, b) => b.entregas - a.entregas)[0];
+    if (diaMasEntregas && diaMasEntregas.entregas > 0) {
       newInsights.push({
-        tipo: 'positivo',
-        titulo: `Día más rápido: ${mejorDia.dia}`,
-        descripcion: `${mejorDia.dia}(${mejorDia.fecha}) took ${mejorDia.semanaActual}h - ${(comparacionSemanal[0].semanaActual - mejorDia.semanaActual).toFixed(1)}h less than the average`,
+        tipo: 'info',
+        titulo: `Día de mayor volumen: ${diaMasEntregas.dia}`,
+        descripcion: `El ${diaMasEntregas.dia} se realizaron ${diaMasEntregas.entregas} visitas reales a locales.`,
       });
     }
     
-    // Insight: mejor chofer
+    // Insight: mejor chofer (por promedio de entregas por ruta)
     if (rendimientoChoferes.length > 0) {
       const mejorChofer = rendimientoChoferes[0];
       newInsights.push({
-        tipo: 'positivo',
-        titulo: `🏆 Mejor chofer: ${mejorChofer.nombre}`,
-        descripcion: `${mejorChofer.entregas} deliveries in ${mejorChofer.rutas} routes with ${mejorChofer.eficienciaPromedio.toFixed(0)}% efficiency`,
+        tipo: ' positivo',
+        titulo: `🏆 Chofer destacado: ${mejorChofer.nombre}`,
+        descripcion: `Promedia ${(mejorChofer.entregas / mejorChofer.rutas).toFixed(1)} locales por cada ruta completada.`,
       });
     }
     
-    // Insight: comparación semanal
-    const hoy = comparacionSemanal[comparacionSemanal.length - 1];
-    const mismoDiaSemanaPasada = comparacionSemanal[comparacionSemanal.length - 8];
-    if (hoy && mismoDiaSemanaPasada) {
-      const diff = ((hoy.semanaActual - mismoDiaSemanaPasada.semanaActual) / mismoDiaSemanaPasada.semanaActual * 100);
+    // Insight: comparación semanal (Total Horas)
+    const horasActual = comparacionSemanal.reduce((s, d) => s + d.semanaActual, 0);
+    const horasAnterior = comparacionSemanal.reduce((s, d) => s + d.semanaAnterior, 0);
+    
+    if (horasAnterior > 0) {
+      const diff = ((horasActual - horasAnterior) / horasAnterior) * 100;
       newInsights.push({
-        tipo: diff < 0 ? 'positivo' : 'negativo',
-        titulo: `${diff < 0 ? 'Improved' : 'Higher time'} vs last week`,
-        descripcion: `${Math.abs(diff).toFixed(0)}% ${diff < 0 ? 'less' : 'more'} time than same day last week`,
+        tipo: diff < 0 ? ' positivo' : 'negativo',
+        titulo: `${diff < 0 ? 'Mejora' : 'Incremento'} de tiempo total`,
+        descripcion: `Esta semana se usaron ${Math.abs(diff).toFixed(1)}% ${diff < 0 ? 'menos' : 'más'} horas que la anterior.`,
       });
     }
     
@@ -306,33 +302,51 @@ export default function AnalisisRutas() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch rutas in range
+      const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
         .gte('fecha', fechaInicio)
         .lte('fecha', fechaFin)
         .order('fecha', { ascending: false });
 
-      if (data && data.length > 0) {
-        const rutasConTiempos = data.map(r => {
-          const tiempoReal = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
-          const tiempoEstimado = tiempoReal * 0.9;
+      if (rutasError) throw rutasError;
+
+      // 2. Fetch locales_ruta to count deliveries (excluding Planta)
+      const { data: localesData, error: localesError } = await supabase
+        .from('locales_ruta')
+        .select('id_ruta, nombre, estado_visita')
+        .in('id_ruta', rutasData?.map(r => r.id_ruta) || []);
+
+      if (localesError) throw localesError;
+
+      if (rutasData && rutasData.length > 0) {
+        const processed = rutasData.map(r => {
+          const tReal = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
+          const deliveries = localesData?.filter(l => 
+            l.id_ruta === r.id_ruta && 
+            l.estado_visita === 'visitado' && 
+            !l.nombre?.toLowerCase().includes('planta')
+          ).length || 0;
+
+          // Por ahora no hay tiempo_estimado en DB
+          const tEstimado = 0; 
+          
           return {
             ...r,
             chofer_nombre: r.usuarios?.nombre,
-            tiempo_real: tiempoReal,
-            tiempo_estimado: tiempoEstimado,
-            eficiencia: tiempoEstimado > 0 ? (tiempoEstimado / tiempoReal) * 100 : 100,
-            entregas: 4,
+            tiempo_real: tReal,
+            tiempo_estimado: tEstimado,
+            eficiencia: tEstimado > 0 ? (tEstimado / tReal) * 100 : 0,
+            entregas: deliveries,
           };
         });
-        setRutas(rutasConTiempos);
+        setRutas(processed);
       } else {
-        setRutas(generateMockData());
+        setRutas([]);
       }
     } catch (error) {
       console.error('Error loading analytics:', error);
-      setRutas(generateMockData());
     } finally {
       setLoading(false);
     }
@@ -403,10 +417,11 @@ export default function AnalisisRutas() {
                 <Target className="text-primary" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Total Entregas</p>
-                <p className="text-2xl font-black text-white">{stats.totalEntregas}</p>
+                <p className="text-xs text-text-muted uppercase">Locales Visitados</p>
+                <p className="text-2xl font-black text-white">{stats.totalLocales}</p>
               </div>
             </div>
+            <p className="text-[10px] text-text-muted mt-2">* No incluye Planta</p>
           </CardContent>
         </Card>
 
@@ -417,8 +432,8 @@ export default function AnalisisRutas() {
                 <Clock className="text-blue-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Avg Time/Route</p>
-                <p className="text-2xl font-black text-white">{(stats.tiempoPromedio / 60).toFixed(1)}h</p>
+                <p className="text-xs text-text-muted uppercase">Tiempo Promedio</p>
+                <p className="text-2xl font-black text-white">{formatDurationHuman(stats.tiempoPromedio)}</p>
               </div>
             </div>
           </CardContent>
@@ -431,9 +446,9 @@ export default function AnalisisRutas() {
                 <TrendingUp className="text-green-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Efficiency</p>
-                <p className="text-2xl font-black" style={{ color: getEficienciaColor(stats.eficienciaGlobal) }}>
-                  {stats.eficienciaGlobal.toFixed(0)}%
+                <p className="text-xs text-text-muted uppercase">Eficiencia</p>
+                <p className="text-2xl font-black" style={{ color: stats.eficienciaGlobal ? getEficienciaColor(stats.eficienciaGlobal) : COLORS.textMuted }}>
+                  {stats.eficienciaGlobal ? `${stats.eficienciaGlobal.toFixed(0)}%` : 'N/D'}
                 </p>
               </div>
             </div>
@@ -447,13 +462,24 @@ export default function AnalisisRutas() {
                 <Truck className="text-yellow-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Completed</p>
-                <p className="text-2xl font-black text-white">{stats.rutasCompletadas}</p>
+                <p className="text-xs text-text-muted uppercase">Rutas Completadas</p>
+                <p className="text-2xl font-black text-white">{stats.rutasCompletadas}/{stats.totalRutas}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Validation Alerts */}
+      {stats.totalRutas > 0 && stats.rutasCompletadas < stats.totalRutas && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex items-center gap-3">
+          <AlertCircle className="text-yellow-500" size={20} />
+          <div>
+            <p className="text-yellow-500 text-sm font-bold">Hay rutas incompletas</p>
+            <p className="text-yellow-500/70 text-xs">Existen {stats.totalRutas - stats.rutasCompletadas} rutas que aún no han sido finalizadas en este periodo.</p>
+          </div>
+        </div>
+      )}
 
       {/* Insights */}
       {insights.length > 0 && (
@@ -462,14 +488,14 @@ export default function AnalisisRutas() {
             <div 
               key={idx}
               className={`p-4 rounded-xl border ${
-                insight.tipo === 'positivo' ? 'bg-green-500/10 border-green-500/30' :
-                insight.tipo === 'negativo' ? 'bg-red-500/10 border-red-500/30' :
+                insight.tipo.includes('positivo') ? 'bg-green-500/10 border-green-500/30' :
+                insight.tipo.includes('negativo') ? 'bg-red-500/10 border-red-500/30' :
                 'bg-blue-500/10 border-blue-500/30'
               }`}
             >
               <p className={`font-bold text-sm ${
-                insight.tipo === 'positivo' ? 'text-green-400' :
-                insight.tipo === 'negativo' ? 'text-red-400' :
+                insight.tipo.includes('positivo') ? 'text-green-400' :
+                insight.tipo.includes('negativo') ? 'text-red-400' :
                 'text-blue-400'
               }`}>
                 {insight.titulo}
@@ -527,7 +553,7 @@ export default function AnalisisRutas() {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
                   labelStyle={{ color: '#f8fafc' }}
-                  formatter={(value: number) => [`${value}%`, 'Efficiency']}
+                  formatter={(value: number) => [`${value}%`, 'Eficiencia']}
                 />
                 <Line 
                   type="monotone" 
@@ -578,16 +604,16 @@ export default function AnalisisRutas() {
                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
                 labelStyle={{ color: '#f8fafc' }}
                 formatter={(value: number, name: string) => {
-                  if (name === 'eficienciaPromedio') return [`${value.toFixed(0)}%`, 'Efficiency'];
-                  if (name === 'entregas') return [value, 'Entregas'];
-                  if (name === 'score') return [value.toFixed(1), 'Score'];
+                  if (name === 'eficienciaPromedio') return [`${value.toFixed(0)}%`, 'Eficiencia'];
+                  if (name === 'entregas') return [value, 'Locales Visitados'];
+                  if (name === 'score') return [value.toFixed(1), 'Score General'];
                   return [value, name];
                 }}
               />
               <Legend />
-              <Bar dataKey="eficienciaPromedio" name="Efficiency %" fill="#22c55e" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="entregas" name="Entregas" fill="#6366f1" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="score" name="Score" fill="#eab308" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="eficienciaPromedio" name="Eficiencia %" fill="#22c55e" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="entregas" name="Locales Visitados" fill="#6366f1" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="score" name="Score General" fill="#eab308" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
