@@ -1030,6 +1030,7 @@ const win = window.open('', '_blank');
                                             images: allRouteFotos, 
                                             index: clickedIndex >= 0 ? clickedIndex : 0 
                                           });
+                                          console.log('[Gallery] Photos loaded:', allRouteFotos.length);
                                         }}
                                         className="w-full"
                                       >
@@ -1160,6 +1161,7 @@ const win = window.open('', '_blank');
             </CardContent>
           </Card>
         </div>
+
 
         {/* Cards de Otros (Estacionamiento/Peaje) */}
         {gastosOtros.length > 0 && (
