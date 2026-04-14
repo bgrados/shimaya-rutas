@@ -120,20 +120,22 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
 
       {/* Main Gallery Area */}
       <div className="relative w-full h-full flex items-center justify-center p-4 md:p-12 overflow-hidden">
-        {/* Navigation Arrows */}
+        {/* Navigation Arrows - High z-index and high visibility */}
         {images.length > 1 && (
           <>
             <button 
               onClick={handlePrev}
-              className="absolute left-4 z-20 p-4 bg-white/5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all backdrop-blur-md border border-white/5"
+              className="absolute left-4 z-[1000] p-4 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-md border border-white/20 shadow-2xl"
+              title="Anterior (Flecha Izquierda)"
             >
-              <ChevronLeft size={32} />
+              <ChevronLeft size={40} />
             </button>
             <button 
               onClick={handleNext}
-              className="absolute right-4 z-20 p-4 bg-white/5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all backdrop-blur-md border border-white/5"
+              className="absolute right-4 z-[1000] p-4 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-md border border-white/20 shadow-2xl"
+              title="Siguiente (Flecha Derecha)"
             >
-              <ChevronRight size={32} />
+              <ChevronRight size={40} />
             </button>
           </>
         )}
