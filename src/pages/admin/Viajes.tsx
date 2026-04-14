@@ -12,15 +12,19 @@ import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer, RefreshC
 import { nowPeru, getStartOfCurrentWeek } from '../../lib/timezone';
 
 const formatPeru = (dateStr: string | null | undefined, fmt: string): string => {
-  if (!dateStr) return '-';
-  return format(new Date(dateStr + 'T12:00:00'), fmt);
+  if (!dateStr || dateStr === 'Sin fecha' || !dateStr.includes('-')) return '-';
+  try {
+    return format(new Date(dateStr + 'T12:00:00'), fmt);
+  } catch { return '-'; }
 };
 
 const parseLocalDate = (dateStr: string | null) => {
   if (!dateStr || dateStr === 'Sin fecha') return null;
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return new Date(dateStr);
-  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3 || !dateStr.includes('-')) return null;
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  } catch { return null; }
 };
 
 export default function AdminViajes() {
