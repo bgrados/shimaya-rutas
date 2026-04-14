@@ -633,37 +633,30 @@ export default function AnalisisRutas() {
       </div>
 
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-surface border border-surface-light overflow-hidden">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-500/20 rounded-lg">
-                <BarChart3 className="text-indigo-400" size={20} />
-              </div>
-              <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Total Horas</p>
-                <div className="flex items-baseline gap-1">
-                  <p className="text-xl font-black text-white">{stats.totalHoras.toFixed(1)}h</p>
-                  {(() => {
-                    const hActual = comparacionSemanal.reduce((s, d) => s + d.semanaActual, 0);
-                    const hAnterior = comparacionSemanal.reduce((s, d) => s + d.semanaAnterior, 0);
-                    if (hAnterior > 0) {
-                      const diff = ((hActual - hAnterior) / hAnterior) * 100;
-                      return (
-                        <span className={`text-[10px] font-bold ${diff < 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {diff < 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
-                        </span>
-                      );
-                    }
-                    return null;
-                  })()}
+      {/* Summary Cards del Período Seleccionado */}
+      <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 px-1">
+          Totales del Período Seleccionado
+          <span className="text-[10px] font-normal text-text-muted bg-surface border border-surface-light px-2 py-0.5 rounded-full">
+            Según filtros de fecha
+          </span>
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="bg-surface border border-surface-light overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-500/20 rounded-lg">
+                  <BarChart3 className="text-indigo-400" size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-muted uppercase font-bold">Total Horas</p>
+                  <div className="flex items-baseline gap-1">
+                    <p className="text-xl font-black text-white">{stats.totalHoras.toFixed(1)}h</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <p className="text-[9px] text-text-muted mt-1 italic">Vs la semana anterior</p>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-4">
@@ -729,6 +722,7 @@ export default function AnalisisRutas() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
 
       {/* Validation Alerts */}
