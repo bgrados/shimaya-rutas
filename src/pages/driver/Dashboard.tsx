@@ -37,7 +37,7 @@ export default function DriverDashboard() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [gastosCombustible, setGastosCombustible] = useState<GastoDelDia | null>(null);
   const [gastosOtros, setGastosOtros] = useState<GastoDelDia | null>(null);
-  const [activePhoto, setActivePhoto] = useState<{ url: string; title: string } | null>(null);
+  const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
 
   const loadRutas = async () => {
     if (!profile) {
@@ -221,7 +221,10 @@ const loadRutasHistoricas = async () => {
                       <p className="text-xl font-black text-white">S/ {gastosCombustible.monto.toFixed(2)}</p>
                       {gastosCombustible.foto_url && (
                         <button 
-                          onClick={() => setActivePhoto({ url: gastosCombustible.foto_url!, title: 'Comprobante Combustible' })}
+                          onClick={() => setActivePhoto({ 
+                            images: [{ url: gastosCombustible.foto_url!, title: 'Comprobante Combustible' }], 
+                            index: 0 
+                          })}
                           className="text-xs text-yellow-400 hover:underline flex items-center gap-1 mt-1"
                         >
                           👁️ Ver comprobante
@@ -252,7 +255,10 @@ const loadRutasHistoricas = async () => {
                       <p className="text-xl font-black text-white">S/ {gastosOtros.monto.toFixed(2)}</p>
                       {gastosOtros.foto_url && (
                         <button 
-                          onClick={() => setActivePhoto({ url: gastosOtros.foto_url!, title: 'Comprobante Otros Gastos' })}
+                          onClick={() => setActivePhoto({ 
+                            images: [{ url: gastosOtros.foto_url!, title: 'Comprobante Otros Gastos' }], 
+                            index: 0 
+                          })}
                           className="text-xs text-blue-400 hover:underline flex items-center gap-1 mt-1"
                         >
                           👁️ Ver comprobante
@@ -386,8 +392,8 @@ const loadRutasHistoricas = async () => {
       <ImageModal 
         isOpen={!!activePhoto}
         onClose={() => setActivePhoto(null)}
-        imageUrl={activePhoto?.url || ''}
-        title={activePhoto?.title}
+        images={activePhoto?.images || []}
+        initialIndex={activePhoto?.index}
       />
     </div>
   );
