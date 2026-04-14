@@ -236,7 +236,7 @@ export default function AnalisisRutas() {
       
       const tiempoActual = rutasActual.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
       const tiempoAnterior = rutasAnterior.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
-      const entregas = rutasActual.reduce((sum, r) => sum + (r.entregas || 0), 0);
+      const entregas = rutasActual.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
       
       const conEff = rutasActual.filter(r => (r.tiempo_estimado || 0) > 0);
       const eficiencia = conEff.length > 0
