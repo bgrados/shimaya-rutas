@@ -18,6 +18,11 @@ const formatPeru = (dateStr: string | null | undefined, fmt: string): string => 
   } catch { return '-'; }
 };
 
+const formatHora = (horaStr: string | null | undefined): string => {
+  if (!horaStr || horaStr === '-') return '-';
+  return horaStr.substring(0, 5);
+};
+
 const parseLocalDate = (dateStr: string | null) => {
   if (!dateStr || dateStr === 'Sin fecha') return null;
   try {
@@ -475,10 +480,10 @@ export default function AdminViajes() {
                                                 {tramo.origen_nombre} <span className="text-primary mx-1">→</span> {tramo.destino_nombre}
                                               </p>
                                               <div className="flex items-center gap-4 text-[9px] text-text-muted font-bold uppercase tracking-widest">
-                                                <span className="flex items-center gap-1"><Clock size={10}/> SALIDA: {formatPeru(tramo.hora_salida, 'HH:mm')}</span>
+                                                <span className="flex items-center gap-1"><Clock size={10}/> SALIDA: {formatHora(tramo.hora_salida)}</span>
                                                 {tramo.hora_llegada && (
                                                   <span className="flex items-center gap-1 text-green-500 border-l border-white/10 pl-3">
-                                                    <CheckCircle2 size={10}/> LLEGADA: {formatPeru(tramo.hora_llegada, 'HH:mm')} ({formatDuration(tramo.hora_salida, tramo.hora_llegada)})
+                                                    <CheckCircle2 size={10}/> LLEGADA: {formatHora(tramo.hora_llegada)} ({formatDuration(tramo.hora_salida, tramo.hora_llegada)})
                                                   </span>
                                                 )}
                                                 {idx > 0 && viaje.bitacora && viaje.bitacora[idx-1].hora_llegada && (
