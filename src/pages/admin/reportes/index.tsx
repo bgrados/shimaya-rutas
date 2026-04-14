@@ -386,19 +386,29 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
         </table>` :
         '<p style="padding:10px 16px;color:#94a3b8;font-size:12px;font-style:italic;margin:0;">Sin movimientos registrados</p>'}
         ${incluirFotosEnPDF && (r.localesRuta || []).length > 0 ? (() => {
-          let fotosHtml = '';
+          const allFotos: { url: string; localName: string }[] = [];
           (r.localesRuta || []).forEach((local: any) => {
             const fotos = fotosPorLocal[local.id_local_ruta] || [];
-            if (fotos.length > 0) {
-              fotosHtml += `<div style="padding:8px 12px;border-top:1px solid #e2e8f0;background:#fafafa;">
-                <p style="font-size:10px;color:#64748b;margin:0 0 6px 0;font-weight:600;">${local.nombre || 'Local'}</p>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  ${fotos.map((f: any) => `<img src="${f.foto_url}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;" />`).join('')}
-                </div>
-              </div>`;
-            }
+            fotos.forEach((f: any) => {
+              allFotos.push({ url: f.foto_url, localName: local.nombre || 'Local' });
+            });
           });
-          return fotosHtml;
+
+          if (allFotos.length === 0) return '';
+
+          return `<div style="padding:15px; background:#fff; border-top:1px solid #e2e8f0;">
+            <p style="font-size:12px; font-weight:bold; color:#1e293b; margin:0 0 10px 0; border-bottom:2px solid #3b82f6; display:inline-block;">📸 EVIDENCIAS FOTOGRÁFICAS</p>
+            <div style="display:flex; flex-wrap:wrap; gap:12px;">
+              ${allFotos.map(f => `
+                <div style="width:calc(50% - 6px); break-inside:avoid; margin-bottom:10px; border:1px solid #f1f5f9; border-radius:8px; overflow:hidden; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                  <img src="${f.url}" style="width:100%; height:160px; object-fit:cover; display:block;" />
+                  <div style="padding:6px 8px; background:#f8fafc; border-top:1px solid #f1f5f9;">
+                    <p style="font-size:10px; color:#475569; font-weight:600; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📍 ${f.localName}</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
         })() : ''}
       </div>`;
     }).join('');
