@@ -19,8 +19,16 @@ const formatPeru = (dateStr: string | null | undefined, fmt: string): string => 
 };
 
 const formatHora = (horaStr: string | null | undefined): string => {
-  if (!horaStr || horaStr === '-') return '-';
-  return horaStr.substring(0, 5);
+  if (!horaStr || horaStr === '-' || horaStr === 'Sin hora') return '-';
+  // If it's ISO format like "2026-04-13T07:00:00", extract the time
+  if (horaStr.includes('T')) {
+    return horaStr.split('T')[1].substring(0, 5);
+  }
+  // If it's just time like "07:00:00"
+  if (horaStr.length >= 5) {
+    return horaStr.substring(0, 5);
+  }
+  return horaStr;
 };
 
 const parseLocalDate = (dateStr: string | null) => {
