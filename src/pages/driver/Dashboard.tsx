@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatFriendlyDate } from '../../lib/timezone';
+import { ImageModal } from '../../components/ui/ImageModal';
 
 interface RutaHistorica {
   id_ruta: string;
@@ -36,6 +37,7 @@ export default function DriverDashboard() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [gastosCombustible, setGastosCombustible] = useState<GastoDelDia | null>(null);
   const [gastosOtros, setGastosOtros] = useState<GastoDelDia | null>(null);
+  const [activePhoto, setActivePhoto] = useState<{ url: string; title: string } | null>(null);
 
   const loadRutas = async () => {
     if (!profile) {
@@ -219,18 +221,10 @@ const loadRutasHistoricas = async () => {
                       <p className="text-xl font-black text-white">S/ {gastosCombustible.monto.toFixed(2)}</p>
                       {gastosCombustible.foto_url && (
                         <button 
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = gastosCombustible.foto_url!;
-                            link.download = `combustible_${Date.now()}.jpg`;
-                            link.target = '_blank';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                          className="text-xs text-yellow-400 hover:underline"
+                          onClick={() => setActivePhoto({ url: gastosCombustible.foto_url!, title: 'Comprobante Combustible' })}
+                          className="text-xs text-yellow-400 hover:underline flex items-center gap-1 mt-1"
                         >
-                          📥 Descargar comprobante
+                          👁️ Ver comprobante
                         </button>
                       )}
                     </div>
@@ -258,18 +252,10 @@ const loadRutasHistoricas = async () => {
                       <p className="text-xl font-black text-white">S/ {gastosOtros.monto.toFixed(2)}</p>
                       {gastosOtros.foto_url && (
                         <button 
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = gastosOtros.foto_url!;
-                            link.download = `otro_gasto_${Date.now()}.jpg`;
-                            link.target = '_blank';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                          className="text-xs text-blue-400 hover:underline"
+                          onClick={() => setActivePhoto({ url: gastosOtros.foto_url!, title: 'Comprobante Otros Gastos' })}
+                          className="text-xs text-blue-400 hover:underline flex items-center gap-1 mt-1"
                         >
-                          📥 Descargar comprobante
+                          👁️ Ver comprobante
                         </button>
                       )}
                     </div>
@@ -397,6 +383,12 @@ const loadRutasHistoricas = async () => {
           )}
         </div>
       </div>
+      <ImageModal 
+        isOpen={!!activePhoto}
+        onClose={() => setActivePhoto(null)}
+        imageUrl={activePhoto?.url || ''}
+        title={activePhoto?.title}
+      />
     </div>
   );
 }
