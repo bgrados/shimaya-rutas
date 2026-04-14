@@ -20,7 +20,7 @@ interface Stats {
   gastoCombustibleSemana: number;
   gastoOtrosDia: number;
   gastoOtrosSemana: number;
-  cargasCombustibleHoy: number;
+  gastosHoy: number;
 }
 
 interface RutaEnProgreso {
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
     gastoCombustibleDia: 0,
     gastoCombustibleSemana: 0,
     gastoOtrosDia: 0,
-    cargasCombustibleHoy: 0
+    gastosHoy: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
@@ -120,6 +120,11 @@ export default function AdminDashboard() {
       const gastoOtrosDia = otrosDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoOtrosSemana = otrosSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       
+      // Gastos Hoy = cargas combustible + cobros otros de hoy
+      const cargasCombustibleHoy = combustibleDiaRes.data?.length || 0;
+      const cobrosOtrosHoy = otrosDiaRes.data?.length || 0;
+      const gastosHoy = cargasCombustibleHoy + cobrosOtrosHoy;
+      
       setStats({
         rutasActivas: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
         rutasPendientes: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
@@ -134,7 +139,7 @@ export default function AdminDashboard() {
         gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia: gastoOtrosDia,
         gastoOtrosSemana: gastoOtrosSemana,
-        cargasCombustibleHoy: combustibleDiaRes.data?.length || 0
+        gastosHoy
       });
 
       const { data: rutasProgreso } = await supabase
@@ -375,8 +380,8 @@ export default function AdminDashboard() {
         </Card>
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-3 text-center">
-            <p className="text-text-muted text-xs">Cargas Hoy</p>
-            <p className="text-xl font-bold text-primary">{stats.cargasCombustibleHoy}</p>
+            <p className="text-text-muted text-xs">Gastos Hoy</p>
+            <p className="text-xl font-bold text-primary">{stats.gastosHoy}</p>
           </CardContent>
         </Card>
       </div>
@@ -488,8 +493,8 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center p-3 bg-yellow-500/10 rounded-lg">
-                  <p className="text-yellow-400 text-xl font-bold">{stats.cargasCombustibleHoy}</p>
-                  <p className="text-text-muted text-xs">Cargas Hoy</p>
+                  <p className="text-yellow-400 text-xl font-bold">{stats.gastosHoy}</p>
+                  <p className="text-text-muted text-xs">Gastos Hoy</p>
                 </div>
                 <div className="text-center p-3 bg-blue-500/10 rounded-lg">
                   <p className="text-blue-400 text-xl font-bold">S/ {stats.gastoCombustibleSemana.toFixed(0)}</p>
