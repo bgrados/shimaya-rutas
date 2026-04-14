@@ -39,10 +39,11 @@ interface ChoferStats {
   id: string;
   nombre: string;
   rutas: number;
-  entregas: number;
-  tiempoTotal: number;
-  eficienciaPromedio: number;
-  score: number;
+  visitasRealizadas: number;
+  visitasExtra: number;
+  tiempoTotal: number;      // minutos
+  eficienciaPromedio: number; // 0–100, basada en mejor tiempo histórico
+  tieneEficiencia: boolean;   // false si no hay historial suficiente
 }
 
 interface DiaStats {
@@ -263,41 +264,49 @@ export default function AnalisisRutas() {
   }, [rutas, mejorTiempoPorDia]);
 
   const rendimientoChoferes = useMemo((): ChoferStats[] => {
-    const choferMap = new Map<string, ChoferStats>();
+    const choferMap = new Map<string, {
+      id: string; nombre: string;
+      rutas: number; visitasRealizadas: number; visitasExtra: number;
+      tiempoTotal: number; eficienciaSuma: number; rutasConEff: number;
+    }>();
     
     rutas.forEach(ruta => {
       if (!ruta.id_chofer) return;
-      
       const existing = choferMap.get(ruta.id_chofer) || {
         id: ruta.id_chofer,
         nombre: ruta.chofer_nombre || 'Sin nombre',
-        rutas: 0,
-        entregas: 0,
-        tiempoTotal: 0,
-        eficienciaPromedio: 0,
-        score: 0,
+        rutas: 0, visitasRealizadas: 0, visitasExtra: 0,
+        tiempoTotal: 0, eficienciaSuma: 0, rutasConEff: 0,
       };
-      
       existing.rutas++;
-      existing.entregas += ruta.visitas_realizadas || 0;
-      existing.tiempoTotal += ruta.tiempo_real || 0;
-      existing.eficienciaPromedio += ruta.eficiencia || 0;
-      
+      existing.visitasRealizadas += ruta.visitas_realizadas || 0;
+      existing.visitasExtra     += ruta.visitas_extra || 0;
+      existing.tiempoTotal      += ruta.tiempo_real || 0;
+      if ((ruta.eficiencia || 0) > 0) {
+        existing.eficienciaSuma += ruta.eficiencia!;
+        existing.rutasConEff++;
+      }
       choferMap.set(ruta.id_chofer, existing);
     });
 
     return Array.from(choferMap.values())
-      .map(c => {
-        const effScore = (c.eficienciaPromedio / (c.rutas || 1)) * 0.4;
-        const entScore = (c.entregas / (c.entregas || 1)) * 0.3;
-        const timeScore = (c.tiempoTotal / (c.rutas || 1)) * 0.3;
-        return {
-          ...c,
-          eficienciaPromedio: c.rutas > 0 ? c.eficienciaPromedio / c.rutas : 0,
-          score: effScore + entScore + timeScore,
-        };
-      })
-      .sort((a, b) => b.score - a.score);
+      .map(c => ({
+        id: c.id,
+        nombre: c.nombre,
+        rutas: c.rutas,
+        visitasRealizadas: c.visitasRealizadas,
+        visitasExtra: c.visitasExtra,
+        tiempoTotal: c.tiempoTotal,
+        eficienciaPromedio: c.rutasConEff > 0 ? c.eficienciaSuma / c.rutasConEff : 0,
+        tieneEficiencia: c.rutasConEff > 0,
+      }))
+      .sort((a, b) => {
+        // Sort by efficiency if available, otherwise by visits
+        if (a.tieneEficiencia && b.tieneEficiencia) return b.eficienciaPromedio - a.eficienciaPromedio;
+        if (a.tieneEficiencia) return -1;
+        if (b.tieneEficiencia) return 1;
+        return b.visitasRealizadas - a.visitasRealizadas;
+      });
   }, [rutas]);
 
   useEffect(() => {
@@ -807,34 +816,87 @@ export default function AnalisisRutas() {
       {/* Driver Performance */}
       <Card className="bg-surface border border-surface-light">
         <CardContent className="p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
             <Truck size={20} />
             Rendimiento por Chofer
           </h3>
-          <p className="text-text-muted text-xs mb-4">
-            Puntaje combinado: eficiencia + tiempo + entregas
+          <p className="text-text-muted text-xs mb-5">
+            Eficiencia real basada en el mejor tiempo histórico por día de semana
           </p>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={rendimientoChoferes} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis type="number" stroke="#94a3b8" fontSize={12} />
-              <YAxis dataKey="nombre" type="category" stroke="#94a3b8" fontSize={12} width={100} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                labelStyle={{ color: '#f8fafc' }}
-                formatter={(value: number, name: string) => {
-                  if (name === 'eficienciaPromedio') return [`${value.toFixed(0)}%`, 'Eficiencia'];
-                  if (name === 'entregas') return [value, 'Visitas Realizadas'];
-                  if (name === 'score') return [value.toFixed(1), 'Score General'];
-                  return [value, name];
-                }}
-              />
-              <Legend />
-              <Bar dataKey="eficienciaPromedio" name="Eficiencia %" fill="#22c55e" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="entregas" name="Visitas Realizadas" fill="#6366f1" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="score" name="Score General" fill="#eab308" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+
+          {rendimientoChoferes.length === 0 ? (
+            <p className="text-text-muted text-sm text-center py-8">Sin datos en el periodo seleccionado.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-surface-light text-[10px] uppercase tracking-widest text-text-muted">
+                    <th className="text-left py-2 px-3">#</th>
+                    <th className="text-left py-2 px-3">Chofer</th>
+                    <th className="text-center py-2 px-3">Eficiencia</th>
+                    <th className="text-center py-2 px-3">Visitas</th>
+                    <th className="text-center py-2 px-3">Visitas Extra</th>
+                    <th className="text-center py-2 px-3">Rutas</th>
+                    <th className="text-right py-2 px-3">T. Promedio</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-light/30">
+                  {rendimientoChoferes.map((c, idx) => {
+                    const eff = c.eficienciaPromedio;
+                    const effBg = !c.tieneEficiencia ? 'bg-slate-500/10 text-slate-400'
+                      : eff >= 85 ? 'bg-green-500/10 text-green-400'
+                      : eff >= 70 ? 'bg-yellow-500/10 text-yellow-400'
+                      : 'bg-red-500/10 text-red-400';
+                    const promedioMins = c.rutas > 0 ? c.tiempoTotal / c.rutas : 0;
+
+                    return (
+                      <tr key={c.id} className="hover:bg-surface-light/10 transition-colors">
+                        <td className="py-3 px-3">
+                          <span className="text-text-muted font-black text-xs">{idx + 1}</span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="font-bold text-white">{c.nombre}</span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-black ${effBg}`}>
+                            {c.tieneEficiencia ? `${eff.toFixed(0)}%` : 'N/D'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="font-bold text-white">{c.visitasRealizadas}</span>
+                          <span className="text-text-muted text-[10px] ml-1">paradas</span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {c.visitasExtra > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-red-400 font-bold text-xs">
+                              <RefreshCw size={11} /> {c.visitasExtra}
+                            </span>
+                          ) : (
+                            <span className="text-green-400 text-xs font-bold">✓ Ninguna</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="text-text-muted text-xs">{c.rutas}</span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <span className="text-white text-xs font-bold">{formatDurationHuman(Math.round(promedioMins))}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-surface-light/50 text-xs text-text-muted">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-green-500"></span> ≥85% Eficiente</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-500"></span> 70–85% Aceptable</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500"></span> &lt;70% Ineficiente</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-slate-500"></span> N/D = Sin historial</span>
+            <span className="ml-auto flex items-center gap-1.5"><RefreshCw size={10} className="text-red-400" /> Visitas Extra = regresos</span>
+          </div>
         </CardContent>
       </Card>
 
