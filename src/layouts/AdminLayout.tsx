@@ -60,14 +60,14 @@ export const AdminLayout: React.FC = () => {
 
       {/* Sidebar - fixed on desktop, slides on mobile */}
       <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        <div className="p-6 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white tracking-wide">SHIMAYA</h1>
+        <div className="p-4 flex justify-between items-center border-b border-surface-light">
+          <h1 className="text-xl font-bold text-white tracking-wide">SHIMAYA</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
             <X size={24} />
           </button>
         </div>
 
-        <nav className="mt-6 px-4 space-y-2">
+        <nav className="mt-2 px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -75,11 +75,11 @@ export const AdminLayout: React.FC = () => {
                 key={item.name}
                 to={item.href}
                 onClick={() => setIsSidebarOpen(false)}
-                className={`flex items-center px-4 py-3 rounded-xl transition-colors ${
+                className={`flex items-center px-3 py-2.5 rounded-lg transition-colors text-sm ${
                   isActive ? 'bg-primary text-white font-medium' : 'text-text-muted hover:bg-surface-light hover:text-white'
                 }`}
               >
-                <item.icon className="mr-3 h-5 w-5" />
+                <item.icon className="mr-2 h-4 w-4" />
                 {item.name}
               </Link>
             );
