@@ -186,7 +186,11 @@ export default function Usuarios() {
   useEffect(() => {
     load();
     
-    const channel = supabase.channel('auth_presence')
+    // Definimos el canal primero
+    const channel = supabase.channel('auth_presence');
+
+    // Añadimos TODOS los callbacks ANTES de llamar a subscribe()
+    channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const onlineIds = new Set<string>();
@@ -199,7 +203,13 @@ export default function Usuarios() {
           });
         });
         setUsuariosOnline(onlineIds);
-        load();
+        
+        // Actualizamos los usuarios locales sin volver a llamar a load() (que hace el fetch completo)
+        // para evitar loops infinitos o race conditions
+        setUsuarios(prev => prev.map(u => ({
+          ...u,
+          connected: onlineIds.has(u.id_usuario)
+        })));
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {

@@ -4,7 +4,8 @@ import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { 
   BarChart3, TrendingUp, Clock, Target, Truck, 
-  Calendar, Filter, ChevronDown, ChevronUp, Info
+  Calendar, Filter, ChevronDown, ChevronUp, Info,
+  Users, RefreshCw, AlertCircle
 } from 'lucide-react';
 import { 
   format, subDays, startOfWeek, endOfWeek, 
@@ -29,7 +30,9 @@ interface RutaData {
   tiempo_real?: number;
   tiempo_estimado?: number;
   eficiencia?: number;
-  entregas?: number;
+  visitas_realizadas: number;
+  locales_unicos: number;
+  visitas_extra: number;
 }
 
 interface ChoferStats {
@@ -128,12 +131,14 @@ export default function AnalisisRutas() {
       return true;
     });
 
-    const totalLocales = filtered.reduce((sum, r) => sum + (r.entregas || 0), 0);
+    const totalReal = filtered.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
+    const totalUnicos = filtered.reduce((sum, r) => sum + (r.locales_unicos || 0), 0);
+    const totalExtra = filtered.reduce((sum, r) => sum + (r.visitas_extra || 0), 0);
+    
     const tiempoPromedio = filtered.length > 0 
       ? filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / filtered.length 
       : 0;
     
-    // Solo calculamos si hay tiempos reales
     const conEficiencia = filtered.filter(r => (r.tiempo_estimado || 0) > 0);
     const eficienciaGlobal = conEficiencia.length > 0
       ? conEficiencia.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEficiencia.length
@@ -142,7 +147,9 @@ export default function AnalisisRutas() {
     const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
 
     return {
-      totalLocales,
+      totalReal,
+      totalUnicos,
+      totalExtra,
       tiempoPromedio,
       eficienciaGlobal,
       rutasCompletadas,
@@ -228,7 +235,7 @@ export default function AnalisisRutas() {
       };
       
       existing.rutas++;
-      existing.entregas += ruta.entregas || 0;
+      existing.entregas += ruta.visitas_realizadas || 0;
       existing.tiempoTotal += ruta.tiempo_real || 0;
       existing.eficienciaPromedio += ruta.eficiencia || 0;
       
@@ -281,13 +288,23 @@ export default function AnalisisRutas() {
       });
     }
     
-    // 3. Chofer destacado
+    // 3. Visitas extra (Ineficiencias)
+    const extraVisits = stats.totalExtra;
+    if (extraVisits > 0) {
+      newInsights.push({
+        tipo: 'negativo',
+        titulo: `Se detectaron ${extraVisits} visitas adicionales`,
+        descripcion: `Posibles regresos a locales o redundancias en las rutas del periodo.`,
+      });
+    }
+
+    // 4. Chofer destacado
     if (rendimientoChoferes.length > 0) {
       const mejorChofer = rendimientoChoferes[0];
       newInsights.push({
         tipo: ' positivo',
         titulo: `Chofer más eficiente: ${mejorChofer.nombre}`,
-        descripcion: `Logró el mejor balance entre volumen de entregas y tiempo total.`,
+        descripcion: `Logró el mejor balance entre paradas totales y tiempo de ruta.`,
       });
     }
     
@@ -317,23 +334,30 @@ export default function AnalisisRutas() {
 
       if (rutasError) throw rutasError;
 
-      // 2. Fetch locales_ruta to count deliveries (excluding Planta)
-      const { data: localesData, error: localesError } = await supabase
-        .from('locales_ruta')
-        .select('id_ruta, nombre, estado_visita')
+      // 2. Fetch viajes_bitacora to count REAL visits (excluding Planta)
+      const { data: bitacoraData, error: bitacoraError } = await supabase
+        .from('viajes_bitacora')
+        .select('id_ruta, destino_nombre, hora_llegada')
         .in('id_ruta', rutasData?.map(r => r.id_ruta) || []);
 
-      if (localesError) throw localesError;
+      if (bitacoraError) throw bitacoraError;
 
       if (rutasData && rutasData.length > 0) {
         const processed = rutasData.map(r => {
           const tReal = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
-          const deliveries = localesData?.filter(l => 
-            l.id_ruta === r.id_ruta && 
-            l.estado_visita === 'visitado' && 
-            !l.nombre?.toLowerCase().includes('planta')
-          ).length || 0;
+          
+          // Filtro de paradas reales (idéntico a Viajes.tsx)
+          const segments = bitacoraData?.filter(b => 
+            b.id_ruta === r.id_ruta && 
+            b.hora_llegada && 
+            b.destino_nombre !== 'Planta'
+          ) || [];
 
+          const totalVisitas = segments.length;
+          
+          // Contar locales únicos
+          const uniqueLocales = new Set(segments.map(s => s.destino_nombre?.toLowerCase().trim())).size;
+          
           // Por ahora no hay tiempo_estimado en DB
           const tEstimado = 0; 
           
@@ -343,7 +367,9 @@ export default function AnalisisRutas() {
             tiempo_real: tReal,
             tiempo_estimado: tEstimado,
             eficiencia: tEstimado > 0 ? (tEstimado / tReal) * 100 : 0,
-            entregas: deliveries,
+            visitas_realizadas: totalVisitas,
+            locales_unicos: uniqueLocales,
+            visitas_extra: totalVisitas - uniqueLocales
           };
         });
         setRutas(processed);
@@ -453,11 +479,14 @@ export default function AnalisisRutas() {
                 <Target className="text-primary" size={20} />
               </div>
               <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Locales Visitados</p>
-                <p className="text-xl font-black text-white">{stats.totalLocales}</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Visitas Realizadas</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xl font-black text-white">{stats.totalReal}</p>
+                  <span className="text-[10px] text-text-muted">Total paradas</span>
+                </div>
               </div>
             </div>
-            <p className="text-[9px] text-text-muted mt-1 italic">* Excluye Planta</p>
+            <p className="text-[9px] text-text-muted mt-1 italic">* Coincide con Seguimiento en Vivo</p>
           </CardContent>
         </Card>
 
@@ -465,29 +494,32 @@ export default function AnalisisRutas() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Clock className="text-blue-400" size={20} />
+                <Users className="text-blue-400" size={20} />
               </div>
               <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Tiempo Promedio</p>
-                <p className="text-xl font-black text-white">{formatDurationHuman(stats.tiempoPromedio)}</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Locales Únicos</p>
+                <p className="text-xl font-black text-white">{stats.totalUnicos}</p>
               </div>
             </div>
+            <p className="text-[9px] text-text-muted mt-1 italic">Clientes distintos visitados</p>
           </CardContent>
         </Card>
 
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/20 rounded-lg">
-                <TrendingUp className="text-green-400" size={20} />
+              <div className="p-2 bg-red-500/20 rounded-lg">
+                <RefreshCw className="text-red-400" size={20} />
               </div>
               <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Eficiencia</p>
-                <p className="text-xl font-black" style={{ color: stats.eficienciaGlobal ? getEficienciaColor(stats.eficienciaGlobal) : COLORS.textMuted }}>
-                  {stats.eficienciaGlobal ? `${stats.eficienciaGlobal.toFixed(0)}%` : 'N/D'}
-                </p>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Visitas Extra</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xl font-black text-white">{stats.totalExtra}</p>
+                  {stats.totalExtra > 0 && <span className="text-[10px] text-red-400 font-bold animate-pulse">Regresos</span>}
+                </div>
               </div>
             </div>
+            <p className="text-[9px] text-text-muted mt-1 italic">Ineficiencias detectadas</p>
           </CardContent>
         </Card>
 
@@ -648,14 +680,14 @@ export default function AnalisisRutas() {
                 labelStyle={{ color: '#f8fafc' }}
                 formatter={(value: number, name: string) => {
                   if (name === 'eficienciaPromedio') return [`${value.toFixed(0)}%`, 'Eficiencia'];
-                  if (name === 'entregas') return [value, 'Locales Visitados'];
+                  if (name === 'entregas') return [value, 'Visitas Realizadas'];
                   if (name === 'score') return [value.toFixed(1), 'Score General'];
                   return [value, name];
                 }}
               />
               <Legend />
               <Bar dataKey="eficienciaPromedio" name="Eficiencia %" fill="#22c55e" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="entregas" name="Locales Visitados" fill="#6366f1" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="entregas" name="Visitas Realizadas" fill="#6366f1" radius={[0, 4, 4, 0]} />
               <Bar dataKey="score" name="Score General" fill="#eab308" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
