@@ -273,7 +273,7 @@ export default function AnalisisRutas() {
       const mejorChofer = rendimientoChoferes[0];
       newInsights.push({
         tipo: 'positivo',
-        titulo: `Top driver: ${mejorChofer.nombre}`,
+        titulo: `🏆 Mejor chofer: ${mejorChofer.nombre}`,
         descripcion: `${mejorChofer.entregas} deliveries in ${mejorChofer.rutas} routes with ${mejorChofer.eficienciaPromedio.toFixed(0)}% efficiency`,
       });
     }
@@ -354,7 +354,7 @@ export default function AnalisisRutas() {
             Análisis de Rutas
           </h1>
           <p className="text-text-muted text-sm mt-1">
-            Logistics performance analysis and metrics
+            Análisis de desempeño logístico y métricas
           </p>
         </div>
 
@@ -382,7 +382,7 @@ export default function AnalisisRutas() {
             onChange={(e) => setChoferFilter(e.target.value)}
             className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
           >
-            <option value="todos">All drivers</option>
+            <option value="todos">Todos los choferes</option>
             {choferes.map(c => (
               <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
             ))}
@@ -490,7 +490,7 @@ export default function AnalisisRutas() {
               Tiempo de Ruta: Esta Semana vs Anterior
             </h3>
             <p className="text-text-muted text-xs mb-4">
-              Comparing total route time between current and previous week
+              Comparando tiempo total de ruta entre semana actual y semana anterior
             </p>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={comparacionSemanal}>
@@ -502,8 +502,8 @@ export default function AnalisisRutas() {
                   labelStyle={{ color: '#f8fafc' }}
                 />
                 <Legend />
-                <Bar dataKey="semanaActual" name="This Week" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="semanaAnterior" name="Last Week" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="semanaActual" name="Esta semana" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="semanaAnterior" name="Semana anterior" fill="#94a3b8" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -517,7 +517,7 @@ export default function AnalisisRutas() {
               Eficiencia Diaria
             </h3>
             <p className="text-text-muted text-xs mb-4">
-              Estimated vs real time efficiency percentage
+              Porcentaje de eficiencia tiempo estimado vs real
             </p>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={eficienciaDiaria}>
@@ -567,7 +567,7 @@ export default function AnalisisRutas() {
             Rendimiento por Chofer
           </h3>
           <p className="text-text-muted text-xs mb-4">
-            Combined score: efficiency + time + deliveries
+            Puntaje combinado: eficiencia + tiempo + entregas
           </p>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={rendimientoChoferes} layout="vertical">
@@ -579,14 +579,14 @@ export default function AnalisisRutas() {
                 labelStyle={{ color: '#f8fafc' }}
                 formatter={(value: number, name: string) => {
                   if (name === 'eficienciaPromedio') return [`${value.toFixed(0)}%`, 'Efficiency'];
-                  if (name === 'entregas') return [value, 'Deliveries'];
+                  if (name === 'entregas') return [value, 'Entregas'];
                   if (name === 'score') return [value.toFixed(1), 'Score'];
                   return [value, name];
                 }}
               />
               <Legend />
               <Bar dataKey="eficienciaPromedio" name="Efficiency %" fill="#22c55e" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="entregas" name="Deliveries" fill="#6366f1" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="entregas" name="Entregas" fill="#6366f1" radius={[0, 4, 4, 0]} />
               <Bar dataKey="score" name="Score" fill="#eab308" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
