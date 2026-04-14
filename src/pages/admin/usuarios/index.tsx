@@ -5,6 +5,7 @@ import { Plus, Shield, Truck, User, Edit2, Trash2, Key, Loader2, CheckCircle, X,
 import { supabase } from '../../../lib/supabase';
 import { Input } from '../../../components/ui/Input';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface UsuarioExtendido extends Usuario {
   connected?: boolean;
@@ -156,11 +157,11 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
 /* ───────────── Página principal Usuarios ───────────── */
 export default function Usuarios() {
   const navigate = useNavigate();
+  const { onlineUsers } = useAuth();
   const [usuarios, setUsuarios] = useState<UsuarioExtendido[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [usuariosOnline, setUsuariosOnline] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -170,7 +171,7 @@ export default function Usuarios() {
         // Combinar con estado online
         const usuariosActualizados = (data as Usuario[]).map(u => ({
           ...u,
-          connected: usuariosOnline.has(u.id_usuario),
+          connected: onlineUsers.includes(u.id_usuario),
           lastSeen: new Date().toISOString()
         }));
         setUsuarios(usuariosActualizados);
@@ -182,48 +183,16 @@ export default function Usuarios() {
     }
   };
 
-  // Realtime para detectar usuarios conectados usando Presence
+  // Efecto para sincronizar onlineUsers cuando varía desde AuthContext
+  useEffect(() => {
+    setUsuarios(prev => prev.map(u => ({
+      ...u,
+      connected: onlineUsers.includes(u.id_usuario)
+    })));
+  }, [onlineUsers]);
+
   useEffect(() => {
     load();
-    
-    // Definimos el canal primero
-    const channel = supabase.channel('auth_presence');
-
-    // Añadimos TODOS los callbacks ANTES de llamar a subscribe()
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const onlineIds = new Set<string>();
-        Object.keys(state).forEach(key => {
-          const users = state[key] as any[];
-          users.forEach(u => {
-            if (u.user_id) {
-              onlineIds.add(u.user_id);
-            }
-          });
-        });
-        setUsuariosOnline(onlineIds);
-        
-        // Actualizamos los usuarios locales sin volver a llamar a load() (que hace el fetch completo)
-        // para evitar loops infinitos o race conditions
-        setUsuarios(prev => prev.map(u => ({
-          ...u,
-          connected: onlineIds.has(u.id_usuario)
-        })));
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({
-            user_id: 'admin_view',
-            email: 'admin',
-            online_at: new Date().toISOString()
-          });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const handleSaveEdit = async (id: string, payload: any) => {

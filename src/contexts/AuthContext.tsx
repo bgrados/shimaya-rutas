@@ -3,10 +3,11 @@ import type { Session, User, AuthChangeEvent } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Usuario } from '../types'
 
-interface AuthContextType {
+export interface AuthContextType {
   session: Session | null
   user: User | null
   profile: Usuario | null
+  onlineUsers: string[]
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   loading: boolean
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   profile: null,
+  onlineUsers: [],
   signIn: async () => {},
   signOut: async () => {},
   loading: true,
@@ -35,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   })
   const [loading, setLoading] = useState(true)
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([])
   const authEventFired = useRef(false)
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
@@ -52,7 +55,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const presenceChannel = supabase.channel('auth_presence')
     presenceChannelRef.current = presenceChannel
     
-    // Suscribir al canal primero y esperar a que esté listo
+    // Configurar listener de presencia ANTES de suscribirse
+    presenceChannel.on('presence', { event: 'sync' }, () => {
+      const state = presenceChannel.presenceState()
+      const onlineIds = new Set<string>()
+      Object.keys(state).forEach(key => {
+        const users = state[key] as any[]
+        users.forEach((u: any) => {
+          if (u.user_id) onlineIds.add(u.user_id)
+        })
+      })
+      setOnlineUsers(Array.from(onlineIds))
+    })
+
+    // Suscribir al canal
     presenceChannel.subscribe((status) => {
       console.log('[Presence] Channel status:', status);
     })
@@ -210,7 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, signIn, signOut, loading }}>
+    <AuthContext.Provider value={{ session, user, profile, onlineUsers, signIn, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   )
