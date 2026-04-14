@@ -119,11 +119,36 @@ function getDiaSemana(fecha: string): string {
 export default function AnalisisRutas() {
   const [loading, setLoading] = useState(true);
   const [rutas, setRutas] = useState<RutaData[]>([]);
+  // Por defecto cargamos 14 días para tener semana actual + anterior
   const [fechaInicio, setFechaInicio] = useState<string>(() => format(subDays(new Date(), 13), 'yyyy-MM-dd'));
   const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [choferFilter, setChoferFilter] = useState<string>('todos');
   const [choferes, setChoferes] = useState<{id: string; nombre: string}[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // ── Semana auto: lunes–domingo de la semana actual y la anterior ──
+  const semanaActualInicio = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const semanaActualFin   = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const semanaAnteriorInicio = format(startOfWeek(subDays(new Date(), 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const semanaAnteriorFin   = format(endOfWeek(subDays(new Date(), 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+  const semanaStats = useMemo(() => {
+    const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
+
+    const actual   = rutas.filter(r => filtrarChofer(r) && r.fecha >= semanaActualInicio && r.fecha <= semanaActualFin);
+    const anterior = rutas.filter(r => filtrarChofer(r) && r.fecha >= semanaAnteriorInicio && r.fecha <= semanaAnteriorFin);
+
+    const horasActual   = actual.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
+    const horasAnterior = anterior.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
+    const pct = horasAnterior > 0 ? ((horasActual - horasAnterior) / horasAnterior) * 100 : null;
+
+    const visitasActual   = actual.reduce((s, r) => s + (r.visitas_realizadas || 0), 0);
+    const visitasAnterior = anterior.reduce((s, r) => s + (r.visitas_realizadas || 0), 0);
+
+    return { horasActual, horasAnterior, pct, visitasActual, visitasAnterior,
+             rutasActual: actual.length, rutasAnterior: anterior.length };
+  }, [rutas, choferFilter, semanaActualInicio, semanaActualFin, semanaAnteriorInicio, semanaAnteriorFin]);
 
   const stats = useMemo(() => {
     const filtered = rutas.filter(r => {
@@ -258,23 +283,26 @@ export default function AnalisisRutas() {
 
   useEffect(() => {
     generateInsights();
-  }, [stats, comparacionSemanal, rendimientoChoferes]);
+  }, [semanaStats, stats, comparacionSemanal, rendimientoChoferes]);
 
   const generateInsights = () => {
     const newInsights: Insight[] = [];
     
     if (rutas.length === 0) return;
 
-    // 1. Variación de tiempo total semanal (Prioridad)
-    const horasActual = comparacionSemanal.reduce((s, d) => s + d.semanaActual, 0);
-    const horasAnterior = comparacionSemanal.reduce((s, d) => s + d.semanaAnterior, 0);
-    
-    if (horasAnterior > 0) {
-      const diff = ((horasActual - horasAnterior) / horasAnterior) * 100;
+    // 1. Variación semanal AUTOMÁTICA (basada en semanas reales lun-dom)
+    if (semanaStats.horasAnterior > 0) {
+      const diff = semanaStats.pct!;
       newInsights.push({
         tipo: diff < 0 ? ' positivo' : 'negativo',
-        titulo: `${diff < 0 ? 'Se redujo' : 'Incrementó'} ${Math.abs(diff).toFixed(0)}% el tiempo total`,
-        descripcion: `Vs la semana anterior (${horasAnterior.toFixed(1)}h → ${horasActual.toFixed(1)}h).`,
+        titulo: `${diff < 0 ? 'Se redujo' : 'Se incrementó'} el tiempo en ${Math.abs(diff).toFixed(0)}% vs la semana anterior`,
+        descripcion: `Semana anterior: ${semanaStats.horasAnterior.toFixed(1)}h → Semana actual: ${semanaStats.horasActual.toFixed(1)}h.`,
+      });
+    } else if (semanaStats.horasActual > 0) {
+      newInsights.push({
+        tipo: 'info',
+        titulo: `Semana actual: ${semanaStats.horasActual.toFixed(1)}h en ${semanaStats.rutasActual} ruta(s)`,
+        descripcion: 'No hay datos de la semana anterior para comparar.',
       });
     }
 
@@ -391,55 +419,117 @@ export default function AnalisisRutas() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <BarChart3 className="text-primary" />
-            Análisis de Rutas
-          </h1>
-          <p className="text-text-muted text-sm mt-1">
-            Análisis de desempeño logístico y métricas
-          </p>
+      {/* Header + Auto Weekly Comparison Hero */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <BarChart3 className="text-primary" />
+              Análisis de Rutas
+            </h1>
+            <p className="text-text-muted text-sm mt-1">
+              Comparación automática · Semana {format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'd MMM', { locale: es })} – {format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'd MMM', { locale: es })}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Chofer filter */}
+            <select
+              value={choferFilter}
+              onChange={(e) => setChoferFilter(e.target.value)}
+              className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
+            >
+              <option value="todos">Todos los choferes</option>
+              {choferes.map(c => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+
+            {/* Toggle filtros avanzados */}
+            <button
+              onClick={() => setShowFilters(v => !v)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-surface-light text-text-muted hover:text-white text-sm transition-colors"
+            >
+              <Filter size={14} />
+              {showFilters ? 'Ocultar filtros' : 'Filtros avanzados'}
+              {showFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2">
+        {/* Filtros avanzados (colapsable) */}
+        {showFilters && (
+          <div className="flex flex-wrap items-center gap-3 p-4 bg-surface border border-surface-light rounded-xl animate-in slide-in-from-top-2">
             <Calendar size={16} className="text-text-muted" />
             <input
               type="date"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
+              className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
             />
-            <span className="text-text-muted">-</span>
+            <span className="text-text-muted">–</span>
             <input
               type="date"
               value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
-              className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
+              className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
             />
+            <span className="text-text-muted text-xs italic">Período personalizado para los gráficos de abajo</span>
           </div>
+        )}
+      </div>
 
-          <select
-            value={choferFilter}
-            onChange={(e) => setChoferFilter(e.target.value)}
-            className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
-          >
-            <option value="todos">Todos los choferes</option>
-            {choferes.map(c => (
-              <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
-            ))}
-          </select>
+      {/* ── HERO: Comparación Semanal Automática ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Total horas semana */}
+        <div className={`lg:col-span-2 p-5 rounded-2xl border-2 flex items-center justify-between gap-6 ${
+          semanaStats.pct === null ? 'bg-surface border-surface-light' :
+          semanaStats.pct! < 0 ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'
+        }`}>
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-text-muted mb-1">Total horas semana</p>
+            <div className="flex items-baseline gap-3">
+              <span className="text-4xl font-black text-white">{semanaStats.horasActual.toFixed(1)}h</span>
+              {semanaStats.horasAnterior > 0 && (
+                <>
+                  <span className="text-text-muted text-lg">vs</span>
+                  <span className="text-xl font-bold text-text-muted">{semanaStats.horasAnterior.toFixed(1)}h</span>
+                  <span className={`text-base font-black px-2 py-0.5 rounded-lg ${
+                    semanaStats.pct! < 0 ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'
+                  }`}>
+                    {semanaStats.pct! > 0 ? '+' : ''}{semanaStats.pct!.toFixed(0)}%
+                  </span>
+                </>
+              )}
+              {semanaStats.horasAnterior === 0 && semanaStats.horasActual === 0 && (
+                <span className="text-text-muted text-sm">Sin datos esta semana</span>
+              )}
+            </div>
+            <p className="text-text-muted text-xs mt-2">
+              Semana actual ({semanaStats.rutasActual} ruta{semanaStats.rutasActual !== 1 ? 's' : ''}) &nbsp;·&nbsp;
+              Semana anterior ({semanaStats.rutasAnterior} ruta{semanaStats.rutasAnterior !== 1 ? 's' : ''})
+            </p>
+          </div>
+          <div className="hidden lg:flex flex-col items-center">
+            {semanaStats.pct !== null && (
+              <span className={`text-5xl ${semanaStats.pct < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {semanaStats.pct < 0 ? '↓' : '↑'}
+              </span>
+            )}
+          </div>
+        </div>
 
-          <Button size="sm" onClick={loadData} isLoading={loading}>
-            <Filter size={16} />
-          </Button>
+        {/* Visitas semana actual */}
+        <div className="p-5 rounded-2xl border border-surface-light bg-surface flex flex-col justify-center gap-1">
+          <p className="text-xs font-black uppercase tracking-widest text-text-muted">Visitas esta semana</p>
+          <p className="text-3xl font-black text-white">{semanaStats.visitasActual}</p>
+          {semanaStats.visitasAnterior > 0 && (
+            <p className="text-text-muted text-xs">Semana anterior: {semanaStats.visitasAnterior} visitas</p>
+          )}
         </div>
       </div>
 
-      {/* Summary Cards */}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-surface border border-surface-light overflow-hidden">
