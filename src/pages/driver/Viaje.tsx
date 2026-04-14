@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../components/ui/Toast';
 import { supabase } from '../../lib/supabase';
 import type { Ruta, LocalRuta, ViajeBitacora } from '../../types';
 import RegistrarCombustible from './combustible/Registrar';
@@ -9,6 +10,8 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { format, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ModalEvidencia } from './viaje/components/ModalEvidencia';
+import { TramoBitacora } from './viaje/components/TramoBitacora';
 import { formatPeru, nowPeru } from '../../lib/timezone';
 import { 
   MapPin, 
@@ -34,6 +37,7 @@ import {
 export default function DriverViaje() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [ruta, setRuta] = useState<Ruta | null>(null);
   const [locales, setLocales] = useState<LocalRuta[]>([]);
@@ -68,12 +72,6 @@ export default function DriverViaje() {
   
   // Estado para capturar fotos de evidencia
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
-  const [fotosCapturadas, setFotosCapturadas] = useState<{preview: string; file: File}[]>([]);
-  const [fotosExistentes, setFotosExistentes] = useState<{id_foto: string; foto_url: string}[]>([]);
-  const [capturando, setCapturando] = useState(false);
-  const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Estado para editar horas de bitácora
   const [editandoBitacora, setEditandoBitacora] = useState<string | null>(null);
@@ -85,15 +83,20 @@ export default function DriverViaje() {
   const [showResumenRuta, setShowResumenRuta] = useState(false);
   const [esHistorial, setEsHistorial] = useState(false);
 
-  const loadFotosExistentes = async (idLocalRuta: string) => {
-    const { data, error } = await supabase
-      .from('fotos_visita')
-      .select('id_foto, foto_url')
-      .eq('id_local_ruta', idLocalRuta);
-    
-    if (!error && data) {
-      setFotosExistentes(data);
-    }
+  const loadViajeData = async (idRuta: string) => {
+    const { data: localesData } = await supabase
+      .from('locales_ruta')
+      .select('*')
+      .eq('id_ruta', idRuta)
+      .order('orden', { ascending: true });
+    if (localesData) setLocales(localesData as LocalRuta[]);
+
+    const { data: bitacoraData } = await supabase
+      .from('viajes_bitacora')
+      .select('*')
+      .eq('id_ruta', idRuta)
+      .order('created_at', { ascending: true });
+    setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
   };
 
   const iniciarNuevoViaje = () => {
@@ -136,9 +139,8 @@ export default function DriverViaje() {
       nuevaLlegada.setHours(hL, mL, 0, 0);
     }
 
-    // Validar que llegada no sea antes que salida
     if (nuevaLlegada && nuevaLlegada <= nuevaSalida) {
-      alert('La hora de llegada no puede ser anterior a la hora de salida');
+      showToast('error', 'La hora de llegada no puede ser anterior a la hora de salida');
       return;
     }
 
@@ -147,7 +149,7 @@ export default function DriverViaje() {
     if (idxActual > 0) {
       const tramoAnterior = bitacora[idxActual - 1];
       if (tramoAnterior.hora_llegada && nuevaSalida < new Date(tramoAnterior.hora_llegada)) {
-        alert('La hora de salida no puede ser anterior a la llegada del tramo anterior');
+        showToast('error', 'La hora de salida no puede ser anterior a la llegada del tramo anterior');
         return;
       }
     }
@@ -569,7 +571,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       }
     } else if (error) {
       console.error('[Viaje] Error registrar salida:', error);
-      alert('Error en salida: ' + error.message);
+      showToast('error', 'Error en salida: ' + error.message);
     }
     setActionLoading(false);
   };
@@ -624,161 +626,9 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       }
     } else if (error) {
       console.error('[Viaje] Error registrar llegada:', error);
-      alert('Error en llegada: ' + error.message);
+      showToast('error', 'Error en llegada: ' + error.message);
     }
     setActionLoading(false);
-  };
-
-  // Funciones para captura de fotos de evidencia
-  const TARGET_WIDTH = 1200;
-
-  const compressToWebP = (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ratio = TARGET_WIDTH / img.width;
-          canvas.width = TARGET_WIDTH;
-          canvas.height = img.height * ratio;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { reject(new Error('No se pudo crear el contexto')); return; }
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error('Error al comprimir'));
-          }, 'image/webp', 0.8);
-        };
-        img.onerror = () => reject(new Error('Error al cargar imagen'));
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => reject(new Error('Error al leer archivo'));
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleAgregarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('[handleAgregarFoto] called, files:', e.target.files?.length);
-    if (e.target.files && e.target.files.length > 0) {
-      const fotosActuales = fotosCapturadas.length;
-      const disponibles = 5 - fotosActuales;
-      
-      Array.from(e.target.files).slice(0, disponibles).forEach(file => {
-        console.log('[handleAgregarFoto] file:', file.name, file.size, file.type);
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          console.log('[handleAgregarFoto] FileReader loaded, setting state');
-          setFotosCapturadas(prev => [...prev, { preview: ev.target?.result as string, file }]);
-        };
-        reader.onerror = () => console.error('[handleAgregarFoto] FileReader error');
-        reader.readAsDataURL(file);
-      });
-    }
-    e.target.value = '';
-  };
-
-  const handleEliminarFoto = (index: number) => {
-    setFotosCapturadas(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubirFotosEvidencia = async () => {
-    console.log('[handleSubirFotosEvidencia] INICIANDO, fotosCapturadas:', fotosCapturadas.length, 'localParaFoto:', localParaFoto?.id_local_ruta);
-    if (!localParaFoto || fotosCapturadas.length === 0) {
-      console.log('[handleSubirFotosEvidencia] early return - localParaFoto:', !!localParaFoto, 'fotosCapturadas:', fotosCapturadas.length);
-      alert('No hay fotos para guardar');
-      return;
-    }
-    setCapturando(true);
-    
-    // Timeout de seguridad - 30 segundos
-    const timeoutId = setTimeout(() => {
-      if (capturando) {
-        console.log('[handleSubirFotosEvidencia] TIMEOUT - algo falló');
-        setCapturando(false);
-        alert('Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.');
-      }
-    }, 30000);
-    
-    try {
-      // Obtener fotos existentes
-      const { data: fotosExistentes, error: queryError } = await supabase
-        .from('fotos_visita')
-        .select('id_foto')
-        .eq('id_local_ruta', localParaFoto.id_local_ruta);
-      
-      if (queryError) {
-        console.error('[Fotos] Error consultando fotos existentes:', queryError);
-        clearTimeout(timeoutId);
-        setCapturando(false);
-        alert('Error al consultar fotos: ' + queryError.message);
-        return;
-      }
-      
-      const ordenBase = (fotosExistentes?.length || 0) + 1;
-      const urlsSubidas: string[] = [];
-      
-      for (let i = 0; i < fotosCapturadas.length; i++) {
-        const { file } = fotosCapturadas[i];
-        console.log('[Fotos] Procesando foto', i, 'size:', file.size, 'type:', file.type);
-        
-        // COMENTAR COMPRESIÓN TEMPORALMENTE - probar upload directo
-        // const compressedBlob = await compressToWebP(file);
-        // console.log('[Fotos] Foto comprimida, size:', compressedBlob.size);
-        
-        const fileName = `${localParaFoto.id_local_ruta}_${Date.now()}_${i}.${file.name.split('.').pop()}`;
-        const filePath = `evidencia/${fileName}`;
-        
-        console.log('[Fotos] Subiendo a storage:', filePath, 'bucket: visitas_fotos');
-        
-        // Subir archivo directo (sin compresión)
-        const { error: uploadError } = await supabase.storage
-          .from('visitas_fotos')
-          .upload(filePath, file, { contentType: file.type });
-        
-        if (uploadError) {
-          console.error('[Fotos] Error upload:', uploadError);
-          clearTimeout(timeoutId);
-          setCapturando(false);
-          alert('Error al subir: ' + uploadError.message);
-          return;
-        }
-        
-        console.log('[Fotos] Upload OK, getting URL');
-        const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
-        
-        console.log('[Fotos] Insertando en DB');
-        const { error: insertError } = await supabase.from('fotos_visita').insert({
-          id_local_ruta: localParaFoto.id_local_ruta,
-          foto_url: data.publicUrl,
-          orden: ordenBase + i,
-        });
-        
-        if (insertError) {
-          console.error('[Fotos] Error insert:', insertError);
-          clearTimeout(timeoutId);
-          setCapturando(false);
-          alert('Error al guardar: ' + insertError.message);
-          return;
-        }
-        
-        urlsSubidas.push(data.publicUrl);
-        console.log('[Fotos] Foto', i, 'guardada OK');
-      }
-      
-      console.log('[Fotos] Completado, guardadas:', urlsSubidas.length);
-      clearTimeout(timeoutId);
-      setCapturando(false);
-      alert(`✅ ${urlsSubidas.length} fotos guardadas correctamente`);
-      setLocalParaFoto(null);
-      setFotosCapturadas([]);
-      setFotosExistentes([]);
-    } catch (err: any) {
-      console.error('Error subiendo fotos:', err);
-      clearTimeout(timeoutId);
-      setCapturando(false);
-      alert('Error al guardar fotos: ' + (err.message || 'Error desconocido'));
-    }
   };
 
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
@@ -972,14 +822,9 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       {tramoEnProgreso && (
         <Button 
           className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
-          onClick={async () => {
+          onClick={() => {
             const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
-            if (localActual) {
-              setLocalParaFoto(localActual);
-              setFotosCapturadas([]);
-              const { data: fotos } = await supabase.from('fotos_visita').select('id_foto,foto_url').eq('id_local_ruta', localActual.id_local_ruta);
-              setFotosExistentes(fotos || []);
-            }
+            if (localActual) setLocalParaFoto(localActual);
           }}
           disabled={!locales.find(l => l.nombre === tramoEnProgreso.destino_nombre)}
         >
@@ -992,15 +837,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
         <Button 
           className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
-          onClick={async () => {
+          onClick={() => {
             const ultimoTramo = bitacora[bitacora.length - 1];
             const localActual = locales.find(l => l.nombre === ultimoTramo.destino_nombre);
-            if (localActual) {
-              setLocalParaFoto(localActual);
-              setFotosCapturadas([]);
-              const { data: fotos } = await supabase.from('fotos_visita').select('id_foto,foto_url').eq('id_local_ruta', localActual.id_local_ruta);
-              setFotosExistentes(fotos || []);
-            }
+            if (localActual) setLocalParaFoto(localActual);
           }}
         >
           <Camera size={20} className="mr-2" />
@@ -1016,11 +856,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
             onChange={(e) => {
               const local = locales.find(l => l.id_local_ruta === e.target.value);
-              if (local) {
-                setLocalParaFoto(local);
-                setFotosCapturadas([]);
-                loadFotosExistentes(local.id_local_ruta);
-              }
+              if (local) setLocalParaFoto(local);
             }}
             value=""
           >
@@ -1080,7 +916,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                               setBitacora(bitacora.map(b => b.id_bitacora === tramoEnProgreso.id_bitacora ? (data as ViajeBitacora) : b));
                               setIsEditingDestino(false);
                             } else {
-                              alert('Error al actualizar: ' + error?.message);
+                              showToast('error', 'Error al actualizar destino');
                             }
                             setIsSavingDestino(false);
                           }}
@@ -1324,80 +1160,21 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       <div className="space-y-4 relative before:absolute before:left-[19px] before:top-4 before:bottom-4 before:w-1 before:bg-gradient-to-b before:from-primary/30 before:to-surface-light/10">
         {bitacora.length > 0 ? (
           bitacora.map((tramo, idx) => (
-            <div key={tramo.id_bitacora} className="flex gap-6 relative group">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 text-xs font-black shadow-lg transition-all ${tramo.hora_llegada ? 'bg-green-500 text-black border-2 border-white/10' : 'bg-primary text-white animate-pulse ring-4 ring-primary/20'}`}>
-                {idx + 1}
-              </div>
-              <div className="flex-1 bg-surface-light/10 border border-white/5 p-4 rounded-xl backdrop-blur-sm transition-all hover:bg-surface-light/20 group-hover:border-primary/30">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-black text-white italic tracking-tight uppercase">
-                      {tramo.origen_nombre} <span className="text-primary mx-1">→</span> {tramo.destino_nombre}
-                    </h4>
-                    <div className="flex items-center gap-3 text-[9px] text-text-muted font-bold uppercase tracking-widest">
-                      <span className="flex items-center gap-1"><Clock size={10}/> {formatPeru(tramo.hora_salida!, 'HH:mm')}</span>
-                      {tramo.hora_llegada && (
-                        <span className="flex items-center gap-1 text-green-500 border-l border-white/10 pl-3">
-                          <CheckCircle2 size={10}/> {formatPeru(tramo.hora_llegada, 'HH:mm')} ({Math.round(differenceInMinutes(new Date(tramo.hora_llegada), new Date(tramo.hora_salida!)))}m)
-                        </span>
-                      )}
-                      {idx > 0 && bitacora[idx-1].hora_llegada && (
-                         <span className="flex items-center gap-1 text-yellow-500 border-l border-white/10 pl-3">
-                           <Timer size={10}/> {Math.round(differenceInMinutes(new Date(tramo.hora_salida!), new Date(bitacora[idx-1].hora_llegada!)))}m
-                         </span>
-                      )}
-                    </div>
-                  </div>
-                  {!tramo.hora_llegada && (
-                    <div className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border border-blue-500/20">
-                       EN CAMINO
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleEditarHora(tramo)}
-                    className="text-[10px] text-text-muted hover:text-primary flex items-center gap-1 ml-2"
-                  >
-                    <Edit2 size={10} />
-                  </button>
-                </div>
-                {editandoBitacora === tramo.id_bitacora && (
-                  <div className="mt-3 p-3 bg-surface rounded-xl border border-primary/30 flex flex-wrap gap-3 items-center">
-                    <div className="flex flex-col">
-                      <label className="text-[8px] text-text-muted uppercase">Salida</label>
-                      <input
-                        type="time"
-                        value={editHoraSalida}
-                        onChange={e => setEditHoraSalida(e.target.value)}
-                        className="bg-surface-light text-white text-xs px-2 py-1 rounded border border-white/10"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <label className="text-[8px] text-text-muted uppercase">Llegada</label>
-                      <input
-                        type="time"
-                        value={editHoraLlegada}
-                        onChange={e => setEditHoraLlegada(e.target.value)}
-                        className="bg-surface-light text-white text-xs px-2 py-1 rounded border border-white/10"
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={() => guardarEdicionHora(tramo)}
-                        className="bg-green-500 text-white text-[10px] px-3 py-1 rounded font-bold"
-                      >
-                        Guardar
-                      </button>
-                      <button
-                        onClick={() => setEditandoBitacora(null)}
-                        className="bg-surface text-text-muted text-[10px] px-3 py-1 rounded"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <TramoBitacora
+              key={tramo.id_bitacora}
+              tramo={tramo}
+              idx={idx}
+              esUltimo={idx === bitacora.length - 1}
+              editando={editandoBitacora === tramo.id_bitacora}
+              editHoraSalida={editHoraSalida}
+              editHoraLlegada={editHoraLlegada}
+              onEdit={() => handleEditarHora(tramo)}
+              onSave={() => guardarEdicionHora(tramo)}
+              onCancel={() => setEditandoBitacora(null)}
+              onSetHoraSalida={setEditHoraSalida}
+              onSetHoraLlegada={setEditHoraLlegada}
+              tramoAnterior={idx > 0 ? bitacora[idx - 1] : undefined}
+            />
           ))
         ) : (
           <div className="text-center py-10 opacity-30 select-none bg-surface-light/10 rounded-2xl border border-dashed border-white/5">
@@ -1430,18 +1207,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   try {
                     // Obtener locales visitados con fotos
                     const localesVisitados = locales.filter(l => l.hora_llegada);
-                    const fotosPorLocal: Record<string, { id_foto: string; foto_url: string }[]> = {};
-                    
-                    for (const local of localesVisitados) {
-                      const { data: fotos } = await supabase
-                        .from('fotos_visita')
-                        .select('id_foto, foto_url')
-                        .eq('id_local_ruta', local.id_local_ruta);
-                      
-                      if (fotos && fotos.length > 0) {
-                        fotosPorLocal[local.nombre || 'Local'] = fotos;
-                      }
-                    }
                     
                     // Obtener gastos de combustible (separado de otros)
                     const { data: gastos } = await supabase
@@ -1507,7 +1272,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                     
                   } catch (err) {
                     console.error('[WhatsApp] Error:', err);
-                    alert('Error al generar resumen');
+                    showToast('error', 'Error al generar resumen');
                   } finally {
                     setEnviandoWhatsapp(false);
                   }
@@ -1526,11 +1291,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               {locales.filter(l => l.hora_llegada).map(local => (
                 <button
                   key={local.id_local_ruta}
-                  onClick={() => {
-                    setLocalParaFoto(local);
-                    setFotosCapturadas([]);
-                    loadFotosExistentes(local.id_local_ruta);
-                  }}
+                  onClick={() => setLocalParaFoto(local)}
                   className="bg-surface p-3 rounded-xl border border-white/10 hover:border-primary/50 text-left transition-all"
                 >
                   <p className="text-xs text-white truncate">{local.nombre}</p>
@@ -1563,137 +1324,14 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       )}
 
-      {/* Modal para capturar fotos de evidencia */}
       {localParaFoto && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl w-full max-w-md p-4 space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-black text-white">
-                📸 Evidencia: {localParaFoto.nombre}
-              </h3>
-              <button onClick={() => { setLocalParaFoto(null); setFotosCapturadas([]); }} className="text-text-muted hover:text-white">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <p className="text-sm text-text-muted">Máximo 5 fotos • Toca cámara o fototeca para agregar más</p>
-            
-            {/* Preview de fotos capturadas (sin guardar aún) */}
-            {fotosCapturadas.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-yellow-400 font-bold">Por guardar ({fotosCapturadas.length}/5):</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {fotosCapturadas.map((foto, idx) => (
-                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-yellow-500/50">
-                      <img src={foto.preview} alt={`Captura ${idx + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => handleEliminarFoto(idx)}
-                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Fotos existentes */}
-            {fotosExistentes.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-purple-400 font-bold">Fotos guardadas ({fotosExistentes.length}):</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {fotosExistentes.map((foto) => (
-                    <div key={foto.id_foto} className="relative aspect-square rounded-lg overflow-hidden border border-green-500/50 cursor-pointer" onClick={() => setFotoAmpliada(foto.foto_url)}>
-                      <img src={foto.foto_url} alt="Evidencia" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex items-center justify-center gap-2"
-                disabled={fotosCapturadas.length >= 5}
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/*';
-                  input.capture = 'environment';
-                  input.onchange = (e) => {
-                    const files = (e.target as HTMLInputElement).files;
-                    if (files && files.length > 0) {
-                      handleAgregarFoto({ target: { files } } as any);
-                    }
-                  };
-                  input.click();
-                }}
-              >
-                <Camera size={18} />
-                Cámara ({fotosCapturadas.length}/5)
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex items-center justify-center gap-2"
-                disabled={fotosCapturadas.length >= 5}
-                onClick={() => galleryInputRef.current?.click()}
-              >
-                <Image size={18} />
-                Galeria ({fotosCapturadas.length}/5)
-              </Button>
-            </div>
-            
-            <input 
-              type="file" 
-              ref={galleryInputRef}
-              accept="image/*" 
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  const disponibles = 5 - fotosCapturadas.length;
-                  Array.from(e.target.files).slice(0, disponibles).forEach(file => {
-                    handleAgregarFoto({ target: { files: [file] } } as any);
-                  });
-                }
-                e.target.value = '';
-              }}
-            />
-            
-            <div className="flex gap-2">
-              <Button 
-                variant="secondary" 
-                className="flex-1"
-                onClick={() => { setLocalParaFoto(null); setFotosCapturadas([]); }}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                className="flex-1 bg-green-600 hover:bg-green-700"
-                onClick={handleSubirFotosEvidencia}
-                disabled={(fotosCapturadas.length === 0 && fotosExistentes.length === 0) || capturando}
-                isLoading={capturando}
-              >
-                {fotosCapturadas.length > 0 ? `✓ Guardar (${fotosCapturadas.length})` : 'Listo'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para ver foto ampliada */}
-      {fotoAmpliada && (
-        <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4" onClick={() => setFotoAmpliada(null)}>
-          <img src={fotoAmpliada} alt="Foto ampliada" className="max-w-full max-h-full object-contain" />
-          <button className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2" onClick={() => setFotoAmpliada(null)}>
-            <X size={24} />
-          </button>
-        </div>
+        <ModalEvidencia
+          local={localParaFoto}
+          onClose={() => setLocalParaFoto(null)}
+          onSuccess={() => {
+            if (ruta) loadViajeData(ruta.id_ruta);
+          }}
+        />
       )}
 
       {/* Modal Resumen de Ruta */}

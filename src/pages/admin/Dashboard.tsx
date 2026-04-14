@@ -80,16 +80,21 @@ export default function AdminDashboard() {
 
       console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr);
 
-      const rutasRes = await supabase.from('rutas').select('*');
-      const choferesRes = await supabase.from('usuarios').select('id_usuario').eq('rol', 'chofer').eq('activo', true);
-      
-      const combustibleDiaRes = await supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', `${hoyStr}T00:00:00`);
-      const combustibleSemanaRes = await supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', `${semanaStr}T00:00:00`);
+      const todayStart = `${hoyStr}T00:00:00`;
+      const weekStart = `${semanaStr}T00:00:00`;
+
+      // Consultas en paralelo para estadísticas básicas
+      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes] = await Promise.all([
+        supabase.from('rutas').select('*'),
+        supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
+        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', todayStart),
+        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', weekStart),
+        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', todayStart),
+        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', weekStart)
+      ]);
       
       const rutas = rutasRes.data || [];
-      
-      const rutasDeHoy = rutas.filter(r => r.fecha === hoyStr);
-      
+      const rutasDeHoy = rutas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
       const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
       const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
       
@@ -104,22 +109,14 @@ export default function AdminDashboard() {
           .in('id_ruta', rutasFinalizadasIds);
         
         if (visData) {
-          console.log('[Dashboard] Visitas data:', visData.length);
           visitasCompletadas = visData.filter(v => v.estado_visita === 'visitado').length;
           visitasPendientes = visData.filter(v => v.estado_visita === 'pendiente').length;
           localesVisitados = visData.length;
         }
       }
       
-      const numeroViajes = rutasFinalizadas.length;
-      
       const gastoDia = combustibleDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoSemana = combustibleSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
-      const cargasCombustibleDia = combustibleDiaRes.data?.length || 0;
-      
-      // Obtener gastos de "otros" (estacionamiento/peaje)
-      const otrosDiaRes = await supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', `${hoyStr}T00:00:00`);
-      const otrosSemanaRes = await supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', `${semanaStr}T00:00:00`);
       const gastoOtrosDia = otrosDiaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       const gastoOtrosSemana = otrosSemanaRes.data?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
       
@@ -130,14 +127,14 @@ export default function AdminDashboard() {
         visitasCompletadas: visitasCompletadas,
         visitasPendientes: visitasPendientes,
         localesVisitados: localesVisitados,
-        numeroViajes: numeroViajes,
+        numeroViajes: rutasFinalizadas.length,
         choferesEnRuta: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
         totalChoferes: choferesRes.count || 0,
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia: gastoOtrosDia,
         gastoOtrosSemana: gastoOtrosSemana,
-        cargasCombustibleHoy: cargasCombustibleDia
+        cargasCombustibleHoy: combustibleDiaRes.data?.length || 0
       });
 
       const { data: rutasProgreso } = await supabase

@@ -186,35 +186,46 @@ export default function Usuarios() {
   useEffect(() => {
     load();
     
-    const channel = supabase.channel('usuarios_online_presence')
+    const channel = supabase.channel('auth_presence')
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const onlineIds = new Set<string>();
+        console.log('[Admin] Presence state:', JSON.stringify(state));
         Object.keys(state).forEach(key => {
           const users = state[key] as any[];
           users.forEach(u => {
-            if (u.user_id) onlineIds.add(u.user_id);
+            if (u.user_id) {
+              onlineIds.add(u.user_id);
+            }
           });
         });
+        console.log('[Admin] Usuarios online:', Array.from(onlineIds));
         setUsuariosOnline(onlineIds);
-        load(); // Recargar lista con estado actualizado
+        load();
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('[Admin] User joined:', key, newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('[Admin] User left:', key, leftPresences);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          console.log('[Admin] Subscribed to presence channel, tracking admin_view');
+          // Admin también se trackea para ver a otros usuarios
           await channel.track({
             user_id: 'admin_view',
-            nombre: 'Panel Admin',
+            email: 'admin',
             online_at: new Date().toISOString()
           });
         }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Admin] Channel error');
+        }
       });
 
-    // Actualizar estado cada 30 segundos
-    const interval = setInterval(load, 30000);
-    
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(interval);
     };
   }, []);
 
