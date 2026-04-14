@@ -146,7 +146,8 @@ export default function AnalisisRutas() {
       tiempoPromedio,
       eficienciaGlobal,
       rutasCompletadas,
-      totalRutas: filtered.length
+      totalRutas: filtered.length,
+      totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60
     };
   }, [rutas, choferFilter]);
 
@@ -174,6 +175,9 @@ export default function AnalisisRutas() {
         ? conEff.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEff.length
         : 0;
 
+      // Variación diaria
+      const variacion = tiempoAnterior > 0 ? ((tiempoActual - tiempoAnterior) / tiempoAnterior) * 100 : 0;
+
       result.push({
         dia: dias[fechaActual.getDay()],
         fecha: format(fechaActual, 'yyyy-MM-dd'),
@@ -181,7 +185,8 @@ export default function AnalisisRutas() {
         semanaAnterior: Number(tiempoAnterior.toFixed(1)),
         entregas,
         eficiencia: Number(eficiencia.toFixed(0)),
-      });
+        variacion: Number(variacion.toFixed(1))
+      } as any);
     }
     return result;
   }, [rutas, fechaFin]);
@@ -253,27 +258,7 @@ export default function AnalisisRutas() {
     
     if (rutas.length === 0) return;
 
-    // Insight: día con más entregas
-    const diaMasEntregas = [...comparacionSemanal].sort((a, b) => b.entregas - a.entregas)[0];
-    if (diaMasEntregas && diaMasEntregas.entregas > 0) {
-      newInsights.push({
-        tipo: 'info',
-        titulo: `Día de mayor volumen: ${diaMasEntregas.dia}`,
-        descripcion: `El ${diaMasEntregas.dia} se realizaron ${diaMasEntregas.entregas} visitas reales a locales.`,
-      });
-    }
-    
-    // Insight: mejor chofer (por promedio de entregas por ruta)
-    if (rendimientoChoferes.length > 0) {
-      const mejorChofer = rendimientoChoferes[0];
-      newInsights.push({
-        tipo: ' positivo',
-        titulo: `🏆 Chofer destacado: ${mejorChofer.nombre}`,
-        descripcion: `Promedia ${(mejorChofer.entregas / mejorChofer.rutas).toFixed(1)} locales por cada ruta completada.`,
-      });
-    }
-    
-    // Insight: comparación semanal (Total Horas)
+    // 1. Variación de tiempo total semanal (Prioridad)
     const horasActual = comparacionSemanal.reduce((s, d) => s + d.semanaActual, 0);
     const horasAnterior = comparacionSemanal.reduce((s, d) => s + d.semanaAnterior, 0);
     
@@ -281,8 +266,28 @@ export default function AnalisisRutas() {
       const diff = ((horasActual - horasAnterior) / horasAnterior) * 100;
       newInsights.push({
         tipo: diff < 0 ? ' positivo' : 'negativo',
-        titulo: `${diff < 0 ? 'Mejora' : 'Incremento'} de tiempo total`,
-        descripcion: `Esta semana se usaron ${Math.abs(diff).toFixed(1)}% ${diff < 0 ? 'menos' : 'más'} horas que la anterior.`,
+        titulo: `${diff < 0 ? 'Se redujo' : 'Incrementó'} ${Math.abs(diff).toFixed(0)}% el tiempo total`,
+        descripcion: `Vs la semana anterior (${horasAnterior.toFixed(1)}h → ${horasActual.toFixed(1)}h).`,
+      });
+    }
+
+    // 2. Día más lento
+    const diaLento = [...comparacionSemanal].sort((a, b) => b.semanaActual - a.semanaActual)[0];
+    if (diaLento && diaLento.semanaActual > 0) {
+      newInsights.push({
+        tipo: 'negativo',
+        titulo: `Día más lento: ${diaLento.dia}`,
+        descripcion: `Registró el mayor tiempo de ruta en el periodo (${diaLento.semanaActual}h).`,
+      });
+    }
+    
+    // 3. Chofer destacado
+    if (rendimientoChoferes.length > 0) {
+      const mejorChofer = rendimientoChoferes[0];
+      newInsights.push({
+        tipo: ' positivo',
+        titulo: `Chofer más eficiente: ${mejorChofer.nombre}`,
+        descripcion: `Logró el mejor balance entre volumen de entregas y tiempo total.`,
       });
     }
     
@@ -409,7 +414,38 @@ export default function AnalisisRutas() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="bg-surface border border-surface-light overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-500/20 rounded-lg">
+                <BarChart3 className="text-indigo-400" size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Total Horas</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-xl font-black text-white">{stats.totalHoras.toFixed(1)}h</p>
+                  {(() => {
+                    const hActual = comparacionSemanal.reduce((s, d) => s + d.semanaActual, 0);
+                    const hAnterior = comparacionSemanal.reduce((s, d) => s + d.semanaAnterior, 0);
+                    if (hAnterior > 0) {
+                      const diff = ((hActual - hAnterior) / hAnterior) * 100;
+                      return (
+                        <span className={`text-[10px] font-bold ${diff < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {diff < 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            </div>
+            <p className="text-[9px] text-text-muted mt-1 italic">Vs la semana anterior</p>
+          </CardContent>
+        </Card>
+
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -417,11 +453,11 @@ export default function AnalisisRutas() {
                 <Target className="text-primary" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Locales Visitados</p>
-                <p className="text-2xl font-black text-white">{stats.totalLocales}</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Locales Visitados</p>
+                <p className="text-xl font-black text-white">{stats.totalLocales}</p>
               </div>
             </div>
-            <p className="text-[10px] text-text-muted mt-2">* No incluye Planta</p>
+            <p className="text-[9px] text-text-muted mt-1 italic">* Excluye Planta</p>
           </CardContent>
         </Card>
 
@@ -432,8 +468,8 @@ export default function AnalisisRutas() {
                 <Clock className="text-blue-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Tiempo Promedio</p>
-                <p className="text-2xl font-black text-white">{formatDurationHuman(stats.tiempoPromedio)}</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Tiempo Promedio</p>
+                <p className="text-xl font-black text-white">{formatDurationHuman(stats.tiempoPromedio)}</p>
               </div>
             </div>
           </CardContent>
@@ -446,8 +482,8 @@ export default function AnalisisRutas() {
                 <TrendingUp className="text-green-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Eficiencia</p>
-                <p className="text-2xl font-black" style={{ color: stats.eficienciaGlobal ? getEficienciaColor(stats.eficienciaGlobal) : COLORS.textMuted }}>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Eficiencia</p>
+                <p className="text-xl font-black" style={{ color: stats.eficienciaGlobal ? getEficienciaColor(stats.eficienciaGlobal) : COLORS.textMuted }}>
                   {stats.eficienciaGlobal ? `${stats.eficienciaGlobal.toFixed(0)}%` : 'N/D'}
                 </p>
               </div>
@@ -462,8 +498,8 @@ export default function AnalisisRutas() {
                 <Truck className="text-yellow-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-text-muted uppercase">Rutas Completadas</p>
-                <p className="text-2xl font-black text-white">{stats.rutasCompletadas}/{stats.totalRutas}</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold">Rutas</p>
+                <p className="text-xl font-black text-white">{stats.rutasCompletadas}/{stats.totalRutas}</p>
               </div>
             </div>
           </CardContent>
@@ -553,7 +589,14 @@ export default function AnalisisRutas() {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
                   labelStyle={{ color: '#f8fafc' }}
-                  formatter={(value: number) => [`${value}%`, 'Eficiencia']}
+                  formatter={(value: number, name: string, props: any) => {
+                    const label = name === 'semanaActual' ? 'Esta semana' : 'Semana anterior';
+                    const variacion = props.payload.variacion;
+                    if (name === 'semanaActual' && variacion !== 0) {
+                      return [`${value}h (${variacion > 0 ? '+' : ''}${variacion}%)`, label];
+                    }
+                    return [`${value}h`, label];
+                  }}
                 />
                 <Line 
                   type="monotone" 
