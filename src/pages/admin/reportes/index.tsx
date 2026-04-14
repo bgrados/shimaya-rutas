@@ -60,7 +60,7 @@ export default function Reportes() {
   const [combustibleLoading, setCombustibleLoading] = useState(true);
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
   const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
-  const [activePhoto, setActivePhoto] = useState<{ url: string; title: string } | null>(null);
+  const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'ventas' | 'gastos' | 'peajes'>('ventas');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
@@ -1013,7 +1013,24 @@ const win = window.open('', '_blank');
                                   {fotos.map((foto: any, idx: number) => (
                                     <div key={foto.id_foto} className="relative group">
                                       <button 
-                                        onClick={() => setActivePhoto({ url: foto.foto_url, title: local.nombre || 'Evidencia' })}
+                                        onClick={() => {
+                                          // Recopilar TODAS las fotos de la ruta para la galería
+                                          const allRouteFotos: { url: string; title: string }[] = [];
+                                          ruta.localesRuta.forEach((l: any) => {
+                                            const lFotos = fotosPorLocal[l.id_local_ruta] || [];
+                                            lFotos.forEach((f: any) => {
+                                              allRouteFotos.push({ url: f.foto_url, title: l.nombre || 'Evidencia' });
+                                            });
+                                          });
+                                          
+                                          // Encontrar el índice de la foto clickeada en el array de la ruta
+                                          const clickedIndex = allRouteFotos.findIndex(f => f.url === foto.foto_url);
+                                          
+                                          setActivePhoto({ 
+                                            images: allRouteFotos, 
+                                            index: clickedIndex >= 0 ? clickedIndex : 0 
+                                          });
+                                        }}
                                         className="w-full"
                                       >
                                         <img src={foto.foto_url} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded cursor-zoom-in hover:brightness-110 transition-all" />
@@ -1432,12 +1449,12 @@ const win = window.open('', '_blank');
         )}
       </>
       )}
-      {/* Visor de Imágenes */}
+      {/* Visor de Imágenes en modo Galería */}
       <ImageModal 
         isOpen={!!activePhoto}
         onClose={() => setActivePhoto(null)}
-        imageUrl={activePhoto?.url || ''}
-        title={activePhoto?.title}
+        images={activePhoto?.images || []}
+        initialIndex={activePhoto?.index}
       />
     </div>
   );
