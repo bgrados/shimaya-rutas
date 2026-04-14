@@ -15,7 +15,7 @@ import { es } from 'date-fns/locale';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, LineChart, Line,
-  ComposedChart, Cell
+  ComposedChart, Cell, ReferenceLine
 } from 'recharts';
 
 interface RutaData {
@@ -119,6 +119,8 @@ function getDiaSemana(fecha: string): string {
 export default function AnalisisRutas() {
   const [loading, setLoading] = useState(true);
   const [rutas, setRutas] = useState<RutaData[]>([]);
+  // mejorTiempoPorDia: key = día ISO (0=Dom,1=Lun...), value = mejor tiempo en minutos
+  const [mejorTiempoPorDia, setMejorTiempoPorDia] = useState<Record<number, number>>({});
   // Por defecto cargamos 14 días para tener semana actual + anterior
   const [fechaInicio, setFechaInicio] = useState<string>(() => format(subDays(new Date(), 13), 'yyyy-MM-dd'));
   const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
@@ -224,24 +226,41 @@ export default function AnalisisRutas() {
   }, [rutas, fechaFin]);
 
   const eficienciaDiaria = useMemo(() => {
-    const result: {dia: string; fecha: string; eficiencia: number}[] = [];
     const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const result: {
+      dia: string; fecha: string;
+      eficiencia: number | null;
+      tiempoReal: number;
+      mejorTiempo: number;
+      tieneHistorial: boolean;
+    }[] = [];
     
     for (let i = 13; i >= 0; i--) {
       const fecha = subDays(new Date(), i);
-      const rutasDia = rutas.filter(r => r.fecha === format(fecha, 'yyyy-MM-dd'));
+      const fechaStr = format(fecha, 'yyyy-MM-dd');
+      const rutasDia = rutas.filter(r => r.fecha === fechaStr);
       
       if (rutasDia.length > 0) {
-        const eficiencia = rutasDia.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / rutasDia.length;
+        const diaSemana = fecha.getDay();
+        const mejorTiempo = mejorTiempoPorDia[diaSemana] || 0;
+        const tRealTotal = rutasDia.reduce((s, r) => s + (r.tiempo_real || 0), 0) / rutasDia.length;
+        const tieneHistorial = mejorTiempo > 0;
+        const eficiencia = tieneHistorial && tRealTotal > 0
+          ? Math.min(Math.round((mejorTiempo / tRealTotal) * 100), 100)
+          : null;
+
         result.push({
-          dia: dias[fecha.getDay()],
-          fecha: format(fecha, 'yyyy-MM-dd'),
-          eficiencia: Number(eficiencia.toFixed(0)),
+          dia: dias[diaSemana],
+          fecha: fechaStr,
+          eficiencia,
+          tiempoReal: Math.round(tRealTotal),
+          mejorTiempo,
+          tieneHistorial,
         });
       }
     }
     return result;
-  }, [rutas]);
+  }, [rutas, mejorTiempoPorDia]);
 
   const rendimientoChoferes = useMemo((): ChoferStats[] => {
     const choferMap = new Map<string, ChoferStats>();
@@ -352,7 +371,31 @@ export default function AnalisisRutas() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch rutas in range
+      // 1. Fetch ALL historical rutas (no date limit) to compute best times per weekday
+      const { data: allRutas } = await supabase
+        .from('rutas')
+        .select('fecha, hora_salida_planta, hora_llegada_planta, estado')
+        .eq('estado', 'finalizada');
+
+      // Compute best time (minimum) per weekday from ALL history
+      const mejores: Record<number, number> = {}; // key: 0=Dom..6=Sáb
+      const conteo:  Record<number, number> = {}; // how many data points per weekday
+      (allRutas || []).forEach(r => {
+        const t = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
+        if (t <= 0) return;
+        const dia = new Date(r.fecha + 'T12:00:00').getDay(); // local day
+        conteo[dia] = (conteo[dia] || 0) + 1;
+        // Only store best if we have at least 1 data point; we validate later with conteo
+        if (!mejores[dia] || t < mejores[dia]) mejores[dia] = t;
+      });
+      // Only keep days with at least 2 historical data points
+      const mejoresValidados: Record<number, number> = {};
+      Object.keys(mejores).forEach(d => {
+        if ((conteo[Number(d)] || 0) >= 2) mejoresValidados[Number(d)] = mejores[Number(d)];
+      });
+      setMejorTiempoPorDia(mejoresValidados);
+
+      // 2. Fetch rutas in the selected range
       const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
@@ -362,7 +405,7 @@ export default function AnalisisRutas() {
 
       if (rutasError) throw rutasError;
 
-      // 2. Fetch viajes_bitacora to count REAL visits (excluding Planta)
+      // 3. Fetch viajes_bitacora to count REAL visits (excluding Planta)
       const { data: bitacoraData, error: bitacoraError } = await supabase
         .from('viajes_bitacora')
         .select('id_ruta, destino_nombre, hora_llegada')
@@ -373,6 +416,8 @@ export default function AnalisisRutas() {
       if (rutasData && rutasData.length > 0) {
         const processed = rutasData.map(r => {
           const tReal = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
+          const diaSemana = new Date(r.fecha + 'T12:00:00').getDay();
+          const tEstimado = mejoresValidados[diaSemana] || 0;
           
           // Filtro de paradas reales (idéntico a Viajes.tsx)
           const segments = bitacoraData?.filter(b => 
@@ -382,19 +427,20 @@ export default function AnalisisRutas() {
           ) || [];
 
           const totalVisitas = segments.length;
-          
-          // Contar locales únicos
           const uniqueLocales = new Set(segments.map(s => s.destino_nombre?.toLowerCase().trim())).size;
           
-          // Por ahora no hay tiempo_estimado en DB
-          const tEstimado = 0; 
+          // Eficiencia basada en mejor tiempo histórico si existe
+          const eficiencia = (tEstimado > 0 && tReal > 0)
+            ? Math.min((tEstimado / tReal) * 100, 100)  // cap at 100%
+            : 0;
           
           return {
             ...r,
             chofer_nombre: r.usuarios?.nombre,
             tiempo_real: tReal,
             tiempo_estimado: tEstimado,
-            eficiencia: tEstimado > 0 ? (tEstimado / tReal) * 100 : 0,
+            eficiencia,
+            mejor_tiempo_dia: tEstimado,
             visitas_realizadas: totalVisitas,
             locales_unicos: uniqueLocales,
             visitas_extra: totalVisitas - uniqueLocales
@@ -693,59 +739,67 @@ export default function AnalisisRutas() {
           </CardContent>
         </Card>
 
-        {/* Efficiency Trend */}
+        {/* Efficiency Chart */}
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-4">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               <TrendingUp size={20} />
-              Eficiencia Diaria
+              Eficiencia Diaria vs Mejor Tiempo Histórico
             </h3>
             <p className="text-text-muted text-xs mb-4">
-              Porcentaje de eficiencia tiempo estimado vs real
+              Qué tan cerca estuvo cada día de su mejor tiempo registrado
             </p>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={eficienciaDiaria}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="dia" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} unit="%" domain={[50, 100]} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                  labelStyle={{ color: '#f8fafc' }}
-                  formatter={(value: number, name: string, props: any) => {
-                    const label = name === 'semanaActual' ? 'Esta semana' : 'Semana anterior';
-                    const variacion = props.payload.variacion;
-                    if (name === 'semanaActual' && variacion !== 0) {
-                      return [`${value}h (${variacion > 0 ? '+' : ''}${variacion}%)`, label];
-                    }
-                    return [`${value}h`, label];
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="eficiencia" 
-                  stroke="#6366f1" 
-                  strokeWidth={2}
-                  dot={(props: any) => {
-                    const efficiency = props.value as number;
-                    return <Cell key={props.id} fill={getEficienciaColor(efficiency)} />;
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="flex justify-center gap-4 mt-2 text-xs">
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                {'>85%'}
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                {'70-85%'}
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                {'<70%'}
-              </span>
-            </div>
+            {eficienciaDiaria.length === 0 ? (
+              <div className="flex items-center justify-center h-[250px] text-text-muted text-sm">Sin datos en el periodo</div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={eficienciaDiaria} barCategoryGap="30%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="dia" stroke="#94a3b8" fontSize={12} />
+                    <YAxis stroke="#94a3b8" fontSize={12} unit="%" domain={[0, 105]} tickFormatter={v => v > 100 ? '' : `${v}`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
+                      labelStyle={{ color: '#f8fafc', fontWeight: 'bold', marginBottom: 4 }}
+                      formatter={(value: any, _name: string, props: any) => {
+                        const d = props.payload;
+                        if (!d.tieneHistorial) return ['N/D', 'Eficiencia'];
+                        return [
+                          [
+                            `Eficiencia: ${d.eficiencia}%`,
+                            `Tiempo real: ${formatDurationHuman(d.tiempoReal)}`,
+                            `Mejor histórico: ${formatDurationHuman(d.mejorTiempo)}`,
+                          ].join('\n'),
+                          ''
+                        ];
+                      }}
+                    />
+                    <Bar dataKey="eficiencia" name="Eficiencia" radius={[6, 6, 0, 0]}>
+                      {eficienciaDiaria.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            !entry.tieneHistorial ? '#475569' :
+                            entry.eficiencia! >= 85 ? '#22c55e' :
+                            entry.eficiencia! >= 70 ? '#eab308' :
+                            '#ef4444'
+                          }
+                        />
+                      ))}
+                    </Bar>
+                    {/* Reference line at 85% */}
+                    <ReferenceLine y={85} stroke="#22c55e" strokeDasharray="4 2" label={{ value: '85%', fill: '#22c55e', fontSize: 10, position: 'insideTopRight' }} />
+                    <ReferenceLine y={70} stroke="#eab308" strokeDasharray="4 2" label={{ value: '70%', fill: '#eab308', fontSize: 10, position: 'insideTopRight' }} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="flex justify-center gap-5 mt-2 text-xs">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-green-500"></span> ≥85% Eficiente</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-yellow-500"></span> 70-85% Aceptable</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-red-500"></span> &lt;70% Ineficiente</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-slate-500"></span> Sin historial</span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
