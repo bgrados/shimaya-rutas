@@ -145,22 +145,32 @@ export default function Reportes() {
 
   async function loadCombustible() {
     setCombustibleLoading(true);
+    console.log('[DEBUG-Gastos] Iniciando carga con filtro:', filtroFecha);
     try {
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre)')
         .order('created_at', { ascending: false });
 
-      const fechaInicio = startOfWeek(new Date(), { weekStartsOn: 1 });
-      
       if (filtroFecha === 'semana') {
-        query = query.gte('created_at', fechaInicio.toISOString());
+        const monday = getStartOfCurrentWeek();
+        // Usar la fecha local de Perú convertida a inicio del día (00:00:00)
+        query = query.gte('created_at', `${monday}T00:00:00.000Z`);
+        console.log('[DEBUG-Gastos] Filtrando desde:', `${monday}T00:00:00.000Z`);
       } else if (filtroFecha === 'mes') {
-        const mesInicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-        query = query.gte('created_at', mesInicio.toISOString());
+        const mesInicio = format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
+        query = query.gte('created_at', `${mesInicio}T00:00:00.000Z`);
+        console.log('[DEBUG-Gastos] Filtrando desde inicio de mes:', mesInicio);
       }
 
-      const { data } = await query;
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('[DEBUG-Gastos] Error en query Supabase:', error);
+        throw error;
+      }
+
+      console.log('[DEBUG-Gastos] Registros encontrados en DB:', data?.length || 0);
 
       if (data) {
         const mapped = data.map((g: any) => ({
@@ -1294,15 +1304,28 @@ const win = window.open('', '_blank');
                   {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
                     <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
                       <div className="relative">
-                        <img 
-                          src={fotosCombustible[gasto.id_gasto]} 
-                          alt="Comprobante" 
-                          className="w-full h-40 object-cover cursor-pointer"
-                          onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
-                        />
+                        <button 
+                          onClick={() => {
+                            const images = gastosCombustible
+                              .filter(g => fotosCombustible[g.id_gasto])
+                              .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Comprobante Combustible - ${g.chofer_nombre}` }));
+                            const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
+                            setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
+                          }}
+                          className="w-full flex"
+                        >
+                          <img 
+                            src={fotosCombustible[gasto.id_gasto]} 
+                            alt="Comprobante" 
+                            className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all" 
+                          />
+                        </button>
                         <button
-                          onClick={() => handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`)}
-                          className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded-full hover:bg-black/80"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`);
+                          }}
+                          className="absolute bottom-2 right-2 bg-black/60 p-2 rounded-lg hover:bg-black/80 transition-colors"
                           title="Descargar"
                         >
                           <DownloadIcon size={14} className="text-white" />
@@ -1374,8 +1397,14 @@ const win = window.open('', '_blank');
                             <td className="px-4 py-3 text-center">
                               {fotosCombustible[gasto.id_gasto] ? (
                                 <button 
-                                  onClick={() => setShowFotoModal(fotosCombustible[gasto.id_gasto])}
-                                  className="w-10 h-10 rounded-lg overflow-hidden border border-surface-light hover:border-primary transition-colors"
+                                  onClick={() => {
+                                    const images = gastosOtros
+                                      .filter(g => fotosCombustible[g.id_gasto])
+                                      .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Gasto: ${g.chofer_nombre} - S/ ${g.monto}` }));
+                                    const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
+                                    setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
+                                  }}
+                                  className="w-10 h-10 rounded-lg overflow-hidden border border-surface-light hover:border-primary transition-colors block mx-auto"
                                 >
                                   <img 
                                     src={fotosCombustible[gasto.id_gasto]} 
