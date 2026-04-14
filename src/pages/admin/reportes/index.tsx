@@ -59,6 +59,7 @@ export default function Reportes() {
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [combustibleLoading, setCombustibleLoading] = useState(true);
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
+  const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
   const [activePhoto, setActivePhoto] = useState<{ url: string; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'ventas' | 'gastos' | 'peajes'>('ventas');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
