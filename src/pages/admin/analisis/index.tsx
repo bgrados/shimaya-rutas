@@ -123,7 +123,7 @@ export default function AnalisisRutas() {
   // mejorTiempoPorDia: key = día ISO (0=Dom,1=Lun...), value = mejor tiempo en minutos
   const [mejorTiempoPorDia, setMejorTiempoPorDia] = useState<Record<number, number>>({});
   // Por defecto cargamos 14 días para tener semana actual + anterior
-  const [fechaInicio, setFechaInicio] = useState<string>(() => format(subDays(new Date(), 13), 'yyyy-MM-dd'));
+  const [fechaInicio, setFechaInicio] = useState<string>(() => format(subDays(new Date(), 20), 'yyyy-MM-dd'));
   const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [choferFilter, setChoferFilter] = useState<string>('todos');
   const [choferes, setChoferes] = useState<{id: string; nombre: string}[]>([]);
@@ -138,20 +138,53 @@ export default function AnalisisRutas() {
 
   const semanaStats = useMemo(() => {
     const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
+    const today = new Date();
 
-    const actual   = rutas.filter(r => filtrarChofer(r) && r.fecha >= semanaActualInicio && r.fecha <= semanaActualFin);
-    const anterior = rutas.filter(r => filtrarChofer(r) && r.fecha >= semanaAnteriorInicio && r.fecha <= semanaAnteriorFin);
+    // ¿Qué día de la semana es hoy? (1=Lun...7=Dom)
+    // getDay() returns 0=Sun, so we map to 1=Mon...7=Sun
+    const dowToday = today.getDay() === 0 ? 7 : today.getDay();
+    // Días transcurridos en esta semana incluyendo hoy (1 = solo lunes, 2 = lun+mar, ...)
+    const diasTranscurridos = dowToday;
+
+    // Semana actual: desde el lunes de esta semana hasta HOY
+    const semActIni = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const semActFin = format(today, 'yyyy-MM-dd');
+
+    // Semana anterior: MISMOS días equivalentes (lunes pasado + diasTranscurridos - 1)
+    const lunesPasado = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+    const semAntIni = format(lunesPasado, 'yyyy-MM-dd');
+    const semAntFin = format(subDays(lunesPasado, -diasTranscurridos + 1), 'yyyy-MM-dd'); // lunes + (dias-1)
+
+    const actual   = rutas.filter(r => filtrarChofer(r) && r.fecha >= semActIni && r.fecha <= semActFin);
+    const anterior = rutas.filter(r => filtrarChofer(r) && r.fecha >= semAntIni && r.fecha <= semAntFin);
 
     const horasActual   = actual.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
     const horasAnterior = anterior.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
-    const pct = horasAnterior > 0 ? ((horasActual - horasAnterior) / horasAnterior) * 100 : null;
+
+    // Validación de comparación
+    const sinDatosActual   = actual.length === 0;
+    const sinDatosAnterior = anterior.length === 0;
+    const comparacionParcial = sinDatosActual || sinDatosAnterior;
+    const pct = (!comparacionParcial && horasAnterior > 0)
+      ? ((horasActual - horasAnterior) / horasAnterior) * 100
+      : null;
 
     const visitasActual   = actual.reduce((s, r) => s + (r.visitas_realizadas || 0), 0);
     const visitasAnterior = anterior.reduce((s, r) => s + (r.visitas_realizadas || 0), 0);
 
-    return { horasActual, horasAnterior, pct, visitasActual, visitasAnterior,
-             rutasActual: actual.length, rutasAnterior: anterior.length };
-  }, [rutas, choferFilter, semanaActualInicio, semanaActualFin, semanaAnteriorInicio, semanaAnteriorFin]);
+    return {
+      horasActual, horasAnterior, pct,
+      visitasActual, visitasAnterior,
+      rutasActual: actual.length, rutasAnterior: anterior.length,
+      diasTranscurridos,
+      comparacionParcial,
+      sinDatosActual,
+      sinDatosAnterior,
+      // Labels for transparency
+      labelActual: `${semActIni} – ${semActFin}`,
+      labelAnterior: `${semAntIni} – ${semAntFin}`,
+    };
+  }, [rutas, choferFilter]);
 
   const stats = useMemo(() => {
     const filtered = rutas.filter(r => {
@@ -539,13 +572,20 @@ export default function AnalisisRutas() {
         {/* Total horas semana */}
         <div className={`lg:col-span-2 p-5 rounded-2xl border-2 flex items-center justify-between gap-6 ${
           semanaStats.pct === null ? 'bg-surface border-surface-light' :
-          semanaStats.pct! < 0 ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'
+          semanaStats.pct < 0 ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'
         }`}>
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-text-muted mb-1">Total horas semana</p>
-            <div className="flex items-baseline gap-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs font-black uppercase tracking-widest text-text-muted">Total horas semana</p>
+              {semanaStats.comparacionParcial && (semanaStats.horasActual > 0 || semanaStats.horasAnterior > 0) && (
+                <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded-full font-bold">
+                  Comparación parcial por falta de datos
+                </span>
+              )}
+            </div>
+            <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-4xl font-black text-white">{semanaStats.horasActual.toFixed(1)}h</span>
-              {semanaStats.horasAnterior > 0 && (
+              {!semanaStats.comparacionParcial && semanaStats.horasAnterior > 0 ? (
                 <>
                   <span className="text-text-muted text-lg">vs</span>
                   <span className="text-xl font-bold text-text-muted">{semanaStats.horasAnterior.toFixed(1)}h</span>
@@ -555,14 +595,22 @@ export default function AnalisisRutas() {
                     {semanaStats.pct! > 0 ? '+' : ''}{semanaStats.pct!.toFixed(0)}%
                   </span>
                 </>
-              )}
-              {semanaStats.horasAnterior === 0 && semanaStats.horasActual === 0 && (
+              ) : semanaStats.comparacionParcial && semanaStats.horasAnterior > 0 ? (
+                <>
+                  <span className="text-text-muted text-lg">vs</span>
+                  <span className="text-xl font-bold text-text-muted">{semanaStats.horasAnterior.toFixed(1)}h</span>
+                  <span className="text-[11px] text-yellow-400 font-bold">⚠ Días no equivalentes</span>
+                </>
+              ) : !semanaStats.sinDatosActual && semanaStats.sinDatosAnterior ? (
+                <span className="text-text-muted text-sm">Sin datos semana anterior</span>
+              ) : semanaStats.sinDatosActual && semanaStats.sinDatosAnterior ? (
                 <span className="text-text-muted text-sm">Sin datos esta semana</span>
-              )}
+              ) : null}
             </div>
-            <p className="text-text-muted text-xs mt-2">
-              Semana actual ({semanaStats.rutasActual} ruta{semanaStats.rutasActual !== 1 ? 's' : ''}) &nbsp;·&nbsp;
-              Semana anterior ({semanaStats.rutasAnterior} ruta{semanaStats.rutasAnterior !== 1 ? 's' : ''})
+            <p className="text-text-muted text-[10px] mt-2 font-mono">
+              Esta semana: {semanaStats.labelActual} ({semanaStats.rutasActual} ruta{semanaStats.rutasActual !== 1 ? 's' : ''})
+              &nbsp;·&nbsp;
+              Sem. anterior (equiv.): {semanaStats.labelAnterior} ({semanaStats.rutasAnterior} ruta{semanaStats.rutasAnterior !== 1 ? 's' : ''})
             </p>
           </div>
           <div className="hidden lg:flex flex-col items-center">
