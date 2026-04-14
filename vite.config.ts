@@ -45,7 +45,14 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      external: ['canvg']
+      external: ['canvg'],
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui': ['lucide-react', 'date-fns'],
+          'charts': ['recharts'],
+        }
+      }
     }
   },
   optimizeDeps: {
