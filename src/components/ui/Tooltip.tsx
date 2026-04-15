@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
 interface TooltipProps {
@@ -9,8 +10,9 @@ interface TooltipProps {
 
 export function Tooltip({ content, children, className = '' }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
   const [isMobile, setIsMobile] = useState(false);
-  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -19,47 +21,60 @@ export function Tooltip({ content, children, className = '' }: TooltipProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
-        setIsVisible(false);
-      }
-    };
-
-    if (isVisible && isMobile) {
-      document.addEventListener('click', handleClickOutside);
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 8,
+        left: rect.left + rect.width / 2
+      });
     }
+  }, []);
 
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [isVisible, isMobile]);
+  const showTooltip = () => {
+    updatePosition();
+    setIsVisible(true);
+  };
+
+  const hideTooltip = () => {
+    setIsVisible(false);
+  };
 
   const handleClick = () => {
     if (isMobile) {
+      updatePosition();
       setIsVisible(!isVisible);
     }
   };
 
   return (
-    <span 
-      ref={tooltipRef}
-      className={`relative inline-flex items-center cursor-help ${className}`}
-      onMouseEnter={() => !isMobile && setIsVisible(true)}
-      onMouseLeave={() => !isMobile && setIsVisible(false)}
-      onClick={handleClick}
-    >
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/30 text-primary hover:bg-primary/50 transition-colors">
-        <Info size={14} />
+    <>
+      <span 
+        ref={triggerRef}
+        className={`relative inline-flex items-center cursor-help ${className}`}
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
+        onClick={handleClick}
+      >
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/30 text-primary hover:bg-primary/50 transition-colors">
+          <Info size={14} />
+        </span>
       </span>
       
-      {isVisible && (
-        <span className="absolute z-[9999] top-full left-1/2 -translate-x-1/2 mt-2 mb-2 px-3 py-2.5 text-xs text-white bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-xl whitespace-normal w-[220px] text-center border border-gray-700/50">
+      {isVisible && createPortal(
+        <div 
+          className="fixed px-3 py-2.5 text-xs text-white bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-xl whitespace-normal w-[220px] text-center border border-gray-700/50 z-[99999]"
+          style={{ 
+            top: position.top,
+            left: position.left,
+            transform: 'translateX(-50%)'
+          }}
+        >
           {content}
-          <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-6 border-transparent border-b-gray-900/95" />
-        </span>
+        </div>,
+        document.body
       )}
-    </span>
+    </>
   );
 }
 
