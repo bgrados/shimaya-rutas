@@ -1,69 +1,77 @@
-import { useState, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode } from 'react';
 import { Info } from 'lucide-react';
 
 interface TooltipProps {
   content: string;
   children?: ReactNode;
-  iconOnly?: boolean;
   className?: string;
 }
 
-export function Tooltip({ content, children, iconOnly = false, className = '' }: TooltipProps) {
+export function Tooltip({ content, children, className = '' }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
 
-  const showTooltip = () => {
-    timeoutRef.current = window.setTimeout(() => {
-      setIsVisible(true);
-    }, 200);
-  };
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
-  const hideTooltip = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+        setIsVisible(false);
+      }
+    };
+
+    if (isVisible && isMobile) {
+      document.addEventListener('click', handleClickOutside);
     }
-    setIsVisible(false);
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isVisible, isMobile]);
+
+  const handleClick = () => {
+    if (isMobile) {
+      setIsVisible(!isVisible);
+    }
   };
 
   return (
     <span 
-      className={`relative inline-flex items-center ${className}`}
-      onMouseEnter={showTooltip}
-      onMouseLeave={hideTooltip}
-      onFocus={showTooltip}
-      onBlur={hideTooltip}
+      ref={tooltipRef}
+      className={`relative inline-flex items-center cursor-help ${className}`}
+      onMouseEnter={() => !isMobile && setIsVisible(true)}
+      onMouseLeave={() => !isMobile && setIsVisible(false)}
+      onClick={handleClick}
     >
-      {children || (
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors cursor-help">
-          <Info size={12} />
-        </span>
-      )}
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/30 text-primary hover:bg-primary/50 transition-colors">
+        <Info size={14} />
+      </span>
       
       {isVisible && (
-        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap max-w-[250px]">
+        <span className="absolute z-[9999] bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2.5 text-xs text-white bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-xl whitespace-normal w-[220px] text-center border border-gray-700/50">
           {content}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-6 border-transparent border-t-gray-900/95" />
         </span>
       )}
     </span>
   );
 }
 
-interface CardTooltipProps {
-  title: string;
-  description: string;
-  children: ReactNode;
+interface TooltipIconProps {
+  content: string;
   className?: string;
 }
 
-export function CardWithTooltip({ title, description, children, className = '' }: CardTooltipProps) {
+export function TooltipIcon({ content, className = '' }: TooltipIconProps) {
   return (
-    <div className={`relative ${className}`}>
-      {children}
-      <span className="absolute top-2 right-2 z-10">
-        <Tooltip content={description} />
-      </span>
-    </div>
+    <Tooltip content={content} className={className}>
+      <span />
+    </Tooltip>
   );
 }
