@@ -156,26 +156,25 @@ export default function EjecucionRuta() {
         </Button>
       )}
 
-      {ruta.hora_salida_planta && (
-        <>
-          <Button 
-            variant="secondary"
-            className="w-full mb-3 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border-blue-600/50" 
-            onClick={openGoogleMapsRoute}
-          >
-            <Navigation size={18} className="mr-2" />
-            Abrir Ruta en Google Maps
-          </Button>
-          
-          <Button 
-            className="w-full mb-6 bg-green-600/20 text-green-400 hover:bg-green-600/30 border-green-600/50" 
-            onClick={() => setShowCombustible(true)}
-          >
-            <Fuel size={18} className="mr-2" />
-            Registrar Combustible
-          </Button>
-        </>
-      )}
+      {/* Botones de acción durante la ruta */}
+      <div className="space-y-3 mb-6">
+        <Button 
+          variant="secondary"
+          className="w-full bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border-blue-600/50" 
+          onClick={openGoogleMapsRoute}
+        >
+          <Navigation size={18} className="mr-2" />
+          Abrir Ruta en Google Maps
+        </Button>
+        
+        <Button 
+          className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-lg" 
+          onClick={() => setShowCombustible(true)}
+        >
+          <Fuel size={20} className="mr-2" />
+          Registrar Combustible / Gasto
+        </Button>
+      </div>
 
       <div className="space-y-4">
         {locales.map((local: LocalRuta) => (
