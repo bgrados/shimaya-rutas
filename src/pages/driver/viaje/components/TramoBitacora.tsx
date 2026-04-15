@@ -1,8 +1,7 @@
-import React from 'react';
-import { Clock, CheckCircle2, Timer, Edit2 } from 'lucide-react';
+import { Clock, CheckCircle2, Timer, Edit2, FileText } from 'lucide-react';
 import { differenceInMinutes, format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { ViajeBitacora } from '../../../types';
+import type { ViajeBitacora, GuiaRemision } from '../../../types';
 
 const formatPeru = (dateStr: string | null | undefined, fmt: string): string => {
   if (!dateStr) return '-';
@@ -25,6 +24,8 @@ interface TramoBitacoraProps {
   onSetHoraSalida: (val: string) => void;
   onSetHoraLlegada: (val: string) => void;
   tramoAnterior?: ViajeBitacora;
+  guias?: GuiaRemision[];
+  onViewGuias?: (guias: GuiaRemision[]) => void;
 }
 
 export const TramoBitacora: React.FC<TramoBitacoraProps> = ({
@@ -39,7 +40,9 @@ export const TramoBitacora: React.FC<TramoBitacoraProps> = ({
   onCancel,
   onSetHoraSalida,
   onSetHoraLlegada,
-  tramoAnterior
+  tramoAnterior,
+  guias,
+  onViewGuias
 }) => {
   return (
     <div className="flex gap-6 relative group">
@@ -56,13 +59,16 @@ export const TramoBitacora: React.FC<TramoBitacoraProps> = ({
               <span className="flex items-center gap-1"><Clock size={10}/> {formatPeru(tramo.hora_salida!, 'HH:mm')}</span>
               {tramo.hora_llegada && (
                 <span className="flex items-center gap-1 text-green-500 border-l border-white/10 pl-3">
-                  <CheckCircle2 size={10}/> {formatPeru(tramo.hora_llegada, 'HH:mm')} ({Math.round(differenceInMinutes(new Date(tramo.hora_llegada), new Date(tramo.hora_salida!)))}m)
+                  <CheckCircle2 size={10}/> {formatPeru(tramo.hora_llegada, 'HH:mm')}
                 </span>
               )}
-              {idx > 0 && tramoAnterior?.hora_llegada && (
-                 <span className="flex items-center gap-1 text-yellow-500 border-l border-white/10 pl-3">
-                   <Timer size={10}/> {Math.round(differenceInMinutes(new Date(tramo.hora_salida!), new Date(tramoAnterior.hora_llegada!)))}m
-                 </span>
+              {guias && guias.length > 0 && (
+                <button 
+                  onClick={() => onViewGuias?.(guias)}
+                  className="flex items-center gap-1 text-primary border-l border-white/10 pl-3 hover:text-white transition-colors"
+                >
+                  <FileText size={10}/> GUÍAS ({guias.length})
+                </button>
               )}
             </div>
           </div>
