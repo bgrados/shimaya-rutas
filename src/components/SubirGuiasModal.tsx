@@ -13,8 +13,34 @@ interface SubirGuiasModalProps {
 export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [guias, setGuias] = useState<GuiaRemision[]>(local.guias || []);
 
-  const guias = local.guias || [];
+  const loadGuias = async () => {
+    const { data } = await supabase
+      .from('guias_remision')
+      .select('*')
+      .eq('id_local_ruta', local.id_local_ruta)
+      .order('created_at', { ascending: true });
+    if (data) setGuias(data);
+  };
+
+  React.useEffect(() => {
+    loadGuias();
+
+    const channel = supabase
+      .channel(`guias_local_${local.id_local_ruta}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'guias_remision',
+        filter: `id_local_ruta=eq.${local.id_local_ruta}`
+      }, () => loadGuias())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [local.id_local_ruta]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -75,13 +101,12 @@ export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
     
     setDeletingId(id_guia);
     try {
-      // Intenta borrar del storage (opcional, si falla no deberia bloquear borrar el row)
+      // Intenta borrar del storage usando la ruta del archivo
       try {
         const urlParts = url.split('/');
         const fileName = urlParts.pop();
-        const folderName = urlParts.pop();
-        if (fileName && folderName) {
-           await supabase.storage.from('guias').remove([`${folderName}/${fileName}`]);
+        if (fileName && local.id_ruta) {
+           await supabase.storage.from('guias').remove([`${local.id_ruta}/${fileName}`]);
         }
       } catch (err) {
         console.warn('No se pudo borrar archivo del storage', err);
@@ -89,6 +114,9 @@ export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
 
       const { error } = await supabase.from('guias_remision').delete().eq('id_guia', id_guia);
       if (error) throw error;
+      
+      // Actualizar estado local inmediatamente para feedback visual
+      setGuias(prev => prev.filter(g => g.id_guia !== id_guia));
     } catch (err: any) {
       alert('Error al eliminar: ' + err.message);
     } finally {
