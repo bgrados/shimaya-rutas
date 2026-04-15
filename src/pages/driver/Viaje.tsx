@@ -1084,6 +1084,17 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         )}
       </div>
 
+      {/* Botón para registrar combustible DURANTE la ruta */}
+      {(ruta.estado === 'en_progreso' || ruta.estado === 'en_curso') && (
+        <button
+          onClick={() => setShowCombustible(true)}
+          className="w-full mt-4 bg-yellow-600 hover:bg-yellow-700 text-white py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-lg shadow-yellow-900/30"
+        >
+          <Fuel size={24} />
+          Registrar Combustible / Gasto
+        </button>
+      )}
+
       {ruta.estado === 'finalizada' && (
         <>
           <div className="bg-green-500/10 border-2 border-green-500/50 p-8 rounded-3xl text-center animate-in zoom-in-95 duration-700 shadow-2xl shadow-green-500/10">
