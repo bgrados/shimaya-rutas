@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon } from 'lucide-react';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2 } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate } from '../../../lib/timezone';
@@ -67,6 +67,26 @@ export default function Reportes() {
   const [incluirFotosEnPDF, setIncluirFotosEnPDF] = useState(true);
   const [descargandoZip, setDescargandoZip] = useState(false);
   const [descargandoZipEvidencia, setDescargandoZipEvidencia] = useState(false);
+
+  const handleDeleteGasto = async (id_gasto: string) => {
+    if (!window.confirm('¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('gastos_combustible')
+        .delete()
+        .eq('id_gasto', id_gasto);
+
+      if (error) throw error;
+      
+      // Update local state
+      setGastos(prev => prev.filter(g => g.id_gasto !== id_gasto));
+      alert('Registro eliminado correctamente');
+    } catch (err: any) {
+      console.error('Error eliminando gasto:', err);
+      alert('Error: ' + err.message);
+    }
+  };
 
   // Filtros activos
   const [filterChofer, setFilterChofer] = useState('');
@@ -553,6 +573,8 @@ const win = window.open('', '_blank');
     } catch {
       return null;
     }
+  };
+
   };
 
   const handleExportarOtrosPDF = () => {
@@ -1320,16 +1342,28 @@ const win = window.open('', '_blank');
                             className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all" 
                           />
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`);
-                          }}
-                          className="absolute bottom-2 right-2 bg-black/60 p-2 rounded-lg hover:bg-black/80 transition-colors"
-                          title="Descargar"
-                        >
-                          <DownloadIcon size={14} className="text-white" />
-                        </button>
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`);
+                            }}
+                            className="bg-black/60 p-2 rounded-lg hover:bg-black/80 transition-colors"
+                            title="Descargar"
+                          >
+                            <DownloadIcon size={14} className="text-white" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteGasto(gasto.id_gasto);
+                            }}
+                            className="bg-red-500/60 p-2 rounded-lg hover:bg-red-500/80 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} className="text-white" />
+                          </button>
+                        </div>
                       </div>
                       <div className="p-2 text-xs">
                         <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
@@ -1356,9 +1390,13 @@ const win = window.open('', '_blank');
 
               <div className="flex flex-wrap gap-3 items-center mb-4">
                 <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
-                  {PERIODS.map(p => (
-                    <button key={p.key} onClick={() => setPeriod(p.key)}
-                      className={`px-5 py-2.5 text-sm font-black italic transition-all ${period === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
+                  {[
+                    { key: 'semana', label: 'Esta Semana' },
+                    { key: 'mes', label: 'Este Mes' },
+                    { key: 'todo', label: 'Todo' }
+                  ].map(p => (
+                    <button key={p.key} onClick={() => setFiltroFecha(p.key as any)}
+                      className={`px-5 py-2.5 text-sm font-black italic transition-all ${filtroFecha === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
                       {p.label}
                     </button>
                   ))}
@@ -1379,8 +1417,8 @@ const win = window.open('', '_blank');
                     </Button>
                   </div>
 
-                  <div className="bg-surface-light/30 rounded-xl overflow-hidden">
-                    <table className="w-full text-sm">
+                  <div className="bg-surface-light/30 rounded-xl overflow-x-auto">
+                    <table className="w-full text-sm min-w-[600px]">
                       <thead className="bg-surface text-text-muted uppercase text-xs">
                         <tr>
                           <th className="px-4 py-3 text-center">Foto</th>
@@ -1389,6 +1427,7 @@ const win = window.open('', '_blank');
                           <th className="px-4 py-3 text-left">Ruta</th>
                           <th className="px-4 py-3 text-right">Monto</th>
                           <th className="px-4 py-3 text-center">Estado</th>
+                          <th className="px-4 py-3 text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-surface-light">
@@ -1432,6 +1471,16 @@ const win = window.open('', '_blank');
                               }`}>
                                 {gasto.estado || '-'}
                               </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                onClick={() => handleDeleteGasto(gasto.id_gasto)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors mx-auto whitespace-nowrap group"
+                                title="Eliminar este gasto"
+                              >
+                                <Trash2 size={14} className="group-hover:scale-110 transition-transform" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Eliminar</span>
+                              </button>
                             </td>
                           </tr>
                         ))}

@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { GastoCombustible, Usuario } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Fuel, Truck, Calendar, Download, FileText, FileSpreadsheet, Check, X, Eye, Image as ImageIcon } from 'lucide-react';
+import { Fuel, Truck, Calendar, Download, FileText, FileSpreadsheet, Check, X, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { formatPeru } from '../../../lib/timezone';
 import { es } from 'date-fns/locale';
@@ -79,7 +79,7 @@ const urlToBase64Supabase = async (url: string): Promise<string | null> => {
   }
 };
 
-type TabType = 'todos' | 'pendientes' | 'confirmados';
+type TabType = 'todos' | 'pendientes' | 'confirmados' | 'otros';
 
 interface GrupoFecha {
   fecha: string;
@@ -134,7 +134,6 @@ export default function GastosCombustible() {
       let query = supabase
         .from('gastos_combustible')
         .select('id_gasto, id_chofer, id_ruta, tipo_combustible, monto, foto_url, estado, created_at, usuarios(nombre), rutas(nombre)')
-        .neq('tipo_combustible', 'otro')
         .order('created_at', { ascending: false });
 
       if (filtroFechaDesde) {
@@ -152,6 +151,8 @@ export default function GastosCombustible() {
         query = query.eq('estado', 'confirmado');
       } else if (activeTab === 'rechazados') {
         query = query.eq('estado', 'rechazado');
+      } else if (activeTab === 'otros') {
+        query = query.eq('tipo_combustible', 'otro');
       }
 
       const { data } = await query;
@@ -530,6 +531,7 @@ export default function GastosCombustible() {
     { key: 'pendientes', label: 'Pendientes' },
     { key: 'confirmados', label: 'Confirmados' },
     { key: 'rechazados', label: 'Rechazados' },
+    { key: 'otros', label: 'Otros (Est/Peaje)' },
   ];
 
   return (
@@ -789,10 +791,10 @@ export default function GastosCombustible() {
                               </button>
                               <button
                                 onClick={() => eliminarGasto(gasto.id_gasto)}
-                                className="p-1 hover:bg-red-500/20 rounded"
-                                title="Eliminar"
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                title="Eliminar registro"
                               >
-                                <X size={14} className="text-red-400" />
+                                <Trash2 size={16} />
                               </button>
                             </div>
                           )}
