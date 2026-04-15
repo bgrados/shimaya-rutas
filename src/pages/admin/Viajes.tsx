@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { logDelete } from '../../lib/audit';
-import type { Ruta, Usuario, ViajeBitacora } from '../../types';
+import type { Ruta, Usuario, ViajeBitacora, LocalRuta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { format, differenceInMinutes } from 'date-fns';
 
 import { es } from 'date-fns/locale';
-import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer, RefreshCw } from 'lucide-react';
+import { Truck, ChevronDown, Plus, CheckCircle2, Clock, Timer, Printer, RefreshCw, FileText } from 'lucide-react';
 import { nowPeru, getStartOfCurrentWeek, formatHoraPeru, formatDuration } from '../../lib/timezone';
+import { SubirGuiasModal } from '../../components/SubirGuiasModal';
 
 // formatPeru local eliminado
 
@@ -25,10 +26,11 @@ const parseLocalDate = (dateStr: string | null) => {
 };
 
 export default function AdminViajes() {
-  const [rutas, setRutas] = useState<(Ruta & { chofer?: Usuario, bitacora?: ViajeBitacora[] })[]>([]);
+  const [rutas, setRutas] = useState<(Ruta & { chofer?: Usuario, bitacora?: ViajeBitacora[], locales?: LocalRuta[] })[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [expandedRuta, setExpandedRuta] = useState<string | null>(null);
+  const [editingLocalParaGuia, setEditingLocalParaGuia] = useState<LocalRuta | null>(null);
   
   const [showForm, setShowForm] = useState<string | null>(null);
   const [newSegment, setNewSegment] = useState({
@@ -101,10 +103,30 @@ export default function AdminViajes() {
         .in('id_ruta', rutaIds)
         .order('created_at', { ascending: true });
 
-      const rutasWithBitacora = rutasData.map(r => ({
-        ...r,
-        bitacora: bitacoraData?.filter(b => b.id_ruta === r.id_ruta) || []
-      }));
+      const { data: localesData } = await supabase
+        .from('locales_ruta')
+        .select('*')
+        .in('id_ruta', rutaIds)
+        .order('orden', { ascending: true });
+
+      const localeIds = localesData?.map(l => l.id_local_ruta) || [];
+      const { data: guiasData } = await supabase
+        .from('guias_remision')
+        .select('*')
+        .in('id_local_ruta', localeIds);
+
+      const rutasWithBitacora = rutasData.map(r => {
+        const routeLocales = (localesData || []).filter(l => l.id_ruta === r.id_ruta).map(l => ({
+          ...l,
+          guias: (guiasData || []).filter(g => g.id_local_ruta === l.id_local_ruta)
+        }));
+        
+        return {
+          ...r,
+          bitacora: bitacoraData?.filter(b => b.id_ruta === r.id_ruta) || [],
+          locales: routeLocales
+        };
+      });
 
       setRutas(rutasWithBitacora);
     }
@@ -120,6 +142,7 @@ export default function AdminViajes() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rutas' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'viajes_bitacora' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guias_remision' }, () => loadData())
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log('Realtime conectado');
@@ -493,8 +516,33 @@ export default function AdminViajes() {
                                      <p className="text-sm italic font-bold">Bitácora Vacía</p>
                                   </div>
                                 )}
-                             </div>
-                          </div>
+                              </div>
+                              
+                              {/* Sección de Destinos Planificados y Guías */}
+                              {viaje.locales && viaje.locales.length > 0 && (
+                                <div className="mt-8 pt-6 border-t border-surface-light/30">
+                                   <div className="flex items-center gap-2 mb-4">
+                                      <FileText size={16} className="text-primary" />
+                                      <h4 className="text-sm font-black text-white uppercase tracking-[0.2em] italic">Destinos Planificados y Guías</h4>
+                                   </div>
+                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      {viaje.locales.map(local => (
+                                         <div key={local.id_local_ruta} className="flex items-center justify-between bg-surface-light/5 p-3 rounded-xl border border-surface-light/20 hover:border-primary/30 transition-colors">
+                                            <span className="text-[11px] font-bold text-white uppercase tracking-tight truncate pr-2">{local.nombre}</span>
+                                            <Button 
+                                              size="sm" 
+                                              variant="ghost" 
+                                              className="text-[10px] font-black tracking-tight whitespace-nowrap bg-primary/10 text-primary hover:bg-primary/20 hover:text-white transition-all shadow-inner" 
+                                              onClick={(e) => { e.stopPropagation(); setEditingLocalParaGuia(local); }}
+                                            >
+                                               <FileText size={14} className="mr-1" /> GUÍAS ({local.guias?.length || 0})
+                                            </Button>
+                                         </div>
+                                      ))}
+                                   </div>
+                                </div>
+                              )}
+                           </div>
                         )}
                       </CardContent>
                     </Card>
@@ -510,6 +558,10 @@ export default function AdminViajes() {
            <Truck size={64} className="mx-auto mb-4 text-text-muted opacity-10" />
            <p className="text-xl font-bold text-text-muted italic">No se encontraron viajes con estos criterios.</p>
         </div>
+      )}
+
+      {editingLocalParaGuia && (
+        <SubirGuiasModal local={editingLocalParaGuia} onClose={() => setEditingLocalParaGuia(null)} />
       )}
     </div>
   );

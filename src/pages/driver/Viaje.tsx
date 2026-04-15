@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import { supabase } from '../../lib/supabase';
-import type { Ruta, LocalRuta, ViajeBitacora } from '../../types';
+import type { Ruta, LocalRuta, ViajeBitacora, GuiaRemision } from '../../types';
 import RegistrarCombustible from './combustible/Registrar';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -31,7 +31,10 @@ import {
   Image,
   ListTodo,
   Navigation,
-  MessageCircle
+  MessageCircle,
+  FileText,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -188,6 +191,32 @@ export default function DriverViaje() {
     setEditandoBitacora(null);
   };
 
+  const fetchLocalesWithGuias = async (rutaId: string) => {
+    const { data: localesData, error: locError } = await supabase
+      .from('locales_ruta')
+      .select('*')
+      .eq('id_ruta', rutaId)
+      .order('orden', { ascending: true });
+    
+    if (locError) {
+      console.error('Error loading locales_ruta:', locError);
+      return [];
+    }
+
+    const localeIds = localesData?.map(l => l.id_local_ruta) || [];
+    
+    // Fetch attached guides
+    const { data: guiasData } = await supabase
+      .from('guias_remision')
+      .select('*')
+      .in('id_local_ruta', localeIds);
+
+    return (localesData || []).map(l => ({
+      ...l,
+      guias: (guiasData || []).filter((g: any) => g.id_local_ruta === l.id_local_ruta)
+    })) as LocalRuta[];
+  };
+
   const loadCurrentRuta = async () => {
     console.log('[loadCurrentRuta] INICIO');
     if (!profile) {
@@ -218,14 +247,8 @@ export default function DriverViaje() {
           setRuta(rutaHistorica as Ruta);
           setEsHistorial(true);
           
-          const { data: localesData, error: locError } = await supabase
-            .from('locales_ruta')
-            .select('*')
-            .eq('id_ruta', rutaHistorica.id_ruta)
-            .order('orden', { ascending: true });
-          
-          if (locError) console.error('Error loading locales_ruta:', locError);
-          if (localesData) setLocales(localesData as LocalRuta[]);
+          const localesData = await fetchLocalesWithGuias(rutaHistorica.id_ruta);
+          setLocales(localesData);
 
           const { data: bitacoraData, error: bitError } = await supabase
             .from('viajes_bitacora')
@@ -256,14 +279,8 @@ export default function DriverViaje() {
       if (rutaActiva) {
         setRuta(rutaActiva as Ruta);
         
-        const { data: localesData, error: locError } = await supabase
-          .from('locales_ruta')
-          .select('*')
-          .eq('id_ruta', rutaActiva.id_ruta)
-          .order('orden', { ascending: true });
-        
-        if (locError) console.error('Error loading locales_ruta:', locError);
-        if (localesData) setLocales(localesData as LocalRuta[]);
+        const localesData = await fetchLocalesWithGuias(rutaActiva.id_ruta);
+        setLocales(localesData);
 
         const { data: bitacoraData, error: bitError } = await supabase
           .from('viajes_bitacora')
@@ -295,14 +312,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           // Mostrar la ruta finalizada para poder agregar fotos
           setRuta(rutaFinalizada as Ruta);
           
-          const { data: localesData, error: locError } = await supabase
-            .from('locales_ruta')
-            .select('*')
-            .eq('id_ruta', rutaFinalizada.id_ruta)
-            .order('orden', { ascending: true });
-          
-          if (locError) console.error('Error loading locales_ruta:', locError);
-          if (localesData) setLocales(localesData as LocalRuta[]);
+          const localesData = await fetchLocalesWithGuias(rutaFinalizada.id_ruta);
+          setLocales(localesData);
 
           const { data: bitacoraData, error: bitError } = await supabase
             .from('viajes_bitacora')
@@ -518,6 +529,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   const [isEditingDestino, setIsEditingDestino] = useState(false);
   const [destinoEditado, setDestinoEditado] = useState('');
   const [isSavingDestino, setIsSavingDestino] = useState(false);
+  
+  // Guías Viewer State
+  const [viewingGuias, setViewingGuias] = useState<GuiaRemision[] | null>(null);
+  const [currentGuiaIndex, setCurrentGuiaIndex] = useState(0);
 
   const handleRegistrarSalida = async () => {
     if (!ruta || !nuevoDestino || actionLoading) return;
@@ -968,6 +983,19 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                                   >
                                     <Navigation size={16} />
                                   </a>
+                                  {localActual.guias && localActual.guias.length > 0 && (
+                                    <button
+                                      onClick={() => {
+                                        setViewingGuias(localActual.guias || []);
+                                        setCurrentGuiaIndex(0);
+                                      }}
+                                      className="text-white hover:text-white bg-white/20 hover:bg-white/30 p-1.5 rounded-md transition-colors inline-flex items-center gap-1 shadow-lg border border-white/20"
+                                      title="Ver Guías Adjuntas"
+                                    >
+                                      <FileText size={16} />
+                                      <span className="text-xs font-black">{localActual.guias.length}</span>
+                                    </button>
+                                  )}
                                 </>
                               );
                             }
@@ -1389,6 +1417,64 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Guías Viewer Modal */}
+      {viewingGuias && (
+        <div className="fixed inset-0 z-[100] bg-black backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200">
+          <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-10">
+            <div className="text-white font-black text-sm bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
+              Guía {currentGuiaIndex + 1} / {viewingGuias.length}
+            </div>
+            <button 
+              className="text-white bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur-md transition-all active:scale-95"
+              onClick={() => setViewingGuias(null)}
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          <div className="flex-1 w-full flex items-center justify-center p-2 pt-20 pb-28 relative">
+            <img 
+              src={viewingGuias[currentGuiaIndex].archivo_url} 
+              alt="Guía Documento" 
+              className="w-auto h-auto max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl transition-transform"
+            />
+            
+            {/* Nav Arrows */}
+            {viewingGuias.length > 1 && (
+              <>
+                <button 
+                  onClick={() => setCurrentGuiaIndex(prev => prev > 0 ? prev - 1 : viewingGuias.length - 1)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 p-3 rounded-full text-white backdrop-blur-sm border border-white/20 transition-all active:scale-90"
+                >
+                  <ChevronLeft size={28} />
+                </button>
+                <button 
+                  onClick={() => setCurrentGuiaIndex(prev => prev < viewingGuias.length - 1 ? prev + 1 : 0)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 p-3 rounded-full text-white backdrop-blur-sm border border-white/20 transition-all active:scale-90"
+                >
+                  <ChevronRight size={28} />
+                </button>
+              </>
+            )}
+          </div>
+          
+          {/* Thumbnails */}
+          {viewingGuias.length > 1 && (
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto z-10 py-1">
+              {viewingGuias.map((g, i) => (
+                <button
+                  key={g.id_guia}
+                  onClick={() => setCurrentGuiaIndex(i)}
+                  className={`relative w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden shadow-lg transition-all ${currentGuiaIndex === i ? 'ring-2 ring-primary scale-110 z-10 opacity-100' : 'opacity-50 hover:opacity-100 border border-white/20'}`}
+                >
+                  <img src={g.archivo_url} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
