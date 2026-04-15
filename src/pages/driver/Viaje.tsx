@@ -941,30 +941,59 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                           {(function() {
                             const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
                             if (localActual?.latitud && localActual?.longitud) {
-                              // Solo ruta al destino actual (desde donde está ahora)
-                              const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving`;
-                              const wazeUrl = `https://www.waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`;
-                              
+                              const handleNavegacion = (tipo: 'google' | 'waze') => {
+                                const latDest = localActual.latitud;
+                                const lonDest = localActual.longitud;
+                                
+                                const abrir = (url: string) => window.open(url, '_blank', 'noopener,noreferrer');
+
+                                if (navigator.geolocation) {
+                                  // Intentar obtener la ubicación actual para forzar el origen
+                                  navigator.geolocation.getCurrentPosition(
+                                    (pos) => {
+                                      const { latitude, longitude } = pos.coords;
+                                      if (tipo === 'google') {
+                                        abrir(`https://www.google.com/maps/dir/?api=1&origin=${latitude},${longitude}&destination=${latDest},${lonDest}&travelmode=driving&dir_action=navigate`);
+                                      } else {
+                                        abrir(`https://waze.com/ul?ll=${latDest},${lonDest}&navigate=yes`);
+                                      }
+                                    },
+                                    (err) => {
+                                      // Fallback si no da permisos de GPS al navegador
+                                      if (tipo === 'google') {
+                                        abrir(`https://www.google.com/maps/dir/?api=1&destination=${latDest},${lonDest}&travelmode=driving&dir_action=navigate`);
+                                      } else {
+                                        abrir(`https://waze.com/ul?ll=${latDest},${lonDest}&navigate=yes`);
+                                      }
+                                    },
+                                    { enableHighAccuracy: true, timeout: 5000 }
+                                  );
+                                } else {
+                                  // Fallback navegadores antiguos
+                                  if (tipo === 'google') {
+                                    abrir(`https://www.google.com/maps/dir/?api=1&destination=${latDest},${lonDest}&travelmode=driving&dir_action=navigate`);
+                                  } else {
+                                    abrir(`https://waze.com/ul?ll=${latDest},${lonDest}&navigate=yes`);
+                                  }
+                                }
+                              };
+
                               return (
                                 <>
-                                  <a
-                                    href={googleMapsUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                  <button
+                                    onClick={() => handleNavegacion('google')}
                                     className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors"
-                                    title="Cómo llegar"
+                                    title="Navegar con Google Maps"
                                   >
                                     <MapPin size={16} />
-                                  </a>
-                                  <a
-                                    href={wazeUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                  </button>
+                                  <button
+                                    onClick={() => handleNavegacion('waze')}
                                     className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-1.5 rounded-md transition-colors"
-                                    title="Navegación Waze"
+                                    title="Navegar con Waze"
                                   >
                                     <Navigation size={16} />
-                                  </a>
+                                  </button>
                                 </>
                               );
                             }
@@ -975,8 +1004,24 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                               const localesConCoords = locales.filter(l => l.latitud && l.longitud);
                               if (localesConCoords.length > 1) {
                                 const waypoints = localesConCoords.slice(1, -1).map(l => `${l.latitud},${l.longitud}`);
-                                const url = `https://www.google.com/maps/dir/?api=1&origin=${localesConCoords[0].latitud},${localesConCoords[0].longitud}&destination=${localesConCoords[localesConCoords.length - 1].latitud},${localesConCoords[localesConCoords.length - 1].longitud}${waypoints.length > 0 ? '&waypoints=' + waypoints.join('|') : ''}&travelmode=driving`;
-                                window.open(url, '_blank');
+                                
+                                if (navigator.geolocation) {
+                                  navigator.geolocation.getCurrentPosition(
+                                    (pos) => {
+                                      const { latitude, longitude } = pos.coords;
+                                      const url = `https://www.google.com/maps/dir/?api=1&origin=${latitude},${longitude}&destination=${localesConCoords[localesConCoords.length - 1].latitud},${localesConCoords[localesConCoords.length - 1].longitud}${waypoints.length > 0 ? '&waypoints=' + waypoints.join('|') : ''}&travelmode=driving`;
+                                      window.open(url, '_blank');
+                                    },
+                                    () => {
+                                      const url = `https://www.google.com/maps/dir/?api=1&origin=${localesConCoords[0].latitud},${localesConCoords[0].longitud}&destination=${localesConCoords[localesConCoords.length - 1].latitud},${localesConCoords[localesConCoords.length - 1].longitud}${waypoints.length > 0 ? '&waypoints=' + waypoints.join('|') : ''}&travelmode=driving`;
+                                      window.open(url, '_blank');
+                                    },
+                                    { enableHighAccuracy: true, timeout: 5000 }
+                                  );
+                                } else {
+                                  const url = `https://www.google.com/maps/dir/?api=1&origin=${localesConCoords[0].latitud},${localesConCoords[0].longitud}&destination=${localesConCoords[localesConCoords.length - 1].latitud},${localesConCoords[localesConCoords.length - 1].longitud}${waypoints.length > 0 ? '&waypoints=' + waypoints.join('|') : ''}&travelmode=driving`;
+                                  window.open(url, '_blank');
+                                }
                               }
                             }}
                             className="text-green-400 hover:text-green-300 bg-green-500/20 hover:bg-green-500/30 p-1.5 rounded-md transition-colors"
