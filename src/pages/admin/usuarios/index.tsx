@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Usuario } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Plus, Shield, Truck, User, Edit2, Trash2, Key, Loader2, CheckCircle, X, Smartphone, Mail, Camera, Phone, Circle } from 'lucide-react';
+import { Plus, Shield, Truck, User, Edit2, Trash2, Key, Loader2, CheckCircle, X, Smartphone, Mail, Camera, Phone, Circle, Coffee } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Input } from '../../../components/ui/Input';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +10,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 interface UsuarioExtendido extends Usuario {
   connected?: boolean;
   lastSeen?: string;
+  dias_descanso?: string[];
 }
 
 
@@ -29,6 +30,23 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
   const [activo, setActivo] = useState(user.activo ?? true);
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  
+  const diasSemana = [
+    { key: 'lunes', label: 'Lun' },
+    { key: 'martes', label: 'Mar' },
+    { key: 'miercoles', label: 'Mié' },
+    { key: 'jueves', label: 'Jue' },
+    { key: 'viernes', label: 'Vie' },
+    { key: 'sabado', label: 'Sáb' },
+    { key: 'domingo', label: 'Dom' },
+  ];
+  const [diasDescanso, setDiasDescanso] = useState<string[]>((user as any).dias_descanso || []);
+
+  const toggleDiaDescanso = (dia: string) => {
+    setDiasDescanso(prev => 
+      prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]
+    );
+  };
   
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(user.foto_url || null);
@@ -73,7 +91,8 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
         placa_camion: placa.trim() || null,
         foto_url: photoUrl,
         activo,
-        password: password.trim() || undefined
+        password: password.trim() || undefined,
+        dias_descanso: diasDescanso
       });
     } finally {
       setSaving(false);
@@ -101,7 +120,40 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
         </div>
         
         {rol === 'chofer' && (
-          <Input label="Placa del Camión (Solo para choferes)" value={placa} onChange={e => setPlaca(e.target.value)} placeholder="Ej. ABC-123" />
+          <>
+            <Input label="Placa del Camión (Solo para choferes)" value={placa} onChange={e => setPlaca(e.target.value)} placeholder="Ej. ABC-123" />
+            
+            <div>
+              <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-tighter flex items-center gap-1">
+                <Coffee size={12} />
+                Días de Descanso
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {diasSemana.map(dia => (
+                  <button
+                    key={dia.key}
+                    type="button"
+                    onClick={() => toggleDiaDescanso(dia.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      diasDescanso.includes(dia.key)
+                        ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
+                        : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
+                    }`}
+                  >
+                    {dia.label}
+                  </button>
+                ))}
+              </div>
+              {diasDescanso.length > 0 && (
+                <p className="text-[10px] text-blue-400 mt-1">
+                  Descansa: {diasDescanso.map(d => {
+                    const dia = diasSemana.find(dd => dd.key === d);
+                    return dia?.label;
+                  }).join(', ')}
+                </p>
+              )}
+            </div>
+          </>
         )}
       </div>
       
@@ -197,16 +249,15 @@ export default function Usuarios() {
 
   const handleSaveEdit = async (id: string, payload: any) => {
     // 1. Update in Table
-    const { error: tableErr } = await supabase
+      const { error: tableErr } = await supabase
       .from('usuarios')
       .update({
         nombre: payload.nombre,
         rol: payload.rol,
         telefono: payload.telefono,
-        activo: payload.activo,
-        foto_url: payload.foto_url,
         placa_camion: payload.placa_camion,
-        password: payload.password || undefined // Only update if provided
+        password: payload.password || undefined,
+        dias_descanso: payload.dias_descanso || []
       })
       .eq('id_usuario', id);
 
@@ -352,6 +403,20 @@ export default function Usuarios() {
                       }`}>
                         {getRoleIcon(user.rol)} {user.rol}
                       </div>
+                      {user.rol === 'chofer' && (user as any).dias_descanso && (user as any).dias_descanso.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {(user as any).dias_descanso.map((dia: string) => {
+                            const diasSemanaMap: Record<string, string> = {
+                              lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J', viernes: 'V', sabado: 'S', domingo: 'D'
+                            };
+                            return (
+                              <span key={dia} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
+                                {diasSemanaMap[dia] || dia}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${user.activo ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>

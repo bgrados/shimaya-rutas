@@ -16,6 +16,8 @@ interface Stats {
   localesVisitados: number;
   numeroViajes: number;
   choferesEnRuta: number;
+  choferesDisponibles: number;
+  choferesDescanso: number;
   totalChoferes: number;
   gastoCombustibleDia: number;
   gastoCombustibleSemana: number;
@@ -54,6 +56,8 @@ export default function AdminDashboard() {
     localesVisitados: 0,
     numeroViajes: 0,
     choferesEnRuta: 0,
+    choferesDisponibles: 0,
+    choferesDescanso: 0,
     totalChoferes: 0,
     gastoCombustibleDia: 0,
     gastoCombustibleSemana: 0,
@@ -85,14 +89,27 @@ export default function AdminDashboard() {
       const weekStart = `${semanaStr}T00:00:00`;
 
       // Consultas en paralelo para estadísticas básicas
-      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes] = await Promise.all([
+      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
         supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', todayStart),
         supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', weekStart),
         supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', todayStart),
-        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', weekStart)
+        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', weekStart),
+        supabase.from('usuarios').select('id_usuario, dias_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
+
+      // Calcular día de descanso
+      const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+      const diaHoy = diasSemana[now.getDay()];
+      
+      const todosChoferes = todosChoferesRes.data || [];
+      const choferesEnDescanso = todosChoferes.filter((c: any) => {
+        const diasDescanso = c.dias_descanso || [];
+        return diasDescanso.includes(diaHoy);
+      });
+      const numDescanso = choferesEnDescanso.length;
+      const numDisponibles = (choferesRes.count || 0) - numDescanso;
       
       const rutas = rutasRes.data || [];
       const rutasDeHoy = rutas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
@@ -140,6 +157,8 @@ export default function AdminDashboard() {
         localesVisitados: localesVisitados,
         numeroViajes: rutasFinalizadas.length,
         choferesEnRuta: choferesActivosUnicos.size,
+        choferesDisponibles: numDisponibles,
+        choferesDescanso: numDescanso,
         totalChoferes: choferesRes.count || 0,
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
@@ -339,9 +358,17 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-xs text-primary uppercase font-bold flex items-center gap-1">
                   Choferes
-                  <Tooltip content="Choferes activos sobre el total disponible." />
+                  <Tooltip content="Activos: en ruta. Disponibles: pueden ser asignados. Descanso: día libre." />
                 </p>
-                <p className="text-2xl font-black text-white">{stats.choferesEnRuta}/{stats.totalChoferes}</p>
+                <p className="text-2xl font-black text-white">
+                  {stats.choferesEnRuta}/{stats.choferesDisponibles}
+                  {stats.choferesDescanso > 0 && (
+                    <span className="text-sm font-normal text-text-muted ml-1">
+                      ({stats.choferesDescanso} descanso)
+                    </span>
+                  )}
+                </p>
+                <p className="text-[10px] text-text-muted">disponibles: {stats.choferesDisponibles}</p>
               </div>
             </div>
           </CardContent>
