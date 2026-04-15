@@ -25,11 +25,12 @@ export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // Compress image before upload
+        // Compress image before upload with higher quality for legibility
         const options = {
-          maxSizeMB: 0.8,
-          maxWidthOrHeight: 1200,
+          maxSizeMB: 1.5,
+          maxWidthOrHeight: 2000,
           useWebWorker: true,
+          initialQuality: 0.9
         };
         const compressedFile = await imageCompression(file, options);
         
@@ -114,24 +115,37 @@ export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
         <div className="p-4 md:p-6 space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {guias.map((guia, i) => (
-              <div key={guia.id_guia} className="relative group rounded-xl overflow-hidden aspect-square border border-surface-light bg-black/50">
-                <img src={guia.archivo_url} alt={`Guia ${i+1}`} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 text-xs font-bold font-mono">
-                  Guía {i+1}
-                </div>
-                {deletingId === guia.id_guia ? (
-                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                    <Loader2 size={24} className="animate-spin text-primary" />
+              <div key={guia.id_guia} className="flex flex-col gap-2">
+                <div className="relative group rounded-xl overflow-hidden aspect-[4/5] border border-surface-light bg-black/50">
+                  <img src={guia.archivo_url} alt={`Guia ${i+1}`} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 text-[10px] font-bold font-mono text-white">
+                    Guía {i+1}
                   </div>
-                ) : (
-                  <button 
-                    onClick={() => handleDelete(guia.id_guia, guia.archivo_url)}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-red-500/90 text-white flex items-center justify-center hover:bg-red-600 transition-all shadow-lg"
-                    title="Eliminar Guía"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
+                  {deletingId === guia.id_guia ? (
+                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                      <Loader2 size={24} className="animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => handleDelete(guia.id_guia, guia.archivo_url)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-red-500/90 text-white flex items-center justify-center hover:bg-red-600 transition-all shadow-lg"
+                      title="Eliminar Guía"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+                <input 
+                  type="text"
+                  placeholder="Tags (ej: Arroz, Salmon)"
+                  defaultValue={guia.comentario || ''}
+                  onBlur={async (e) => {
+                    const val = e.target.value;
+                    const { error } = await supabase.from('guias_remision').update({ comentario: val }).eq('id_guia', guia.id_guia);
+                    if (error) console.error('Error updating comentario:', error);
+                  }}
+                  className="bg-surface-light/30 border border-white/5 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-primary w-full"
+                />
               </div>
             ))}
             

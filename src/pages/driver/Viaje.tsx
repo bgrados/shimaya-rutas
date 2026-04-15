@@ -38,7 +38,8 @@ import {
   ChevronRight,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  Search
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -539,6 +540,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   const [viewingGuias, setViewingGuias] = useState<GuiaRemision[] | null>(null);
   const [currentGuiaIndex, setCurrentGuiaIndex] = useState(0);
   const [zoomScale, setZoomScale] = useState(1);
+  const [searchTermGuias, setSearchTermGuias] = useState('');
 
   const handleRegistrarSalida = async () => {
     if (!ruta || !nuevoDestino || actionLoading) return;
@@ -1282,49 +1284,54 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       {/* Guías Viewer Modal */}
       {viewingGuias && (
         <div className="fixed inset-0 z-[100] bg-black backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200">
-          <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[110]">
-            <div className="flex flex-col gap-1">
-              <div className="text-white font-black text-sm bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 uppercase italic tracking-tighter">
-                Archivo {currentGuiaIndex + 1} / {viewingGuias.length}
+          <div className="absolute top-0 left-0 right-0 p-4 flex flex-col gap-3 bg-gradient-to-b from-black/90 via-black/50 to-transparent z-[110]">
+            <div className="flex justify-between items-center">
+              <div className="flex flex-col gap-1">
+                <div className="text-white font-black text-sm bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 uppercase italic tracking-tighter">
+                  Archivo {currentGuiaIndex + 1} / {viewingGuias.length}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setZoomScale(prev => Math.min(prev + 0.5, 4))} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg text-white border border-white/5 active:scale-90 transition-all"><ZoomIn size={18} /></button>
+                  <button onClick={() => setZoomScale(prev => Math.max(prev - 0.5, 1))} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg text-white border border-white/5 active:scale-90 transition-all"><ZoomOut size={18} /></button>
+                  <button onClick={() => { setZoomScale(1); }} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg text-white border border-white/5 active:scale-90 transition-all"><Maximize2 size={18} /></button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => setZoomScale(prev => Math.min(prev + 0.5, 4))}
-                  className="bg-white/10 hover:bg-white/20 p-2 rounded-lg backdrop-blur-md text-white border border-white/5 active:scale-90 transition-all"
-                  title="Acercar (+)"
-                >
-                  <ZoomIn size={18} />
-                </button>
-                <button 
-                  onClick={() => setZoomScale(prev => Math.max(prev - 0.5, 1))}
-                  className="bg-white/10 hover:bg-white/20 p-2 rounded-lg backdrop-blur-md text-white border border-white/5 active:scale-90 transition-all"
-                  title="Alejar (-)"
-                >
-                  <ZoomOut size={18} />
-                </button>
-                <button 
-                  onClick={() => setZoomScale(1)}
-                  className="bg-white/10 hover:bg-white/20 p-2 rounded-lg backdrop-blur-md text-white border border-white/5 active:scale-90 transition-all"
-                  title="Resetear"
-                >
-                  <Maximize2 size={18} />
-                </button>
-                <span className="text-[10px] text-white/50 font-bold ml-1">{Math.round(zoomScale * 100)}%</span>
-              </div>
+              <button 
+                className="text-white bg-red-500/20 hover:bg-red-500/40 p-3 rounded-full backdrop-blur-md border border-red-500/30 transition-all active:scale-95"
+                onClick={() => {
+                  setViewingGuias(null);
+                  setZoomScale(1);
+                  setSearchTermGuias('');
+                }}
+              >
+                <X size={24} />
+              </button>
             </div>
-            <button 
-              className="text-white bg-red-500/20 hover:bg-red-500/40 p-3 rounded-full backdrop-blur-md border border-red-500/30 transition-all active:scale-95"
-              onClick={() => {
-                setViewingGuias(null);
-                setZoomScale(1);
-              }}
-            >
-              <X size={24} />
-            </button>
+            
+            {/* Buscador de Productos */}
+            <div className="relative group mx-2">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 group-focus-within:text-primary transition-colors" />
+              <input 
+                type="text"
+                placeholder="Buscar productos (ej: Salmón, Arroz...)"
+                value={searchTermGuias}
+                onChange={(e) => setSearchTermGuias(e.target.value)}
+                className="w-full bg-white/10 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-white/30 backdrop-blur-md transition-all"
+              />
+            </div>
           </div>
           
-          <div className="flex-1 w-full flex items-center justify-center p-2 pt-24 pb-28 relative overflow-hidden">
-            <div className={`w-full h-full flex items-center justify-center transition-transform duration-300 ease-out cursor-move ${zoomScale > 1 ? 'overflow-auto scrollbar-hide touch-pan-x touch-pan-y' : ''}`}>
+          <div className="flex-1 w-full flex items-center justify-center p-2 pt-40 pb-28 relative overflow-hidden">
+            <div className={`w-full h-full flex items-center justify-center transition-transform duration-300 ease-out cursor-move ${zoomScale > 1 ? 'overflow-auto scrollbar-hide' : ''}`}>
+               {/* Etiqueta del archivo actual si tiene comentario */}
+               {viewingGuias[currentGuiaIndex].comentario && (
+                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                    <span className="bg-primary/90 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg backdrop-blur-sm border border-white/20">
+                      {viewingGuias[currentGuiaIndex].comentario}
+                    </span>
+                 </div>
+               )}
+
               <img 
                 src={viewingGuias[currentGuiaIndex].archivo_url} 
                 alt="Documento de despacho" 
@@ -1333,7 +1340,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   transformOrigin: 'center center',
                   transition: 'transform 0.2s ease-out'
                 }}
-                className="w-auto h-auto max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                className="w-auto h-auto max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
               />
             </div>
             
@@ -1362,20 +1369,31 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             )}
           </div>
           
-          {/* Thumbnails */}
-          {viewingGuias.length > 1 && (
-            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto z-10 py-1">
-              {viewingGuias.map((g, i) => (
+          {/* Thumbnails con filtro de búsqueda */}
+          <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto z-10 py-1 scrollbar-hide">
+            {viewingGuias.map((g, i) => {
+              const matched = searchTermGuias && g.comentario?.toLowerCase().includes(searchTermGuias.toLowerCase());
+              if (searchTermGuias && !matched) return null;
+
+              return (
                 <button
                   key={g.id_guia}
-                  onClick={() => setCurrentGuiaIndex(i)}
-                  className={`relative w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden shadow-lg transition-all ${currentGuiaIndex === i ? 'ring-2 ring-primary scale-110 z-10 opacity-100' : 'opacity-50 hover:opacity-100 border border-white/20'}`}
+                  onClick={() => {
+                    setCurrentGuiaIndex(i);
+                    setZoomScale(1);
+                  }}
+                  className={`relative w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden shadow-lg transition-all ${currentGuiaIndex === i ? 'ring-2 ring-primary scale-110 z-10 opacity-100' : 'opacity-40 hover:opacity-100 border border-white/20'} ${matched ? 'ring-2 ring-yellow-400 scale-105 opacity-100' : ''}`}
                 >
                   <img src={g.archivo_url} className="w-full h-full object-cover" />
+                  {matched && (
+                    <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center">
+                       <Check size={20} className="text-yellow-400 drop-shadow-lg" />
+                    </div>
+                  )}
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

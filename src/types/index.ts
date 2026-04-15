@@ -57,6 +57,7 @@ export interface GuiaRemision {
   id_guia: string;
   id_local_ruta: string;
   archivo_url: string;
+  comentario?: string;
   created_at: string;
 }
 
