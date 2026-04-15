@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
+import { Tooltip } from '../../components/ui/Tooltip';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatPeru, formatHoraPeru } from '../../lib/timezone';
@@ -96,7 +97,12 @@ export default function AdminDashboard() {
       const rutas = rutasRes.data || [];
       const rutasDeHoy = rutas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
       const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
+      const rutasEnCurso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
       const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
+      
+      // Contar choferes únicos activos (en_curso o finalizadas hoy)
+      const rutasActivasYFinalizadas = [...rutasEnCurso, ...rutasFinalizadas];
+      const choferesActivosUnicos = new Set(rutasActivasYFinalizadas.map(r => r.id_chofer).filter(Boolean));
       
       let visitasCompletadas = 0;
       let visitasPendientes = 0;
@@ -126,14 +132,14 @@ export default function AdminDashboard() {
       const gastosHoy = cargasCombustibleHoy + cobrosOtrosHoy;
       
       setStats({
-        rutasActivas: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
-        rutasPendientes: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
-        rutasFinalizadas: rutasDeHoy.filter(r => r.estado === 'finalizada').length,
+        rutasActivas: rutasEnCurso.length,
+        rutasPendientes: rutasEnCurso.length,
+        rutasFinalizadas: rutasFinalizadas.length,
         visitasCompletadas: visitasCompletadas,
         visitasPendientes: visitasPendientes,
         localesVisitados: localesVisitados,
         numeroViajes: rutasFinalizadas.length,
-        choferesEnRuta: rutasDeHoy.filter(r => r.estado === 'en_progreso').length,
+        choferesEnRuta: choferesActivosUnicos.size,
         totalChoferes: choferesRes.count || 0,
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
@@ -280,7 +286,10 @@ export default function AdminDashboard() {
                 <Truck className="text-blue-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-blue-300 uppercase font-bold">Rutas Activas</p>
+                <p className="text-xs text-blue-300 uppercase font-bold flex items-center gap-1">
+                  Rutas Activas
+                  <Tooltip content="Cantidad de rutas que están en ejecución en este momento." />
+                </p>
                 <p className="text-2xl font-black text-white">{stats.rutasActivas}</p>
               </div>
             </div>
@@ -294,7 +303,10 @@ export default function AdminDashboard() {
                 <Truck className="text-green-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-green-300 uppercase font-bold">Viajes</p>
+                <p className="text-xs text-green-300 uppercase font-bold flex items-center gap-1">
+                  Viajes
+                  <Tooltip content="Total de recorridos realizados en el día." />
+                </p>
                 <p className="text-2xl font-black text-white">{stats.numeroViajes}</p>
               </div>
             </div>
@@ -308,7 +320,10 @@ export default function AdminDashboard() {
                 <MapPin className="text-green-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-green-300 uppercase font-bold">Locales</p>
+                <p className="text-xs text-green-300 uppercase font-bold flex items-center gap-1">
+                  Locales
+                  <Tooltip content="Cantidad de locales programados para visita en el día." />
+                </p>
                 <p className="text-2xl font-black text-white">{stats.localesVisitados}</p>
               </div>
             </div>
@@ -322,7 +337,10 @@ export default function AdminDashboard() {
                 <Users className="text-primary" size={20} />
               </div>
               <div>
-                <p className="text-xs text-primary uppercase font-bold">Choferes</p>
+                <p className="text-xs text-primary uppercase font-bold flex items-center gap-1">
+                  Choferes
+                  <Tooltip content="Choferes activos sobre el total disponible." />
+                </p>
                 <p className="text-2xl font-black text-white">{stats.choferesEnRuta}/{stats.totalChoferes}</p>
               </div>
             </div>
@@ -336,7 +354,10 @@ export default function AdminDashboard() {
                 <Fuel className="text-yellow-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-yellow-300 uppercase font-bold">Combustible Hoy</p>
+                <p className="text-xs text-yellow-300 uppercase font-bold flex items-center gap-1">
+                  Combustible Hoy
+                  <Tooltip content="Total gastado en combustible durante el día actual." />
+                </p>
                 <p className="text-2xl font-black text-white">S/ {stats.gastoCombustibleDia.toFixed(2)}</p>
                 <p className="text-xs text-yellow-400/60">Sem: S/ {stats.gastoCombustibleSemana.toFixed(2)}</p>
               </div>
@@ -350,7 +371,10 @@ export default function AdminDashboard() {
               <Car className="text-blue-400" size={20} />
             </div>
             <div>
-              <p className="text-xs text-blue-300 uppercase font-bold">Otros Hoy</p>
+              <p className="text-xs text-blue-300 uppercase font-bold flex items-center gap-1">
+                Otros Hoy
+                <Tooltip content="Gastos adicionales del día como estacionamiento, peajes u otros." />
+              </p>
               <p className="text-2xl font-black text-white">S/ {stats.gastoOtrosDia.toFixed(2)}</p>
               <p className="text-xs text-blue-400/60">Sem: S/ {stats.gastoOtrosSemana.toFixed(2)}</p>
             </div>
@@ -362,26 +386,38 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-3 text-center">
-            <p className="text-text-muted text-xs">Rutas en Curso</p>
-            <p className="text-xl font-bold text-yellow-400">{stats.rutasPendientes}</p>
+            <p className="text-text-muted text-xs flex items-center justify-center gap-1">
+              Rutas en Curso
+              <Tooltip content="Rutas que actualmente se encuentran en ejecución." />
+            </p>
+            <p className="text-xl font-bold text-yellow-400">{stats.rutasActivas}</p>
           </CardContent>
         </Card>
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-3 text-center">
-            <p className="text-text-muted text-xs">Rutas Finalizadas</p>
+            <p className="text-text-muted text-xs flex items-center justify-center gap-1">
+              Rutas Finalizadas
+              <Tooltip content="Rutas que ya fueron completadas correctamente en el día." />
+            </p>
             <p className="text-xl font-bold text-green-400">{stats.rutasFinalizadas}</p>
           </CardContent>
         </Card>
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-3 text-center">
-            <p className="text-text-muted text-xs">Gasto Semana</p>
+            <p className="text-text-muted text-xs flex items-center justify-center gap-1">
+              Gasto Semana
+              <Tooltip content="Total acumulado de combustible durante la semana." />
+            </p>
             <p className="text-xl font-bold text-yellow-400">S/ {stats.gastoCombustibleSemana.toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-3 text-center">
-            <p className="text-text-muted text-xs">Gastos Hoy</p>
-            <p className="text-xl font-bold text-primary">{stats.gastosHoy}</p>
+            <p className="text-text-muted text-xs flex items-center justify-center gap-1">
+              Gastos Hoy
+              <Tooltip content="Suma total de todos los gastos del día (combustible + otros)." />
+            </p>
+            <p className="text-xl font-bold text-primary">S/ {(stats.gastoCombustibleDia + stats.gastoOtrosDia).toFixed(2)}</p>
           </CardContent>
         </Card>
       </div>
@@ -393,6 +429,7 @@ export default function AdminDashboard() {
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Truck className="text-primary" size={20} />
               Rutas en Progreso
+              <Tooltip content="Rutas que actualmente se encuentran en ejecución." />
             </h2>
             <Link to="/admin/rutas" className="text-primary text-sm hover:underline">
               Ver todas
@@ -444,74 +481,39 @@ export default function AdminDashboard() {
       </Card>
 
       {/* Top Choferes */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
-              <TrendingUp className="text-yellow-400" size={20} />
-              Top Gastos - Semana
-            </h2>
-            
-            {topChoferes.length === 0 ? (
-              <p className="text-text-muted text-center py-4">Sin datos</p>
-            ) : (
-              <div className="space-y-2">
-                {topChoferes.map((chofer, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-surface-light/30 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-lg font-bold ${index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-300' : index === 2 ? 'text-amber-600' : 'text-text-muted'}`}>
-                        #{index + 1}
-                      </span>
-                      <span className="text-white">{chofer.chofer_nombre}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded ${chofer.tipo === 'otros' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
-                        {chofer.tipo === 'otros' ? 'Otros' : 'Combustible'}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-green-400 font-bold">S/ {chofer.total_gasto.toFixed(2)}</p>
-                      <p className="text-text-muted text-xs">{chofer.cargas} {chofer.tipo === 'otros' ? 'pagos' : 'cargas'}</p>
-                    </div>
+      <Card>
+        <CardContent className="p-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+            <TrendingUp className="text-yellow-400" size={20} />
+            Top Gastos de Semana
+            <Tooltip content="Distribución de gastos de la semana por categoría (combustible y otros)." />
+          </h2>
+          
+          {topChoferes.length === 0 ? (
+            <p className="text-text-muted text-center py-4">Sin datos</p>
+          ) : (
+            <div className="space-y-2">
+              {topChoferes.map((chofer, index) => (
+                <div key={index} className="flex items-center justify-between p-2 bg-surface-light/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-lg font-bold ${index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-300' : index === 2 ? 'text-amber-600' : 'text-text-muted'}`}>
+                      #{index + 1}
+                    </span>
+                    <span className="text-white">{chofer.chofer_nombre}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded ${chofer.tipo === 'otros' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                      {chofer.tipo === 'otros' ? 'Otros' : 'Combustible'}
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
-              <Fuel className="text-green-400" size={20} />
-              Estado Combustible
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="text-center p-4 bg-green-500/10 rounded-lg border border-green-500/30">
-                <p className="text-green-400 text-3xl font-black">S/ {stats.gastoCombustibleDia.toFixed(2)}</p>
-                <p className="text-text-muted text-sm">Gasto Hoy</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="text-center p-3 bg-yellow-500/10 rounded-lg">
-                  <p className="text-yellow-400 text-xl font-bold">{stats.gastosHoy}</p>
-                  <p className="text-text-muted text-xs">Gastos Hoy</p>
+                  <div className="text-right">
+                    <p className="text-green-400 font-bold">S/ {chofer.total_gasto.toFixed(2)}</p>
+                    <p className="text-text-muted text-xs">{chofer.cargas} {chofer.tipo === 'otros' ? 'pagos' : 'cargas'}</p>
+                  </div>
                 </div>
-                <div className="text-center p-3 bg-blue-500/10 rounded-lg">
-                  <p className="text-blue-400 text-xl font-bold">S/ {stats.gastoCombustibleSemana.toFixed(0)}</p>
-                  <p className="text-text-muted text-xs">Semana</p>
-                </div>
-              </div>
-              
-              <Link 
-                to="/admin/combustible/"
-                className="block w-full text-center py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Ver Detalle Combustible
-              </Link>
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card>
