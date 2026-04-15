@@ -579,7 +579,7 @@ export default function AnalisisRutas() {
             <div className="flex items-center gap-2 mb-1">
               <p className="text-xs font-black uppercase tracking-widest text-text-muted flex items-center gap-1">
                 Total horas semana
-                <Tooltip content="Suma total del tiempo que los vehículos estuvieron en ruta durante la semana, desde que salen de planta hasta que regresan." />
+                <Tooltip content="Suma de horas trabajadas en los días seleccionados. Se compara con los mismos días de la semana anterior para medir si trabajaste más rápido o más lento." />
               </p>
               {semanaStats.comparacionParcial && (semanaStats.horasActual > 0 || semanaStats.horasAnterior > 0) && (
                 <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded-full font-bold">
@@ -630,7 +630,7 @@ export default function AnalisisRutas() {
         <div className="p-5 rounded-2xl border border-surface-light bg-surface flex flex-col justify-center gap-1">
           <p className="text-xs font-black uppercase tracking-widest text-text-muted flex items-center gap-1">
             Visitas esta semana
-            <Tooltip content="Número total de paradas realizadas en todos los locales durante la semana. Cada visita cuenta aunque sea al mismo local." />
+            <Tooltip content="Cantidad de paradas realizadas en los días seleccionados. Incluye visitas repetidas al mismo local." />
           </p>
           <p className="text-3xl font-black text-white">{semanaStats.visitasActual}</p>
           {semanaStats.visitasAnterior > 0 && (
@@ -658,7 +658,7 @@ export default function AnalisisRutas() {
                 <div>
                   <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                     Total Horas
-                    <Tooltip content="Tiempo total que los vehículos estuvieron en ruta según el período seleccionado." />
+                    <Tooltip content="Total acumulado de horas trabajadas desde el inicio del registro. No es una comparación, solo un resumen general." />
                   </p>
                   <div className="flex items-baseline gap-1">
                     <p className="text-xl font-black text-white">{stats.totalHoras.toFixed(1)}h</p>
@@ -677,7 +677,7 @@ export default function AnalisisRutas() {
               <div>
                 <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                   Visitas Realizadas
-                  <Tooltip content="Cantidad total de paradas realizadas. Cada local visitado cuenta como una visita." />
+                  <Tooltip content="Total de paradas realizadas en todo el periodo. Incluye todas las visitas, incluso si se repite el mismo local." />
                 </p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-xl font-black text-white">{stats.totalReal}</p>
@@ -698,7 +698,7 @@ export default function AnalisisRutas() {
               <div>
                 <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                   Locales Únicos
-                  <Tooltip content="Cantidad de clientes distintos que fueron visitados. No cuenta repetidos." />
+                  <Tooltip content="Cantidad de clientes diferentes visitados, sin contar repeticiones en un mismo día o ruta." />
                 </p>
                 <p className="text-xl font-black text-white">{stats.totalUnicos}</p>
               </div>
@@ -716,7 +716,7 @@ export default function AnalisisRutas() {
               <div>
                 <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                   Visitas Extra
-                  <Tooltip content="Visitas adicionales al mismo local en una misma ruta. Indica posibles regresos o ineficiencias." />
+                  <Tooltip content="Número de paradas adicionales generadas por regresos o incidencias en ruta." />
                 </p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-xl font-black text-white">{stats.totalExtra}</p>
@@ -737,7 +737,7 @@ export default function AnalisisRutas() {
               <div>
                 <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                   Rutas
-                  <Tooltip content="Rutas completadas vs total de rutas registradas en el período." />
+                  <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
                 </p>
                 <p className="text-xl font-black text-white">{stats.rutasCompletadas}/{stats.totalRutas}</p>
               </div>
@@ -791,7 +791,7 @@ export default function AnalisisRutas() {
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               <Clock size={20} />
               Tiempo de Ruta: Esta Semana vs Anterior
-              <Tooltip content="Muestra las horas totales de ruta por día. Compara la semana actual con la misma semana del período anterior." />
+              <Tooltip content="Comparación del tiempo total de ruta por día entre esta semana y la anterior, usando los mismos días para un análisis justo." />
             </h3>
             <p className="text-text-muted text-xs mb-4">
               Comparando tiempo total de ruta entre semana actual y semana anterior
@@ -819,7 +819,7 @@ export default function AnalisisRutas() {
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               <TrendingUp size={20} />
               Eficiencia Diaria vs Mejor Tiempo Histórico
-              <Tooltip content="Muestra qué tan bien rindió cada día comparado con el mejor tiempo registrado para ese día de la semana." />
+              <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado. Un porcentaje alto indica mejor rendimiento." />
             </h3>
             <p className="text-text-muted text-xs mb-4">
               Qué tan cerca estuvo cada día de su mejor tiempo registrado
@@ -876,7 +876,7 @@ export default function AnalisisRutas() {
                   <span className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-yellow-500"></span> 
                     70-85% Aceptable
-                    <Tooltip content="Rendimiento normal. Hubo slight demoras pero dentro de lo esperado." />
+                    <Tooltip content="Rendimiento normal, dentro de los parámetros esperados." />
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-red-500"></span> 
@@ -901,7 +901,7 @@ export default function AnalisisRutas() {
           <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
             <Truck size={20} />
             Rendimiento por Chofer
-            <Tooltip content="Compara el rendimiento de cada chofer. La eficiencia se calcula comparando su tiempo real con el mejor tiempo histórico para ese día." />
+            <Tooltip content="Evaluación del desempeño del chofer basada en eficiencia, tiempo de ruta y número de visitas realizadas." />
           </h3>
           <p className="text-text-muted text-xs mb-5">
             Eficiencia real basada en el mejor tiempo histórico por día de semana
@@ -918,23 +918,23 @@ export default function AnalisisRutas() {
                     <th className="text-left py-2 px-3">Chofer</th>
                     <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
                       Eficiencia
-                      <Tooltip content="Porcentaje de eficiencia: qué tan bien rindió comparado con el mejor tiempo histórico. 100% = igual al mejor tiempo." />
+                      <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado. Un porcentaje alto indica mejor rendimiento." />
                     </th>
                     <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
                       Visitas
-                      <Tooltip content="Total de paradas realizadas por este chofer en el período seleccionado." />
+                      <Tooltip content="Total de paradas realizadas en todo el periodo. Incluye todas las visitas, incluso si se repite el mismo local." />
                     </th>
                     <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
                       Visitas Extra
-                      <Tooltip content="Regresos o visitas adicionales al mismo local. Un número alto indica ineficiencias en la ruta." />
+                      <Tooltip content="Número de paradas adicionales generadas por regresos o incidencias en ruta." />
                     </th>
                     <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
                       Rutas
-                      <Tooltip content="Cantidad total de rutas que realizó este chofer." />
+                      <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
                     </th>
                     <th className="text-right py-2 px-3 flex items-center gap-1 justify-end">
                       T. Promedio
-                      <Tooltip content="Tiempo promedio que duró cada ruta de este chofer." />
+                      <Tooltip content="Total acumulado de horas trabajadas desde el inicio del registro. No es una comparación, solo un resumen general." />
                     </th>
                   </tr>
                 </thead>
@@ -991,7 +991,7 @@ export default function AnalisisRutas() {
           <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-surface-light/50 text-xs text-text-muted">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-green-500"></span> ≥85% Eficiente
-              <Tooltip content="Rendimiento óptimo. El chofer completó rutas cerca del mejor tiempo histórico." />
+              <Tooltip content="Excelente rendimiento. El chofer completó sus rutas en tiempo récord." />
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-yellow-500"></span> 70–85% Aceptable
@@ -999,7 +999,7 @@ export default function AnalisisRutas() {
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-red-500"></span> &lt;70% Ineficiente
-              <Tooltip content="Rendimiento por debajo de lo esperado. Revisar causas." />
+              <Tooltip content="Rendimiento bajo. Las rutas tomaron más tiempo de lo esperado." />
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-slate-500"></span> N/D = Sin historial
@@ -1007,7 +1007,7 @@ export default function AnalisisRutas() {
             </span>
             <span className="ml-auto flex items-center gap-1.5">
               <RefreshCw size={10} className="text-red-400" /> Visitas Extra = regresos
-              <Tooltip content="Visitas adicionales al mismo local. Indica posibles ineficiencias en la ruta." />
+              <Tooltip content="Número de paradas adicionales generadas por regresos o incidencias en ruta." />
             </span>
           </div>
         </CardContent>
