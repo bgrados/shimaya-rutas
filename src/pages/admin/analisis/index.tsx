@@ -867,23 +867,23 @@ export default function AnalisisRutas() {
                     <ReferenceLine y={70} stroke="#eab308" strokeDasharray="4 2" label={{ value: '70%', fill: '#eab308', fontSize: 10, position: 'insideTopRight' }} />
                   </BarChart>
                 </ResponsiveContainer>
-                <div className="flex justify-center gap-5 mt-2 text-xs">
-                  <span className="flex items-center gap-1.5">
+                <div className="flex flex-wrap justify-center gap-4 mt-2 text-xs">
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-green-500"></span> 
                     ≥85% Eficiente
                     <Tooltip content="Excelente rendimiento. El chofer completó sus rutas en tiempo récord." />
                   </span>
-                  <span className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-yellow-500"></span> 
                     70-85% Aceptable
                     <Tooltip content="Rendimiento normal, dentro de los parámetros esperados." />
                   </span>
-                  <span className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-red-500"></span> 
                     &lt;70% Ineficiente
                     <Tooltip content="Rendimiento bajo. Las rutas tomaron más tiempo de lo esperado." />
                   </span>
-                  <span className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-slate-500"></span> 
                     Sin historial
                     <Tooltip content="No hay datos suficientes para calcular la eficiencia de este día." />
@@ -916,25 +916,35 @@ export default function AnalisisRutas() {
                   <tr className="border-b border-surface-light text-[10px] uppercase tracking-widest text-text-muted">
                     <th className="text-left py-2 px-3">#</th>
                     <th className="text-left py-2 px-3">Chofer</th>
-                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
-                      Eficiencia
-                      <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado. Un porcentaje alto indica mejor rendimiento." />
+                    <th className="text-center py-2 px-3">
+                      <span className="inline-flex items-center gap-1 justify-center">
+                        Eficiencia
+                        <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado. Un porcentaje alto indica mejor rendimiento." />
+                      </span>
                     </th>
-                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
-                      Visitas
-                      <Tooltip content="Total de paradas realizadas en todo el periodo. Incluye todas las visitas, incluso si se repite el mismo local." />
+                    <th className="text-center py-2 px-3">
+                      <span className="inline-flex items-center gap-1 justify-center">
+                        Visitas
+                        <Tooltip content="Total de paradas realizadas en todo el periodo. Incluye todas las visitas, incluso si se repite el mismo local." />
+                      </span>
                     </th>
-                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
-                      Visitas Extra
-                      <Tooltip content="Número de paradas adicionales generadas por regresos o incidencias en ruta." />
+                    <th className="text-center py-2 px-3">
+                      <span className="inline-flex items-center gap-1 justify-center">
+                        Visitas Extra
+                        <Tooltip content="Número de paradas adicionales generadas por regresos o incidencias en ruta." />
+                      </span>
                     </th>
-                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
-                      Rutas
-                      <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
+                    <th className="text-center py-2 px-3">
+                      <span className="inline-flex items-center gap-1 justify-center">
+                        Rutas
+                        <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
+                      </span>
                     </th>
-                    <th className="text-right py-2 px-3 flex items-center gap-1 justify-end">
-                      T. Promedio
-                      <Tooltip content="Total acumulado de horas trabajadas desde el inicio del registro. No es una comparación, solo un resumen general." />
+                    <th className="text-right py-2 px-3">
+                      <span className="inline-flex items-center gap-1 justify-end">
+                        T. Promedio
+                        <Tooltip content="Total acumulado de horas trabajadas desde el inicio del registro. No es una comparación, solo un resumen general." />
+                      </span>
                     </th>
                   </tr>
                 </thead>
