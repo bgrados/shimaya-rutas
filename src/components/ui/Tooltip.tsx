@@ -54,9 +54,9 @@ export function Tooltip({ content, children, className = '' }: TooltipProps) {
       </span>
       
       {isVisible && (
-        <span className="absolute z-[9999] bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2.5 text-xs text-white bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-xl whitespace-normal w-[220px] text-center border border-gray-700/50">
+        <span className="absolute z-[9999] top-full left-1/2 -translate-x-1/2 mt-2 mb-2 px-3 py-2.5 text-xs text-white bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-xl whitespace-normal w-[220px] text-center border border-gray-700/50">
           {content}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-6 border-transparent border-t-gray-900/95" />
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-6 border-transparent border-b-gray-900/95" />
         </span>
       )}
     </span>
