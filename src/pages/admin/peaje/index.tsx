@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { GastoPeaje, Usuario } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Route, Truck, Calendar, Download, FileText, FileSpreadsheet, Plus, Search, X, Eye, Image as ImageIcon } from 'lucide-react';
+import { Route, Truck, Calendar, Download, FileText, FileSpreadsheet, Plus, Search, X, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -113,6 +113,18 @@ export default function GastosPeaje() {
       alert(err.message);
     } finally {
       setFormLoading(false);
+    }
+  }
+
+  async function handleDelete(id_peaje: string) {
+    if (!window.confirm('¿Estás seguro de eliminar este peaje?')) return;
+    try {
+      const { error } = await supabase.from('gastos_peaje').delete().eq('id_peaje', id_peaje);
+      if (error) throw error;
+      setPeajes(prev => prev.filter(p => p.id_peaje !== id_peaje));
+      alert('Eliminado');
+    } catch (err: any) {
+      alert(err.message);
     }
   }
 
@@ -284,14 +296,24 @@ export default function GastosPeaje() {
                 <td className="px-4 py-3 text-text-muted">{peaje.chofer_nombre || '-'}</td>
                 <td className="px-4 py-3 text-text-muted text-xs">{peaje.notas || '-'}</td>
                 <td className="px-4 py-3 text-center">
-                  {peaje.foto_url && (
+                  <div className="flex items-center justify-center gap-2">
+                    {peaje.foto_url && (
+                      <button 
+                        onClick={() => setShowFotoModal(peaje.foto_url!)}
+                        className="p-1 hover:bg-white/10 rounded"
+                        title="Ver Comprobante"
+                      >
+                        <ImageIcon size={16} className="text-primary" />
+                      </button>
+                    )}
                     <button 
-                      onClick={() => setShowFotoModal(peaje.foto_url!)}
-                      className="p-1 hover:bg-white/10 rounded"
+                      onClick={() => handleDelete(peaje.id_peaje)}
+                      className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                      title="Eliminar registro"
                     >
-                      <ImageIcon size={16} className="text-primary" />
+                      <Trash2 size={16} />
                     </button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
