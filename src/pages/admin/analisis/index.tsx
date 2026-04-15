@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
+import { Tooltip } from '../../../components/ui/Tooltip';
 import { 
   BarChart3, TrendingUp, Clock, Target, Truck, 
   Calendar, Filter, ChevronDown, ChevronUp, Info,
@@ -14,7 +15,7 @@ import {
 import { es } from 'date-fns/locale';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer, LineChart, Line,
+  Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line,
   ComposedChart, Cell, ReferenceLine
 } from 'recharts';
 
@@ -576,7 +577,10 @@ export default function AnalisisRutas() {
         }`}>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-xs font-black uppercase tracking-widest text-text-muted">Total horas semana</p>
+              <p className="text-xs font-black uppercase tracking-widest text-text-muted flex items-center gap-1">
+                Total horas semana
+                <Tooltip content="Suma total del tiempo que los vehículos estuvieron en ruta durante la semana, desde que salen de planta hasta que regresan." />
+              </p>
               {semanaStats.comparacionParcial && (semanaStats.horasActual > 0 || semanaStats.horasAnterior > 0) && (
                 <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded-full font-bold">
                   Comparación parcial por falta de datos
@@ -624,7 +628,10 @@ export default function AnalisisRutas() {
 
         {/* Visitas semana actual */}
         <div className="p-5 rounded-2xl border border-surface-light bg-surface flex flex-col justify-center gap-1">
-          <p className="text-xs font-black uppercase tracking-widest text-text-muted">Visitas esta semana</p>
+          <p className="text-xs font-black uppercase tracking-widest text-text-muted flex items-center gap-1">
+            Visitas esta semana
+            <Tooltip content="Número total de paradas realizadas en todos los locales durante la semana. Cada visita cuenta aunque sea al mismo local." />
+          </p>
           <p className="text-3xl font-black text-white">{semanaStats.visitasActual}</p>
           {semanaStats.visitasAnterior > 0 && (
             <p className="text-text-muted text-xs">Semana anterior: {semanaStats.visitasAnterior} visitas</p>
@@ -649,7 +656,10 @@ export default function AnalisisRutas() {
                   <BarChart3 className="text-indigo-400" size={20} />
                 </div>
                 <div>
-                  <p className="text-[10px] text-text-muted uppercase font-bold">Total Horas</p>
+                  <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                    Total Horas
+                    <Tooltip content="Tiempo total que los vehículos estuvieron en ruta según el período seleccionado." />
+                  </p>
                   <div className="flex items-baseline gap-1">
                     <p className="text-xl font-black text-white">{stats.totalHoras.toFixed(1)}h</p>
                   </div>
@@ -665,7 +675,10 @@ export default function AnalisisRutas() {
                 <Target className="text-primary" size={20} />
               </div>
               <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Visitas Realizadas</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                  Visitas Realizadas
+                  <Tooltip content="Cantidad total de paradas realizadas. Cada local visitado cuenta como una visita." />
+                </p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-xl font-black text-white">{stats.totalReal}</p>
                   <span className="text-[10px] text-text-muted">Total paradas</span>
@@ -683,7 +696,10 @@ export default function AnalisisRutas() {
                 <Users className="text-blue-400" size={20} />
               </div>
               <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Locales Únicos</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                  Locales Únicos
+                  <Tooltip content="Cantidad de clientes distintos que fueron visitados. No cuenta repetidos." />
+                </p>
                 <p className="text-xl font-black text-white">{stats.totalUnicos}</p>
               </div>
             </div>
@@ -698,7 +714,10 @@ export default function AnalisisRutas() {
                 <RefreshCw className="text-red-400" size={20} />
               </div>
               <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Visitas Extra</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                  Visitas Extra
+                  <Tooltip content="Visitas adicionales al mismo local en una misma ruta. Indica posibles regresos o ineficiencias." />
+                </p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-xl font-black text-white">{stats.totalExtra}</p>
                   {stats.totalExtra > 0 && <span className="text-[10px] text-red-400 font-bold animate-pulse">Regresos</span>}
@@ -716,7 +735,10 @@ export default function AnalisisRutas() {
                 <Truck className="text-yellow-400" size={20} />
               </div>
               <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold">Rutas</p>
+                <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                  Rutas
+                  <Tooltip content="Rutas completadas vs total de rutas registradas en el período." />
+                </p>
                 <p className="text-xl font-black text-white">{stats.rutasCompletadas}/{stats.totalRutas}</p>
               </div>
             </div>
@@ -766,9 +788,10 @@ export default function AnalisisRutas() {
         {/* Time Comparison */}
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-4">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               <Clock size={20} />
               Tiempo de Ruta: Esta Semana vs Anterior
+              <Tooltip content="Muestra las horas totales de ruta por día. Compara la semana actual con la misma semana del período anterior." />
             </h3>
             <p className="text-text-muted text-xs mb-4">
               Comparando tiempo total de ruta entre semana actual y semana anterior
@@ -796,6 +819,7 @@ export default function AnalisisRutas() {
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               <TrendingUp size={20} />
               Eficiencia Diaria vs Mejor Tiempo Histórico
+              <Tooltip content="Muestra qué tan bien rindió cada día comparado con el mejor tiempo registrado para ese día de la semana." />
             </h3>
             <p className="text-text-muted text-xs mb-4">
               Qué tan cerca estuvo cada día de su mejor tiempo registrado
@@ -844,10 +868,26 @@ export default function AnalisisRutas() {
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="flex justify-center gap-5 mt-2 text-xs">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-green-500"></span> ≥85% Eficiente</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-yellow-500"></span> 70-85% Aceptable</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-red-500"></span> &lt;70% Ineficiente</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-slate-500"></span> Sin historial</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-sm bg-green-500"></span> 
+                    ≥85% Eficiente
+                    <Tooltip content="Excelente rendimiento. El chofer completó sus rutas en tiempo récord." />
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-sm bg-yellow-500"></span> 
+                    70-85% Aceptable
+                    <Tooltip content="Rendimiento normal. Hubo slight demoras pero dentro de lo esperado." />
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-sm bg-red-500"></span> 
+                    &lt;70% Ineficiente
+                    <Tooltip content="Rendimiento bajo. Las rutas tomaron más tiempo de lo esperado." />
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-sm bg-slate-500"></span> 
+                    Sin historial
+                    <Tooltip content="No hay datos suficientes para calcular la eficiencia de este día." />
+                  </span>
                 </div>
               </>
             )}
@@ -861,6 +901,7 @@ export default function AnalisisRutas() {
           <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
             <Truck size={20} />
             Rendimiento por Chofer
+            <Tooltip content="Compara el rendimiento de cada chofer. La eficiencia se calcula comparando su tiempo real con el mejor tiempo histórico para ese día." />
           </h3>
           <p className="text-text-muted text-xs mb-5">
             Eficiencia real basada en el mejor tiempo histórico por día de semana
@@ -875,11 +916,26 @@ export default function AnalisisRutas() {
                   <tr className="border-b border-surface-light text-[10px] uppercase tracking-widest text-text-muted">
                     <th className="text-left py-2 px-3">#</th>
                     <th className="text-left py-2 px-3">Chofer</th>
-                    <th className="text-center py-2 px-3">Eficiencia</th>
-                    <th className="text-center py-2 px-3">Visitas</th>
-                    <th className="text-center py-2 px-3">Visitas Extra</th>
-                    <th className="text-center py-2 px-3">Rutas</th>
-                    <th className="text-right py-2 px-3">T. Promedio</th>
+                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
+                      Eficiencia
+                      <Tooltip content="Porcentaje de eficiencia: qué tan bien rindió comparado con el mejor tiempo histórico. 100% = igual al mejor tiempo." />
+                    </th>
+                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
+                      Visitas
+                      <Tooltip content="Total de paradas realizadas por este chofer en el período seleccionado." />
+                    </th>
+                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
+                      Visitas Extra
+                      <Tooltip content="Regresos o visitas adicionales al mismo local. Un número alto indica ineficiencias en la ruta." />
+                    </th>
+                    <th className="text-center py-2 px-3 flex items-center gap-1 justify-center">
+                      Rutas
+                      <Tooltip content="Cantidad total de rutas que realizó este chofer." />
+                    </th>
+                    <th className="text-right py-2 px-3 flex items-center gap-1 justify-end">
+                      T. Promedio
+                      <Tooltip content="Tiempo promedio que duró cada ruta de este chofer." />
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-light/30">
@@ -933,11 +989,26 @@ export default function AnalisisRutas() {
 
           {/* Legend */}
           <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-surface-light/50 text-xs text-text-muted">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-green-500"></span> ≥85% Eficiente</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-500"></span> 70–85% Aceptable</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500"></span> &lt;70% Ineficiente</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-slate-500"></span> N/D = Sin historial</span>
-            <span className="ml-auto flex items-center gap-1.5"><RefreshCw size={10} className="text-red-400" /> Visitas Extra = regresos</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-green-500"></span> ≥85% Eficiente
+              <Tooltip content="Rendimiento óptimo. El chofer completó rutas cerca del mejor tiempo histórico." />
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-yellow-500"></span> 70–85% Aceptable
+              <Tooltip content="Rendimiento normal, dentro de los parámetros esperados." />
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-red-500"></span> &lt;70% Ineficiente
+              <Tooltip content="Rendimiento por debajo de lo esperado. Revisar causas." />
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-slate-500"></span> N/D = Sin historial
+              <Tooltip content="No hay suficientes datos históricos para calcular la eficiencia." />
+            </span>
+            <span className="ml-auto flex items-center gap-1.5">
+              <RefreshCw size={10} className="text-red-400" /> Visitas Extra = regresos
+              <Tooltip content="Visitas adicionales al mismo local. Indica posibles ineficiencias en la ruta." />
+            </span>
           </div>
         </CardContent>
       </Card>
