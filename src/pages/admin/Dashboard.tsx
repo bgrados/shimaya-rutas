@@ -171,8 +171,7 @@ export default function AdminDashboard() {
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
         .eq('fecha', hoyStr)
-        .eq('estado', 'en_progreso')
-        .limit(5);
+        .eq('estado', 'en_progreso');
         
       if (rutasProgreso) {
         const rutasConVisitas = await Promise.all(
@@ -449,7 +448,7 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Rutas en Progreso */}
+      {/* Rutas en Progreso - Agrupadas por Chofer */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -469,39 +468,84 @@ export default function AdminDashboard() {
               <p>No hay rutas en progreso</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {rutasEnProgreso.map(ruta => {
-                const progreso = getProgresoPorcentaje(ruta.visitas_completadas, ruta.visitas_totales);
-                return (
-                  <div key={ruta.id_ruta} className="bg-surface-light/30 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-white font-medium">{ruta.nombre}</p>
-                        <p className="text-text-muted text-sm">
-                          {ruta.chofer_nombre} • {ruta.placa}
-                        </p>
+            <div className="space-y-4">
+              {/* Agrupar rutas por chofer */}
+              {(() => {
+                const rutasPorChofer: Record<string, { rutas: RutaEnProgreso[]; chofer: string; placa: string }> = {};
+                
+                rutasEnProgreso.forEach(ruta => {
+                  if (!rutasPorChofer[ruta.chofer_nombre]) {
+                    rutasPorChofer[ruta.chofer_nombre] = {
+                      rutas: [],
+                      chofer: ruta.chofer_nombre,
+                      placa: ruta.placa
+                    };
+                  }
+                  rutasPorChofer[ruta.chofer_nombre].rutas.push(ruta);
+                });
+
+                return Object.values(rutasPorChofer).map(({ rutas, chofer, placa }) => {
+                  const totalVisitas = rutas.reduce((sum, r) => sum + r.visitas_totales, 0);
+                  const visitasCompletadas = rutas.reduce((sum, r) => sum + r.visitas_completadas, 0);
+                  const progreso = getProgresoPorcentaje(visitasCompletadas, totalVisitas);
+                  
+                  return (
+                    <div key={chofer} className="bg-surface-light/30 p-4 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-white font-bold flex items-center gap-2">
+                            {chofer}
+                            {rutas.length > 1 && (
+                              <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                                {rutas.length} rutas
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-text-muted text-sm">{placa}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-primary font-black text-xl">{progreso}%</p>
+                          <p className="text-text-muted text-xs">
+                            {visitasCompletadas}/{totalVisitas} visitas
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-primary font-bold">{progreso}%</p>
-                        <p className="text-text-muted text-xs">
-                          {ruta.visitas_completadas}/{ruta.visitas_totales} visitas
-                        </p>
+                      
+                      <div className="w-full bg-surface rounded-full h-2 mb-3">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${progreso}%` }}
+                        />
                       </div>
+
+                      {/* Lista de rutas individuales */}
+                      {rutas.length > 1 && (
+                        <div className="space-y-2 mt-2 pt-2 border-t border-surface-light/50">
+                          {rutas.map((ruta, idx) => {
+                            const progRuta = getProgresoPorcentaje(ruta.visitas_completadas, ruta.visitas_totales);
+                            return (
+                              <div key={ruta.id_ruta} className="flex items-center justify-between text-sm">
+                                <span className="text-text-muted">
+                                  {idx + 1}. {ruta.nombre}
+                                </span>
+                                <span className="text-white font-medium">
+                                  {progRuta}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      {rutas[0].hora_salida && (
+                        <p className="text-text-muted text-xs mt-2">
+                          Salida: {formatHoraPeru(rutas[0].hora_salida)}
+                        </p>
+                      )}
                     </div>
-                    <div className="w-full bg-surface-light rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all"
-                        style={{ width: `${progreso}%` }}
-                      />
-                    </div>
-                    {ruta.hora_salida && (
-                      <p className="text-text-muted text-xs mt-2">
-                        Salida: {formatHoraPeru(ruta.hora_salida)}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           )}
         </CardContent>
