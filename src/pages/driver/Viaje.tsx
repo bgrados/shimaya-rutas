@@ -35,7 +35,10 @@ import {
   MessageCircle,
   FileText,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -535,6 +538,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   // Guías Viewer State
   const [viewingGuias, setViewingGuias] = useState<GuiaRemision[] | null>(null);
   const [currentGuiaIndex, setCurrentGuiaIndex] = useState(0);
+  const [zoomScale, setZoomScale] = useState(1);
 
   const handleRegistrarSalida = async () => {
     if (!ruta || !nuevoDestino || actionLoading) return;
@@ -1278,39 +1282,81 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       {/* Guías Viewer Modal */}
       {viewingGuias && (
         <div className="fixed inset-0 z-[100] bg-black backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200">
-          <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-10">
-            <div className="text-white font-black text-sm bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
-              Guía {currentGuiaIndex + 1} / {viewingGuias.length}
+          <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 via-black/40 to-transparent z-[110]">
+            <div className="flex flex-col gap-1">
+              <div className="text-white font-black text-sm bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 uppercase italic tracking-tighter">
+                Archivo {currentGuiaIndex + 1} / {viewingGuias.length}
+              </div>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setZoomScale(prev => Math.min(prev + 0.5, 4))}
+                  className="bg-white/10 hover:bg-white/20 p-2 rounded-lg backdrop-blur-md text-white border border-white/5 active:scale-90 transition-all"
+                  title="Acercar (+)"
+                >
+                  <ZoomIn size={18} />
+                </button>
+                <button 
+                  onClick={() => setZoomScale(prev => Math.max(prev - 0.5, 1))}
+                  className="bg-white/10 hover:bg-white/20 p-2 rounded-lg backdrop-blur-md text-white border border-white/5 active:scale-90 transition-all"
+                  title="Alejar (-)"
+                >
+                  <ZoomOut size={18} />
+                </button>
+                <button 
+                  onClick={() => setZoomScale(1)}
+                  className="bg-white/10 hover:bg-white/20 p-2 rounded-lg backdrop-blur-md text-white border border-white/5 active:scale-90 transition-all"
+                  title="Resetear"
+                >
+                  <Maximize2 size={18} />
+                </button>
+                <span className="text-[10px] text-white/50 font-bold ml-1">{Math.round(zoomScale * 100)}%</span>
+              </div>
             </div>
             <button 
-              className="text-white bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur-md transition-all active:scale-95"
-              onClick={() => setViewingGuias(null)}
+              className="text-white bg-red-500/20 hover:bg-red-500/40 p-3 rounded-full backdrop-blur-md border border-red-500/30 transition-all active:scale-95"
+              onClick={() => {
+                setViewingGuias(null);
+                setZoomScale(1);
+              }}
             >
               <X size={24} />
             </button>
           </div>
           
-          <div className="flex-1 w-full flex items-center justify-center p-2 pt-20 pb-28 relative">
-            <img 
-              src={viewingGuias[currentGuiaIndex].archivo_url} 
-              alt="Guía Documento" 
-              className="w-auto h-auto max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl transition-transform"
-            />
+          <div className="flex-1 w-full flex items-center justify-center p-2 pt-24 pb-28 relative overflow-hidden">
+            <div className={`w-full h-full flex items-center justify-center transition-transform duration-300 ease-out cursor-move ${zoomScale > 1 ? 'overflow-auto scrollbar-hide touch-pan-x touch-pan-y' : ''}`}>
+              <img 
+                src={viewingGuias[currentGuiaIndex].archivo_url} 
+                alt="Documento de despacho" 
+                style={{ 
+                  transform: `scale(${zoomScale})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.2s ease-out'
+                }}
+                className="w-auto h-auto max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              />
+            </div>
             
             {/* Nav Arrows */}
             {viewingGuias.length > 1 && (
               <>
                 <button 
-                  onClick={() => setCurrentGuiaIndex(prev => prev > 0 ? prev - 1 : viewingGuias.length - 1)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 p-3 rounded-full text-white backdrop-blur-sm border border-white/20 transition-all active:scale-90"
+                  onClick={() => {
+                    setCurrentGuiaIndex(prev => prev > 0 ? prev - 1 : viewingGuias.length - 1);
+                    setZoomScale(1);
+                  }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/90 p-4 rounded-full text-white backdrop-blur-sm border border-white/10 transition-all active:scale-90 z-20"
                 >
-                  <ChevronLeft size={28} />
+                  <ChevronLeft size={32} />
                 </button>
                 <button 
-                  onClick={() => setCurrentGuiaIndex(prev => prev < viewingGuias.length - 1 ? prev + 1 : 0)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 p-3 rounded-full text-white backdrop-blur-sm border border-white/20 transition-all active:scale-90"
+                  onClick={() => {
+                    setCurrentGuiaIndex(prev => prev < viewingGuias.length - 1 ? prev + 1 : 0);
+                    setZoomScale(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/90 p-4 rounded-full text-white backdrop-blur-sm border border-white/10 transition-all active:scale-90 z-20"
                 >
-                  <ChevronRight size={28} />
+                  <ChevronRight size={32} />
                 </button>
               </>
             )}
