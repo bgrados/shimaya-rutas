@@ -955,51 +955,49 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                         <div className="flex items-center gap-1">
                           {(function() {
                             const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
-                            if (localActual?.latitud && localActual?.longitud) {
-                              const latDest = localActual.latitud;
-                              const lonDest = localActual.longitud;
-                              
-                              // dir_action=navigate le dice a Google Maps que arranque a navegar desde la ubicación actual nativa del celular
-                              const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${latDest},${lonDest}&travelmode=driving&dir_action=navigate`;
-                              const wazeUrl = `https://waze.com/ul?ll=${latDest},${lonDest}&navigate=yes`;
-
-                              return (
-                                <>
-                                  <a
-                                    href={googleUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors inline-block"
-                                    title="Navegar con Google Maps"
-                                  >
-                                    <MapPin size={16} />
-                                  </a>
-                                  <a
-                                    href={wazeUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-1.5 rounded-md transition-colors inline-block"
-                                    title="Navegar con Waze"
-                                  >
-                                    <Navigation size={16} />
-                                  </a>
-                                  {localActual.guias && localActual.guias.length > 0 && (
-                                    <button
-                                      onClick={() => {
-                                        setViewingGuias(localActual.guias || []);
-                                        setCurrentGuiaIndex(0);
-                                      }}
-                                      className="text-white hover:text-white bg-white/20 hover:bg-white/30 p-1.5 rounded-md transition-colors inline-flex items-center gap-1 shadow-lg border border-white/20"
-                                      title="Ver Guías Adjuntas"
+                            
+                            return (
+                              <>
+                                {/* Botones de mapa (solo si hay coordenadas) */}
+                                {localActual?.latitud && localActual?.longitud && (
+                                  <>
+                                    <a
+                                      href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving&dir_action=navigate`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors inline-block"
+                                      title="Navegar con Google Maps"
                                     >
-                                      <FileText size={16} />
-                                      <span className="text-xs font-black">{localActual.guias.length}</span>
-                                    </button>
-                                  )}
-                                </>
-                              );
-                            }
-                            return null;
+                                      <MapPin size={16} />
+                                    </a>
+                                    <a
+                                      href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-1.5 rounded-md transition-colors inline-block"
+                                      title="Navegar con Waze"
+                                    >
+                                      <Navigation size={16} />
+                                    </a>
+                                  </>
+                                )}
+
+                                {/* Botón de Guías (independiente de si hay GPS) */}
+                                {localActual?.guias && localActual.guias.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      setViewingGuias(localActual.guias || []);
+                                      setCurrentGuiaIndex(0);
+                                    }}
+                                    className="text-white hover:text-white bg-white/20 hover:bg-white/30 p-1.5 rounded-md transition-colors inline-flex items-center gap-1 shadow-lg border border-white/20"
+                                    title="Ver Guías Adjuntas"
+                                  >
+                                    <FileText size={16} />
+                                    <span className="text-xs font-black">{localActual.guias.length}</span>
+                                  </button>
+                                )}
+                              </>
+                            );
                           })()}
                           
                           {(function() {
