@@ -13,6 +13,7 @@ import { es } from 'date-fns/locale';
 import { ModalEvidencia } from './viaje/components/ModalEvidencia';
 import { TramoBitacora } from './viaje/components/TramoBitacora';
 import { formatPeru, nowPeru } from '../../lib/timezone';
+import { RefreshCw } from 'lucide-react';
 import { 
   MapPin, 
   CheckCircle2, 
@@ -426,6 +427,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'viajes_bitacora' }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadCurrentRuta())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guias_remision' }, () => loadCurrentRuta())
       .subscribe();
 
     window.addEventListener('online', loadCurrentRuta);
@@ -823,343 +825,271 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       </div>
 
-      {ruta.estado !== 'finalizada' && (
-        <Button 
-          className="w-full bg-green-600/20 text-green-400 hover:bg-green-600/30 border-green-600/50 py-3 font-bold"
-          onClick={() => setShowCombustible(true)}
-        >
-          <Fuel size={18} className="mr-2" />
-          Registrar Combustible
-        </Button>
-      )}
-
-      {/* Botón para tomar fotos - solo cuando está EN EL LOCAL (después de llegar, antes de salir) */}
-      {tramoEnProgreso && (
-        <Button 
-          className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
-          onClick={() => {
-            const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
-            if (localActual) setLocalParaFoto(localActual);
-          }}
-          disabled={!locales.find(l => l.nombre === tramoEnProgreso.destino_nombre)}
-        >
-          <Camera size={20} className="mr-2" />
-          📸 Tomar Evidencia - {tramoEnProgreso.destino_nombre}
-        </Button>
-      )}
-
-      {/* Después de marcar llegada pero antes de salir - fotos del local donde está */}
-      {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
-        <Button 
-          className="w-full bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border-purple-600/50 py-4 font-bold"
-          onClick={() => {
-            const ultimoTramo = bitacora[bitacora.length - 1];
-            const localActual = locales.find(l => l.nombre === ultimoTramo.destino_nombre);
-            if (localActual) setLocalParaFoto(localActual);
-          }}
-        >
-          <Camera size={20} className="mr-2" />
-          📸 Tomar Evidencia - {bitacora[bitacora.length - 1].destino_nombre}
-        </Button>
-      )}
-
-      {/* Botón para agregar fotos a cualquier local visitado */}
-      {ruta.estado !== 'finalizada' && locales.some(l => l.hora_llegada) && (
-        <div className="mt-4 p-3 bg-surface-light/30 rounded-xl border border-white/5">
-          <p className="text-[10px] text-text-muted mb-2 uppercase font-bold">Agregar foto a local anterior:</p>
-          <select 
-            className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
-            onChange={(e) => {
-              const local = locales.find(l => l.id_local_ruta === e.target.value);
-              if (local) setLocalParaFoto(local);
-            }}
-            value=""
-          >
-            <option value="">Seleccionar local...</option>
-            {locales.filter(l => l.hora_llegada).map(local => (
-              <option key={local.id_local_ruta} value={local.id_local_ruta}>
-                {local.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {ruta.estado !== 'finalizada' && (
-        <Card className="border-primary bg-primary/5 ring-1 ring-primary/20 overflow-hidden">
+      {/* Card de Proceso Actual */}
+      {tramoEnProgreso ? (
+        <Card className="bg-surface border-primary/30 border-2 shadow-2xl overflow-hidden animate-in slide-in-from-top-4">
           <CardContent className="p-6">
-             {tramoEnProgreso ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-500 animate-pulse border border-blue-500/30">
-                     <Clock size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest mb-0.5">En Camino A</p>
-                    
-                    {isEditingDestino ? (
-                      <div className="flex items-center gap-2 mt-1 mb-2">
-                        <select 
-                          value={destinoEditado}
-                          onChange={(e) => setDestinoEditado(e.target.value)}
-                          className="flex-1 bg-surface-light border border-blue-500/40 rounded-lg px-2 py-2 text-white font-black italic text-sm focus:outline-none focus:border-blue-500"
-                        >
-                          {localesDisponibles.map((l) => (
-                            <option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option>
-                          ))}
-                          {localesDisponibles.length === 0 && (
-                            <option value="Planta">Planta</option>
-                          )}
-                          {!localesDisponibles.find(l => l.nombre === tramoEnProgreso.destino_nombre) && (
-                             <option value={tramoEnProgreso.destino_nombre || ''}>{tramoEnProgreso.destino_nombre}</option>
-                          )}
-                        </select>
-                        <Button 
-                          size="sm" 
-                          onClick={async () => {
-                            if (!destinoEditado || isSavingDestino || destinoEditado === tramoEnProgreso.destino_nombre) {
-                              setIsEditingDestino(false);
-                              return;
-                            }
-                            setIsSavingDestino(true);
-                            const { data, error } = await supabase
-                              .from('viajes_bitacora')
-                              .update({ destino_nombre: destinoEditado })
-                              .eq('id_bitacora', tramoEnProgreso.id_bitacora)
-                              .select().single();
-                            if (!error && data) {
-                              setBitacora(bitacora.map(b => b.id_bitacora === tramoEnProgreso.id_bitacora ? (data as ViajeBitacora) : b));
-                              setIsEditingDestino(false);
-                            } else {
-                              showToast('error', 'Error al actualizar destino');
-                            }
-                            setIsSavingDestino(false);
-                          }}
-                          disabled={isSavingDestino}
-                          className="bg-blue-600 hover:bg-blue-500 h-10 w-10 p-0 flex items-center justify-center rounded-lg min-w-[40px]"
-                        >
-                          <Check size={18} />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          onClick={() => setIsEditingDestino(false)}
-                          disabled={isSavingDestino}
-                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 h-10 w-10 p-0 flex items-center justify-center rounded-lg min-w-[40px]"
-                        >
-                          <X size={18} />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-xl font-black text-white italic leading-tight">{tramoEnProgreso.destino_nombre}</h3>
-                        <div className="flex items-center gap-1">
-                          {(function() {
-                            const localActual = locales.find(l => l.nombre === tramoEnProgreso.destino_nombre);
-                            
-                            return (
-                              <>
-                                {/* Botones de mapa (solo si hay coordenadas) */}
-                                {localActual?.latitud && localActual?.longitud && (
-                                  <>
-                                    <a
-                                      href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving&dir_action=navigate`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors inline-block"
-                                      title="Navegar con Google Maps"
-                                    >
-                                      <MapPin size={16} />
-                                    </a>
-                                    <a
-                                      href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-1.5 rounded-md transition-colors inline-block"
-                                      title="Navegar con Waze"
-                                    >
-                                      <Navigation size={16} />
-                                    </a>
-                                  </>
-                                )}
-
-                                {/* Botón de Guías (independiente de si hay GPS) */}
-                                {localActual?.guias && localActual.guias.length > 0 && (
-                                  <button
-                                    onClick={() => {
-                                      setViewingGuias(localActual.guias || []);
-                                      setCurrentGuiaIndex(0);
-                                    }}
-                                    className="text-white hover:text-white bg-white/20 hover:bg-white/30 p-1.5 rounded-md transition-colors inline-flex items-center gap-1 shadow-lg border border-white/20"
-                                    title="Ver Guías Adjuntas"
-                                  >
-                                    <FileText size={16} />
-                                    <span className="text-xs font-black">{localActual.guias.length}</span>
-                                  </button>
-                                )}
-                              </>
-                            );
-                          })()}
-                          
-                          {(function() {
-                            const localesConCoords = locales.filter(l => l.latitud && l.longitud);
-                            if (localesConCoords.length > 1) {
-                              const waypoints = localesConCoords.slice(1, -1).map(l => `${l.latitud},${l.longitud}`);
-                              // Ruta global usando el primer local como origen 
-                              const routeUrl = `https://www.google.com/maps/dir/?api=1&origin=${localesConCoords[0].latitud},${localesConCoords[0].longitud}&destination=${localesConCoords[localesConCoords.length - 1].latitud},${localesConCoords[localesConCoords.length - 1].longitud}${waypoints.length > 0 ? '&waypoints=' + waypoints.join('|') : ''}&travelmode=driving`;
-                              
-                              return (
-                                <a 
-                                  href={routeUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-green-400 hover:text-green-300 bg-green-500/20 hover:bg-green-500/30 p-1.5 rounded-md transition-colors inline-block"
-                                  title="Ver ruta completa de hoy"
-                                >
-                                  <Truck size={16} />
-                                </a>
-                              );
-                            }
-                            return null;
-                          })()}
-                          <button 
-                            onClick={() => {
-                              setDestinoEditado(tramoEnProgreso.destino_nombre || '');
-                              setIsEditingDestino(true);
-                            }}
-                            className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-1.5 rounded-md transition-colors"
-                            title="Corregir destino"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter mt-1">Salió de {tramoEnProgreso.origen_nombre} a las {formatPeru(tramoEnProgreso.hora_salida!, 'HH:mm')}</p>
-                  </div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary animate-pulse">
+                  <Truck size={18} />
                 </div>
-                 <Button 
-                   onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora)}
-                   disabled={actionLoading}
-                   className="w-full h-14 text-lg font-black bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/30 border-b-4 border-blue-800 disabled:opacity-70"
-                >
-                  {actionLoading ? (
-                    <span className="flex items-center gap-2">
-                       <Clock className="animate-spin" size={20} /> REGISTRANDO...
-                    </span>
-                  ) : (
-                    <>
-                      <Flag size={20} className="mr-2" /> MARCAR LLEGADA
-                    </>
-                  )}
-                </Button>
+                <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic">En Camino</span>
               </div>
-            ) : nuevoDestino ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest ml-1">Desde</p>
-                    <div className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-white font-bold text-sm italic">
-                      {proximoOrigen}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest ml-1">Hacia</p>
-                    <div className="relative">
-                      <select 
-                        value={nuevoDestino}
-                        onChange={(e) => setNuevoDestino(e.target.value)}
-                        className="w-full bg-surface-light border border-primary/40 rounded-xl px-3 py-3 text-white font-black italic appearance-none focus:outline-none focus:ring-1 focus:ring-primary text-sm shadow-inner"
-                      >
-                        {localesDisponibles.map(l => (
-                          <option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option>
-                        ))}
-                        {localesDisponibles.length === 0 && (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) && (
-                          <option value="Planta">Regreso a Planta</option>
-                        )}
-                      </select>
-                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none" />
-                    </div>
+              <Button variant="ghost" size="sm" onClick={loadCurrentRuta} className="h-7 text-[10px] font-bold">
+                <RefreshCw size={12} className="mr-1" /> REFRESCAR
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-[9px] text-text-muted uppercase font-black tracking-widest mb-1">Desde</p>
+                <p className="text-sm font-bold text-white uppercase">{tramoEnProgreso.origen_nombre}</p>
+              </div>
+
+              <div className="relative py-2 pl-4">
+                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-surface-light"></div>
+                <div className="absolute left-[-4px] top-0 w-2.5 h-2.5 rounded-full bg-primary shadow-lg shadow-primary/50"></div>
+              </div>
+
+              {isEditingDestino ? (
+                <div className="space-y-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
+                  <Input 
+                    placeholder="Corregir nombre del destino..." 
+                    value={destinoEditado}
+                    onChange={e => setDestinoEditado(e.target.value)}
+                    className="bg-black/40 border-primary/30"
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="flex-1 font-bold text-xs" 
+                      onClick={() => setIsEditingDestino(false)}
+                    >CANCELAR</Button>
+                    <Button 
+                      size="sm" 
+                      className="flex-1 font-black text-xs" 
+                      disabled={isSavingDestino}
+                      onClick={() => handleSaveDestino(tramoEnProgreso.id_bitacora)}
+                    >
+                      {isSavingDestino ? 'GUARDANDO...' : 'GUARDAR CAMBIO'}
+                    </Button>
                   </div>
                 </div>
+              ) : (
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 pr-4">
+                    <p className="text-[9px] text-text-muted uppercase font-black tracking-widest mb-1">Hacia (Destino)</p>
+                    <h3 className="text-xl font-black text-white italic leading-tight uppercase">{tramoEnProgreso.destino_nombre}</h3>
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-4">
+                    {(function() {
+                      const normalizedDest = (tramoEnProgreso.destino_nombre || '').trim().toLowerCase();
+                      const localActual = locales.find(l => (l.nombre || '').trim().toLowerCase() === normalizedDest);
+                      
+                      return (
+                        <>
+                          {/* Botones de mapa (solo si hay coordenadas) */}
+                          {localActual?.latitud && localActual?.longitud && (
+                            <>
+                              <a
+                                href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}&travelmode=driving&dir_action=navigate`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 p-2 rounded-lg transition-all active:scale-90"
+                                title="Navegar con Google Maps"
+                              >
+                                <MapPin size={18} />
+                              </a>
+                              <a
+                                href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/20 hover:bg-yellow-500/30 p-2 rounded-lg transition-all active:scale-90"
+                                title="Navegar con Waze"
+                              >
+                                <Navigation size={18} />
+                              </a>
+                            </>
+                          )}
 
-                {mostrarLocalesVisitados ? (
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3">
-                    <p className="text-yellow-400 text-xs font-bold uppercase">↩️ Selecciona a dónde vuelves:</p>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {localesVisitados.map((l, idx) => {
-                        const tramo = bitacora.find(b => b.destino_nombre === l.nombre);
-                        const tiempoHace = tramo?.hora_llegada 
-                          ? Math.round((new Date().getTime() - new Date(tramo.hora_llegada).getTime()) / 60000)
-                          : 0;
-                        return (
-                          <button
-                            key={l.id_local_ruta}
-                            onClick={() => {
-                              setNuevoDestino(l.nombre || '');
-                              setMostrarLocalesVisitados(false);
-                            }}
-                            className="w-full text-left p-2 bg-surface rounded-lg border border-yellow-500/20 hover:bg-yellow-500/20 flex justify-between items-center"
-                          >
-                            <span className="text-white text-sm font-bold">{l.nombre}</span>
-                            <span className="text-yellow-400 text-xs">hace {tiempoHace} min</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      onClick={() => setMostrarLocalesVisitados(false)}
-                      className="text-xs text-text-muted underline hover:text-white"
+                          {/* Botón de Guías (independiente de si hay GPS) */}
+                          {localActual?.guias && localActual.guias.length > 0 && (
+                            <button
+                              onClick={() => {
+                                setViewingGuias(localActual.guias || []);
+                                setCurrentGuiaIndex(0);
+                              }}
+                              className="text-white bg-primary p-2 rounded-lg transition-all shadow-lg shadow-primary/20 active:scale-90 flex items-center gap-1.5"
+                              title="Ver Guías Adjuntas"
+                            >
+                              <FileText size={18} />
+                              <span className="text-xs font-black">{localActual.guias.length}</span>
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                    
+                    <button 
+                      onClick={() => {
+                        setDestinoEditado(tramoEnProgreso.destino_nombre || '');
+                        setIsEditingDestino(true);
+                      }}
+                      className="bg-surface-light text-text-muted p-2 rounded-lg hover:text-white transition-colors"
+                      title="Corregir nombre del destino"
                     >
-                      ← Volver al flujo normal
+                      <Edit2 size={18} />
                     </button>
                   </div>
-                ) : localesVisitados.length > 0 && (
-                  <button 
-                    onClick={() => setMostrarLocalesVisitados(true)}
-                    className="text-xs text-yellow-400 underline hover:text-yellow-300 w-full text-left mt-2 flex items-center gap-1"
-                  >
-                    ↩️ ¿Necesitas volver a un local anterior?
-                  </button>
-                )}
-                
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-dashed border-white/10">
-                   <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-primary" />
-                      <span className="text-xs text-text-muted uppercase font-bold">Hora actual</span>
-                   </div>
-                   <div className="flex items-center gap-3">
-                     <span className="text-white font-black text-lg italic">
-                       {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                     </span>
-                     <button 
-                       onClick={() => setShowResumenRuta(true)}
-                       className="bg-green-600/20 border border-green-500/30 p-2 rounded-lg hover:bg-green-600/30"
-                     >
-                       <ListTodo size={18} className="text-green-400" />
-                     </button>
-                   </div>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <div className="flex items-center gap-2 text-xs text-text-muted font-bold mb-4 bg-black/20 p-2 rounded-lg inline-block">
+                  <Clock size={14} className="text-primary" />
+                  SALIDA: {formatPeru(tramoEnProgreso.hora_salida, 'HH:mm')}
                 </div>
 
-                <Button 
-                   onClick={handleRegistrarSalida}
-                   disabled={actionLoading}
-                   className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-xl shadow-primary/30 border-b-4 border-primary-dark disabled:opacity-70"
-                >
-                  {actionLoading ? (
-                    <span className="flex items-center gap-2">
-                       <Clock className="animate-spin" size={20} /> REGISTRANDO...
-                    </span>
-                  ) : (
-                    <>
-                      <Play size={20} className="mr-2" /> REGISTRAR SALIDA
-                    </>
-                  )}
-                </Button>
+                <div className="grid grid-cols-1 gap-3">
+                  <Button 
+                    className="w-full h-16 text-lg font-black italic tracking-wider bg-green-600 hover:bg-green-500 shadow-xl shadow-green-900/20 rounded-2xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all"
+                    onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora)}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? 'REGISTRANDO...' : 'REGISTRAR LLEGADA'}
+                  </Button>
+
+                  <Button 
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                    onClick={() => {
+                      const normalizedDest = (tramoEnProgreso.destino_nombre || '').trim().toLowerCase();
+                      const localActual = locales.find(l => (l.nombre || '').trim().toLowerCase() === normalizedDest);
+                      if (localActual) setLocalParaFoto(localActual);
+                    }}
+                    disabled={!(locales.find(l => (l.nombre || '').trim().toLowerCase() === (tramoEnProgreso.destino_nombre || '').trim().toLowerCase()))}
+                  >
+                    <Camera size={20} />
+                    TOMAR EVIDENCIA
+                  </Button>
+                </div>
               </div>
-            ) : locales.length > 0 ? (
-              <div className="text-center py-6 bg-green-500/5 rounded-2xl border border-green-500/20">
-                 <CheckCircle2 size={48} className="text-green-500 mx-auto mb-2" />
+            </div>
+          </CardContent>
+        </Card>
+      ) : nuevoDestino ? (
+        <Card className="bg-surface-light/5 border border-white/10 overflow-hidden">
+          <CardContent className="p-6">
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest ml-1">Desde</p>
+                  <div className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-white font-bold text-sm italic uppercase">
+                    {proximoOrigen}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest ml-1">Hacia (Destino)</p>
+                  <div className="relative">
+                    <select 
+                      value={nuevoDestino}
+                      onChange={(e) => setNuevoDestino(e.target.value)}
+                      className="w-full bg-surface-light border border-primary/40 rounded-xl px-3 py-3 text-white font-black italic appearance-none focus:outline-none focus:ring-1 focus:ring-primary text-sm shadow-inner uppercase"
+                    >
+                      {localesDisponibles.map(l => (
+                        <option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option>
+                      ))}
+                      {localesDisponibles.length === 0 && (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) && (
+                        <option value="Planta">Regreso a Planta</option>
+                      )}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {mostrarLocalesVisitados ? (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3">
+                  <p className="text-yellow-400 text-xs font-bold uppercase">↩️ Selecciona a dónde vuelves:</p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {localesVisitados.map((l, idx) => {
+                      const tramo = bitacora.find(b => b.destino_nombre === l.nombre);
+                      const tiempoHace = tramo?.hora_llegada 
+                        ? Math.round((new Date().getTime() - new Date(tramo.hora_llegada).getTime()) / 60000)
+                        : 0;
+                      return (
+                        <button
+                          key={l.id_local_ruta}
+                          onClick={() => {
+                            setNuevoDestino(l.nombre || '');
+                            setMostrarLocalesVisitados(false);
+                          }}
+                          className="w-full text-left p-2 bg-surface rounded-lg border border-yellow-500/20 hover:bg-yellow-500/20 flex justify-between items-center"
+                        >
+                          <span className="text-white text-sm font-bold uppercase">{l.nombre}</span>
+                          <span className="text-yellow-400 text-xs">hace {tiempoHace} min</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setMostrarLocalesVisitados(false)}
+                    className="text-xs text-text-muted underline hover:text-white"
+                  >
+                    ← Volver al flujo normal
+                  </button>
+                </div>
+              ) : localesVisitados.length > 0 && (
+                <button 
+                  onClick={() => setMostrarLocalesVisitados(true)}
+                  className="text-xs text-yellow-400 underline hover:text-yellow-300 w-full text-left mt-1 flex items-center gap-1"
+                >
+                  ↩️ ¿Necesitas volver a un local anterior?
+                </button>
+              )}
+              
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-dashed border-white/10">
+                 <div className="flex items-center gap-2">
+                    <Clock size={16} className="text-primary" />
+                    <span className="text-xs text-text-muted uppercase font-bold">Hora actual</span>
+                 </div>
+                 <div className="flex items-center gap-3">
+                   <span className="text-white font-black text-lg italic">
+                     {new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                   </span>
+                   <button 
+                     onClick={() => setShowResumenRuta(true)}
+                     className="bg-green-600/20 border border-green-500/30 p-2 rounded-lg hover:bg-green-600/30"
+                   >
+                     <ListTodo size={18} className="text-green-400" />
+                   </button>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <Button 
+                  className="w-full h-16 text-xl font-black italic tracking-widest bg-primary hover:bg-primary-light shadow-xl shadow-primary/20 rounded-2xl border-b-4 border-primary-dark active:border-b-0 active:translate-y-1 transition-all"
+                  onClick={handleRegistrarSalida}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? 'INICIANDO...' : 'INICIAR VIAJE →'}
+                </Button>
+
+                {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
+                  <Button 
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                    onClick={() => {
+                      const ultimoTramo = bitacora[bitacora.length - 1];
+                      const normalizedDest = (ultimoTramo.destino_nombre || '').trim().toLowerCase();
+                      const localActual = locales.find(l => (l.nombre || '').trim().toLowerCase() === normalizedDest);
+                      if (localActual) setLocalParaFoto(localActual);
+                    }}
+                  >
+                    <Camera size={20} />
+                    TOMAR EVIDENCIA - {bitacora[bitacora.length - 1].destino_nombre}
+                  </Button>
+                )}
                  <p className="text-white text-lg font-black italic uppercase">¡Ruta completada!</p>
                  <p className="text-text-muted text-sm">Ya has regresado a planta.</p>
               </div>
