@@ -53,6 +53,13 @@ export interface LocalBase {
 
 export type EstadoVisita = 'pendiente' | 'visitado' | 'cerrado' | 'no_encontrado';
 
+export interface GuiaRemision {
+  id_guia: string;
+  id_local_ruta: string;
+  archivo_url: string;
+  created_at: string;
+}
+
 export interface LocalRuta {
   id_local_ruta: string;
   id_ruta: string | null;
@@ -69,6 +76,7 @@ export interface LocalRuta {
   foto_url: string | null;
   gps_lat: number | null;
   gps_lng: number | null;
+  guias?: GuiaRemision[];
   created_at: string;
 }
 
