@@ -866,10 +866,10 @@ const win = window.open('', '_blank');
           </button>
           <button
             onClick={() => setReportType('otros')}
-            className={`px-4 py-2 font-bold transition-colors ${reportType === 'otros' ? 'bg-red-600 text-white' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'}`}
+            className={`px-4 py-2 font-medium transition-colors ${reportType === 'otros' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
           >
             <FileDown size={16} className="inline mr-2" />
-            OTROS (con eliminar)
+            Otros
           </button>
         </div>
       </div>
