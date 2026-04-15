@@ -69,9 +69,21 @@ export default function Reportes() {
   const [descargandoZipEvidencia, setDescargandoZipEvidencia] = useState(false);
 
   const handleDeleteGasto = async (id_gasto: string) => {
-    if (!window.confirm('¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.')) return;
-
     try {
+      // Primero buscar el gasto para obtener la foto_url
+      const gasto = gastos.find(g => g.id_gasto === id_gasto);
+      
+      // Eliminar la foto del storage si existe
+      if (gasto?.foto_url) {
+        try {
+          const urlParts = gasto.foto_url.split('/');
+          const fileName = urlParts.slice(-2).join('/'); // Obtener "carpeta/archivo"
+          await supabase.storage.from('combustible_fotos').remove([fileName]);
+        } catch (err) {
+          console.warn('No se pudo eliminar la foto del storage:', err);
+        }
+      }
+
       const { error } = await supabase
         .from('gastos_combustible')
         .delete()
@@ -81,10 +93,15 @@ export default function Reportes() {
       
       // Update local state
       setGastos(prev => prev.filter(g => g.id_gasto !== id_gasto));
-      alert('Registro eliminado correctamente');
+      // Also remove from fotosCombustible state
+      setFotosCombustible(prev => {
+        const newState = { ...prev };
+        delete newState[id_gasto];
+        return newState;
+      });
     } catch (err: any) {
       console.error('Error eliminando gasto:', err);
-      alert('Error: ' + err.message);
+      alert('Error al eliminar: ' + (err.message || 'Verifica los permisos en Supabase'));
     }
   };
 
@@ -575,8 +592,6 @@ const win = window.open('', '_blank');
     }
   };
 
-  };
-
   const handleExportarOtrosPDF = () => {
     const periodoLabel = getFiltroLabel();
     const totalOtros = gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0);
@@ -851,10 +866,10 @@ const win = window.open('', '_blank');
           </button>
           <button
             onClick={() => setReportType('otros')}
-            className={`px-4 py-2 font-medium transition-colors ${reportType === 'otros' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
+            className={`px-4 py-2 font-bold transition-colors ${reportType === 'otros' ? 'bg-red-600 text-white' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'}`}
           >
             <FileDown size={16} className="inline mr-2" />
-            Otros
+            OTROS (con eliminar)
           </button>
         </div>
       </div>
@@ -1304,7 +1319,7 @@ const win = window.open('', '_blank');
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-bold flex items-center gap-2">
                   📸 Fotos de Comprobantes
-                  <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                  <span className="text-text-muted text-sm font-normal">({[...gastosCombustible, ...gastosOtros].filter(g => fotosCombustible[g.id_gasto]).length})</span>
                 </h3>
                 {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
                   <Button
@@ -1382,10 +1397,11 @@ const win = window.open('', '_blank');
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <FileDown size={24} className="text-primary" />
-                  Otros Gastos
+                  <FileDown size={24} className="text-red-500" />
+                  SECCION OTROS GASTOS <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full ml-2">v6</span>
                 </h2>
               </div>
+              
               <p className="text-text-muted mb-4">Gastos adicionales como estacionamiento, peajes y otros.</p>
 
               <div className="flex flex-wrap gap-3 items-center mb-4">
@@ -1407,6 +1423,9 @@ const win = window.open('', '_blank');
                 <div className="text-center py-12 no-print">
                   <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
                   <p className="text-text-muted">No hay otros gastos registrados</p>
+                  {gastos.length > 0 && (
+                    <p className="text-text-muted text-xs mt-2">Pero hay {gastos.length} gastos en total. Los tipos son: {[...new Set(gastos.map(g => g.tipo_combustible))].join(', ')}</p>
+                  )}
                 </div>
               ) : (
                 <>
@@ -1417,85 +1436,69 @@ const win = window.open('', '_blank');
                     </Button>
                   </div>
 
-                  <div className="bg-surface-light/30 rounded-xl overflow-x-auto">
-                    <table className="w-full text-sm min-w-[600px]">
-                      <thead className="bg-surface text-text-muted uppercase text-xs">
-                        <tr>
-                          <th className="px-4 py-3 text-center">Foto</th>
-                          <th className="px-4 py-3 text-left">Fecha</th>
-                          <th className="px-4 py-3 text-left">Chofer</th>
-                          <th className="px-4 py-3 text-left">Ruta</th>
-                          <th className="px-4 py-3 text-right">Monto</th>
-                          <th className="px-4 py-3 text-center">Estado</th>
-                          <th className="px-4 py-3 text-center">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-surface-light">
-                        {gastosOtros.map(gasto => (
-                          <tr key={gasto.id_gasto} className="hover:bg-surface-light/50">
-                            <td className="px-4 py-3 text-center">
-                              {fotosCombustible[gasto.id_gasto] ? (
-                                <button 
-                                  onClick={() => {
-                                    const images = gastosOtros
-                                      .filter(g => fotosCombustible[g.id_gasto])
-                                      .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Gasto: ${g.chofer_nombre} - S/ ${g.monto}` }));
-                                    const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
-                                    setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
-                                  }}
-                                  className="w-10 h-10 rounded-lg overflow-hidden border border-surface-light hover:border-primary transition-colors block mx-auto"
-                                >
-                                  <img 
-                                    src={fotosCombustible[gasto.id_gasto]} 
-                                    alt="Comprobante" 
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-                              ) : (
-                                <span className="text-text-muted">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-white">
-                              {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-white">{gasto.chofer_nombre || '-'}</td>
-                            <td className="px-4 py-3 text-white">{gasto.ruta_nombre || '-'}</td>
-                            <td className="px-4 py-3 text-green-400 text-right font-bold">
-                              S/ {(gasto.monto || 0).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
-                                gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
-                                'bg-red-500/20 text-red-400'
-                              }`}>
-                                {gasto.estado || '-'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <button
-                                onClick={() => handleDeleteGasto(gasto.id_gasto)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors mx-auto whitespace-nowrap group"
-                                title="Eliminar este gasto"
-                              >
-                                <Trash2 size={14} className="group-hover:scale-110 transition-transform" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">Eliminar</span>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-surface font-bold">
-                        <tr>
-                          <td></td>
-                          <td className="px-4 py-3 text-white" colSpan={3}>Total</td>
-                          <td className="px-4 py-3 text-green-400 text-right">
-                            S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                  {/* TARJETAS estilo Detalle de Gastos */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {gastosOtros.map(gasto => (
+                      <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                        <div className="relative">
+                          {fotosCombustible[gasto.id_gasto] ? (
+                            <button 
+                              onClick={() => {
+                                const images = gastosOtros
+                                  .filter(g => fotosCombustible[g.id_gasto])
+                                  .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Gasto: ${g.chofer_nombre} - S/ ${g.monto}` }));
+                                const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
+                                setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
+                              }}
+                              className="w-full"
+                            >
+                              <img 
+                                src={fotosCombustible[gasto.id_gasto]} 
+                                alt="Comprobante" 
+                                className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all" 
+                              />
+                            </button>
+                          ) : (
+                            <div className="w-full h-40 bg-surface-light/50 flex items-center justify-center">
+                              <span className="text-text-muted text-4xl">-</span>
+                            </div>
+                          )}
+                          <div className="absolute bottom-2 right-2 flex gap-1">
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`¿Eliminar gasto de ${gasto.chofer_nombre || 'este registro'} por S/ ${(gasto.monto || 0).toFixed(2)}?`)) {
+                                  handleDeleteGasto(gasto.id_gasto);
+                                }
+                              }}
+                              className="bg-red-500/80 hover:bg-red-500 p-2 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={16} className="text-white" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-3 text-sm">
+                          <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
+                          <p className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</p>
+                          <p className="text-text-muted text-xs mt-1">
+                            {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}
+                          </p>
+                          <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
+                            gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            {gasto.estado || '-'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Total */}
+                  <div className="mt-4 p-4 bg-surface-light/30 rounded-xl flex justify-between items-center">
+                    <span className="text-white font-bold">Total Otros Gastos:</span>
+                    <span className="text-green-400 font-black text-xl">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
                   </div>
                 </>
               )}
