@@ -885,9 +885,16 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       return (
                         <>
                           {localActual?.latitud && localActual?.longitud && (
-                            <a href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 bg-yellow-500/20 p-2.5 rounded-lg active:scale-90 transition-transform">
-                              <Navigation size={20} />
-                            </a>
+                            <>
+                              <a href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 bg-blue-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Google Maps">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.375 8.5 15.5 8.5 15.5s8.5-9.125 8.5-15.5C20.5 3.81 16.69 0 12 0zm0 12c-1.93 0-3.5-1.57-3.5-3.5S10.07 5 12 5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+                                </svg>
+                              </a>
+                              <a href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 bg-yellow-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Waze">
+                                <Navigation size={18} />
+                              </a>
+                            </>
                           )}
                           {localActual?.guias && localActual.guias.length > 0 && (
                             <button onClick={() => { setViewingGuias(localActual.guias || []); setCurrentGuiaIndex(0); }} className="text-white bg-primary p-2.5 rounded-lg shadow-lg shadow-primary/30 active:scale-90 transition-transform flex items-center gap-1.5 animate-bounce">
