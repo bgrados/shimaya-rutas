@@ -126,7 +126,8 @@ export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
                 ) : (
                   <button 
                     onClick={() => handleDelete(guia.id_guia, guia.archivo_url)}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all shadow-lg transform translate-y-2 group-hover:translate-y-0"
+                    className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-red-500/90 text-white flex items-center justify-center hover:bg-red-600 transition-all shadow-lg"
+                    title="Eliminar Guía"
                   >
                     <Trash2 size={16} />
                   </button>
