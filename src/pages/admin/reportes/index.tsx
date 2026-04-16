@@ -3,10 +3,10 @@ import { supabase } from '../../../lib/supabase';
 import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2 } from 'lucide-react';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru } from '../../../lib/timezone';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
 
@@ -61,6 +61,10 @@ export default function Reportes() {
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
   const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
   const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
+  
+  // Estado para editar hora de llegada
+  const [editandoLlegada, setEditandoLlegada] = useState<string | null>(null);
+  const [horaLlegadaEdit, setHoraLlegadaEdit] = useState('');
   const [activeTab, setActiveTab] = useState<'ventas' | 'gastos' | 'peajes'>('ventas');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
@@ -102,6 +106,61 @@ export default function Reportes() {
     } catch (err: any) {
       console.error('Error eliminando gasto:', err);
       alert('Error al eliminar: ' + (err.message || 'Verifica los permisos en Supabase'));
+    }
+  };
+
+  // Funciones para editar hora de llegada manualmente
+  const iniciarEdicionLlegada = (ruta: RutaConBitacora) => {
+    // Si ya tiene horaLlegadaReal, usarla; si no, usar hora_llegada_planta
+    const horaActual = ruta.horaLlegadaReal || ruta.hora_llegada_planta;
+    if (horaActual) {
+      const fecha = new Date(horaActual);
+      setHoraLlegadaEdit(`${fecha.getHours().toString().padStart(2, '0')}:${fecha.getMinutes().toString().padStart(2, '0')}`);
+    } else {
+      setHoraLlegadaEdit('');
+    }
+    setEditandoLlegada(ruta.id_ruta);
+  };
+
+  const guardarEdicionLlegada = async (ruta: RutaConBitacora) => {
+    if (!horaLlegadaEdit) return;
+    
+    // Crear la fecha con la hora editada
+    const fechaBase = ruta.fecha ? new Date(ruta.fecha + 'T12:00:00') : new Date();
+    const [h, m] = horaLlegadaEdit.split(':').map(Number);
+    fechaBase.setHours(h, m, 0, 0);
+    
+    const nuevaHora = fechaBase.toISOString();
+    
+    try {
+      // Actualizar hora_llegada_planta en la ruta
+      const { error } = await supabase
+        .from('rutas')
+        .update({ hora_llegada_planta: nuevaHora })
+        .eq('id_ruta', ruta.id_ruta);
+      
+      if (error) throw error;
+      
+      // Actualizar la tabla bitácora - buscar el último tramo hacia planta y actualizar su hora_llegada
+      const bits = ruta.bitacora || [];
+      const ultimoTramoPlanta = [...bits].reverse().find((b: any) => 
+        b.destino_nombre?.toLowerCase() === 'planta' && b.hora_llegada
+      );
+      
+      if (ultimoTramoPlanta) {
+        await supabase
+          .from('viajes_bitacora')
+          .update({ hora_llegada: nuevaHora })
+          .eq('id_bitacora', ultimoTramoPlanta.id_bitacora);
+      }
+      
+      // Recargar los datos
+      loadRutas();
+      setEditandoLlegada(null);
+      alert('Hora de llegada actualizada correctamente');
+    } catch (err: any) {
+      console.error('Error guardando hora:', err);
+      alert('Error al guardar: ' + err.message);
     }
   };
 
@@ -170,17 +229,29 @@ export default function Reportes() {
         const bits = (bitData || []).filter((b: any) => b.id_ruta === r.id_ruta);
         const locales = (localesData || []).filter((l: any) => l.id_ruta === r.id_ruta);
         
-        // Usar la hora del último tramo hacia Planta (si existe) en lugar de hora_llegada_planta directamente
-        const ultimoTramo = bits.length > 0 ? bits[bits.length - 1] : null;
-        const esUltimoTramoPlanta = ultimoTramo?.destino_nombre?.toLowerCase() === 'planta';
+        // Ordenar bitácora por hora de creación
+        const bitsOrdenados = [...bits].sort((a: any, b: any) => 
+          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+        );
         
-        // Si el último tramo es hacia planta y tiene hora_llegada, usar esa hora
-        const horaLlegadaReal = (esUltimoTramoPlanta && ultimoTramo?.hora_llegada) 
-          ? ultimoTramo.hora_llegada 
-          : r.hora_llegada_planta;
+        // Buscar la última hora de llegada registrada en bitácora (cualquier destino)
+        let horaLlegadaReal: string | null = null;
+        for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
+          if (bitsOrdenados[i].hora_llegada) {
+            horaLlegadaReal = bitsOrdenados[i].hora_llegada;
+            break;
+          }
+        }
         
+        // Si no hay hora en bitácora, usar hora_llegada_planta
+        if (!horaLlegadaReal) {
+          horaLlegadaReal = r.hora_llegada_planta;
+        }
+        
+        // Calcular duración real: desde hora_salida_planta hasta la última hora_llegada
         const duracionMins = r.hora_salida_planta && horaLlegadaReal
           ? differenceInMinutes(new Date(horaLlegadaReal), new Date(r.hora_salida_planta)) : null;
+          
         return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal };
       });
       setAllRutas(enriched as RutaConBitacora[]);
@@ -1009,6 +1080,38 @@ const win = window.open('', '_blank');
                             {ruta.horaLlegadaReal && ` → ${formatPeru(ruta.horaLlegadaReal, 'HH:mm')}`}
                             {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
                           </span>
+                        )}
+                        {editandoLlegada === ruta.id_ruta ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={horaLlegadaEdit}
+                              onChange={(e) => setHoraLlegadaEdit(e.target.value)}
+                              className="bg-surface-light text-white text-xs px-2 py-1 rounded border border-primary"
+                            />
+                            <button
+                              onClick={() => guardarEdicionLlegada(ruta)}
+                              className="p-1 bg-green-600 hover:bg-green-700 rounded text-white"
+                              title="Guardar"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              onClick={() => setEditandoLlegada(null)}
+                              className="p-1 bg-surface-light hover:bg-red-600 rounded text-text-muted hover:text-white"
+                              title="Cancelar"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => iniciarEdicionLlegada(ruta)}
+                            className="p-1 hover:bg-surface-light rounded text-text-muted hover:text-primary transition-colors"
+                            title="Editar hora de llegada"
+                          >
+                            <Edit2 size={14} />
+                          </button>
                         )}
                         <span className={`text-xs font-black uppercase px-2 py-1 rounded-full border ${estadoColor}`}>
                           {ruta.estado?.replace('_', ' ')}
