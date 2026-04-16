@@ -74,6 +74,14 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async () => {
     setLoading(true);
+    setError(null);
+    
+    // Timeout de seguridad
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setError('La consulta está tardando demasiado. Verifica tu conexión.');
+    }, 15000);
+    
     try {
       const now = new Date();
       const day = now.getDay();
@@ -98,6 +106,18 @@ export default function AdminDashboard() {
         supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', weekStart),
         supabase.from('usuarios').select('id_usuario, dias_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
+
+      clearTimeout(timeoutId);
+
+      // Verificar si hay errores de permisos
+      if (rutasRes.error) {
+        console.error('[Dashboard] Error rutas:', rutasRes.error);
+        if (rutasRes.error.message.includes('permission') || rutasRes.error.code === 'PGRST204') {
+          setError('No tienes permisos para ver los datos del Panel de Control. Contacta al administrador.');
+          setLoading(false);
+          return;
+        }
+      }
 
       // Calcular día de descanso
       const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
