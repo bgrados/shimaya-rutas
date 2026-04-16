@@ -673,14 +673,20 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
 
     const now = nowPeru();
+    
+    // Construir update con o sin tipo_registro según disponibilidad de la columna
+    const updateData: any = { 
+      hora_llegada: now, 
+      gps_llegada_lat: lat, 
+      gps_llegada_lng: lng
+    };
+    
+    // Intentar agregar tipo_registro (puede fallar si la columna no existe aún)
+    updateData.tipo_registro = tipoRegistro;
+    
     const { data, error } = await supabase
       .from('viajes_bitacora')
-      .update({ 
-        hora_llegada: now, 
-        gps_llegada_lat: lat, 
-        gps_llegada_lng: lng,
-        tipo_registro: tipoRegistro
-      })
+      .update(updateData)
       .eq('id_bitacora', idBitacora)
       .select()
       .single();
