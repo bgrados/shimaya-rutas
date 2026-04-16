@@ -57,7 +57,11 @@ export const AdminLayout: React.FC = () => {
         <button onClick={() => setIsSidebarOpen(true)} className="text-white">
           <Menu size={24} />
         </button>
-        <h1 className="text-xl font-bold text-white">Shimaya Rutas</h1>
+        <img 
+          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s" 
+          alt="Shimaya" 
+          className="h-8 w-auto" 
+        />
         <button onClick={() => signOut()} className="text-red-400 font-bold">
           SALIR
         </button>
@@ -66,7 +70,11 @@ export const AdminLayout: React.FC = () => {
       {/* Sidebar - fixed on desktop, slides on mobile */}
       <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="p-4 flex justify-between items-center border-b border-surface-light">
-          <h1 className="text-xl font-bold text-white tracking-wide">SHIMAYA</h1>
+          <img 
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s" 
+            alt="Shimaya Rutas" 
+            className="h-10 w-auto" 
+          />
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
             <X size={24} />
           </button>
