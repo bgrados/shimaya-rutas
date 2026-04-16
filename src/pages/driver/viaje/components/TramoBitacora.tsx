@@ -63,23 +63,25 @@ export const TramoBitacora: React.FC<TramoBitacoraProps> = ({
                     <CheckCircle2 size={10}/> {formatPeru(tramo.hora_llegada, 'HH:mm')}
                   </span>
                   {/* Indicador de tipo de registro */}
-                  <span className={`flex items-center gap-1 border-l border-white/10 pl-3 ${
-                    (tramo as any).tipo_registro === 'manual' 
-                      ? 'text-yellow-400' 
-                      : 'text-green-400'
-                  }`}>
-                    {(tramo as any).tipo_registro === 'manual' ? (
-                      <>
-                        <WifiOff size={10}/>
-                        Manual
-                      </>
-                    ) : (
-                      <>
-                        <Wifi size={10}/>
-                        Auto
-                      </>
-                    )}
-                  </span>
+                  {(tramo as any).tipo_registro !== undefined && (
+                    <span className={`flex items-center gap-1 border-l border-white/10 pl-3 ${
+                      (tramo as any).tipo_registro === 'manual' 
+                        ? 'text-yellow-400' 
+                        : 'text-green-400'
+                    }`}>
+                      {(tramo as any).tipo_registro === 'manual' ? (
+                        <>
+                          <WifiOff size={10}/>
+                          Manual
+                        </>
+                      ) : (
+                        <>
+                          <Wifi size={10}/>
+                          Auto
+                        </>
+                      )}
+                    </span>
+                  )}
                 </>
               )}
               {guias && guias.length > 0 && (
@@ -97,7 +99,7 @@ export const TramoBitacora: React.FC<TramoBitacoraProps> = ({
                EN CAMINO
             </div>
           )}
-          {tramo.hora_llegada && (
+          {tramo.hora_llegada && (tramo as any).tipo_registro !== undefined && (
             <div className={`text-[8px] font-bold px-2 py-0.5 rounded ${
               (tramo as any).tipo_registro === 'manual'
                 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
