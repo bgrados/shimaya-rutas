@@ -1,4 +1,4 @@
-import { Clock, CheckCircle2, Timer, Edit2, FileText } from 'lucide-react';
+import { Clock, CheckCircle2, Timer, Edit2, FileText, Wifi, WifiOff } from 'lucide-react';
 import { differenceInMinutes, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ViajeBitacora, GuiaRemision } from '../../../types';
@@ -55,12 +55,32 @@ export const TramoBitacora: React.FC<TramoBitacoraProps> = ({
             <h4 className="text-sm font-black text-white italic tracking-tight uppercase">
               {tramo.origen_nombre} <span className="text-primary mx-1">→</span> {tramo.destino_nombre}
             </h4>
-            <div className="flex items-center gap-3 text-[9px] text-text-muted font-bold uppercase tracking-widest">
+            <div className="flex items-center gap-3 text-[9px] text-text-muted font-bold uppercase tracking-widest flex-wrap">
               <span className="flex items-center gap-1"><Clock size={10}/> {formatPeru(tramo.hora_salida!, 'HH:mm')}</span>
               {tramo.hora_llegada && (
-                <span className="flex items-center gap-1 text-green-500 border-l border-white/10 pl-3">
-                  <CheckCircle2 size={10}/> {formatPeru(tramo.hora_llegada, 'HH:mm')}
-                </span>
+                <>
+                  <span className="flex items-center gap-1 text-green-500 border-l border-white/10 pl-3">
+                    <CheckCircle2 size={10}/> {formatPeru(tramo.hora_llegada, 'HH:mm')}
+                  </span>
+                  {/* Indicador de tipo de registro */}
+                  <span className={`flex items-center gap-1 border-l border-white/10 pl-3 ${
+                    (tramo as any).tipo_registro === 'manual' 
+                      ? 'text-yellow-400' 
+                      : 'text-green-400'
+                  }`}>
+                    {(tramo as any).tipo_registro === 'manual' ? (
+                      <>
+                        <WifiOff size={10}/>
+                        Manual
+                      </>
+                    ) : (
+                      <>
+                        <Wifi size={10}/>
+                        Auto
+                      </>
+                    )}
+                  </span>
+                </>
               )}
               {guias && guias.length > 0 && (
                 <button 
@@ -75,6 +95,15 @@ export const TramoBitacora: React.FC<TramoBitacoraProps> = ({
           {!tramo.hora_llegada && (
             <div className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border border-blue-500/20">
                EN CAMINO
+            </div>
+          )}
+          {tramo.hora_llegada && (
+            <div className={`text-[8px] font-bold px-2 py-0.5 rounded ${
+              (tramo as any).tipo_registro === 'manual'
+                ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                : 'bg-green-500/10 text-green-400 border border-green-500/20'
+            }`}>
+              {(tramo as any).tipo_registro === 'manual' ? '● Manual' : '● Auto'}
             </div>
           )}
           <button
