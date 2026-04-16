@@ -29,7 +29,12 @@ export const AdminLayout: React.FC = () => {
     );
   }
 
-  if (!user || !profile || profile.rol !== 'administrador') {
+  if (!user || !profile) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Permitir administrador y supervisor
+  if (profile.rol !== 'administrador' && profile.rol !== 'supervisor') {
     return <Navigate to="/login" replace />;
   }
   const navigation = [
