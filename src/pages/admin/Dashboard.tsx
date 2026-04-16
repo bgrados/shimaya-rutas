@@ -19,6 +19,7 @@ interface Stats {
   choferesEnRuta: number;
   choferesDisponibles: number;
   choferesDescanso: number;
+  choferesSinRuta: number;
   totalChoferes: number;
   gastoCombustibleDia: number;
   gastoCombustibleSemana: number;
@@ -63,7 +64,8 @@ export default function AdminDashboard() {
     gastoCombustibleDia: 0,
     gastoCombustibleSemana: 0,
     gastoOtrosDia: 0,
-    gastosHoy: 0
+    gastosHoy: 0,
+    choferesSinRuta: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
@@ -139,9 +141,16 @@ export default function AdminDashboard() {
       const rutasEnCurso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
       const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
       
-      // Contar choferes únicos activos (en_curso o finalizadas hoy)
+      // Contar choferes únicos activos SOLO con rutas en curso
+      const choferesActivosEnCurso = new Set(rutasEnCurso.map(r => r.id_chofer).filter(Boolean));
+      
+      // Contar choferes únicos con rutas finalizadas o en curso (para stats)
       const rutasActivasYFinalizadas = [...rutasEnCurso, ...rutasFinalizadas];
       const choferesActivosUnicos = new Set(rutasActivasYFinalizadas.map(r => r.id_chofer).filter(Boolean));
+      
+      // Calcular choferes sin ruta activa hoy (que no tienen rutas en curso)
+      const totalChoferesRegistrados = choferesRes.count || 0;
+      const choferesSinRutaActiva = totalChoferesRegistrados - choferesActivosEnCurso.size;
       
       let visitasCompletadas = 0;
       let visitasPendientes = 0;
@@ -178,10 +187,11 @@ export default function AdminDashboard() {
         visitasPendientes: visitasPendientes,
         localesVisitados: localesVisitados,
         numeroViajes: rutasFinalizadas.length,
-        choferesEnRuta: choferesActivosUnicos.size,
+        choferesEnRuta: choferesActivosEnCurso.size, // Solo rutas en curso
         choferesDisponibles: numDisponibles,
         choferesDescanso: numDescanso,
-        totalChoferes: choferesRes.count || 0,
+        choferesSinRuta: choferesSinRutaActiva, // Los que no tienen ruta activa
+        totalChoferes: totalChoferesRegistrados,
         gastoCombustibleDia: gastoDia,
         gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia: gastoOtrosDia,
@@ -269,8 +279,8 @@ export default function AdminDashboard() {
         // Detectar inconsistencias globales
         const inconsistencias = detectarInconsistenciasGlobales(
           rutas,
-          choferesActivosUnicos.size,
-          choferesRes.count || 0,
+          choferesActivosEnCurso.size, // Solo choferes con rutas en curso
+          totalChoferesRegistrados,
           [...(combustibleSemanaRes.data || [])].map((g: any) => ({ fecha: g.created_at, monto: g.monto })),
           5 // Días laborables de la semana
         );
@@ -396,17 +406,16 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-xs text-primary uppercase font-bold flex items-center gap-1">
                   Choferes
-                  <Tooltip content="Activos: en ruta. Disponibles: pueden ser asignados. Descanso: día libre." />
+                  <Tooltip content="Activos: en ruta activa. Disponibles: pueden ser asignados. Sin ruta: sin rutas activas hoy." />
                 </p>
                 <p className="text-2xl font-black text-white">
-                  {stats.choferesEnRuta}/{stats.choferesDisponibles}
-                  {stats.choferesDescanso > 0 && (
-                    <span className="text-sm font-normal text-text-muted ml-1">
-                      ({stats.choferesDescanso} descanso)
-                    </span>
-                  )}
+                  {stats.choferesEnRuta}/{stats.totalChoferes}
                 </p>
-                <p className="text-[10px] text-text-muted">disponibles: {stats.choferesDisponibles}</p>
+                <p className="text-[10px] text-text-muted">
+                  {stats.choferesEnRuta > 0 ? `${stats.choferesEnRuta} con ruta activa` : 'Sin rutas activas'}
+                  {stats.choferesDescanso > 0 && ` · ${stats.choferesDescanso} descanso`}
+                  {stats.choferesSinRuta > 0 && ` · ${stats.choferesSinRuta} sin ruta`}
+                </p>
               </div>
             </div>
           </CardContent>
