@@ -207,39 +207,45 @@ export function detectarInconsistenciasGlobales(
 ): Alerta[] {
   const alertas: Alerta[] = [];
   
-  // 1. Rutas no finalizadas
-  const rutasPendientes = rutas.filter(r => r.estado !== 'finalizada');
   const hoy = new Date().toISOString().split('T')[0];
   const rutasDeHoy = rutas.filter(r => r.fecha === hoy);
   
-  if (rutasDeHoy.length > 0) {
-    const sinFinalizar = rutasDeHoy.filter(r => r.estado !== 'finalizada');
-    if (sinFinalizar.length > 0) {
-      alertas.push({
-        id: 'rutas-sin-finalizar',
-        tipo: 'warning',
-        titulo: `${sinFinalizar.length} ruta(s) sin finalizar`,
-        descripcion: `De ${rutasDeHoy.length} rutas de hoy, ${sinFinalizar.length} aún no han sido finalizadas.`,
-        severidad: sinFinalizar.length > 2 ? 'alta' : 'media',
-        origen: 'ruta'
-      });
-    }
-  }
+  // Clasificar rutas de hoy por estado
+  const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
+  const rutasEnCurso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
+  const rutasPendientes = rutasDeHoy.filter(r => r.estado === 'pendiente');
   
-  // 2. Choferes sin ruta asignada - SOLO si hay rutas programadas para hoy
-  // Solo mostrar si HAY rutas programadas para hoy pero ninguna está activa
-  if (rutasDeHoy.length > 0 && choferesActivos === 0 && choferesTotal > 0) {
+  // 1. Operación finalizada - todas las rutas completadas
+  if (rutasDeHoy.length > 0 && rutasFinalizadas.length === rutasDeHoy.length) {
+    // NO mostrar alerta, la operación terminó correctamente
+  }
+  // 2. Rutas sin finalizar - algunas rutas no están finalizadas
+  else if (rutasPendientes.length > 0 || rutasEnCurso.length > 0) {
+    const sinFinalizar = rutasPendientes.length + rutasEnCurso.length;
     alertas.push({
-      id: 'sin-rutas-activas',
+      id: 'rutas-sin-finalizar',
       tipo: 'warning',
-      titulo: 'Sin rutas activas',
-      descripcion: `Hay ${rutasDeHoy.length} ruta(s) programada(s) pero ninguna está en curso.`,
-      severidad: 'media',
+      titulo: `${sinFinalizar} ruta(s) sin finalizar`,
+      descripcion: `${rutasFinalizadas.length} finalizadas · ${rutasPendientes.length} pendientes · ${rutasEnCurso.length} en curso`,
+      severidad: sinFinalizar > 2 ? 'alta' : 'media',
       origen: 'ruta'
     });
   }
   
-  // 3. Gastos por día laborable
+  // 3. Choferes sin ruta asignada - SOLO si hay rutas pendientes sin iniciar
+  // No mostrar si todas están finalizadas o en curso
+  if (rutasPendientes.length > 0 && choferesActivos === 0 && choferesTotal > 0) {
+    alertas.push({
+      id: 'rutas-pendientes-sin-iniciar',
+      tipo: 'info',
+      titulo: 'Rutas pendientes sin iniciar',
+      descripcion: `${rutasPendientes.length} ruta(s) programada(s) para hoy sin iniciar.`,
+      severidad: 'baja',
+      origen: 'ruta'
+    });
+  }
+  
+  // 4. Gastos por día laborable
   if (diasLaborables > 0) {
     const gastoTotalSemana = gastosSemana.reduce((sum, g) => sum + g.monto, 0);
     const gastoPromedioDiario = gastoTotalSemana / diasLaborables;
