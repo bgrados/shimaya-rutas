@@ -169,9 +169,19 @@ export default function Reportes() {
       const enriched = rutasData.map((r: any) => {
         const bits = (bitData || []).filter((b: any) => b.id_ruta === r.id_ruta);
         const locales = (localesData || []).filter((l: any) => l.id_ruta === r.id_ruta);
-        const duracionMins = r.hora_salida_planta && r.hora_llegada_planta
-          ? differenceInMinutes(new Date(r.hora_llegada_planta), new Date(r.hora_salida_planta)) : null;
-        return { ...r, bitacora: bits, localesRuta: locales, duracionMins };
+        
+        // Usar la hora del último tramo hacia Planta (si existe) en lugar de hora_llegada_planta directamente
+        const ultimoTramo = bits.length > 0 ? bits[bits.length - 1] : null;
+        const esUltimoTramoPlanta = ultimoTramo?.destino_nombre?.toLowerCase() === 'planta';
+        
+        // Si el último tramo es hacia planta y tiene hora_llegada, usar esa hora
+        const horaLlegadaReal = (esUltimoTramoPlanta && ultimoTramo?.hora_llegada) 
+          ? ultimoTramo.hora_llegada 
+          : r.hora_llegada_planta;
+        
+        const duracionMins = r.hora_salida_planta && horaLlegadaReal
+          ? differenceInMinutes(new Date(horaLlegadaReal), new Date(r.hora_salida_planta)) : null;
+        return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal };
       });
       setAllRutas(enriched as RutaConBitacora[]);
     } else {
@@ -419,7 +429,7 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
         </div>
         <div style="padding:8px 16px;background:#f8fafc;font-size:12px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;">
           ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatPeru(r.hora_salida_planta, 'HH:mm')}</strong></span>` : ''}
-          ${r.hora_llegada_planta ? `<span>🏁 Llegada planta: <strong>${formatPeru(r.hora_llegada_planta, 'HH:mm')}</strong></span>` : ''}
+          ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${formatPeru(r.horaLlegadaReal, 'HH:mm')}</strong></span>` : ''}
           ${r.duracionMins ? `<span>⏱ Duración total: <strong>${formatMins(r.duracionMins)}</strong></span>` : ''}
         </div>
         ${bits.length > 0 ? `
@@ -996,7 +1006,7 @@ const win = window.open('', '_blank');
                         {ruta.hora_salida_planta && (
                           <span className="text-xs text-text-muted">
                             🕐 {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
-                            {ruta.hora_llegada_planta && ` → ${formatPeru(ruta.hora_llegada_planta, 'HH:mm')}`}
+                            {ruta.horaLlegadaReal && ` → ${formatPeru(ruta.horaLlegadaReal, 'HH:mm')}`}
                             {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
                           </span>
                         )}
