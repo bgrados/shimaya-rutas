@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { ModalEvidencia } from './viaje/components/ModalEvidencia';
 import { TramoBitacora } from './viaje/components/TramoBitacora';
 import { formatPeru, nowPeru } from '../../lib/timezone';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, MapPinOff, Wifi, WifiOff } from 'lucide-react';
 import { 
   MapPin, 
   CheckCircle2, 
@@ -77,6 +77,11 @@ export default function DriverViaje() {
   const [nuevoDestino, setNuevoDestino] = useState('');
   const [showCombustible, setShowCombustible] = useState(false);
   const [enviandoWhatsapp, setEnviandoWhatsapp] = useState(false);
+  
+  // Estado para GPS y modo manual
+  const [gpsDisponible, setGpsDisponible] = useState<boolean | null>(null);
+  const [gpsVerificando, setGpsVerificando] = useState(false);
+  const [showModoManual, setShowModoManual] = useState(false);
   
   // Estado para capturar fotos de evidencia
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
@@ -442,6 +447,34 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     };
   }, [profile?.id_usuario]);
 
+  // Verificar disponibilidad de GPS
+  const verificarGps = () => {
+    if (!navigator.geolocation) {
+      setGpsDisponible(false);
+      return;
+    }
+    
+    setGpsVerificando(true);
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setGpsDisponible(true);
+        setGpsVerificando(false);
+      },
+      () => {
+        setGpsDisponible(false);
+        setGpsVerificando(false);
+      },
+      { timeout: 5000, enableHighAccuracy: false }
+    );
+  };
+
+  // Efecto para verificar GPS al cargar
+  useEffect(() => {
+    if (ruta && ruta.estado !== 'finalizada') {
+      verificarGps();
+    }
+  }, [ruta?.id_ruta, ruta?.estado]);
+
   const handleCreateViaje = async () => {
     if (!selectedRutaBase || !profile) return;
     if (!nuevaPlaca.trim() && !tienePlacaAsignada) {
@@ -599,7 +632,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     setActionLoading(false);
   };
 
-  const handleRegistrarLlegada = async (idBitacora: string) => {
+  const handleRegistrarLlegada = async (idBitacora: string, modoManual = false) => {
     if (actionLoading) return; 
     if (esHistorial) {
       alert('No puedes modificar un viaje histórico');
@@ -608,28 +641,46 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     
     setActionLoading(true);
     let lat = null, lng = null;
-    try {
-      // Máximo 2 segundos al GPS, si no responde, avanzamos sin él
-      const pos = await new Promise<any>((res) => {
-        const timeout = setTimeout(() => res(null), 2000);
-        navigator.geolocation.getCurrentPosition(
-          (p) => { clearTimeout(timeout); res(p); },
-          (e) => { clearTimeout(timeout); res(null); },
-          { timeout: 2000, enableHighAccuracy: false }
-        );
-      });
-      if (pos) {
-        lat = pos.coords.latitude;
-        lng = pos.coords.longitude;
+    let tipoRegistro = 'automatico';
+    
+    if (modoManual) {
+      tipoRegistro = 'manual';
+    } else {
+      try {
+        // Máximo 2 segundos al GPS, si no responde, avanzar en modo manual
+        const pos = await new Promise<any>((res) => {
+          const timeout = setTimeout(() => res(null), 2000);
+          navigator.geolocation.getCurrentPosition(
+            (p) => { clearTimeout(timeout); res(p); },
+            (e) => { 
+              clearTimeout(timeout); 
+              res(null); 
+            },
+            { timeout: 2000, enableHighAccuracy: false }
+          );
+        });
+        if (pos) {
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+          tipoRegistro = 'automatico';
+        } else {
+          tipoRegistro = 'manual';
+        }
+      } catch (e) {
+        console.warn('GPS Error:', e);
+        tipoRegistro = 'manual';
       }
-    } catch (e) {
-      console.warn('GPS Error:', e);
     }
 
     const now = nowPeru();
     const { data, error } = await supabase
       .from('viajes_bitacora')
-      .update({ hora_llegada: now, gps_llegada_lat: lat, gps_llegada_lng: lng })
+      .update({ 
+        hora_llegada: now, 
+        gps_llegada_lat: lat, 
+        gps_llegada_lng: lng,
+        tipo_registro: tipoRegistro
+      })
       .eq('id_bitacora', idBitacora)
       .select()
       .single();
@@ -647,6 +698,9 @@ if (bitError) console.error('Error loading bitacora:', bitError);
          await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
          if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
       }
+      
+      showToast('success', tipoRegistro === 'automatico' ? '✓ Llegada registrada automáticamente' : '✓ Llegada registrada manualmente');
+      setShowModoManual(false);
     } else if (error) {
       console.error('[Viaje] Error registrar llegada:', error);
       showToast('error', 'Error en llegada: ' + error.message);
@@ -925,13 +979,70 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   }}>📸 FOTO EVIDENCIA</Button>
                 </div>
 
-                <Button 
-                  className="w-full h-16 text-lg font-black italic uppercase tracking-widest bg-green-600 hover:bg-green-500 shadow-xl shadow-green-900/40 rounded-2xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all"
-                  onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora)}
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? 'ESPERE...' : 'MARCAR LLEGADA →'}
-                </Button>
+                {/* Indicador de GPS */}
+                <div className="flex items-center justify-center gap-2">
+                  {gpsVerificando ? (
+                    <div className="flex items-center gap-1 text-yellow-400 text-[10px]">
+                      <RefreshCw size={12} className="animate-spin" />
+                      Verificando GPS...
+                    </div>
+                  ) : gpsDisponible === true ? (
+                    <div className="flex items-center gap-1 text-green-400 text-[10px]">
+                      <Wifi size={12} />
+                      GPS activo
+                    </div>
+                  ) : gpsDisponible === false ? (
+                    <div className="flex items-center gap-1 text-yellow-400 text-[10px]">
+                      <WifiOff size={12} />
+                      GPS no disponible
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Botón principal - Registro automático */}
+                {!showModoManual ? (
+                  <Button 
+                    className="w-full h-16 text-lg font-black italic uppercase tracking-widest bg-green-600 hover:bg-green-500 shadow-xl shadow-green-900/40 rounded-2xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all"
+                    onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora, false)}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? 'ESPERE...' : 'MARCAR LLEGADA →'}
+                  </Button>
+                ) : (
+                  /* Modo manual - necesita confirmación */
+                  <div className="space-y-2">
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-xl text-center">
+                      <p className="text-yellow-400 text-xs font-bold">¿Registrar manualmente?</p>
+                      <p className="text-text-muted text-[10px] mt-1">Sin ubicación GPS</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button 
+                        variant="secondary"
+                        className="bg-surface-light/50 text-text-muted"
+                        onClick={() => setShowModoManual(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold"
+                        onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora, true)}
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? '...' : 'Sí, manual'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Botón para activar modo manual */}
+                {!showModoManual && (
+                  <button 
+                    onClick={() => setShowModoManual(true)}
+                    className="w-full text-center text-[10px] text-text-muted hover:text-yellow-400 transition-colors py-1"
+                  >
+                    ¿No funciona GPS? <span className="underline">Registrar manualmente</span>
+                  </button>
+                )}
               </div>
             </div>
           </CardContent>
