@@ -397,25 +397,31 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-primary/20 to-primary/10 border-primary/30">
+        <Card className={`bg-gradient-to-br ${stats.choferesEnRuta > 0 ? 'from-primary/20 to-primary/10 border-primary/30' : 'from-surface-light/20 to-surface-light/10 border-surface-light/30'}`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-lg">
-                <Users className="text-primary" size={20} />
+              <div className={`p-2 rounded-lg ${stats.choferesEnRuta > 0 ? 'bg-primary/20' : 'bg-surface-light/30'}`}>
+                <Users className={stats.choferesEnRuta > 0 ? 'text-primary' : 'text-text-muted'} size={20} />
               </div>
               <div>
-                <p className="text-xs text-primary uppercase font-bold flex items-center gap-1">
+                <p className={`text-xs uppercase font-bold flex items-center gap-1 ${stats.choferesEnRuta > 0 ? 'text-primary' : 'text-text-muted'}`}>
                   Choferes
-                  <Tooltip content="Activos: en ruta activa. Disponibles: pueden ser asignados. Sin ruta: sin rutas activas hoy." />
+                  <Tooltip content="Muestra choferes con rutas activas, en descanso o sin ruta asignada." />
                 </p>
-                <p className="text-2xl font-black text-white">
+                <p className={`text-2xl font-black ${stats.choferesEnRuta > 0 ? 'text-white' : 'text-text-muted'}`}>
                   {stats.choferesEnRuta}/{stats.totalChoferes}
                 </p>
-                <p className="text-[10px] text-text-muted">
-                  {stats.choferesEnRuta > 0 ? `${stats.choferesEnRuta} con ruta activa` : 'Sin rutas activas'}
-                  {stats.choferesDescanso > 0 && ` · ${stats.choferesDescanso} descanso`}
-                  {stats.choferesSinRuta > 0 && ` · ${stats.choferesSinRuta} sin ruta`}
-                </p>
+                {stats.choferesEnRuta > 0 ? (
+                  <p className="text-[10px] text-green-400">
+                    {stats.choferesEnRuta} en ruta activa
+                    {stats.choferesDescanso > 0 && ` · ${stats.choferesDescanso} descanso`}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-text-muted">
+                    Sin rutas activas
+                    {stats.choferesDescanso > 0 && ` · ${stats.choferesDescanso} descanso`}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>

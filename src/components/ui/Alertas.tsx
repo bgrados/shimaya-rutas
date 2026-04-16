@@ -226,16 +226,15 @@ export function detectarInconsistenciasGlobales(
     }
   }
   
-  // 2. Choferes sin ruta asignada
-  const rutasActivasIds = new Set(rutas.filter(r => r.estado === 'en_progreso').map(r => r.id_chofer));
-  const choferesSinRuta = choferesTotal - rutasActivasIds.size;
-  if (choferesSinRuta > 0 && choferesTotal > 0) {
+  // 2. Choferes sin ruta asignada - SOLO si hay rutas programadas para hoy
+  // Solo mostrar si HAY rutas programadas para hoy pero ninguna está activa
+  if (rutasDeHoy.length > 0 && choferesActivos === 0 && choferesTotal > 0) {
     alertas.push({
-      id: 'choferes-sin-ruta',
-      tipo: 'info',
-      titulo: `${choferesSinRuta} chofer(es) sin ruta activa`,
-      descripcion: `${choferesActivos} de ${choferesTotal} choferes tienen rutas en curso.`,
-      severidad: 'baja',
+      id: 'sin-rutas-activas',
+      tipo: 'warning',
+      titulo: 'Sin rutas activas',
+      descripcion: `Hay ${rutasDeHoy.length} ruta(s) programada(s) pero ninguna está en curso.`,
+      severidad: 'media',
       origen: 'ruta'
     });
   }
