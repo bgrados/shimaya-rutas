@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
+import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta, Alerta } from '../../components/ui/Alertas';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatPeru, formatHoraPeru } from '../../lib/timezone';
@@ -66,6 +67,7 @@ export default function AdminDashboard() {
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
+  const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -263,6 +265,16 @@ export default function AdminDashboard() {
           .slice(0, 5);
         
         setTopChoferes([...topCombustible, ...topOtros]);
+        
+        // Detectar inconsistencias globales
+        const inconsistencias = detectarInconsistenciasGlobales(
+          rutas,
+          choferesActivosUnicos.size,
+          choferesRes.count || 0,
+          [...(combustibleSemanaRes.data || [])].map((g: any) => ({ fecha: g.created_at, monto: g.monto })),
+          5 // Días laborables de la semana
+        );
+        setAlertas(inconsistencias);
       }
     } catch (err) {
       console.error('Error loading dashboard:', err);
@@ -314,6 +326,13 @@ export default function AdminDashboard() {
           Actualizar
         </button>
       </div>
+
+      {/* Alertas de inconsistencias */}
+      {alertas.length > 0 && (
+        <div className="bg-surface-light/20 border border-surface-light rounded-xl p-4">
+          <ListaAlertas alertas={alertas} titulo="Alertas detectadas" />
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
