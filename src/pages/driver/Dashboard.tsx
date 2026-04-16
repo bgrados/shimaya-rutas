@@ -395,6 +395,13 @@ const loadRutasHistoricas = async () => {
         images={activePhoto?.images || []}
         initialIndex={activePhoto?.index}
       />
+
+      {/* RUC para facturación */}
+      <div className="mt-8 p-4 bg-primary/10 border border-primary/30 rounded-xl text-center">
+        <p className="text-[10px] text-primary/60 uppercase tracking-wider font-bold mb-1">RUC para solicitar facturas</p>
+        <p className="text-white font-black text-2xl tracking-widest">20600603460</p>
+        <p className="text-text-muted text-[10px] mt-1">Shimaya Rutas S.A.C.</p>
+      </div>
     </div>
   );
 }

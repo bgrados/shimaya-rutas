@@ -87,6 +87,12 @@ export default function Login() {
         </div>
         <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1">Shimaya Rutas v2</h2>
         <p className="text-text-muted text-xs uppercase tracking-widest font-bold opacity-60">Logística Avanzada</p>
+        
+        {/* RUC para facturación */}
+        <div className="mt-4 inline-block bg-primary/10 border border-primary/30 rounded-lg px-4 py-2">
+          <p className="text-[10px] text-primary/60 uppercase tracking-wider font-bold">RUC para facturas</p>
+          <p className="text-white font-black text-lg tracking-wider">20600603460</p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
