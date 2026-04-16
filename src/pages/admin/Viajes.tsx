@@ -185,9 +185,22 @@ export default function AdminViajes() {
 
   // formatDuration importado de lib/timezone
 
+  const calcularDuracionTotal = (viaje: any): string => {
+    const bitacora = viaje.bitacora || [];
+    if (bitacora.length === 0) return formatDuration(viaje.hora_salida_planta, viaje.hora_llegada_planta);
+    const primerTramo = bitacora[0];
+    const ultimoConLlegada = [...bitacora].reverse().find(b => b.hora_llegada);
+    if (!primerTramo.hora_salida || !ultimoConLlegada?.hora_llegada) {
+      return formatDuration(viaje.hora_salida_planta, viaje.hora_llegada_planta);
+    }
+    return formatDuration(primerTramo.hora_salida, ultimoConLlegada.hora_llegada);
+  };
+
   const handlePrint = (viaje: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+
+    const duracionTotal = calcularDuracionTotal(viaje);
 
     const html = `
       <html>
@@ -197,7 +210,7 @@ export default function AdminViajes() {
             body { font-family: sans-serif; padding: 40px; color: #333; }
             h1 { font-style: italic; text-transform: uppercase; margin-bottom: 5px; }
             .header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
-            .details { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
             table { width: 100%; border-collapse: collapse; }
             th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
             th { background: #f5f5f5; font-size: 12px; text-transform: uppercase; }
@@ -216,7 +229,7 @@ export default function AdminViajes() {
             </div>
             <div>
               <p><strong>Estado:</strong> ${viaje.estado.toUpperCase()}</p>
-              <p><strong>Duración Total:</strong> ${formatDuration(viaje.hora_salida_planta, viaje.hora_llegada_planta)}</p>
+              <p><strong>Duración Total:</strong> ${duracionTotal}</p>
             </div>
           </div>
           <h3>BITÁCORA DE MOVIMIENTOS</h3>
@@ -360,7 +373,19 @@ export default function AdminViajes() {
                                <p className="text-[9px] text-text-muted uppercase font-black tracking-widest mb-1">Duración</p>
                                <div className="flex items-center gap-2 text-primary font-bold">
                                   <Clock size={14} />
-                                  <span>{formatDuration(viaje.hora_salida_planta, viaje.hora_llegada_planta)}</span>
+                                  <span>
+                                    {(() => {
+                                      // Calcular duración desde bitácora real
+                                      const bitacora = viaje.bitacora || [];
+                                      if (bitacora.length === 0) return formatDuration(viaje.hora_salida_planta, viaje.hora_llegada_planta);
+                                      const primerTramo = bitacora[0];
+                                      const ultimoConLlegada = [...bitacora].reverse().find(b => b.hora_llegada);
+                                      if (!primerTramo.hora_salida || !ultimoConLlegada?.hora_llegada) {
+                                        return formatDuration(viaje.hora_salida_planta, viaje.hora_llegada_planta);
+                                      }
+                                      return formatDuration(primerTramo.hora_salida, ultimoConLlegada.hora_llegada);
+                                    })()}
+                                  </span>
                                </div>
                             </div>
                             <div>
