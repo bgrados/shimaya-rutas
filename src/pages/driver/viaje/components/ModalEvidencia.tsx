@@ -12,6 +12,49 @@ interface ModalEvidenciaProps {
 }
 
 const TARGET_WIDTH = 1200;
+const LOGO_URL = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s';
+
+const addWatermark = async (canvas: HTMLCanvasElement): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { reject(new Error('No context')); return; }
+    
+    const logo = new Image();
+    logo.crossOrigin = 'anonymous';
+    logo.onload = () => {
+      // Tamaño del logo (15% del ancho de la imagen)
+      const logoSize = canvas.width * 0.15;
+      const padding = canvas.width * 0.03;
+      
+      // Posición: esquina inferior derecha
+      const x = canvas.width - logoSize - padding;
+      const y = canvas.height - logoSize - padding;
+      
+      // Guardar estado actual
+      ctx.save();
+      
+      // Fondo blanco circular detrás del logo
+      ctx.beginPath();
+      ctx.arc(x + logoSize / 2, y + logoSize / 2, logoSize / 2 + padding * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fill();
+      
+      // Dibujar logo con transparencia
+      ctx.globalAlpha = 0.5; // 50% transparencia
+      ctx.drawImage(logo, x, y, logoSize, logoSize);
+      
+      // Restaurar
+      ctx.restore();
+      resolve();
+    };
+    logo.onerror = () => {
+      // Si falla el logo, continuar sin watermark
+      console.warn('[Watermark] Logo no disponible, continuando sin marca de agua');
+      resolve();
+    };
+    logo.src = LOGO_URL;
+  });
+};
 
 export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, onSuccess }) => {
   const { showToast } = useToast();
@@ -43,14 +86,20 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
           const canvas = document.createElement('canvas');
           const ratio = TARGET_WIDTH / img.width;
           canvas.width = TARGET_WIDTH;
           canvas.height = img.height * ratio;
           const ctx = canvas.getContext('2d');
           if (!ctx) { reject(new Error('No se pudo crear el contexto')); return; }
+          
+          // Dibujar imagen original
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Agregar marca de agua
+          await addWatermark(canvas);
+          
           canvas.toBlob((blob) => {
             if (blob) resolve(blob);
             else reject(new Error('Error al comprimir'));
