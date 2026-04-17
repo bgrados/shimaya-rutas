@@ -42,97 +42,7 @@ interface GrupoFecha { fecha: string; gastos: GastoCombustible[]; total: number;
 interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCombustible[]; total: number; }
 
 const reprocessAllPhotos = async () => {
-  console.log('[Reprocess] Iniciando reprocesamiento de todas las fotos...');
-  
-  if (!confirm('¿Procesar todas las fotos sin marca de agua? Esto puede tomar varios minutos.')) {
-    return;
-  }
-  
-  setReprocessingPhotos(true);
-  
-  try {
-    // Obtener todas las fotos que no tienen marca de agua
-    console.log('[Reprocess] Consultando fotos en Supabase...');
-    const { data: allPhotos, error } = await supabase
-      .from('fotos_visita')
-      .select('id_foto, foto_url')
-      .not('foto_url', 'like', '%/wm_%');
-    
-    console.log('[Reprocess] Resultado query:', { allPhotos, error });
-    
-    if (error) {
-      console.error('[Reprocess] Error:', error);
-      alert('Error al buscar fotos: ' + error.message);
-      setReprocessingPhotos(false);
-      return;
-    }
-    
-    if (!allPhotos || allPhotos.length === 0) {
-      console.log('[Reprocess] No hay fotos sin marca de agua (o todas ya tienen wm_)');
-      alert('No hay fotos sin marca de agua para procesar.\n\nLas fotos ya fueron procesadas o no existen.');
-      setReprocessingPhotos(false);
-      return;
-    }
-    
-    console.log(`[Reprocess] ${allPhotos.length} fotos sin marca de agua`);
-    alert(`Se procesarán ${allPhotos.length} fotos.\n\nEsto puede tomar varios minutos. Por favor espera...`);
-    
-    let procesadas = 0;
-    let errores = 0;
-    
-    for (let i = 0; i < allPhotos.length; i++) {
-      const foto = allPhotos[i];
-      console.log(`[Reprocess] ${i + 1}/${allPhotos.length}:`, foto.foto_url);
-      
-      try {
-        console.log(`[Reprocess] Aplicando marca de agua a foto ${i + 1}...`);
-        const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
-        
-        if (!watermarkedBase64) {
-          errores++;
-          console.log(`[Reprocess] ❌ Foto ${i + 1}: applyWatermarkToUrl devolvió null`);
-          continue;
-        }
-        
-        console.log(`[Reprocess] Subiendo foto ${i + 1}...`);
-        const response = await fetch(watermarkedBase64);
-        const blob = await response.blob();
-        console.log(`[Reprocess] Blob creado, tamaño: ${blob.size} bytes`);
-        
-        const fileName = `evidencia/wm_${foto.id_foto}_${Date.now()}.jpg`;
-        console.log(`[Reprocess] Subiendo a storage: ${fileName}`);
-        
-        const { error: uploadError } = await supabase.storage
-          .from('visitas_fotos')
-          .upload(fileName, blob, { contentType: 'image/jpeg' });
-        
-        if (uploadError) {
-          errores++;
-          console.log(`[Reprocess] ❌ Error upload:`, uploadError);
-          continue;
-        }
-        
-        console.log(`[Reprocess] Actualizando base de datos...`);
-        const { data: urlData } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
-        await supabase.from('fotos_visita').update({ foto_url: urlData.publicUrl }).eq('id_foto', foto.id_foto);
-        
-        procesadas++;
-        console.log(`[Reprocess] ✅ Foto ${i + 1} actualizada: ${urlData.publicUrl}`);
-      } catch (e) {
-        errores++;
-        console.log(`[Reprocess] ❌ Error en foto ${i + 1}:`, e);
-      }
-    }
-    
-    console.log(`[Reprocess] Completado. Procesadas: ${procesadas}, Errores: ${errores}`);
-    alert(`Proceso completado.\n\n✅ Fotos procesadas: ${procesadas}\n❌ Errores: ${errores}`);
-    window.location.reload();
-  } catch (err) {
-    console.error('[Reprocess] Error general:', err);
-    alert('Error durante el procesamiento: ' + (err as Error).message);
-  } finally {
-    setReprocessingPhotos(false);
-  }
+  alert('Las fotos nuevas ya se guardan con marca de agua automáticamente. Las fotos antiguas no serán reprocesadas.');
 };
 
 const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
@@ -1108,13 +1018,7 @@ const win = window.open('', '_blank');
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter">Reportes</h1>
           <p className="text-text-muted text-sm capitalize">{rangoLabel}</p>
-          <button
-            onClick={reprocessAllPhotos}
-            disabled={reprocessingPhotos}
-            className={`text-xs font-bold text-left ${reprocessingPhotos ? 'text-orange-300 animate-pulse' : 'text-orange-400 hover:text-orange-300'}`}
-          >
-            {reprocessingPhotos ? '⏳ Procesando fotos...' : '🔄 Reprocesar fotos con marca de agua'}
-          </button>
+          <p className="text-xs text-text-muted">Las fotos nuevas se guardan con marca de agua automáticamente.</p>
         </div>
         
         {/* Tipo de reporte */}
