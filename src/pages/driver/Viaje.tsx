@@ -1437,80 +1437,59 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       const d = new Date(iso);
                       return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
                     };
+
+                    // Construir mensaje con formato de tabla
+                    const lineas: string[] = [];
                     
-                    // Construir detalle de tiempos
-                    const detalleTiempos: string[] = [];
-                    
-                    // 1. Salida de Planta
+                    // ╔══════════════════════════════════════╗
+                    lineas.push('╔══════════════════════════════════════╗');
+                    lineas.push('║     RESUMEN DE RUTA - ' + (ruta.nombre || 'Viaje').padEnd(20) + '║');
+                    lineas.push('╠══════════════════════════════════════╣');
+                    lineas.push('║ 📅 ' + (ruta.fecha || 'Hoy').padEnd(15) + '  🚚 ' + (ruta.placa || 'N/A').padEnd(10) + '║');
+                    lineas.push('║ ⏱️ Duración: ' + duracion.padEnd(18) + '║');
+                    lineas.push('║ 📍 Locales: ' + String(localesVisitados.length).padEnd(3) + '  ⛽ GLP: S/ ' + gastoCombustible.toFixed(2).padStart(7) + '║');
+                    lineas.push('╚══════════════════════════════════════╝');
+                    lineas.push('');
+
+                    // Salida de Planta
                     if (ruta.hora_salida_planta) {
-                      detalleTiempos.push(`🏭 *SALIDA DE PLANTA*`);
-                      detalleTiempos.push(`   Hora: ${formatHora(ruta.hora_salida_planta)}`);
-                      detalleTiempos.push(`   📍 Hacia: ${bitacora.length > 0 ? bitacora[0].destino_nombre : 'N/A'}`);
-                      if (bitacora.length > 0 && bitacora[0].hora_llegada) {
-                        const minsTransito = Math.round((new Date(bitacora[0].hora_llegada).getTime() - new Date(ruta.hora_salida_planta).getTime()) / 60000);
-                        detalleTiempos.push(`   🚗 Traslado: ${minsTransito >= 60 ? `${Math.floor(minsTransito/60)}h ${minsTransito%60}m` : `${minsTransito} min`}`);
-                      }
-                      detalleTiempos.push(``);
+                      const primerDestino = bitacora.length > 0 ? bitacora[0].destino_nombre : 'N/A';
+                      lineas.push('🏭 SALIDA PLANTA: ' + formatHora(ruta.hora_salida_planta) + ' → ' + primerDestino);
                     }
-                    
-                    // 2. Detalle por cada local visitado
-                    detalleTiempos.push(`📍 *DETALLE POR LOCAL*`);
-                    detalleTiempos.push(`   Encabezado: 🚗 = Traslado | ⏱️ = Permanencia`);
-                    detalleTiempos.push(``);
-                    
-                    bitacora.forEach((tramo, idx) => {
-                      if (!tramo.hora_llegada) return;
+
+                    // Lista de locales con formato de tabla
+                    if (bitacora.length > 0) {
+                      lineas.push('');
+                      lineas.push('┌─────────────────────────────────────┐');
+                      lineas.push('│         LOCALES VISITADOS          │');
+                      lineas.push('├────┬────────────────────────────────┤');
+                      lineas.push('│ #  │ Horario (Llegada - Salida)    │');
+                      lineas.push('├────┼────────────────────────────────┤');
                       
-                      const llegadaHora = formatHora(tramo.hora_llegada);
-                      const llegadaLocal = new Date(tramo.hora_llegada);
+                      bitacora.forEach((tramo, idx) => {
+                        if (!tramo.hora_llegada) return;
+                        const llegada = formatHora(tramo.hora_llegada);
+                        const salida = tramo.hora_salida ? formatHora(tramo.hora_salida) : '--:--';
+                        const nombreCorto = tramo.destino_nombre.length > 28 ? tramo.destino_nombre.substring(0, 25) + '...' : tramo.destino_nombre;
+                        const num = String(idx + 1).padStart(2, ' ');
+                        const horas = `${llegada} - ${salida}`.padEnd(14);
+                        lineas.push(`│ ${num} │ ${nombreCorto.padEnd(32)}│`);
+                        lineas.push(`│    │ ${horas.padEnd(32)}│`);
+                        lineas.push(`│    │                                    │`);
+                      });
                       
-                      // Tiempo de permanencia en el local
-                      let permanencia = 0;
-                      let permanenciaTexto = 'N/A';
-                      if (idx < bitacora.length - 1 && bitacora[idx + 1].hora_salida) {
-                        const sigSalida = new Date(bitacora[idx + 1].hora_salida);
-                        permanencia = Math.round((sigSalida.getTime() - llegadaLocal.getTime()) / 60000);
-                        permanenciaTexto = permanencia >= 60 ? `${Math.floor(permanencia/60)}h ${permanencia%60}m` : `${permanencia} min`;
-                      } else if (ruta.hora_llegada_planta) {
-                        // Último local - permanencia hasta llegada a planta
-                        const llegadaPlanta = new Date(ruta.hora_llegada_planta);
-                        permanencia = Math.round((llegadaPlanta.getTime() - llegadaLocal.getTime()) / 60000);
-                        permanenciaTexto = permanencia >= 60 ? `${Math.floor(permanencia/60)}h ${permanencia%60}m` : `${permanencia} min`;
-                      }
-                      
-                      // Tiempo de regreso a planta (último local)
-                      let regresoTexto = '';
-                      if (idx === bitacora.length - 1 && ruta.hora_llegada_planta) {
-                        const minsRegreso = Math.round((new Date(ruta.hora_llegada_planta).getTime() - llegadaLocal.getTime()) / 60000);
-                        regresoTexto = ` | 🏭 Regreso: ${minsRegreso >= 60 ? `${Math.floor(minsRegreso/60)}h ${minsRegreso%60}m` : `${minsRegreso} min`}`;
-                      }
-                      
-                      detalleTiempos.push(`   ${idx + 1}. ${tramo.destino_nombre}`);
-                      detalleTiempos.push(`      ⏰ Llegada: ${llegadaHora} | ⏱️ Permanencia: ${permanenciaTexto}${regresoTexto}`);
-                      detalleTiempos.push(``);
-                    });
-                    
-                    // 3. Llegada a Planta
+                      lineas.push('└─────────────────────────────────────┘');
+                    }
+
+                    // Llegada a Planta
                     if (ruta.hora_llegada_planta) {
-                      detalleTiempos.push(`🏭 *LLEGADA A PLANTA*`);
-                      detalleTiempos.push(`   Hora: ${formatHora(ruta.hora_llegada_planta)}`);
+                      lineas.push('');
+                      lineas.push('🏭 LLEGADA PLANTA: ' + formatHora(ruta.hora_llegada_planta));
                     }
-                    
-                    // Construir mensaje
-                    const lineas = [
-                      `🚛 *RESUMEN DE RUTA*`,
-                      `━━━━━━━━━━━━━━━━━━━━`,
-                      `📋 Ruta: ${ruta.nombre}`,
-                      `📅 Fecha: ${ruta.fecha || 'Hoy'}`,
-                      `🚚 Unidad: ${ruta.placa || 'No asignada'}`,
-                      `⏱️ Duración total: ${duracion}`,
-                      `📍 Locales visitados: ${localesVisitados.length}`,
-                      `⛽ GLP: S/ ${gastoCombustible.toFixed(2)} | 💵 Otros: S/ ${gastoOtros.toFixed(2)}`,
-                      ``,
-                      ...detalleTiempos,
-                      `_Enviado desde Shimaya Rutas_`
-                    ];
-                    
+
+                    lineas.push('');
+                    lineas.push('_Enviado desde Shimaya Rutas_');
+
                     const mensaje = encodeURIComponent(lineas.join('\n'));
                     // Número de admin desde variable de entorno o valor por defecto
                     const whatsappNumero = import.meta.env.VITE_WHATSAPP_ADMIN || '51948800569';
