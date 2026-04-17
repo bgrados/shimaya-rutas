@@ -43,54 +43,61 @@ interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCom
 
 const reprocessAllPhotos = async () => {
   console.log('[Reprocess] Iniciando reprocesamiento de todas las fotos...');
+  setReprocessingPhotos(true);
   
-  // Obtener todas las fotos que no tienen marca de agua
-  const { data: allPhotos, error } = await supabase
-    .from('fotos_visita')
-    .select('id_foto, foto_url')
-    .not('foto_url', 'like', '%/wm_%');
-  
-  if (error) {
-    console.error('[Reprocess] Error:', error);
-    return;
-  }
-  
-  if (!allPhotos || allPhotos.length === 0) {
-    console.log('[Reprocess] No hay fotos sin marca de agua');
-    return;
-  }
-  
-  console.log(`[Reprocess] ${allPhotos.length} fotos sin marca de agua`);
-  
-  for (let i = 0; i < allPhotos.length; i++) {
-    const foto = allPhotos[i];
-    console.log(`[Reprocess] Procesando ${i + 1}/${allPhotos.length}: ${foto.id_foto}`);
+  try {
+    // Obtener todas las fotos que no tienen marca de agua
+    const { data: allPhotos, error } = await supabase
+      .from('fotos_visita')
+      .select('id_foto, foto_url')
+      .not('foto_url', 'like', '%/wm_%');
     
-    const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
+    if (error) {
+      console.error('[Reprocess] Error:', error);
+      alert('Error al buscar fotos: ' + error.message);
+      return;
+    }
     
-    if (watermarkedBase64) {
-      try {
-        const response = await fetch(watermarkedBase64);
-        const blob = await response.blob();
-        
-        const fileName = `evidencia/wm_${foto.id_foto}_${Date.now()}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from('visitas_fotos')
-          .upload(fileName, blob, { contentType: 'image/jpeg' });
-        
-        if (!uploadError) {
-          const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
-          await supabase.from('fotos_visita').update({ foto_url: data.publicUrl }).eq('id_foto', foto.id_foto);
-          console.log(`[Reprocess] Foto ${i + 1} actualizada`);
+    if (!allPhotos || allPhotos.length === 0) {
+      alert('No hay fotos sin marca de agua para procesar');
+      return;
+    }
+    
+    console.log(`[Reprocess] ${allPhotos.length} fotos sin marca de agua`);
+    
+    for (let i = 0; i < allPhotos.length; i++) {
+      const foto = allPhotos[i];
+      console.log(`[Reprocess] Procesando ${i + 1}/${allPhotos.length}: ${foto.id_foto}`);
+      
+      const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
+      
+      if (watermarkedBase64) {
+        try {
+          const response = await fetch(watermarkedBase64);
+          const blob = await response.blob();
+          
+          const fileName = `evidencia/wm_${foto.id_foto}_${Date.now()}.jpg`;
+          const { error: uploadError } = await supabase.storage
+            .from('visitas_fotos')
+            .upload(fileName, blob, { contentType: 'image/jpeg' });
+          
+          if (!uploadError) {
+            const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
+            await supabase.from('fotos_visita').update({ foto_url: data.publicUrl }).eq('id_foto', foto.id_foto);
+            console.log(`[Reprocess] Foto ${i + 1} actualizada`);
+          }
+        } catch (e) {
+          console.error(`[Reprocess] Error en foto ${i + 1}:`, e);
         }
-      } catch (e) {
-        console.error(`[Reprocess] Error en foto ${i + 1}:`, e);
       }
     }
+    
+    console.log('[Reprocess] Completado');
+    alert(`Procesadas ${allPhotos.length} fotos con marca de agua`);
+    load(); // Recargar datos
+  } finally {
+    setReprocessingPhotos(false);
   }
-  
-  console.log('[Reprocess] Completado');
-  load(); // Recargar datos
 };
 
 const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
@@ -166,6 +173,7 @@ export default function Reportes() {
   const [rutasBase, setRutasBase] = useState<{ id_ruta_base: string; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [reprocessingPhotos, setReprocessingPhotos] = useState(false);
 
   // Estado para fotos de evidencia
   const [fotosPorLocal, setFotosPorLocal] = useState<Record<string, FotoVisita[]>>({});
@@ -1044,10 +1052,10 @@ const win = window.open('', '_blank');
           <p className="text-text-muted text-sm capitalize">{rangoLabel}</p>
           <button
             onClick={reprocessAllPhotos}
-            disabled={generating}
-            className="text-xs text-orange-400 hover:text-orange-300 font-bold text-left"
+            disabled={reprocessingPhotos}
+            className={`text-xs font-bold text-left ${reprocessingPhotos ? 'text-orange-300 animate-pulse' : 'text-orange-400 hover:text-orange-300'}`}
           >
-            🔄 Reprocesar fotos con marca de agua
+            {reprocessingPhotos ? '⏳ Procesando fotos...' : '🔄 Reprocesar fotos con marca de agua'}
           </button>
         </div>
         
