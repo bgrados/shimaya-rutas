@@ -368,9 +368,17 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
                 {fotosExistentes.map((foto) => (
                   <div key={foto.id_foto} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
                     <img src={foto.foto_url} alt="Evidencia" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                       <ImageIcon size={20} className="text-white" />
-                    </div>
+                    <button
+                      onClick={async () => {
+                        if (confirm('¿Eliminar esta foto de evidencia?')) {
+                          await supabase.from('fotos_visita').delete().eq('id_foto', foto.id_foto);
+                          setFotosExistentes(prev => prev.filter(f => f.id_foto !== foto.id_foto));
+                        }
+                      }}
+                      className="absolute top-1 right-1 bg-red-600/80 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
                 ))}
               </div>
