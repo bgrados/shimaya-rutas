@@ -41,6 +41,121 @@ interface Usuario { id_usuario: string; nombre: string; }
 interface GrupoFecha { fecha: string; gastos: GastoCombustible[]; total: number; }
 interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCombustible[]; total: number; }
 
+const reprocessAllPhotos = async () => {
+  console.log('[Reprocess] Iniciando reprocesamiento de todas las fotos...');
+  
+  // Obtener todas las fotos que no tienen marca de agua
+  const { data: allPhotos, error } = await supabase
+    .from('fotos_visita')
+    .select('id_foto, foto_url')
+    .not('foto_url', 'like', '%/wm_%');
+  
+  if (error) {
+    console.error('[Reprocess] Error:', error);
+    return;
+  }
+  
+  if (!allPhotos || allPhotos.length === 0) {
+    console.log('[Reprocess] No hay fotos sin marca de agua');
+    return;
+  }
+  
+  console.log(`[Reprocess] ${allPhotos.length} fotos sin marca de agua`);
+  
+  for (let i = 0; i < allPhotos.length; i++) {
+    const foto = allPhotos[i];
+    console.log(`[Reprocess] Procesando ${i + 1}/${allPhotos.length}: ${foto.id_foto}`);
+    
+    const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
+    
+    if (watermarkedBase64) {
+      try {
+        const response = await fetch(watermarkedBase64);
+        const blob = await response.blob();
+        
+        const fileName = `evidencia/wm_${foto.id_foto}_${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('visitas_fotos')
+          .upload(fileName, blob, { contentType: 'image/jpeg' });
+        
+        if (!uploadError) {
+          const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
+          await supabase.from('fotos_visita').update({ foto_url: data.publicUrl }).eq('id_foto', foto.id_foto);
+          console.log(`[Reprocess] Foto ${i + 1} actualizada`);
+        }
+      } catch (e) {
+        console.error(`[Reprocess] Error en foto ${i + 1}:`, e);
+      }
+    }
+  }
+  
+  console.log('[Reprocess] Completado');
+  load(); // Recargar datos
+};
+
+const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+      img.src = imageUrl;
+    });
+    
+    const canvas = document.createElement('canvas');
+    const ratio = 1200 / img.width;
+    canvas.width = 1200;
+    canvas.height = img.height * ratio;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    
+    const LOGO_URL = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s';
+    const logo = new Image();
+    logo.crossOrigin = 'anonymous';
+    
+    await new Promise<void>((resolve) => {
+      logo.onload = () => resolve();
+      logo.onerror = () => resolve();
+      logo.src = LOGO_URL;
+    });
+    
+    if (logo.complete) {
+      const logoSize = canvas.width * 0.08;
+      const padding = canvas.width * 0.012;
+      const x = canvas.width - logoSize - padding;
+      const y = canvas.height - logoSize - padding;
+      
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(x - 2, y - 2, logoSize + 4, logoSize + 4, 6);
+      ctx.fill();
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(logo, x, y, logoSize, logoSize);
+      ctx.restore();
+    }
+    
+    return new Promise<string>((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        } else {
+          resolve(null);
+        }
+      }, 'image/jpeg', 0.9);
+    });
+  } catch (e) {
+    return null;
+  }
+};
+
 export default function Reportes() {
   const [reportType, setReportType] = useState<ReportType>('rutas');
   
@@ -924,9 +1039,16 @@ const win = window.open('', '_blank');
     <div className="space-y-6">
       {/* HEADER */}
       <div className="flex flex-wrap gap-4 items-start justify-between">
-        <div>
+        <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter">Reportes</h1>
           <p className="text-text-muted text-sm capitalize">{rangoLabel}</p>
+          <button
+            onClick={reprocessAllPhotos}
+            disabled={generating}
+            className="text-xs text-orange-400 hover:text-orange-300 font-bold text-left"
+          >
+            🔄 Reprocesar fotos con marca de agua
+          </button>
         </div>
         
         {/* Tipo de reporte */}
