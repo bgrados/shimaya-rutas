@@ -538,7 +538,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Peajes Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Card className="bg-orange-500/10 border-orange-500/30">
           <CardContent className="p-3 text-center">
             <p className="text-orange-300 text-xs flex items-center justify-center gap-1">
@@ -555,6 +555,15 @@ export default function AdminDashboard() {
               <Tooltip content="Peajes calculados de la semana según configuración de rutas." />
             </p>
             <p className="text-xl font-bold text-orange-400">S/ {stats.peajeSemana.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-600/20 border-orange-500/50">
+          <CardContent className="p-3 text-center">
+            <p className="text-orange-300 text-xs flex items-center justify-center gap-1">
+              Total Peajes
+              <Tooltip content="Suma de peajes calculados de hoy + semana." />
+            </p>
+            <p className="text-xl font-bold text-orange-300">S/ {(stats.peajeDia + stats.peajeSemana).toFixed(2)}</p>
           </CardContent>
         </Card>
       </div>
