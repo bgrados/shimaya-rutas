@@ -72,24 +72,23 @@ export const AdminLayout: React.FC = () => {
 
       {/* Sidebar - fixed on desktop, slides on mobile */}
       <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        <div className="p-4 flex flex-col items-center justify-center border-b border-surface-light py-6">
-          {/* Logo circular con fondo blanco */}
-          <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-lg mb-3">
+        <div className="p-4 flex flex-col items-center justify-center border-b border-surface-light py-3">
+          {/* Logo circular con fondo blanco - más pequeño */}
+          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-md mb-2">
             <img 
               src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s" 
               alt="Shimaya" 
-              className="w-16 h-auto object-contain" 
+              className="w-11 h-auto object-contain" 
             />
           </div>
           {/* Texto en japonés */}
-          <p className="text-white font-bold text-lg tracking-wider text-center">島屋物流</p>
-          <p className="text-text-muted text-xs">Shimaya Rutas</p>
+          <p className="text-white font-bold text-sm tracking-wider">島屋物流</p>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden absolute top-4 right-4 text-text-muted hover:text-white">
             <X size={24} />
           </button>
         </div>
 
-        <nav className="mt-2 px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <nav className="mt-2 px-3 space-y-1 overflow-y-auto pb-20">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -108,11 +107,11 @@ export const AdminLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-surface-light">
-          <div className="flex items-center justify-between px-4 py-3">
+        <div className="absolute bottom-0 w-full p-4 border-t border-surface-light bg-surface">
+          <div className="flex items-center justify-between px-2 py-2">
             <div className="text-sm">
-              <p className="text-white font-medium truncate w-32">{profile.nombre}</p>
-              <p className="text-text-muted capitalize">{profile.rol}</p>
+              <p className="text-white font-medium truncate w-28">{profile.nombre}</p>
+              <p className="text-text-muted capitalize text-xs">{profile.rol}</p>
             </div>
             <button onClick={() => signOut()} className="text-text-muted hover:text-primary transition-colors">
               <LogOut size={20} />
