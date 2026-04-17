@@ -1430,43 +1430,84 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       const mins = Math.round((llegada.getTime() - salida.getTime()) / 60000);
                       duracion = mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
                     }
+
+                    // Formatear hora
+                    const formatHora = (iso: string | null) => {
+                      if (!iso) return '--:--';
+                      const d = new Date(iso);
+                      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                    };
                     
-                    // Calcular tiempo entre locales (bitácora)
-                    const tiempoEntreLocales = bitacora.map((tramo, idx) => {
-                      if (!tramo.hora_salida || !tramo.hora_llegada) return null;
+                    // Construir detalle de tiempos
+                    const detalleTiempos: string[] = [];
+                    
+                    // 1. Salida de Planta
+                    if (ruta.hora_salida_planta) {
+                      detalleTiempos.push(`🏭 *SALIDA DE PLANTA*`);
+                      detalleTiempos.push(`   Hora: ${formatHora(ruta.hora_salida_planta)}`);
+                      detalleTiempos.push(`   📍 Hacia: ${bitacora.length > 0 ? bitacora[0].destino_nombre : 'N/A'}`);
+                      if (bitacora.length > 0 && bitacora[0].hora_llegada) {
+                        const minsTransito = Math.round((new Date(bitacora[0].hora_llegada).getTime() - new Date(ruta.hora_salida_planta).getTime()) / 60000);
+                        detalleTiempos.push(`   🚗 Traslado: ${minsTransito >= 60 ? `${Math.floor(minsTransito/60)}h ${minsTransito%60}m` : `${minsTransito} min`}`);
+                      }
+                      detalleTiempos.push(``);
+                    }
+                    
+                    // 2. Detalle por cada local visitado
+                    detalleTiempos.push(`📍 *DETALLE POR LOCAL*`);
+                    detalleTiempos.push(`   Encabezado: 🚗 = Traslado | ⏱️ = Permanencia`);
+                    detalleTiempos.push(``);
+                    
+                    bitacora.forEach((tramo, idx) => {
+                      if (!tramo.hora_llegada) return;
                       
-                      // Tiempo de tránsito (origen -> destino)
-                      const llegada = new Date(tramo.hora_llegada);
-                      const salida = new Date(tramo.hora_salida);
-                      const transito = Math.round((llegada.getTime() - salida.getTime()) / 60000);
+                      const llegadaHora = formatHora(tramo.hora_llegada);
+                      const llegadaLocal = new Date(tramo.hora_llegada);
                       
-                      // Tiempo de permanencia (en el destino)
+                      // Tiempo de permanencia en el local
                       let permanencia = 0;
+                      let permanenciaTexto = 'N/A';
                       if (idx < bitacora.length - 1 && bitacora[idx + 1].hora_salida) {
                         const sigSalida = new Date(bitacora[idx + 1].hora_salida);
-                        permanencia = Math.round((sigSalida.getTime() - llegada.getTime()) / 60000);
+                        permanencia = Math.round((sigSalida.getTime() - llegadaLocal.getTime()) / 60000);
+                        permanenciaTexto = permanencia >= 60 ? `${Math.floor(permanencia/60)}h ${permanencia%60}m` : `${permanencia} min`;
+                      } else if (ruta.hora_llegada_planta) {
+                        // Último local - permanencia hasta llegada a planta
+                        const llegadaPlanta = new Date(ruta.hora_llegada_planta);
+                        permanencia = Math.round((llegadaPlanta.getTime() - llegadaLocal.getTime()) / 60000);
+                        permanenciaTexto = permanencia >= 60 ? `${Math.floor(permanencia/60)}h ${permanencia%60}m` : `${permanencia} min`;
                       }
                       
-                      return {
-                        destino: tramo.destino_nombre,
-                        transito: transito >= 60 ? `${Math.floor(transito/60)}h${transito%60}m` : `${transito}min`,
-                        permanencia: permanencia > 0 ? (permanencia >= 60 ? `${Math.floor(permanencia/60)}h${permanencia%60}m` : `${permanencia}min`) : '-'
-                      };
-                    }).filter(Boolean);
+                      // Tiempo de regreso a planta (último local)
+                      let regresoTexto = '';
+                      if (idx === bitacora.length - 1 && ruta.hora_llegada_planta) {
+                        const minsRegreso = Math.round((new Date(ruta.hora_llegada_planta).getTime() - llegadaLocal.getTime()) / 60000);
+                        regresoTexto = ` | 🏭 Regreso: ${minsRegreso >= 60 ? `${Math.floor(minsRegreso/60)}h ${minsRegreso%60}m` : `${minsRegreso} min`}`;
+                      }
+                      
+                      detalleTiempos.push(`   ${idx + 1}. ${tramo.destino_nombre}`);
+                      detalleTiempos.push(`      ⏰ Llegada: ${llegadaHora} | ⏱️ Permanencia: ${permanenciaTexto}${regresoTexto}`);
+                      detalleTiempos.push(``);
+                    });
+                    
+                    // 3. Llegada a Planta
+                    if (ruta.hora_llegada_planta) {
+                      detalleTiempos.push(`🏭 *LLEGADA A PLANTA*`);
+                      detalleTiempos.push(`   Hora: ${formatHora(ruta.hora_llegada_planta)}`);
+                    }
                     
                     // Construir mensaje
                     const lineas = [
-                      `🚛 *Resumen de Ruta - ${ruta.nombre}*`,
+                      `🚛 *RESUMEN DE RUTA*`,
                       `━━━━━━━━━━━━━━━━━━━━`,
-                      `📅 ${ruta.fecha || 'Hoy'}`,
+                      `📋 Ruta: ${ruta.nombre}`,
+                      `📅 Fecha: ${ruta.fecha || 'Hoy'}`,
                       `🚚 Unidad: ${ruta.placa || 'No asignada'}`,
                       `⏱️ Duración total: ${duracion}`,
                       `📍 Locales visitados: ${localesVisitados.length}`,
                       `⛽ GLP: S/ ${gastoCombustible.toFixed(2)} | 💵 Otros: S/ ${gastoOtros.toFixed(2)}`,
                       ``,
-                      `⏱️ *Tiempos por Local:*`,
-                      ...tiempoEntreLocales.map((t: any) => `• ${t.destino}: 🚗 ${t.transito} | ⏱️ ${t.permanencia}`),
-                      ``,
+                      ...detalleTiempos,
                       `_Enviado desde Shimaya Rutas_`
                     ];
                     
@@ -1544,43 +1585,88 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setShowResumenRuta(false)}>
           <div className="bg-surface rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-lg font-black text-white">📋 Mi Ruta</h3>
+              <h3 className="text-lg font-black text-white">📋 Resumen de Mi Ruta</h3>
               <button onClick={() => setShowResumenRuta(false)} className="text-text-muted hover:text-white">
                 <X size={24} />
               </button>
             </div>
-            <div className="p-4 space-y-3">
-              {locales.map((local, idx) => {
-                const tramo = bitacora.find(b => b.destino_nombre === local.nombre);
-                const estaEnCurso = !tramo?.hora_llegada && (tramo?.hora_salida || idx === 0);
-                const yaVisitado = !!tramo?.hora_llegada;
-                
-                return (
-                  <div key={local.id_local_ruta} className={`p-3 rounded-xl border ${
-                    yaVisitado ? 'bg-green-500/10 border-green-500/30' :
-                    estaEnCurso ? 'bg-primary/10 border-primary/30' :
-                    'bg-white/5 border-white/10'
-                  }`}>
-                    <div className="flex items-center gap-2">
-                      {yaVisitado ? <CheckCircle2 size={18} className="text-green-500" /> :
-                       estaEnCurso ? <Clock size={18} className="text-primary" /> :
-                       <div className="w-4 h-4 rounded-full border-2 border-white/20" />}
-                      <span className={`font-bold ${yaVisitado ? 'text-green-400' : 'text-white'}`}>
-                        {local.nombre}
-                      </span>
+            <div className="p-4 space-y-4">
+              {/* Info de la ruta */}
+              <div className="bg-primary/10 rounded-xl p-3 space-y-1">
+                <p className="text-white font-bold text-center">{ruta.nombre}</p>
+                <p className="text-text-muted text-xs text-center">{ruta.fecha}</p>
+              </div>
+
+              {/* Salida de Planta */}
+              {ruta.hora_salida_planta && (
+                <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                      <span className="text-xs font-black text-white">S</span>
                     </div>
-                    {yaVisitado && (
-                      <div className="mt-2 text-xs text-text-muted pl-6">
-                        Llegada: {formatPeru(tramo.hora_llegada, 'HH:mm')}
-                        {tramo.hora_salida && <span className="ml-2">• Salida: {formatPeru(tramo.hora_salida, 'HH:mm')}</span>}
-                      </div>
-                    )}
-                    {estaEnCurso && !yaVisitado && (
-                      <div className="mt-2 text-xs text-primary pl-6">En curso...</div>
-                    )}
+                    <span className="font-bold text-blue-400">SALIDA DE PLANTA</span>
                   </div>
-                );
-              })}
+                  <p className="text-xs text-text-muted">
+                    Hora: {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
+                    {bitacora.length > 0 && <span> • Hacia: {bitacora[0].destino_nombre}</span>}
+                  </p>
+                </div>
+              )}
+
+              {/* Locales */}
+              <div className="space-y-2">
+                <p className="text-xs text-text-muted font-bold uppercase tracking-wider">Locales Visitados ({locales.filter(l => l.hora_llegada).length})</p>
+                {locales.map((local, idx) => {
+                  const tramo = bitacora.find(b => b.destino_nombre === local.nombre);
+                  const yaVisitado = !!tramo?.hora_llegada;
+                  
+                  return yaVisitado ? (
+                    <div key={local.id_local_ruta} className="bg-green-500/10 border border-green-500/30 p-3 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-green-500" />
+                        <span className="font-bold text-green-400">{local.nombre}</span>
+                      </div>
+                      <div className="mt-2 text-xs text-text-muted pl-6 space-y-1">
+                        <p>⏰ Llegada: {tramo.hora_llegada ? formatPeru(tramo.hora_llegada, 'HH:mm') : '--:--'}</p>
+                        {tramo.hora_salida && <p>🚗 Salida: {formatPeru(tramo.hora_salida, 'HH:mm')}</p>}
+                      </div>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+
+              {/* Llegada a Planta */}
+              {ruta.hora_llegada_planta && (
+                <div className="bg-orange-500/10 border border-orange-500/30 p-3 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
+                      <span className="text-xs font-black text-white">L</span>
+                    </div>
+                    <span className="font-bold text-orange-400">LLEGADA A PLANTA</span>
+                  </div>
+                  <p className="text-xs text-text-muted">
+                    Hora: {formatPeru(ruta.hora_llegada_planta, 'HH:mm')}
+                  </p>
+                </div>
+              )}
+
+              {/* Totales */}
+              <div className="bg-surface-light/30 rounded-xl p-3 space-y-2">
+                <p className="text-xs text-text-muted font-bold uppercase tracking-wider">Totales</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-muted">Duración total:</span>
+                  <span className="text-white font-bold">
+                    {ruta.hora_salida_planta && ruta.hora_llegada_planta ? (() => {
+                      const mins = Math.round((new Date(ruta.hora_llegada_planta).getTime() - new Date(ruta.hora_salida_planta).getTime()) / 60000);
+                      return mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
+                    })() : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-muted">Locales visitados:</span>
+                  <span className="text-white font-bold">{locales.filter(l => l.hora_llegada).length}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
