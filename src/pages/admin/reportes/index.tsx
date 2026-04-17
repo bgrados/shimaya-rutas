@@ -71,17 +71,19 @@ const reprocessAllPhotos = async () => {
     }
     
     console.log(`[Reprocess] ${allPhotos.length} fotos sin marca de agua`);
-    alert(`Se procesarán ${allPhotos.length} fotos. Esto puede tomar varios minutos...`);
+    alert(`Se procesarán ${allPhotos.length} fotos.\n\nEsto puede tomar varios minutos. Por favor espera...`);
     
     let procesadas = 0;
+    let errores = 0;
+    
     for (let i = 0; i < allPhotos.length; i++) {
       const foto = allPhotos[i];
-      console.log(`[Reprocess] Procesando ${i + 1}/${allPhotos.length}: ${foto.id_foto}`);
+      console.log(`[Reprocess] ${i + 1}/${allPhotos.length}: ${foto.id_foto}`);
       
-      const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
-      
-      if (watermarkedBase64) {
-        try {
+      try {
+        const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
+        
+        if (watermarkedBase64) {
           const response = await fetch(watermarkedBase64);
           const blob = await response.blob();
           
@@ -94,16 +96,23 @@ const reprocessAllPhotos = async () => {
             const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
             await supabase.from('fotos_visita').update({ foto_url: data.publicUrl }).eq('id_foto', foto.id_foto);
             procesadas++;
-            console.log(`[Reprocess] Foto ${i + 1} actualizada`);
+            console.log(`[Reprocess] ✅ Foto ${i + 1} actualizada`);
+          } else {
+            errores++;
+            console.log(`[Reprocess] ❌ Error upload: ${uploadError.message}`);
           }
-        } catch (e) {
-          console.error(`[Reprocess] Error en foto ${i + 1}:`, e);
+        } else {
+          errores++;
+          console.log(`[Reprocess] ❌ Foto ${i + 1}: sin resultado`);
         }
+      } catch (e) {
+        errores++;
+        console.log(`[Reprocess] ❌ Error en foto ${i + 1}:`, e);
       }
     }
     
-    console.log('[Reprocess] Completado');
-    alert(`Proceso completado. ${procesadas} fotos actualizadas con marca de agua.`);
+    console.log(`[Reprocess] Completado. Procesadas: ${procesadas}, Errores: ${errores}`);
+    alert(`Proceso completado.\n\n✅ Fotos procesadas: ${procesadas}\n❌ Errores: ${errores}`);
     window.location.reload(); // Recargar página
   } catch (err) {
     console.error('[Reprocess] Error general:', err);
@@ -116,13 +125,20 @@ const reprocessAllPhotos = async () => {
 const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
   try {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     
-    await new Promise<void>((resolve, reject) => {
+    // Timeout para cargar imagen
+    const timeoutPromise = new Promise<void>((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 10000)
+    );
+    
+    const loadPromise = new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+      img.crossOrigin = 'anonymous';
       img.src = imageUrl;
     });
+    
+    await Promise.race([loadPromise, timeoutPromise]);
     
     const canvas = document.createElement('canvas');
     const ratio = 1200 / img.width;
