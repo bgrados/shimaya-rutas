@@ -143,10 +143,11 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
   const { showToast } = useToast();
   const [capturando, setCapturando] = useState(false);
   const [fotosCapturadas, setFotosCapturadas] = useState<{ preview: string; file: File }[]>([]);
-const [fotosExistentes, setFotosExistentes] = useState<{ id_foto: string; foto_url: string }[]>([]);
+  const [fotosExistentes, setFotosExistentes] = useState<{ id_foto: string; foto_url: string }[]>([]);
   const [loadingExistentes, setLoadingExistentes] = useState(true);
   const [reprocesando, setReprocesando] = useState(false);
   const [reprocesCount, setReprocesCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     loadFotosExistentes();
