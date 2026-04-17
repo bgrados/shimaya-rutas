@@ -33,6 +33,8 @@ export interface RutaBase {
   nombre: string;
   descripcion: string | null;
   activo: boolean;
+  cantidad_peajes: number;
+  costo_peaje: number;
   created_at: string;
 }
 
@@ -144,8 +146,24 @@ export interface GastoPeaje {
   foto_url: string | null;
   notas: string | null;
   created_at: string;
+  tipo_registro?: 'manual' | 'automatico';
   chofer_nombre?: string;
   ruta_nombre?: string;
+  ruta_base_nombre?: string;
+  cantidad_peajes?: number;
+  costo_peaje?: number;
+  peaje_calculado?: number;
+}
+
+export interface PeajeCalculado {
+  id_ruta: string;
+  fecha: string;
+  ruta_nombre: string;
+  ruta_base_nombre: string;
+  chofer_nombre: string;
+  cantidad_peajes: number;
+  costo_peaje: number;
+  total_peaje: number;
 }
 
 export interface AuditLog {

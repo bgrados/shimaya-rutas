@@ -4,9 +4,14 @@ import { supabase } from '../../../lib/supabase';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { ArrowLeft, Plus, MapPin, Trash2, Edit2, CheckCircle, X, ChevronUp, ChevronDown, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, MapPin, Trash2, Edit2, CheckCircle, X, ChevronUp, ChevronDown, Zap, Route } from 'lucide-react';
 
-interface RutaBase { id_ruta_base: string; nombre: string; }
+interface RutaBase { 
+  id_ruta_base: string; 
+  nombre: string; 
+  cantidad_peajes: number;
+  costo_peaje: number;
+}
 interface LocalBase { id_local_base: string; id_ruta_base: string | null; nombre: string; orden: number; }
 
 export default function DetalleRutaBase() {
@@ -23,6 +28,9 @@ export default function DetalleRutaBase() {
   const [selectedPredefined, setSelectedPredefined] = useState<string[]>([]);
   const [allLocales, setAllLocales] = useState<LocalBase[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [editingPeaje, setEditingPeaje] = useState(false);
+  const [editPeajeCantidad, setEditPeajeCantidad] = useState(0);
+  const [editPeajeCosto, setEditPeajeCosto] = useState(0);
 
   async function load() {
     if (!id) return;
@@ -32,11 +40,37 @@ export default function DetalleRutaBase() {
       supabase.from('locales_base').select('*').eq('id_ruta_base', id).order('orden', { ascending: true }),
       supabase.from('locales_base').select('*')
     ]);
-    if (rutaRes.data) setRuta(rutaRes.data);
+    if (rutaRes.data) {
+      setRuta({
+        ...rutaRes.data,
+        cantidad_peajes: rutaRes.data.cantidad_peajes ?? 0,
+        costo_peaje: rutaRes.data.costo_peaje ?? 0
+      });
+    }
     if (localesRes.data) setLocales(localesRes.data);
     if (allLocalesRes.data) setAllLocales(allLocalesRes.data);
     setLoading(false);
   }
+
+  const handleSavePeaje = async () => {
+    if (!id) return;
+    const cantidad = Math.max(0, editPeajeCantidad);
+    const costo = Math.max(0, editPeajeCosto);
+    const { error } = await supabase
+      .from('rutas_base')
+      .update({ cantidad_peajes: cantidad, costo_peaje: costo })
+      .eq('id_ruta_base', id);
+    if (!error) {
+      setRuta({ ...ruta!, cantidad_peajes: cantidad, costo_peaje: costo });
+      setEditingPeaje(false);
+    }
+  };
+
+  const startEditPeaje = () => {
+    setEditingPeaje(true);
+    setEditPeajeCantidad(ruta?.cantidad_peajes || 0);
+    setEditPeajeCosto(ruta?.costo_peaje || 0);
+  };
 
   useEffect(() => { load(); }, [id]);
 
@@ -206,6 +240,95 @@ export default function DetalleRutaBase() {
           <p className="text-text-muted text-sm">{locales.length} paradas configuradas</p>
         </div>
       </div>
+
+      {/* Configuración de Peajes */}
+      <Card className={ruta.cantidad_peajes > 0 ? "bg-orange-500/10 border-orange-500/30" : "bg-surface-light/30 border-surface-light"}>
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Route size={18} className={ruta.cantidad_peajes > 0 ? "text-orange-400" : "text-text-muted"} />
+              <h3 className="text-sm font-black text-white uppercase italic">Configuración de Peajes</h3>
+            </div>
+            {!editingPeaje && (
+              <Button size="sm" variant="ghost" onClick={startEditPeaje} className="text-orange-400 hover:text-orange-300">
+                <Edit2 size={14} className="mr-1" /> Editar
+              </Button>
+            )}
+          </div>
+          
+          {editingPeaje ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-text-muted uppercase font-bold ml-1 block mb-1">Cantidad de Peajes</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editPeajeCantidad}
+                    onChange={e => setEditPeajeCantidad(parseInt(e.target.value) || 0)}
+                    className="bg-surface border-orange-500/30 text-white font-bold"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-text-muted uppercase font-bold ml-1 block mb-1">Costo Unitario (S/)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPeajeCosto}
+                    onChange={e => setEditPeajeCosto(parseFloat(e.target.value) || 0)}
+                    className="bg-surface border-orange-500/30 text-white font-bold"
+                  />
+                </div>
+              </div>
+              <div className="bg-orange-500/20 rounded-xl p-4 text-center">
+                <p className="text-[10px] text-orange-300 uppercase font-bold">Total Peaje por Viaje</p>
+                <p className="text-orange-400 font-black text-3xl">
+                  S/ {((editPeajeCantidad || 0) * (editPeajeCosto || 0)).toFixed(2)}
+                </p>
+                {editPeajeCantidad === 0 && (
+                  <p className="text-orange-200/60 text-xs mt-2">
+                    Esta ruta no generará peajes automáticos
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={handleSavePeaje} className="bg-orange-500 hover:bg-orange-600 font-black flex-1">
+                  <CheckCircle size={16} className="mr-2" /> Guardar Cambios
+                </Button>
+                <Button variant="ghost" onClick={() => setEditingPeaje(false)} className="text-text-muted">
+                  <X size={16} className="mr-2" /> Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-surface/50 rounded-xl p-4 text-center">
+                <p className="text-[10px] text-text-muted uppercase font-bold">Cantidad</p>
+                <p className="text-white font-black text-2xl">{ruta.cantidad_peajes || 0}</p>
+                <p className="text-text-muted text-[10px]">peajes</p>
+              </div>
+              <div className="bg-surface/50 rounded-xl p-4 text-center">
+                <p className="text-[10px] text-text-muted uppercase font-bold">Costo Unit.</p>
+                <p className="text-orange-400 font-black text-2xl">S/ {(ruta.costo_peaje || 0).toFixed(2)}</p>
+                <p className="text-text-muted text-[10px]">por peaje</p>
+              </div>
+              <div className="col-span-2 bg-orange-500/20 rounded-xl p-4 text-center">
+                <p className="text-[10px] text-orange-300 uppercase font-bold">Total Peaje por Viaje</p>
+                <p className="text-orange-400 font-black text-3xl">
+                  S/ {((ruta.cantidad_peajes || 0) * (ruta.costo_peaje || 0)).toFixed(2)}
+                </p>
+                {ruta.cantidad_peajes === 0 && (
+                  <p className="text-orange-200/60 text-xs mt-2">
+                    Ruta sin peajes configurados
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Botones de acción */}
       <div className="flex gap-3 flex-wrap">

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta, Alerta } from '../../components/ui/Alertas';
-import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car } from 'lucide-react';
+import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatPeru, formatHoraPeru } from '../../lib/timezone';
 import { Link } from 'react-router-dom';
@@ -26,6 +26,8 @@ interface Stats {
   gastoOtrosDia: number;
   gastoOtrosSemana: number;
   gastosHoy: number;
+  peajeDia: number;
+  peajeSemana: number;
 }
 
 interface RutaEnProgreso {
@@ -65,7 +67,9 @@ export default function AdminDashboard() {
     gastoCombustibleSemana: 0,
     gastoOtrosDia: 0,
     gastosHoy: 0,
-    choferesSinRuta: 0
+    choferesSinRuta: 0,
+    peajeDia: 0,
+    peajeSemana: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
@@ -179,6 +183,35 @@ export default function AdminDashboard() {
       const cobrosOtrosHoy = otrosDiaRes.data?.length || 0;
       const gastosHoy = cargasCombustibleHoy + cobrosOtrosHoy;
       
+      // Calcular peajes automáticos
+      const rutasFinalizadasDeHoy = rutas.filter(r => r.estado === 'finalizada' && (r.fecha || '').split('T')[0] === hoyStr);
+      const rutasFinalizadasDeSemana = rutas.filter(r => r.estado === 'finalizada' && r.fecha >= semanaStr);
+      
+      // Obtener datos de rutas_base para cada ruta
+      const rutasBaseIds = [...new Set([...rutasFinalizadasDeHoy, ...rutasFinalizadasDeSemana].map(r => r.id_ruta_base).filter(Boolean))];
+      let rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
+      
+      if (rutasBaseIds.length > 0) {
+        const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, cantidad_peajes, costo_peaje').in('id_ruta_base', rutasBaseIds);
+        if (rutasBaseData) {
+          rutasBaseData.forEach((rb: any) => {
+            rutasBaseMap[rb.id_ruta_base] = {
+              cantidad_peajes: rb.cantidad_peajes || 0,
+              costo_peaje: rb.costo_peaje || 0
+            };
+          });
+        }
+      }
+      
+      const calcularPeajeRuta = (ruta: any) => {
+        const config = rutasBaseMap[ruta.id_ruta_base];
+        if (!config || config.cantidad_peajes <= 0) return 0;
+        return config.cantidad_peajes * config.costo_peaje;
+      };
+      
+      const peajeDia = rutasFinalizadasDeHoy.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
+      const peajeSemana = rutasFinalizadasDeSemana.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
+      
       setStats({
         rutasActivas: rutasEnCurso.length,
         rutasPendientes: rutasEnCurso.length,
@@ -196,7 +229,9 @@ export default function AdminDashboard() {
         gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia: gastoOtrosDia,
         gastoOtrosSemana: gastoOtrosSemana,
-        gastosHoy
+        gastosHoy,
+        peajeDia,
+        peajeSemana
       });
 
       const { data: rutasProgreso } = await supabase
@@ -498,6 +533,28 @@ export default function AdminDashboard() {
               <Tooltip content="Suma total de todos los gastos del día (combustible + otros)." />
             </p>
             <p className="text-xl font-bold text-primary">S/ {(stats.gastoCombustibleDia + stats.gastoOtrosDia).toFixed(2)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Peajes Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-orange-500/10 border-orange-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-orange-300 text-xs flex items-center justify-center gap-1">
+              Peajes Hoy
+              <Tooltip content="Peajes calculados automáticamente según configuración de rutas." />
+            </p>
+            <p className="text-xl font-bold text-orange-400">S/ {stats.peajeDia.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-500/10 border-orange-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-orange-300 text-xs flex items-center justify-center gap-1">
+              Peajes Semana
+              <Tooltip content="Peajes calculados de la semana según configuración de rutas." />
+            </p>
+            <p className="text-xl font-bold text-orange-400">S/ {stats.peajeSemana.toFixed(2)}</p>
           </CardContent>
         </Card>
       </div>

@@ -1,48 +1,31 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
-import type { GastoPeaje, Usuario } from '../../../types';
+import type { PeajeCalculado } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Route, Truck, Calendar, Download, FileText, FileSpreadsheet, Plus, Search, X, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Route, Truck, Calendar, Download, FileText, FileSpreadsheet, Search, X, Eye, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { formatHoraPeru } from '../../../lib/timezone';
 
-const PEAJES_PRECIO = {
-  'Peaje Trapiche': 16.50,
-  'Peaje La Joya': 16.50,
-  'Peaje Pucusana': 16.50,
-  'Peaje Cipreses': 16.50,
-  'Peaje Conchán': 16.50,
-  'Peaje Villa': 16.50,
-  'Peaje San Juan de Lurigancho': 8.50,
-  'Peaje Antenor Andaguaya': 8.50,
-  'Peaje Chillón': 8.50,
-  'otro': 0,
-};
+interface Chofer {
+  id_usuario: string;
+  nombre: string;
+}
 
 export default function GastosPeaje() {
-  const [peajes, setPeajes] = useState<GastoPeaje[]>([]);
-  const [choferes, setChoferes] = useState<Usuario[]>([]);
+  const [peajesCalculados, setPeajesCalculados] = useState<PeajeCalculado[]>([]);
+  const [peajesManuales, setPeajesManuales] = useState<any[]>([]);
+  const [choferes, setChoferes] = useState<Chofer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedPeaje, setSelectedPeaje] = useState<GastoPeaje | null>(null);
-  const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
   
   // Filtros
   const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
   const [filtroFechaFin, setFiltroFechaFin] = useState('');
   const [filtroChofer, setFiltroChofer] = useState('');
-  
-  // Formulario
-  const [formIdRuta, setFormIdRuta] = useState('');
-  const [formIdChofer, setFormIdChofer] = useState('');
-  const [formNombrePeaje, setFormNombrePeaje] = useState('');
-  const [formMonto, setFormMonto] = useState('');
-  const [formFecha, setFormFecha] = useState(new Date().toISOString().split('T')[0]);
-  const [formNotas, setFormNotas] = useState('');
-  const [formLoading, setFormLoading] = useState(false);
+  const [filtroVerManual, setFiltroVerManual] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -51,20 +34,49 @@ export default function GastosPeaje() {
   async function loadData() {
     setLoading(true);
     try {
-      const [peajesRes, choferesRes] = await Promise.all([
-        supabase.from('gastos_peaje').select('*').order('created_at', { ascending: false }),
-        supabase.from('usuarios').select('*').eq('rol', 'chofer').eq('activo', true)
-      ]);
+      // Cargar choferes
+      const { data: choferesData } = await supabase
+        .from('usuarios')
+        .select('id_usuario, nombre')
+        .eq('rol', 'chofer')
+        .eq('activo', true);
+      if (choferesData) setChoferes(choferesData);
+
+      // Cargar rutas finalizadas con información de ruta base
+      const { data: rutasData } = await supabase
+        .from('rutas')
+        .select(`
+          id_ruta,
+          fecha,
+          nombre as ruta_nombre,
+          id_chofer,
+          rutas_base:cantidad_peajes,
+          rutas_base:costo_peaje
+        `)
+        .eq('estado', 'finalizada')
+        .order('fecha', { ascending: false });
+
+      // Cargar nombres de rutas base y choferes
+      const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, nombre');
+      const rutasBaseMap = new Map(rutasBaseData?.map(rb => [rb.id_ruta_base, rb.nombre]) || []);
       
-      if (peajesRes.data) {
-        // Enriquecer con nombres de chofer
-        const peajesEnriquecidos = peajesRes.data.map(p => ({
-          ...p,
-          chofer_nombre: choferesRes.data?.find(c => c.id_usuario === p.id_chofer)?.nombre || 'Sin chofer'
+      // Enriquecer datos de rutas
+      if (rutasData) {
+        const enrichedRutas = rutasData.map((r: any) => ({
+          ...r,
+          ruta_base_nombre: rutasBaseMap.get(r.id_ruta_base) || r.ruta_nombre || 'Sin ruta base',
+          chofer_nombre: choferesData?.find(c => c.id_usuario === r.id_chofer)?.nombre || 'Sin chofer'
         }));
-        setPeajes(peajesEnriquecidos);
+        setPeajesCalculados(enrichedRutas);
       }
-      if (choferesRes.data) setChoferes(choferesRes.data);
+
+      // Cargar registros manuales legacy
+      const { data: manualesData } = await supabase
+        .from('gastos_peaje')
+        .select('*')
+        .eq('tipo_registro', 'manual')
+        .order('created_at', { ascending: false });
+      if (manualesData) setPeajesManuales(manualesData);
     } catch (err) {
       console.error('[Peaje] Error:', err);
     } finally {
@@ -72,93 +84,78 @@ export default function GastosPeaje() {
     }
   }
 
-  const peajesFiltrados = peajes.filter(p => {
+  // Calcular peaje: cantidad_peajes * costo_peaje (solo si cantidad > 0)
+  const calcularPeaje = (ruta: any): number => {
+    const cantidad = ruta.cantidad_peajes || 0;
+    const costo = ruta.costo_peaje || 0;
+    if (cantidad <= 0) return 0;
+    return cantidad * costo;
+  };
+
+  // Filtrar peajes calculados
+  const peajesFiltrados = peajesCalculados.filter(p => {
     if (filtroChofer && p.id_chofer !== filtroChofer) return false;
     if (filtroFechaInicio && p.fecha && p.fecha < filtroFechaInicio) return false;
     if (filtroFechaFin && p.fecha && p.fecha > filtroFechaFin) return false;
     return true;
   });
 
-  const totalMonto = peajesFiltrados.reduce((sum, p) => sum + (p.monto || 0), 0);
-  const totalPeajes = peajesFiltrados.length;
+  // Filtrar peajes manuales
+  const peajesManualesFiltrados = peajesManuales.filter(p => {
+    if (filtroChofer && p.id_chofer !== filtroChofer) return false;
+    if (filtroFechaInicio && p.fecha && p.fecha < filtroFechaInicio) return false;
+    if (filtroFechaFin && p.fecha && p.fecha > filtroFechaFin) return false;
+    return true;
+  });
 
-  const handleNombrePeajeChange = (nombre: string) => {
-    setFormNombrePeaje(nombre);
-    const precio = PEAJES_PRECIO[nombre as keyof typeof PEAJES_PRECIO];
-    if (precio) setFormMonto(precio.toFixed(2));
-  };
+  // Calcular totales
+  const totalGeneral = peajesFiltrados.reduce((sum, p) => sum + calcularPeaje(p), 0);
+  const totalPeajesCount = peajesFiltrados.filter(p => calcularPeaje(p) > 0).length;
+  const totalManuales = peajesManualesFiltrados.reduce((sum, p) => sum + (p.monto || 0), 0);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setFormLoading(true);
-    
-    try {
-      const { error } = await supabase.from('gastos_peaje').insert({
-        id_ruta: formIdRuta || null,
-        id_chofer: formIdChofer,
-        nombre_peaje: formNombrePeaje,
-        monto: parseFloat(formMonto) || 0,
-        fecha: formFecha,
-        tipo: 'normal',
-        notas: formNotas || null
-      });
+  // Totales por ruta
+  const totalesPorRuta = peajesFiltrados.reduce((acc, p) => {
+    const key = p.ruta_base_nombre || 'Sin nombre';
+    if (!acc[key]) acc[key] = { nombre: key, count: 0, total: 0 };
+    acc[key].count++;
+    acc[key].total += calcularPeaje(p);
+    return acc;
+  }, {} as Record<string, { nombre: string; count: number; total: number }>);
 
-      if (error) throw error;
-      
-      setShowModal(false);
-      resetForm();
-      loadData();
-    } catch (err: any) {
-      console.error('[Peaje] Error:', err);
-      alert(err.message);
-    } finally {
-      setFormLoading(false);
-    }
-  }
-
-  async function handleDelete(id_peaje: string) {
-    if (!window.confirm('¿Estás seguro de eliminar este peaje?')) return;
-    try {
-      const { error } = await supabase.from('gastos_peaje').delete().eq('id_peaje', id_peaje);
-      if (error) throw error;
-      setPeajes(prev => prev.filter(p => p.id_peaje !== id_peaje));
-      alert('Eliminado');
-    } catch (err: any) {
-      alert(err.message);
-    }
-  }
-
-  function resetForm() {
-    setFormIdRuta('');
-    setFormIdChofer('');
-    setFormNombrePeaje('');
-    setFormMonto('');
-    setFormFecha(new Date().toISOString().split('T')[0]);
-    setFormNotas('');
-  }
+  // Totales por chofer
+  const totalesPorChofer = peajesFiltrados.reduce((acc, p) => {
+    const key = p.chofer_nombre || 'Sin chofer';
+    if (!acc[key]) acc[key] = { nombre: key, count: 0, total: 0 };
+    acc[key].count++;
+    acc[key].total += calcularPeaje(p);
+    return acc;
+  }, {} as Record<string, { nombre: string; count: number; total: number }>);
 
   const generarPDF = () => {
     const doc = new jsPDF();
     
     doc.setFontSize(18);
     doc.setTextColor(234, 179, 8);
-    doc.text('📄 REPORTE DE PEAJES', 14, 20);
+    doc.text('REPORTE DE PEAJES', 14, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
+    doc.text(`Filtros: ${filtroFechaInicio || 'Sin inicio'} - ${filtroFechaFin || 'Sin fin'}`, 14, 34);
     
+    // Tabla de peajes calculados
     const tableData = peajesFiltrados.map(p => [
       p.fecha ? format(new Date(p.fecha), 'dd/MM/yyyy') : '-',
-      p.nombre_peaje || '-',
-      `S/ ${(p.monto || 0).toFixed(2)}`,
+      p.ruta_base_nombre || '-',
       p.chofer_nombre || '-',
-      p.notas || '-'
+      p.cantidad_peajes || 0,
+      `S/ ${(p.costo_peaje || 0).toFixed(2)}`,
+      `S/ ${calcularPeaje(p).toFixed(2)}`
     ]);
 
     autoTable(doc, {
-      startY: 35,
-      head: [['Fecha', 'Peaje', 'Monto', 'Chofer', 'Notas']],
+      startY: 40,
+      head: [['Fecha', 'Ruta Base', 'Chofer', 'Cant.', 'Costo Unit.', 'Total']],
       body: tableData,
       theme: 'striped',
       headStyles: { fillColor: [234, 179, 8], textColor: 0 },
@@ -168,8 +165,13 @@ export default function GastosPeaje() {
     const finalY = (doc as any).lastAutoTable.finalY || 50;
     doc.setFontSize(11);
     doc.setTextColor(0);
-    doc.text(`Total peajes: ${totalPeajes}`, 14, finalY + 10);
-    doc.text(`Total monto: S/ ${totalMonto.toFixed(2)}`, 14, finalY + 18);
+    doc.text(`Total peajes (calculados): ${totalPeajesCount}`, 14, finalY + 10);
+    doc.text(`Monto total: S/ ${totalGeneral.toFixed(2)}`, 14, finalY + 18);
+
+    if (peajesManualesFiltrados.length > 0) {
+      doc.text(`Registros manuales legacy: ${peajesManualesFiltrados.length}`, 14, finalY + 28);
+      doc.text(`Monto manual: S/ ${totalManuales.toFixed(2)}`, 14, finalY + 36);
+    }
 
     doc.save(`reporte_peajes_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
@@ -177,10 +179,12 @@ export default function GastosPeaje() {
   const exportarExcel = () => {
     const data = peajesFiltrados.map(p => ({
       Fecha: p.fecha,
-      Peaje: p.nombre_peaje,
-      Monto: p.monto,
-      Chofer: p.chofer_nombre,
-      Notas: p.notas
+      'Ruta Base': p.ruta_base_nombre || '-',
+      'Ruta Diaria': p.ruta_nombre || '-',
+      Chofer: p.chofer_nombre || '-',
+      'Cant. Peajes': p.cantidad_peajes || 0,
+      'Costo Unit.': p.costo_peaje || 0,
+      'Total Peaje': calcularPeaje(p)
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
@@ -202,17 +206,47 @@ export default function GastosPeaje() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2 uppercase italic tracking-tighter">
-            <Route className="text-primary" /> Gastos de Peaje
+            <Route className="text-orange-400" /> Gastos de Peaje
           </h1>
-          <p className="text-text-muted text-sm">Controla el gasto de peajes por ruta</p>
+          <p className="text-text-muted text-sm">Cálculo automático basado en rutas</p>
         </div>
-        <Button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-primary hover:bg-primary-hover">
-          <Plus size={18} /> Registrar Peaje
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={generarPDF} variant="secondary" className="flex items-center gap-2 bg-red-600 hover:bg-red-700">
+            <FileText size={16} /> PDF
+          </Button>
+          <Button onClick={exportarExcel} variant="secondary" className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
+            <FileSpreadsheet size={16} /> Excel
+          </Button>
+          <Button onClick={loadData} variant="ghost" className="text-text-muted hover:text-white">
+            Actualizar
+          </Button>
+        </div>
       </div>
 
+      {/* Info box */}
+      <Card className="bg-orange-500/10 border-orange-500/30">
+        <CardContent className="p-4 flex items-start gap-3">
+          <AlertCircle size={20} className="text-orange-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-orange-300 font-bold text-sm">Sistema Automático de Peajes</p>
+            <p className="text-orange-200/60 text-xs mt-1">
+              Los peajes se calculan automáticamente según la configuración de cada ruta base: 
+              <span className="text-orange-300 font-bold ml-1">peaje = cantidad × costo</span>.
+              {!filtroVerManual && peajesManuales.length > 0 && (
+                <button 
+                  onClick={() => setFiltroVerManual(true)}
+                  className="text-orange-400 underline ml-2 hover:text-orange-300"
+                >
+                  Ver {peajesManuales.length} registros manuales legacy
+                </button>
+              )}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-surface-light/30 p-4 rounded-xl">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-surface-light/30 p-4 rounded-xl">
         <div>
           <label className="text-[10px] text-text-muted uppercase font-bold ml-1">Fecha inicio</label>
           <input 
@@ -244,188 +278,206 @@ export default function GastosPeaje() {
             ))}
           </select>
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-surface-light/50">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-text-muted uppercase">Total Peajes</p>
-            <p className="text-2xl font-black text-white">{totalPeajes}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-surface-light/50">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-text-muted uppercase">Total Gasto</p>
-            <p className="text-2xl font-black text-green-400">S/ {totalMonto.toFixed(2)}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Botones exportar */}
-      <div className="flex gap-2">
-        <Button onClick={generarPDF} variant="secondary" className="flex items-center gap-2 bg-red-600 hover:bg-red-700">
-          <FileText size={16} /> Exportar PDF
-        </Button>
-        <Button onClick={exportarExcel} variant="secondary" className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
-          <FileSpreadsheet size={16} /> Exportar Excel
-        </Button>
-      </div>
-
-      {/* Tabla */}
-      <div className="bg-surface-light/30 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-primary/20 text-white text-xs uppercase">
-            <tr>
-              <th className="px-4 py-3 text-left">Fecha</th>
-              <th className="px-4 py-3 text-left">Peaje</th>
-              <th className="px-4 py-3 text-left">Monto</th>
-              <th className="px-4 py-3 text-left">Chofer</th>
-              <th className="px-4 py-3 text-left">Notas</th>
-              <th className="px-4 py-3 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/10">
-            {peajesFiltrados.map(peaje => (
-              <tr key={peaje.id_peaje} className="hover:bg-white/5">
-                <td className="px-4 py-3 text-white">
-                  {peaje.fecha ? format(new Date(peaje.fecha), 'dd/MM/yyyy') : '-'}
-                </td>
-                <td className="px-4 py-3 text-white font-bold">{peaje.nombre_peaje || '-'}</td>
-                <td className="px-4 py-3 text-green-400 font-black">S/ {(peaje.monto || 0).toFixed(2)}</td>
-                <td className="px-4 py-3 text-text-muted">{peaje.chofer_nombre || '-'}</td>
-                <td className="px-4 py-3 text-text-muted text-xs">{peaje.notas || '-'}</td>
-                <td className="px-4 py-3 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    {peaje.foto_url && (
-                      <button 
-                        onClick={() => setShowFotoModal(peaje.foto_url!)}
-                        className="p-1 hover:bg-white/10 rounded"
-                        title="Ver Comprobante"
-                      >
-                        <ImageIcon size={16} className="text-primary" />
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => handleDelete(peaje.id_peaje)}
-                      className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                      title="Eliminar registro"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {peajesFiltrados.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
-                  No hay registros de peajes
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal registrar */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white">Registrar Peaje</h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="text-text-muted hover:text-white">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="text-[10px] text-text-muted uppercase font-bold ml-1">Chofer</label>
-                <select 
-                  required
-                  value={formIdChofer}
-                  onChange={(e) => setFormIdChofer(e.target.value)}
-                  className="w-full bg-surface-light border border-primary/20 rounded-xl px-3 py-2 text-white"
-                >
-                  <option value="">Seleccionar chofer...</option>
-                  {choferes.map(c => (
-                    <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] text-text-muted uppercase font-bold ml-1">Peaje</label>
-                <select 
-                  required
-                  value={formNombrePeaje}
-                  onChange={(e) => handleNombrePeajeChange(e.target.value)}
-                  className="w-full bg-surface-light border border-primary/20 rounded-xl px-3 py-2 text-white"
-                >
-                  <option value="">Seleccionar peaje...</option>
-                  {Object.keys(PEAJES_PRECIO).map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-text-muted uppercase font-bold ml-1">Monto (S/)</label>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formMonto}
-                    onChange={(e) => setFormMonto(e.target.value)}
-                    className="w-full bg-surface-light border border-primary/20 rounded-xl px-3 py-2 text-white font-black"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-text-muted uppercase font-bold ml-1">Fecha</label>
-                  <input 
-                    type="date"
-                    required
-                    value={formFecha}
-                    onChange={(e) => setFormFecha(e.target.value)}
-                    className="w-full bg-surface-light border border-primary/20 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] text-text-muted uppercase font-bold ml-1">Notas (opcional)</label>
-                <textarea 
-                  value={formNotas}
-                  onChange={(e) => setFormNotas(e.target.value)}
-                  className="w-full bg-surface-light border border-primary/20 rounded-xl px-3 py-2 text-white text-sm"
-                  rows={2}
-                  placeholder="Observaciones..."
-                />
-              </div>
-
-              <Button 
-                type="submit" 
-                disabled={formLoading}
-                className="w-full bg-primary hover:bg-primary-hover"
-              >
-                {formLoading ? 'Guardando...' : 'Guardar Peaje'}
-              </Button>
-            </form>
+        {filtroVerManual && (
+          <div className="flex items-end">
+            <Button 
+              variant="ghost" 
+              onClick={() => setFiltroVerManual(false)}
+              className="text-red-400 hover:text-red-300"
+            >
+              <X size={16} className="mr-1" /> Ocultar Manuales
+            </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Modal foto */}
-      {showFotoModal && (
-        <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4" onClick={() => setShowFotoModal(null)}>
-          <img src={showFotoModal} alt="Foto peaje" className="max-w-full max-h-[80vh] object-contain rounded-xl" />
-          <button className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2" onClick={() => setShowFotoModal(null)}>
-            <X size={24} />
-          </button>
-        </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-orange-500/10 border-orange-500/30">
+          <CardContent className="p-4 text-center">
+            <p className="text-[10px] text-orange-300 uppercase font-bold">Total Calculado</p>
+            <p className="text-2xl font-black text-orange-400">S/ {totalGeneral.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-500/10 border-orange-500/30">
+          <CardContent className="p-4 text-center">
+            <p className="text-[10px] text-orange-300 uppercase font-bold">Viajes con Peaje</p>
+            <p className="text-2xl font-black text-white">{totalPeajesCount}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-surface-light/50">
+          <CardContent className="p-4 text-center">
+            <p className="text-[10px] text-text-muted uppercase font-bold">Total x Ruta</p>
+            <p className="text-2xl font-black text-white">{Object.keys(totalesPorRuta).length}</p>
+          </CardContent>
+        </Card>
+        {peajesManuales.length > 0 && (
+          <Card className="bg-red-500/10 border-red-500/30">
+            <CardContent className="p-4 text-center">
+              <p className="text-[10px] text-red-300 uppercase font-bold">Manuales Legacy</p>
+              <p className="text-2xl font-black text-red-400">S/ {totalManuales.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Totales por Ruta y Chofer */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Por Ruta */}
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-black text-white uppercase italic mb-4 flex items-center gap-2">
+              <Route size={16} className="text-orange-400" /> Totales por Ruta
+            </h3>
+            {Object.keys(totalesPorRuta).length === 0 ? (
+              <p className="text-text-muted text-center py-4 text-sm">Sin datos</p>
+            ) : (
+              <div className="space-y-2">
+                {Object.values(totalesPorRuta)
+                  .sort((a, b) => b.total - a.total)
+                  .map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-surface-light/30 p-3 rounded-lg">
+                      <div>
+                        <p className="text-white font-bold text-sm">{item.nombre}</p>
+                        <p className="text-text-muted text-xs">{item.count} viajes</p>
+                      </div>
+                      <p className="text-orange-400 font-black">S/ {item.total.toFixed(2)}</p>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Por Chofer */}
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-black text-white uppercase italic mb-4 flex items-center gap-2">
+              <Truck size={16} className="text-orange-400" /> Totales por Chofer
+            </h3>
+            {Object.keys(totalesPorChofer).length === 0 ? (
+              <p className="text-text-muted text-center py-4 text-sm">Sin datos</p>
+            ) : (
+              <div className="space-y-2">
+                {Object.values(totalesPorChofer)
+                  .sort((a, b) => b.total - a.total)
+                  .map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-surface-light/30 p-3 rounded-lg">
+                      <div>
+                        <p className="text-white font-bold text-sm">{item.nombre}</p>
+                        <p className="text-text-muted text-xs">{item.count} viajes</p>
+                      </div>
+                      <p className="text-orange-400 font-black">S/ {item.total.toFixed(2)}</p>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabla Principal */}
+      <Card>
+        <CardContent className="p-4">
+          <h3 className="text-sm font-black text-white uppercase italic mb-4 flex items-center gap-2">
+            <Calendar size={16} className="text-orange-400" /> Detalle de Peajes Calculados
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-orange-500/20 text-white text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">Fecha</th>
+                  <th className="px-4 py-3 text-left">Ruta Base</th>
+                  <th className="px-4 py-3 text-left">Ruta Diaria</th>
+                  <th className="px-4 py-3 text-left">Chofer</th>
+                  <th className="px-4 py-3 text-center">Cant.</th>
+                  <th className="px-4 py-3 text-center">Costo</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {peajesFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-text-muted">
+                      No hay peajes calculados para el período seleccionado
+                    </td>
+                  </tr>
+                ) : (
+                  peajesFiltrados.map((peaje, idx) => {
+                    const total = calcularPeaje(peaje);
+                    return (
+                      <tr key={idx} className="hover:bg-white/5">
+                        <td className="px-4 py-3 text-white">
+                          {peaje.fecha ? format(new Date(peaje.fecha), 'dd/MM/yyyy') : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-white font-medium">{peaje.ruta_base_nombre || '-'}</td>
+                        <td className="px-4 py-3 text-text-muted text-xs">{peaje.ruta_nombre || '-'}</td>
+                        <td className="px-4 py-3 text-text-muted">{peaje.chofer_nombre || '-'}</td>
+                        <td className="px-4 py-3 text-center text-white font-bold">{peaje.cantidad_peajes || 0}</td>
+                        <td className="px-4 py-3 text-center text-orange-400 font-medium">
+                          {total > 0 ? `S/ ${(peaje.costo_peaje || 0).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {total > 0 ? (
+                            <span className="text-orange-400 font-black">S/ {total.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-text-muted text-xs">Sin peaje</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Registros Manuales Legacy */}
+      {filtroVerManual && peajesManuales.length > 0 && (
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardContent className="p-4">
+            <h3 className="text-sm font-black text-red-400 uppercase italic mb-4 flex items-center gap-2">
+              <AlertCircle size={16} /> Registros Manuales Legacy ({peajesManualesFiltrados.length})
+            </h3>
+            <p className="text-text-muted text-xs mb-4">
+              Estos registros fueron ingresados manualmente antes del cambio al sistema automático. Son de solo lectura.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-red-500/20 text-white text-xs uppercase">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Fecha</th>
+                    <th className="px-4 py-3 text-left">Peaje</th>
+                    <th className="px-4 py-3 text-left">Monto</th>
+                    <th className="px-4 py-3 text-left">Notas</th>
+                    <th className="px-4 py-3 text-left">Registro</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {peajesManualesFiltrados.map((peaje, idx) => (
+                    <tr key={idx} className="hover:bg-white/5 opacity-70">
+                      <td className="px-4 py-3 text-white">
+                        {peaje.fecha ? format(new Date(peaje.fecha), 'dd/MM/yyyy') : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-white">{peaje.nombre_peaje || '-'}</td>
+                      <td className="px-4 py-3 text-red-400 font-black">S/ {(peaje.monto || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-text-muted text-xs">{peaje.notas || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className="bg-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded font-bold">
+                          MANUAL
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
