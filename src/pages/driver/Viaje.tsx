@@ -96,6 +96,135 @@ export default function DriverViaje() {
   const [showResumenRuta, setShowResumenRuta] = useState(false);
   const [esHistorial, setEsHistorial] = useState(false);
 
+  // Estados para detección automática de llegada por GPS
+  const [gpsPosicionActual, setGpsPosicionActual] = useState<{ lat: number; lng: number } | null>(null);
+  const [distanciaAlPunto, setDistanciaAlPunto] = useState<number | null>(null);
+  const [llegadaDetectada, setLlegadaDetectada] = useState(false);
+  const [gpsDebugLogs, setGpsDebugLogs] = useState<string[]>([]);
+  const watchIdRef = useRef<number | null>(null);
+
+  // Constantes de configuración GPS
+  const RADIO_DETECCION_METROS = 100; // Radio de detección en metros
+  const GPS_OPTIONS = {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 5000
+  };
+
+  // Función para calcular distancia Haversine entre dos puntos
+  const calcularDistanciaHaversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000; // Radio de la Tierra en metros
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distancia en metros
+  };
+
+  // Función para agregar logs de debug
+  const agregarLogDebug = (mensaje: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const log = `[${timestamp}] ${mensaje}`;
+    console.log(log);
+    setGpsDebugLogs(prev => [...prev.slice(-9), log]); // Mantener últimos 10 logs
+  };
+
+  // Iniciar watchPosition para detección continua de GPS
+  const iniciarWatchPosition = () => {
+    if (!navigator.geolocation) {
+      agregarLogDebug('❌ Geolocalización no disponible');
+      return;
+    }
+
+    // Detener watch anterior si existe
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+
+    agregarLogDebug('🚀 Iniciando watchPosition...');
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setGpsPosicionActual({ lat, lng });
+
+        // Encontrar el destino actual (punto al que nos dirigimos)
+        const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
+        
+        // Buscar el local destino más cercano que aún no tenga hora_llegada
+        const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
+
+        if (localPendiente && localPendiente.latitud && localPendiente.longitud) {
+          const distancia = calcularDistanciaHaversine(
+            lat, lng,
+            localPendiente.latitud, localPendiente.longitud
+          );
+          setDistanciaAlPunto(distancia);
+
+          const dentroDelRadio = distancia <= RADIO_DETECCION_METROS;
+          agregarLogDebug(`📍 Posición: ${lat.toFixed(6)}, ${lng.toFixed(6)} | Distancia: ${distancia.toFixed(1)}m | ${dentroDelRadio ? '✅ DENTRO' : '⭕ FUERA'} del radio (${RADIO_DETECCION_METROS}m)`);
+
+          // Detectar llegada automática
+          if (dentroDelRadio && !llegadaDetectada && bitacoraActual) {
+            agregarLogDebug('🎯 ¡LLEGADA DETECTADA AUTOMÁTICAMENTE!');
+            setLlegadaDetectada(true);
+            
+            // Registrar llegada automáticamente
+            handleRegistrarLlegada(bitacoraActual.id_bitacora);
+            
+            // Detener watch después de detectar
+            if (watchIdRef.current !== null) {
+              navigator.geolocation.clearWatch(watchIdRef.current);
+              watchIdRef.current = null;
+            }
+          }
+        } else {
+          setDistanciaAlPunto(null);
+          agregarLogDebug(`📍 Posición: ${lat.toFixed(6)}, ${lng.toFixed(6)} | Sin punto destino pendiente`);
+        }
+      },
+      (error) => {
+        agregarLogDebug(`❌ Error GPS: ${error.message}`);
+      },
+      GPS_OPTIONS
+    );
+  };
+
+  // Detener watchPosition
+  const detenerWatchPosition = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+      agregarLogDebug('🛑 WatchPosition detenido');
+    }
+  };
+
+  // useEffect para iniciar/detener watchPosition según el estado de la ruta
+  useEffect(() => {
+    // Solo iniciar watch si hay una ruta en progreso y locales pendientes
+    if (ruta && ruta.estado === 'en_progreso' && !esHistorial && !llegadaDetectada) {
+      iniciarWatchPosition();
+    } else {
+      detenerWatchPosition();
+    }
+
+    // Cleanup al desmontar
+    return () => {
+      detenerWatchPosition();
+    };
+  }, [ruta?.id_ruta, ruta?.estado, esHistorial, llegadaDetectada]);
+
+  // Reiniciar detección cuando cambia la bitácora (nuevo tramo iniciado)
+  useEffect(() => {
+    if (bitacora.length > 0) {
+      setLlegadaDetectada(false);
+      agregarLogDebug('🔄 Nuevo tramo iniciado, reseteando detección de llegada');
+    }
+  }, [bitacora.length]);
+
   const loadViajeData = async (idRuta: string) => {
     const { data: localesData } = await supabase
       .from('locales_ruta')
@@ -890,6 +1019,47 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           </div>
         </div>
       </div>
+
+      {/* Indicador de GPS y Distancia */}
+      {ruta?.estado === 'en_progreso' && !esHistorial && (
+        <Card className={`border ${distanciaAlPunto !== null && distanciaAlPunto <= RADIO_DETECCION_METROS ? 'bg-green-500/20 border-green-500/50' : 'bg-surface-light/50 border-white/10'}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${gpsPosicionActual ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                  <MapPin size={20} />
+                </div>
+                <div>
+                  <p className="text-xs text-text-muted uppercase font-bold tracking-wider">GPS Activo</p>
+                  <p className={`text-sm font-black ${distanciaAlPunto !== null && distanciaAlPunto <= RADIO_DETECCION_METROS ? 'text-green-400' : 'text-white'}`}>
+                    {distanciaAlPunto !== null 
+                      ? `Distancia al punto: ${distanciaAlPunto.toFixed(0)}m ${distanciaAlPunto <= RADIO_DETECCION_METROS ? '✅' : `(${RADIO_DETECCION_METROS}m para detectar)`}`
+                      : 'Obteniendo ubicación...'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-text-muted uppercase">Radio</p>
+                <p className="text-xs font-black text-primary">{RADIO_DETECCION_METROS}m</p>
+              </div>
+            </div>
+            
+            {/* Logs de debug (desplegable) */}
+            {gpsDebugLogs.length > 0 && (
+              <details className="mt-3">
+                <summary className="text-[10px] text-text-muted cursor-pointer hover:text-white">
+                  Ver logs GPS ({gpsDebugLogs.length})
+                </summary>
+                <div className="mt-2 bg-black/30 rounded-lg p-2 text-[9px] font-mono text-text-muted max-h-32 overflow-y-auto">
+                  {gpsDebugLogs.map((log, i) => (
+                    <div key={i} className="py-0.5">{log}</div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Card de Proceso Actual */}
       {tramoEnProgreso ? (
