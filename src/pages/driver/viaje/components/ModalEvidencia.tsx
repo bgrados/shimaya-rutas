@@ -14,6 +14,93 @@ interface ModalEvidenciaProps {
 const TARGET_WIDTH = 1200;
 const LOGO_URL = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s';
 
+// Función para aplicar marca de agua a una URL de imagen
+const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+      img.src = imageUrl;
+    });
+    
+    const canvas = document.createElement('canvas');
+    const ratio = 1200 / img.width;
+    canvas.width = 1200;
+    canvas.height = img.height * ratio;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    
+    // Aplicar marca de agua
+    const logo = new Image();
+    logo.crossOrigin = 'anonymous';
+    
+    await new Promise<void>((resolve) => {
+      logo.onload = () => resolve();
+      logo.onerror = () => resolve();
+      logo.src = LOGO_URL;
+    });
+    
+    if (logo.complete) {
+      const logoSize = canvas.width * 0.08;
+      const padding = canvas.width * 0.012;
+      const x = canvas.width - logoSize - padding;
+      const y = canvas.height - logoSize - padding;
+      
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(x - 2, y - 2, logoSize + 4, logoSize + 4, 6);
+      ctx.fill();
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(logo, x, y, logoSize, logoSize);
+      ctx.restore();
+    }
+    
+    return new Promise<string>((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        } else {
+          resolve(null);
+        }
+      }, 'image/jpeg', 0.9);
+    });
+  } catch (e) {
+    return null;
+  }
+};
+
+// Reprocesar fotos existentes con marca de agua
+const reprocessExistingPhotos = async (fotos: { id_foto: string; foto_url: string }[], localId: string) => {
+  for (let i = 0; i < fotos.length; i++) {
+    const foto = fotos[i];
+    const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
+    
+    if (watermarkedBase64) {
+      const response = await fetch(watermarkedBase64);
+      const blob = await response.blob();
+      
+      const fileName = `evidencia/wm_${localId}_${Date.now()}_${i}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('visitas_fotos')
+        .upload(fileName, blob, { contentType: 'image/jpeg' });
+      
+      if (!uploadError) {
+        const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
+        await supabase.from('fotos_visita').update({ foto_url: data.publicUrl }).eq('id_foto', foto.id_foto);
+      }
+    }
+  }
+};
+
 const addWatermark = async (canvas: HTMLCanvasElement): Promise<void> => {
   return new Promise((resolve, reject) => {
     const ctx = canvas.getContext('2d');
@@ -56,9 +143,10 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
   const { showToast } = useToast();
   const [capturando, setCapturando] = useState(false);
   const [fotosCapturadas, setFotosCapturadas] = useState<{ preview: string; file: File }[]>([]);
-  const [fotosExistentes, setFotosExistentes] = useState<{ id_foto: string; foto_url: string }[]>([]);
+const [fotosExistentes, setFotosExistentes] = useState<{ id_foto: string; foto_url: string }[]>([]);
   const [loadingExistentes, setLoadingExistentes] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [reprocesando, setReprocesando] = useState(false);
+  const [reprocesCount, setReprocesCount] = useState(0);
 
   React.useEffect(() => {
     loadFotosExistentes();
@@ -72,7 +160,30 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
       .eq('id_local_ruta', local.id_local_ruta);
     
     if (!error && data) {
-      setFotosExistentes(data);
+      // Verificar si las fotos ya tienen marca de agua (contienen 'wm_')
+      const fotosSinWM = data.filter(f => !f.foto_url.includes('/wm_'));
+      
+      if (fotosSinWM.length > 0 && !reprocesando) {
+        console.log(`[Foto] ${fotosSinWM.length} fotos sin marca de agua, reprocesando...`);
+        setReprocesando(true);
+        setReprocesCount(fotosSinWM.length);
+        
+        try {
+          await reprocessExistingPhotos(fotosSinWM, local.id_local_ruta);
+          // Recargar fotos actualizadas
+          const { data: updatedData } = await supabase
+            .from('fotos_visita')
+            .select('id_foto, foto_url')
+            .eq('id_local_ruta', local.id_local_ruta);
+          if (updatedData) setFotosExistentes(updatedData);
+        } catch (e) {
+          console.error('[Foto] Error reprocesando:', e);
+        }
+        
+        setReprocesando(false);
+      } else {
+        setFotosExistentes(data);
+      }
     }
     setLoadingExistentes(false);
   };
@@ -176,7 +287,16 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
           </button>
         </div>
         
-        <div className="space-y-4">
+        {/* Indicador de reprocesamiento */}
+          {reprocesando && (
+            <div className="bg-orange-500/20 border border-orange-500/30 p-3 rounded-xl text-center">
+              <p className="text-orange-400 text-xs font-bold">
+                ⏳ Agregando marca de agua a {reprocesCount} foto(s)...
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
           <p className="text-sm text-text-muted">
             Sube hasta 5 fotos de respaldo para tu visita.
           </p>
