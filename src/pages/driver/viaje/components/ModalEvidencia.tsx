@@ -22,33 +22,32 @@ const addWatermark = async (canvas: HTMLCanvasElement): Promise<void> => {
     const logo = new Image();
     logo.crossOrigin = 'anonymous';
     logo.onload = () => {
-      // Tamaño del logo (15% del ancho de la imagen)
-      const logoSize = canvas.width * 0.15;
-      const padding = canvas.width * 0.03;
+      // Tamaño del logo (12% del ancho de la imagen)
+      const logoSize = canvas.width * 0.12;
+      const padding = canvas.width * 0.025;
       
       // Posición: esquina inferior derecha
       const x = canvas.width - logoSize - padding;
       const y = canvas.height - logoSize - padding;
       
-      // Guardar estado actual
+      // Dibujar logo con transparencia y fondo blanco interno
       ctx.save();
       
-      // Fondo blanco circular detrás del logo
+      // Fondo blanco pequeño solo detrás del logo
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(x + logoSize / 2, y + logoSize / 2, logoSize / 2 + padding * 0.5, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.roundRect(x - 5, y - 5, logoSize + 10, logoSize + 10, 8);
       ctx.fill();
       
-      // Dibujar logo con transparencia
-      ctx.globalAlpha = 0.5; // 50% transparencia
+      // Logo con transparencia
+      ctx.globalAlpha = 0.6;
       ctx.drawImage(logo, x, y, logoSize, logoSize);
       
-      // Restaurar
       ctx.restore();
       resolve();
     };
     logo.onerror = () => {
-      // Si falla el logo, continuar sin watermark
       console.warn('[Watermark] Logo no disponible, continuando sin marca de agua');
       resolve();
     };
