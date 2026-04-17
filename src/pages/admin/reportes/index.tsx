@@ -52,10 +52,13 @@ const reprocessAllPhotos = async () => {
   
   try {
     // Obtener todas las fotos que no tienen marca de agua
+    console.log('[Reprocess] Consultando fotos en Supabase...');
     const { data: allPhotos, error } = await supabase
       .from('fotos_visita')
       .select('id_foto, foto_url')
       .not('foto_url', 'like', '%/wm_%');
+    
+    console.log('[Reprocess] Resultado query:', { allPhotos, error });
     
     if (error) {
       console.error('[Reprocess] Error:', error);
@@ -65,7 +68,8 @@ const reprocessAllPhotos = async () => {
     }
     
     if (!allPhotos || allPhotos.length === 0) {
-      alert('No hay fotos sin marca de agua para procesar');
+      console.log('[Reprocess] No hay fotos sin marca de agua (o todas ya tienen wm_)');
+      alert('No hay fotos sin marca de agua para procesar.\n\nLas fotos ya fueron procesadas o no existen.');
       setReprocessingPhotos(false);
       return;
     }
@@ -78,33 +82,42 @@ const reprocessAllPhotos = async () => {
     
     for (let i = 0; i < allPhotos.length; i++) {
       const foto = allPhotos[i];
-      console.log(`[Reprocess] ${i + 1}/${allPhotos.length}: ${foto.id_foto}`);
+      console.log(`[Reprocess] ${i + 1}/${allPhotos.length}:`, foto.foto_url);
       
       try {
+        console.log(`[Reprocess] Aplicando marca de agua a foto ${i + 1}...`);
         const watermarkedBase64 = await applyWatermarkToUrl(foto.foto_url);
         
-        if (watermarkedBase64) {
-          const response = await fetch(watermarkedBase64);
-          const blob = await response.blob();
-          
-          const fileName = `evidencia/wm_${foto.id_foto}_${Date.now()}.jpg`;
-          const { error: uploadError } = await supabase.storage
-            .from('visitas_fotos')
-            .upload(fileName, blob, { contentType: 'image/jpeg' });
-          
-          if (!uploadError) {
-            const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
-            await supabase.from('fotos_visita').update({ foto_url: data.publicUrl }).eq('id_foto', foto.id_foto);
-            procesadas++;
-            console.log(`[Reprocess] ✅ Foto ${i + 1} actualizada`);
-          } else {
-            errores++;
-            console.log(`[Reprocess] ❌ Error upload: ${uploadError.message}`);
-          }
-        } else {
+        if (!watermarkedBase64) {
           errores++;
-          console.log(`[Reprocess] ❌ Foto ${i + 1}: sin resultado`);
+          console.log(`[Reprocess] ❌ Foto ${i + 1}: applyWatermarkToUrl devolvió null`);
+          continue;
         }
+        
+        console.log(`[Reprocess] Subiendo foto ${i + 1}...`);
+        const response = await fetch(watermarkedBase64);
+        const blob = await response.blob();
+        console.log(`[Reprocess] Blob creado, tamaño: ${blob.size} bytes`);
+        
+        const fileName = `evidencia/wm_${foto.id_foto}_${Date.now()}.jpg`;
+        console.log(`[Reprocess] Subiendo a storage: ${fileName}`);
+        
+        const { error: uploadError } = await supabase.storage
+          .from('visitas_fotos')
+          .upload(fileName, blob, { contentType: 'image/jpeg' });
+        
+        if (uploadError) {
+          errores++;
+          console.log(`[Reprocess] ❌ Error upload:`, uploadError);
+          continue;
+        }
+        
+        console.log(`[Reprocess] Actualizando base de datos...`);
+        const { data: urlData } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
+        await supabase.from('fotos_visita').update({ foto_url: urlData.publicUrl }).eq('id_foto', foto.id_foto);
+        
+        procesadas++;
+        console.log(`[Reprocess] ✅ Foto ${i + 1} actualizada: ${urlData.publicUrl}`);
       } catch (e) {
         errores++;
         console.log(`[Reprocess] ❌ Error en foto ${i + 1}:`, e);
@@ -113,7 +126,7 @@ const reprocessAllPhotos = async () => {
     
     console.log(`[Reprocess] Completado. Procesadas: ${procesadas}, Errores: ${errores}`);
     alert(`Proceso completado.\n\n✅ Fotos procesadas: ${procesadas}\n❌ Errores: ${errores}`);
-    window.location.reload(); // Recargar página
+    window.location.reload();
   } catch (err) {
     console.error('[Reprocess] Error general:', err);
     alert('Error durante el procesamiento: ' + (err as Error).message);
@@ -123,17 +136,18 @@ const reprocessAllPhotos = async () => {
 };
 
 const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
+  console.log('[Watermark] Cargando imagen:', imageUrl);
   try {
     const img = new Image();
     
     // Timeout para cargar imagen
     const timeoutPromise = new Promise<void>((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout')), 10000)
+      setTimeout(() => reject(new Error('Timeout')), 15000)
     );
     
     const loadPromise = new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+      img.onload = () => { console.log('[Watermark] Imagen cargada OK'); resolve(); };
+      img.onerror = () => reject(new Error('Error cargando imagen'));
       img.crossOrigin = 'anonymous';
       img.src = imageUrl;
     });
@@ -146,21 +160,22 @@ const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => 
     canvas.height = img.height * ratio;
     
     const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
+    if (!ctx) { console.log('[Watermark] No hay contexto 2D'); return null; }
     
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    console.log('[Watermark] Imagen dibujada en canvas');
     
     const LOGO_URL = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s';
     const logo = new Image();
     logo.crossOrigin = 'anonymous';
     
     await new Promise<void>((resolve) => {
-      logo.onload = () => resolve();
-      logo.onerror = () => resolve();
+      logo.onload = () => { console.log('[Watermark] Logo cargado OK'); resolve(); };
+      logo.onerror = () => { console.log('[Watermark] Logo no cargado, continuando'); resolve(); };
       logo.src = LOGO_URL;
     });
     
-    if (logo.complete) {
+    if (logo.complete && logo.naturalWidth > 0) {
       const logoSize = canvas.width * 0.08;
       const padding = canvas.width * 0.012;
       const x = canvas.width - logoSize - padding;
@@ -174,20 +189,34 @@ const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => 
       ctx.globalAlpha = 0.6;
       ctx.drawImage(logo, x, y, logoSize, logoSize);
       ctx.restore();
+      console.log('[Watermark] Logo aplicado');
+    } else {
+      console.log('[Watermark] Logo no disponible, se omite');
     }
     
+    // Convertir a blob
     return new Promise<string>((resolve) => {
       canvas.toBlob((blob) => {
         if (blob) {
+          console.log('[Watermark] Blob creado, tamaño:', blob.size);
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
+          reader.onloadend = () => {
+            console.log('[Watermark] Base64 generado');
+            resolve(reader.result as string);
+          };
+          reader.onerror = () => {
+            console.log('[Watermark] Error en FileReader');
+            resolve(null);
+          };
           reader.readAsDataURL(blob);
         } else {
+          console.log('[Watermark] toBlob devolvió null');
           resolve(null);
         }
       }, 'image/jpeg', 0.9);
     });
   } catch (e) {
+    console.log('[Watermark] Error:', e);
     return null;
   }
 };
