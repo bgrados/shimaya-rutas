@@ -57,11 +57,14 @@ export const AdminLayout: React.FC = () => {
         <button onClick={() => setIsSidebarOpen(true)} className="text-white">
           <Menu size={24} />
         </button>
-        <img 
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s" 
-          alt="Shimaya" 
-          className="h-8 w-auto" 
-        />
+        {/* Logo circular móvil */}
+        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
+          <img 
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s" 
+            alt="Shimaya" 
+            className="w-7 h-auto object-contain" 
+          />
+        </div>
         <button onClick={() => signOut()} className="text-red-400 font-bold">
           SALIR
         </button>
@@ -69,13 +72,19 @@ export const AdminLayout: React.FC = () => {
 
       {/* Sidebar - fixed on desktop, slides on mobile */}
       <div className={`fixed inset-y-0 left-0 w-64 bg-surface border-r border-surface-light z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        <div className="p-4 flex justify-between items-center border-b border-surface-light">
-          <img 
-            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s" 
-            alt="Shimaya Rutas" 
-            className="h-10 w-auto" 
-          />
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-text-muted hover:text-white">
+        <div className="p-4 flex flex-col items-center justify-center border-b border-surface-light py-6">
+          {/* Logo circular con fondo blanco */}
+          <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-lg mb-3">
+            <img 
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s" 
+              alt="Shimaya" 
+              className="w-16 h-auto object-contain" 
+            />
+          </div>
+          {/* Texto en japonés */}
+          <p className="text-white font-bold text-lg tracking-wider text-center">島屋物流</p>
+          <p className="text-text-muted text-xs">Shimaya Rutas</p>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden absolute top-4 right-4 text-text-muted hover:text-white">
             <X size={24} />
           </button>
         </div>
