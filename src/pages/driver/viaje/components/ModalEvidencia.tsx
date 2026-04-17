@@ -143,16 +143,34 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
             accept="image/*"
             multiple
             className="hidden"
-            capture="environment"
           />
 
-          <div className="flex gap-3">
+          <div className="grid grid-cols-2 gap-3">
              <Button 
-               onClick={() => fileInputRef.current?.click()}
-               className="flex-1 bg-surface-light hover:bg-white/10 text-white font-bold h-14"
+               onClick={() => {
+                 if (fileInputRef.current) {
+                   fileInputRef.current.setAttribute('capture', 'environment');
+                   fileInputRef.current.click();
+                 }
+               }}
+               className="bg-surface-light hover:bg-white/10 text-white font-bold h-14 flex-col py-2"
                disabled={fotosCapturadas.length + fotosExistentes.length >= 5}
              >
-               <Camera size={20} className="mr-2" /> CÁMARA
+               <Camera size={24} className="mb-1" />
+               <span className="text-xs font-black">CÁMARA</span>
+             </Button>
+             <Button 
+               onClick={() => {
+                 if (fileInputRef.current) {
+                   fileInputRef.current.removeAttribute('capture');
+                   fileInputRef.current.click();
+                 }
+               }}
+               className="bg-surface-light hover:bg-white/10 text-white font-bold h-14 flex-col py-2"
+               disabled={fotosCapturadas.length + fotosExistentes.length >= 5}
+             >
+               <ImageIcon size={24} className="mb-1" />
+               <span className="text-xs font-black">GALERÍA</span>
              </Button>
           </div>
 
