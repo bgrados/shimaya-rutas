@@ -43,6 +43,11 @@ interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCom
 
 const reprocessAllPhotos = async () => {
   console.log('[Reprocess] Iniciando reprocesamiento de todas las fotos...');
+  
+  if (!confirm('¿Procesar todas las fotos sin marca de agua? Esto puede tomar varios minutos.')) {
+    return;
+  }
+  
   setReprocessingPhotos(true);
   
   try {
@@ -55,16 +60,20 @@ const reprocessAllPhotos = async () => {
     if (error) {
       console.error('[Reprocess] Error:', error);
       alert('Error al buscar fotos: ' + error.message);
+      setReprocessingPhotos(false);
       return;
     }
     
     if (!allPhotos || allPhotos.length === 0) {
       alert('No hay fotos sin marca de agua para procesar');
+      setReprocessingPhotos(false);
       return;
     }
     
     console.log(`[Reprocess] ${allPhotos.length} fotos sin marca de agua`);
+    alert(`Se procesarán ${allPhotos.length} fotos. Esto puede tomar varios minutos...`);
     
+    let procesadas = 0;
     for (let i = 0; i < allPhotos.length; i++) {
       const foto = allPhotos[i];
       console.log(`[Reprocess] Procesando ${i + 1}/${allPhotos.length}: ${foto.id_foto}`);
@@ -84,6 +93,7 @@ const reprocessAllPhotos = async () => {
           if (!uploadError) {
             const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(fileName);
             await supabase.from('fotos_visita').update({ foto_url: data.publicUrl }).eq('id_foto', foto.id_foto);
+            procesadas++;
             console.log(`[Reprocess] Foto ${i + 1} actualizada`);
           }
         } catch (e) {
@@ -93,8 +103,11 @@ const reprocessAllPhotos = async () => {
     }
     
     console.log('[Reprocess] Completado');
-    alert(`Procesadas ${allPhotos.length} fotos con marca de agua`);
-    load(); // Recargar datos
+    alert(`Proceso completado. ${procesadas} fotos actualizadas con marca de agua.`);
+    window.location.reload(); // Recargar página
+  } catch (err) {
+    console.error('[Reprocess] Error general:', err);
+    alert('Error durante el procesamiento: ' + (err as Error).message);
   } finally {
     setReprocessingPhotos(false);
   }
