@@ -17,12 +17,19 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isMagnifierActive, setIsMagnifierActive] = useState(false);
   const [magnifierPos, setMagnifierPos] = useState({ x: 0, y: 0, show: false });
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastTouchDist, setLastTouchDist] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     if (isOpen) {
       setCurrentIndex(initialIndex);
       setIsMagnifierActive(false);
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -47,12 +54,16 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
   const handleNext = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setIsMagnifierActive(false);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
     setCurrentIndex((prev) => (prev + 1) % images.length);
   };
 
   const handlePrev = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setIsMagnifierActive(false);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
@@ -66,14 +77,56 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
     document.body.removeChild(link);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isMagnifierActive || !containerRef.current) return;
+  // Touch handlers para pinch-to-zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setLastTouchDist(dist);
+    } else if (e.touches.length === 1) {
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
 
-    const { left, top, width, height } = containerRef.current.getBoundingClientRect();
-    const x = ((e.pageX - left - window.scrollX) / width) * 100;
-    const y = ((e.pageY - top - window.scrollY) / height) * 100;
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && lastTouchDist !== null) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const scaleChange = dist / lastTouchDist;
+      const newScale = Math.min(Math.max(scale * scaleChange, 1), 4);
+      setScale(newScale);
+      setLastTouchDist(dist);
+    } else if (e.touches.length === 1 && scale > 1) {
+      const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+      const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+      setPosition(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
 
-    setMagnifierPos({ x, y, show: true });
+  const handleTouchEnd = () => {
+    setLastTouchDist(null);
+    if (scale < 1.1) {
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.2 : 0.2;
+    const newScale = Math.min(Math.max(scale + delta, 1), 4);
+    setScale(newScale);
+  };
+
+  const resetZoom = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
   };
 
   return (
@@ -120,8 +173,13 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
       </div>
 
       {/* Main Gallery Area */}
-      <div className="relative w-full h-full flex items-center justify-center p-4 md:p-12 overflow-hidden">
-        {/* Navigation Arrows - High z-index and high visibility */}
+      <div 
+        className="relative w-full h-full flex items-center justify-center p-4 md:p-12 overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Navigation Arrows - Siempre visibles si hay más de 1 foto */}
         {images.length > 1 && (
           <>
             <button 
@@ -141,52 +199,67 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
           </>
         )}
 
-        {/* Unified Image Container */}
+        {/* Imagen con zoom táctil */}
         <div 
           ref={containerRef}
           className="relative w-full max-w-5xl h-[70vh] flex items-center justify-center animate-in zoom-in-95 duration-300 pointer-events-auto"
-          onMouseMove={(e) => {
-            if (!isMagnifierActive || !containerRef.current) return;
-            const { left, top, width, height } = containerRef.current.getBoundingClientRect();
-            const x = ((e.clientX - left) / width) * 100;
-            const y = ((e.clientY - top) / height) * 100;
-            setMagnifierPos({ x, y, show: true });
+          onWheel={handleWheel}
+          onClick={(e) => {
+            if (scale > 1) {
+              e.stopPropagation();
+            }
           }}
-          onMouseLeave={() => setMagnifierPos(prev => ({ ...prev, show: false }))}
-          onClick={(e) => e.stopPropagation()}
         >
-          <img 
-            src={currentImage.url} 
-            alt={currentImage.title} 
-            className={`max-w-full max-h-full object-contain rounded-xl shadow-[0_0_60px_rgba(0,0,0,0.6)] border border-white/10 transition-all duration-300 ${isMagnifierActive ? 'cursor-none opacity-90 scale-[1.01]' : 'cursor-default'}`}
-            draggable={false}
-          />
+          <div 
+            className="relative w-full h-full flex items-center justify-center"
+            style={{
+              transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+              transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+            }}
+            onMouseDown={(e) => {
+              if (scale > 1) {
+                setIsDragging(true);
+                touchStartRef.current = { x: e.clientX, y: e.clientY };
+              }
+            }}
+            onMouseMove={(e) => {
+              if (isDragging && scale > 1) {
+                const deltaX = e.clientX - touchStartRef.current.x;
+                const deltaY = e.clientY - touchStartRef.current.y;
+                setPosition(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+                touchStartRef.current = { x: e.clientX, y: e.clientY };
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+          >
+            <img 
+              src={currentImage.url} 
+              alt={currentImage.title} 
+              className={`max-w-full max-h-full object-contain rounded-xl shadow-[0_0_60px_rgba(0,0,0,0.6)] border border-white/10 ${scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+              draggable={false}
+            />
+          </div>
 
-          {/* Lupa (Magnifier) Overlay - Advanced Optics */}
+          {/* Lupa (Magnifier) */}
           {isMagnifierActive && magnifierPos.show && (
             <div 
-              className="absolute pointer-events-none border-4 border-primary rounded-full shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden z-[2000] w-72 h-72 md:w-96 md:h-96 animate-in fade-in zoom-in-50 duration-200"
+              className="absolute pointer-events-none border-4 border-primary rounded-full shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden z-[2000] w-72 h-72 md:w-96 md:h-96"
               style={{
                 left: `${magnifierPos.x}%`,
                 top: `${magnifierPos.y}%`,
                 transform: 'translate(-50%, -50%)',
                 backgroundImage: `url(${currentImage.url})`,
                 backgroundRepeat: 'no-repeat',
-                backgroundSize: '800%', // High definition zoom
+                backgroundSize: '800%',
                 backgroundPosition: `${magnifierPos.x}% ${magnifierPos.y}%`,
               }}
-            >
-              {/* Target Hairline */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-6 h-0.5 bg-primary/40 rounded-full" />
-                <div className="h-6 w-0.5 bg-primary/40 absolute rounded-full" />
-              </div>
-            </div>
+            />
           )}
         </div>
       </div>
 
-      {/* Footer / Thumbnail Previews (Optional placeholder for future) */}
+      {/* Footer / Indicadores */}
       <div className="absolute bottom-8 flex gap-2">
         {images.map((_, idx) => (
           <div 
@@ -195,6 +268,16 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
           />
         ))}
       </div>
+
+      {/* Indicador de zoom para móvil */}
+      {scale > 1 && (
+        <div className="absolute bottom-20 bg-black/60 px-4 py-2 rounded-full flex items-center gap-2">
+          <span className="text-white text-sm font-bold">{Math.round(scale * 100)}%</span>
+          <button onClick={resetZoom} className="text-primary text-xs font-bold">
+            Reset
+          </button>
+        </div>
+      )}
     </div>
   );
 }
