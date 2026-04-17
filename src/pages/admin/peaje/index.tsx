@@ -70,11 +70,11 @@ export default function GastosPeaje() {
         setPeajesCalculados(enrichedRutas);
       }
 
-      // Cargar registros manuales legacy
+      // Cargar registros manuales legacy (soporta ambos formatos: 'manual' y 'MANUAL')
       const { data: manualesData } = await supabase
         .from('gastos_peaje')
         .select('*')
-        .eq('tipo_registro', 'manual')
+        .or(`tipo_registro.eq.manual,tipo_registro.eq.MANUAL`)
         .order('created_at', { ascending: false });
       if (manualesData) setPeajesManuales(manualesData);
     } catch (err) {
