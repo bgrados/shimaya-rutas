@@ -22,18 +22,26 @@ const addWatermark = async (canvas: HTMLCanvasElement): Promise<void> => {
     const logo = new Image();
     logo.crossOrigin = 'anonymous';
     logo.onload = () => {
-      // Logo pequeño (6% del ancho)
-      const logoSize = canvas.width * 0.06;
-      const padding = canvas.width * 0.01;
+      // Logo tamaño medio (8% del ancho)
+      const logoSize = canvas.width * 0.08;
+      const padding = canvas.width * 0.012;
       
       // Posición: esquina inferior derecha
       const x = canvas.width - logoSize - padding;
       const y = canvas.height - logoSize - padding;
       
       ctx.save();
-      // Solo el logo con transparencia, SIN fondo blanco
-      ctx.globalAlpha = 0.4;
+      
+      // Fondo blanco INTERIOR pequeño (solo para que contraste el logo)
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(x - 2, y - 2, logoSize + 4, logoSize + 4, 6);
+      ctx.fill();
+      
+      // Logo con mejor visibilidad (60% transparencia)
+      ctx.globalAlpha = 0.6;
       ctx.drawImage(logo, x, y, logoSize, logoSize);
+      
       ctx.restore();
       resolve();
     };
