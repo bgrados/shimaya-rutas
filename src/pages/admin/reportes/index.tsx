@@ -1342,18 +1342,31 @@ const win = window.open('', '_blank');
                                             });
                                           });
                                           
-                                          // Encontrar el índice de la foto clickeada en el array de la ruta
+                                          if (allRouteFotos.length === 0) {
+                                            alert('No hay fotos disponibles');
+                                            return;
+                                          }
+                                          
                                           const clickedIndex = allRouteFotos.findIndex(f => f.url === foto.foto_url);
+                                          const finalIndex = clickedIndex >= 0 ? clickedIndex : 0;
+                                          
+                                          console.log('[Gallery] Abriendo:', { total: allRouteFotos.length, index: finalIndex });
                                           
                                           setActivePhoto({ 
                                             images: allRouteFotos, 
-                                            index: clickedIndex >= 0 ? clickedIndex : 0 
+                                            index: finalIndex 
                                           });
-                                          console.log('[Gallery] Photos loaded:', allRouteFotos.length);
                                         }}
-                                        className="w-full"
+                                        className="w-full block"
                                       >
-                                        <img src={foto.foto_url} alt={`Foto ${idx + 1}`} className="w-full aspect-square object-cover rounded cursor-zoom-in hover:brightness-110 transition-all" />
+                                        <img 
+                                          src={foto.foto_url} 
+                                          alt={`Evidencia ${idx + 1}`} 
+                                          className="w-full aspect-square object-cover rounded cursor-zoom-in hover:brightness-110 transition-all"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EImagen no disponible%3C/text%3E%3C/svg%3E';
+                                          }}
+                                        />
                                       </button>
                                       <button
                                         onClick={(e) => {
