@@ -11,10 +11,134 @@ interface ModalEvidenciaProps {
   onSuccess: () => void;
 }
 
-const TARGET_WIDTH = 1200;
+const TARGET_WIDTH = 1280;
 const LOGO_URL = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s';
+const MAX_SIZE_KB = 300;
+const TARGET_QUALITY = 0.7;
 
-// Función para aplicar marca de agua a una URL de imagen
+interface OptimizedImage {
+  blob: Blob;
+  originalSize: number;
+  finalSize: number;
+  width: number;
+  height: number;
+}
+
+const optimizeImage = (file: File): Promise<OptimizedImage> => {
+  return new Promise((resolve, reject) => {
+    const originalSize = file.size;
+    console.log(`[Optimize] 📷 Archivo original: ${(originalSize / 1024).toFixed(1)}KB - ${file.name}`);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          // Calcular nuevas dimensiones (max 1280px)
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > TARGET_WIDTH) {
+            const ratio = TARGET_WIDTH / width;
+            width = TARGET_WIDTH;
+            height = Math.round(height * ratio);
+          }
+          
+          console.log(`[Optimize] 📐 Dimensiones: ${img.width}x${img.height} → ${width}x${height}`);
+          
+          // Crear canvas con las dimensiones calculadas
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('No se pudo crear el contexto')); return; }
+          
+          // Dibujar imagen redimensionada
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Agregar marca de agua
+          await addWatermark(canvas);
+          
+          // Compresión iterativa para alcanzar <300KB
+          let quality = TARGET_QUALITY;
+          let blob: Blob | null = null;
+          let attempts = 0;
+          const maxAttempts = 5;
+          
+          do {
+            blob = await new Promise<Blob | null>((res) => {
+              canvas.toBlob((b) => res(b), 'image/jpeg', quality);
+            });
+            
+            if (blob) {
+              const sizeKB = blob.size / 1024;
+              console.log(`[Optimize] 🔄 Intento ${attempts + 1}: calidad=${Math.round(quality*100)}%, tamaño=${sizeKB.toFixed(1)}KB`);
+              
+              if (sizeKB <= MAX_SIZE_KB || quality <= 0.3) {
+                resolve({
+                  blob,
+                  originalSize: originalSize,
+                  finalSize: blob.size,
+                  width,
+                  height
+                });
+                return;
+              }
+            }
+            
+            quality -= 0.1;
+            attempts++;
+          } while (attempts < maxAttempts && blob && blob.size > MAX_SIZE_KB * 1024);
+          
+          // Si aún supera el límite, intentar redimensionar más
+          if (blob && blob.size > MAX_SIZE_KB * 1024) {
+            console.log(`[Optimize] ⚠️ Intentando reducción adicional...`);
+            
+            const reducedWidth = Math.round(width * 0.7);
+            const reducedHeight = Math.round(height * 0.7);
+            
+            const smallCanvas = document.createElement('canvas');
+            smallCanvas.width = reducedWidth;
+            smallCanvas.height = reducedHeight;
+            
+            const smallCtx = smallCanvas.getContext('2d');
+            if (smallCtx) {
+              smallCtx.drawImage(canvas, 0, 0, reducedWidth, reducedHeight);
+              
+              blob = await new Promise<Blob | null>((res) => {
+                smallCanvas.toBlob((b) => res(b), 'image/jpeg', 0.5);
+              });
+            }
+          }
+          
+          if (blob) {
+            const finalSizeKB = blob.size / 1024;
+            console.log(`[Optimize] ✅ Optimización completa: ${(originalSize/1024).toFixed(1)}KB → ${finalSizeKB.toFixed(1)}KB (reducción: ${Math.round((1 - finalSizeKB/(originalSize/1024))*100)}%)`);
+            
+            resolve({
+              blob,
+              originalSize: originalSize,
+              finalSize: blob.size,
+              width,
+              height
+            });
+          } else {
+            reject(new Error('Error al comprimir imagen'));
+          }
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = () => reject(new Error('Error al cargar imagen'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Error al leer archivo'));
+    reader.readAsDataURL(file);
+  });
+};
+
+// Aplicar marca de agua a una URL de imagen existente (para reprocesar fotos antiguas)
 const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
   try {
     const img = new Image();
@@ -27,40 +151,15 @@ const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => 
     });
     
     const canvas = document.createElement('canvas');
-    const ratio = 1200 / img.width;
-    canvas.width = 1200;
+    const ratio = TARGET_WIDTH / img.width;
+    canvas.width = TARGET_WIDTH;
     canvas.height = img.height * ratio;
     
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    
-    // Aplicar marca de agua
-    const logo = new Image();
-    logo.crossOrigin = 'anonymous';
-    
-    await new Promise<void>((resolve) => {
-      logo.onload = () => resolve();
-      logo.onerror = () => resolve();
-      logo.src = LOGO_URL;
-    });
-    
-    if (logo.complete) {
-      const logoSize = canvas.width * 0.08;
-      const padding = canvas.width * 0.012;
-      const x = canvas.width - logoSize - padding;
-      const y = canvas.height - logoSize - padding;
-      
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.roundRect(x - 2, y - 2, logoSize + 4, logoSize + 4, 6);
-      ctx.fill();
-      ctx.globalAlpha = 0.6;
-      ctx.drawImage(logo, x, y, logoSize, logoSize);
-      ctx.restore();
-    }
+    await addWatermark(canvas);
     
     return new Promise<string>((resolve) => {
       canvas.toBlob((blob) => {
@@ -71,7 +170,7 @@ const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => 
         } else {
           resolve(null);
         }
-      }, 'image/jpeg', 0.9);
+      }, 'image/jpeg', 0.7);
     });
   } catch (e) {
     return null;
@@ -142,7 +241,8 @@ const addWatermark = async (canvas: HTMLCanvasElement): Promise<void> => {
 export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, onSuccess }) => {
   const { showToast } = useToast();
   const [capturando, setCapturando] = useState(false);
-  const [fotosCapturadas, setFotosCapturadas] = useState<{ preview: string; file: File }[]>([]);
+  const [fotosCapturadas, setFotosCapturadas] = useState<{ preview: string; file: File; optimized?: OptimizedImage }[]>([]);
+  const [optimizing, setOptimizing] = useState(false);
   const [fotosExistentes, setFotosExistentes] = useState<{ id_foto: string; foto_url: string }[]>([]);
   const [loadingExistentes, setLoadingExistentes] = useState(true);
   const [reprocesando, setReprocesando] = useState(false);
@@ -189,49 +289,44 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
     setLoadingExistentes(false);
   };
 
-  const compressToWebP = (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = async () => {
-          const canvas = document.createElement('canvas');
-          const ratio = TARGET_WIDTH / img.width;
-          canvas.width = TARGET_WIDTH;
-          canvas.height = img.height * ratio;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { reject(new Error('No se pudo crear el contexto')); return; }
-          
-          // Dibujar imagen original
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          // Agregar marca de agua
-          await addWatermark(canvas);
-          
-          canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error('Error al comprimir'));
-          }, 'image/webp', 0.8);
-        };
-        img.onerror = () => reject(new Error('Error al cargar imagen'));
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => reject(new Error('Error al leer archivo'));
-      reader.readAsDataURL(file);
-    });
-  };
+  // Eliminada función compressToWebP - ahora usa optimizeImage
 
-  const handleAgregarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAgregarFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const disponibles = 5 - (fotosCapturadas.length + fotosExistentes.length);
+      const nuevosArchivos = Array.from(e.target.files).slice(0, disponibles);
       
-      Array.from(e.target.files).slice(0, disponibles).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setFotosCapturadas(prev => [...prev, { preview: ev.target?.result as string, file }]);
-        };
-        reader.readAsDataURL(file);
-      });
+      setOptimizing(true);
+      
+      for (const file of nuevosArchivos) {
+        try {
+          const optimized = await optimizeImage(file);
+          
+          // Convertir blob a preview URL
+          const previewUrl = URL.createObjectURL(optimized.blob);
+          
+          setFotosCapturadas(prev => [...prev, { 
+            preview: previewUrl, 
+            file, 
+            optimized 
+          }]);
+          
+          console.log(`[Foto] ✅ Optimizada: ${(optimized.originalSize/1024).toFixed(1)}KB → ${(optimized.finalSize/1024).toFixed(1)}KB`);
+        } catch (err) {
+          console.error('[Foto] Error optimizando:', err);
+          // Usar imagen original si falla la optimización
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setFotosCapturadas(prev => [...prev, { 
+              preview: ev.target?.result as string, 
+              file 
+            }]);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+      
+      setOptimizing(false);
     }
     e.target.value = '';
   };
@@ -244,15 +339,17 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
       const ordenBase = fotosExistentes.length + 1;
       
       for (let i = 0; i < fotosCapturadas.length; i++) {
-        const { file } = fotosCapturadas[i];
-        const compressedBlob = await compressToWebP(file);
+        const { file, optimized } = fotosCapturadas[i];
         
-        const fileName = `${local.id_local_ruta}_${Date.now()}_${i}.webp`;
+        // Usar blob optimizado o convertir original a JPEG si no hay optimización
+        const blobToUpload = optimized?.blob || await optimizeImage(file).then(o => o.blob);
+        
+        const fileName = `${local.id_local_ruta}_${Date.now()}_${i}.jpg`;
         const filePath = `evidencia/${fileName}`;
         
         const { error: uploadError } = await supabase.storage
           .from('visitas_fotos')
-          .upload(filePath, compressedBlob, { contentType: 'image/webp' });
+          .upload(filePath, blobToUpload, { contentType: 'image/jpeg' });
         
         if (uploadError) throw uploadError;
         
@@ -263,6 +360,10 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
           foto_url: data.publicUrl,
           orden: ordenBase + i,
         });
+        
+        if (optimized) {
+          console.log(`[Upload] ✅ Subida: ${local.nombre} - ${(optimized.finalSize/1024).toFixed(1)}KB`);
+        }
       }
       
       showToast('success', 'Evidencia guardada correctamente');
@@ -293,6 +394,15 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
             <div className="bg-orange-500/20 border border-orange-500/30 p-3 rounded-xl text-center">
               <p className="text-orange-400 text-xs font-bold">
                 ⏳ Agregando marca de agua a {reprocesCount} foto(s)...
+              </p>
+            </div>
+          )}
+          
+          {/* Indicador de optimización */}
+          {optimizing && (
+            <div className="bg-blue-500/20 border border-blue-500/30 p-3 rounded-xl text-center">
+              <p className="text-blue-400 text-xs font-bold">
+                🔄 Optimizando imagenes...
               </p>
             </div>
           )}
@@ -343,17 +453,30 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
           {/* Fotos por subir */}
           {fotosCapturadas.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs text-primary font-black uppercase italic">Nuevas fotos:</p>
+              <p className="text-xs text-primary font-black uppercase italic">Nuevas fotos ({fotosCapturadas.length}):</p>
               <div className="grid grid-cols-3 gap-2">
                 {fotosCapturadas.map((foto, idx) => (
                   <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border-2 border-primary/50">
                     <img src={foto.preview} alt="Vista previa" className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => setFotosCapturadas(prev => prev.filter((_, i) => i !== idx))}
-                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1"
-                    >
-                      <X size={12} />
-                    </button>
+                    <div className="absolute bottom-1 left-1 right-1 flex justify-between items-center">
+                      {foto.optimized && (
+                        <span className="bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
+                          {Math.round(foto.optimized.finalSize / 1024)}KB
+                        </span>
+                      )}
+                      <button
+                        onClick={() => {
+                          // Liberar URL del blob optimizado
+                          if (foto.optimized) {
+                            URL.revokeObjectURL(foto.preview);
+                          }
+                          setFotosCapturadas(prev => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="bg-red-600 text-white rounded-full p-1 ml-auto"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -366,7 +489,7 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
               <p className="text-xs text-text-muted font-black uppercase italic">Fotos guardadas:</p>
               <div className="grid grid-cols-3 gap-2">
                 {fotosExistentes.map((foto) => (
-                  <div key={foto.id_foto} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                  <div key={foto.id_foto} className="relative aspect-square rounded-xl overflow-hidden border border-white/10">
                     <img src={foto.foto_url} alt="Evidencia" className="w-full h-full object-cover" />
                     <button
                       onClick={async () => {
@@ -375,9 +498,10 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
                           setFotosExistentes(prev => prev.filter(f => f.id_foto !== foto.id_foto));
                         }
                       }}
-                      className="absolute top-1 right-1 bg-red-600/80 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors"
+                      title="Eliminar foto"
                     >
-                      <X size={12} />
+                      <X size={14} />
                     </button>
                   </div>
                 ))}

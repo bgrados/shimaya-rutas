@@ -7,6 +7,71 @@ import { Camera, Fuel, Loader2, X, Check, AlertTriangle, Image } from 'lucide-re
 import Tesseract from 'tesseract.js';
 import { nowPeru } from '../../../lib/timezone';
 
+const TARGET_WIDTH = 1280;
+const MAX_SIZE_KB = 300;
+const TARGET_QUALITY = 0.7;
+
+const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; finalSize: number }> => {
+  return new Promise((resolve, reject) => {
+    const originalSize = file.size;
+    console.log(`[Optimize] 📷 Original: ${(originalSize / 1024).toFixed(1)}KB`);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > TARGET_WIDTH) {
+            const ratio = TARGET_WIDTH / width;
+            width = TARGET_WIDTH;
+            height = Math.round(height * ratio);
+          }
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('No context')); return; }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          let quality = TARGET_QUALITY;
+          let blob: Blob | null = null;
+          let attempts = 0;
+          
+          do {
+            blob = await new Promise<Blob | null>((res) => {
+              canvas.toBlob((b) => res(b), 'image/jpeg', quality);
+            });
+            
+            if (blob) {
+              const sizeKB = blob.size / 1024;
+              if (sizeKB <= MAX_SIZE_KB || quality <= 0.3) {
+                console.log(`[Optimize] ✅ ${(originalSize/1024).toFixed(1)}KB → ${(blob.size/1024).toFixed(1)}KB`);
+                resolve({ blob, originalSize, finalSize: blob.size });
+                return;
+              }
+            }
+            quality -= 0.1;
+            attempts++;
+          } while (attempts < 5 && blob && blob.size > MAX_SIZE_KB * 1024);
+          
+          if (blob) resolve({ blob, originalSize, finalSize: blob.size });
+          else reject(new Error('Error compress'));
+        } catch (err) { reject(err); }
+      };
+      img.onerror = () => reject(new Error('Load error'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Read error'));
+    reader.readAsDataURL(file);
+  });
+};
+
 interface RegistrarCombustibleProps {
   idRuta: string;
   idChofer: string;
@@ -16,6 +81,7 @@ interface RegistrarCombustibleProps {
 export default function RegistrarCombustible({ idRuta, idChofer, onClose }: RegistrarCombustibleProps) {
   const navigate = useNavigate();
   const [foto, setFoto] = useState<string | null>(null);
+  const [optimizedFoto, setOptimizedFoto] = useState<{ blob: Blob; originalSize: number; finalSize: number } | null>(null);
   const [procesando, setProcesando] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [montoDetectado, setMontoDetectado] = useState<number | null>(null);
@@ -90,13 +156,23 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setFoto(dataUrl);
-      await processOCR(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const optimized = await optimizeImage(file);
+      const previewUrl = URL.createObjectURL(optimized.blob);
+      
+      setOptimizedFoto(optimized);
+      setFoto(previewUrl);
+      await processOCR(previewUrl);
+    } catch (err) {
+      console.error('[Optimize] Error:', err);
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const dataUrl = ev.target?.result as string;
+        setFoto(dataUrl);
+        await processOCR(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleGuardar = async () => {
@@ -118,16 +194,16 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       if (foto) {
         console.log('[Combustible] Intentando subir foto...');
         try {
-          const fileExt = 'jpg';
-          const fileName = `combustible_${idRuta}_${Date.now()}.${fileExt}`;
+          const fileName = `combustible_${idRuta}_${Date.now()}.jpg`;
           const filePath = `combustible/${fileName}`;
 
-          const response = await fetch(foto);
-          const blob = await response.blob();
+          const blobToUpload = optimizedFoto?.blob 
+            ? optimizedFoto.blob 
+            : await optimizeImage(new File([foto], 'photo.jpg')).then(o => o.blob);
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('combustible')
-            .upload(filePath, blob, { upsert: true });
+            .upload(filePath, blobToUpload, { upsert: true });
 
           if (uploadError) {
             console.error('[Combustible] Upload error:', uploadError.message);
@@ -210,7 +286,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                   variant="ghost" 
                   size="sm" 
                   className="absolute top-1 right-1 bg-surface/80"
-                  onClick={() => { setFoto(null); setMontoDetectado(null); }}
+                  onClick={() => { setFoto(null); setOptimizedFoto(null); setMontoDetectado(null); }}
                 >
                   <X size={14} />
                 </Button>

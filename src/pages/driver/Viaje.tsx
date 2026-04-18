@@ -103,12 +103,155 @@ export default function DriverViaje() {
   const [gpsDebugLogs, setGpsDebugLogs] = useState<string[]>([]);
   const watchIdRef = useRef<number | null>(null);
 
-  // Constantes de configuración GPS
-  const RADIO_DETECCION_METROS = 100; // Radio de detección en metros
+  // Constantes de configuración GPS - Sistema robusto
+  const RADIO_BASE = 100; // Radio base de detección
+  const RADIO_MIN = 80; // Radio mínimo (alta precisión)
+  const RADIO_MAX = 120; // Radio máximo (baja precisión)
+  const LECTURAS_REQUERIDAS = 3; // Cantidad de lecturas para promediar
+  const TIEMPO_PERMANENCIA = 8000; // Tiempo requerido dentro del radio (ms)
+  const COOLDOWN_REGISTRO = 180000; // 3 minutos entre registros
   const GPS_OPTIONS = {
     enableHighAccuracy: true,
     maximumAge: 0,
-    timeout: 5000
+    timeout: 15000
+  };
+
+  // Estado para sistema avanzado de GPS
+  const [LecturasGPS, setLecturasGPS] = useState<{ lat: number; lng: number; accuracy: number; timestamp: number }[]>([]);
+  const [tiempoEnRango, setTiempoEnRango] = useState<number>(0);
+  const [ultimoRegistroTime, setUltimoRegistroTime] = useState<number>(0);
+  const [estadoGPS, setEstadoGPS] = useState<'buscando' | 'detectado' | 'en_rango' | 'registrado'>('buscando');
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [intentosLectura, setIntentosLectura] = useState(0);
+  const timerPermanenciaRef = useRef<NodeJS.Timeout | null>(null);
+  const lecturasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Función para calcular radio dinámico según precisión
+  const getRadioDinamico = (accuracy: number): number => {
+    if (accuracy < 30) return RADIO_MIN;
+    if (accuracy < 80) return RADIO_BASE;
+    return RADIO_MAX;
+  };
+
+  // Función para promediar lecturas GPS
+  const promediarLecturas = (lecturas: { lat: number; lng: number; accuracy: number }[]): { lat: number; lng: number; accuracy: number } | null => {
+    if (lecturas.length === 0) return null;
+    
+    // Filtrar lecturas inconsistentes (más de 50m de diferencia)
+    const lats = lecturas.map(l => l.lat);
+    const lngs = lecturas.map(l => l.lng);
+    const latProm = lats.reduce((a, b) => a + b, 0) / lats.length;
+    const lngProm = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+    
+    // Verificar consistencia
+    const consistente = lecturas.every(l => {
+      const dist = calcularDistanciaHaversine(latProm, lngProm, l.lat, l.lng);
+      return dist < 50;
+    });
+    
+    if (!consistente) {
+      agregarLogDebug('⚠️ Lecturas inconsistentes - reiniciando');
+      return null;
+    }
+    
+    const accuracyProm = lecturas.reduce((a, b) => a + b.accuracy, 0) / lecturas.length;
+    return { lat: latProm, lng: lngProm, accuracy: accuracyProm };
+  };
+
+  // Función para iniciar GPS avançado com promedio de lecturas
+  const obtenerGPSAvanzado = async (): Promise<{ lat: number; lng: number; accuracy: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setGpsError('GPS no soportado');
+        resolve(null);
+        return;
+      }
+
+      const lecturas: { lat: number; lng: number; accuracy: number; timestamp: number }[] = [];
+      setIntentosLectura(0);
+      agregarLogDebug(`📡 Iniciando ${LECTURAS_REQUERIDAS} lecturas GPS...`);
+
+      const timeoutTotal = setTimeout(() => {
+        const promedio = promediarLecturas(lecturas);
+        if (promedio) {
+          agregarLogDebug(`✅ GPS promediado: ${promedio.lat.toFixed(5)},${promedio.lng.toFixed(5)} (±${promedio.accuracy.toFixed(0)}m)`);
+          resolve(promedio);
+        } else {
+          setGpsError('Sin lectura consistente');
+          resolve(null);
+        }
+      }, 12000);
+
+      const hacerLectura = (intento: number) => {
+        if (intento >= LECTURAS_REQUERIDAS) {
+          clearTimeout(timeoutTotal);
+          const promedio = promediarLecturas(lecturas);
+          if (promedio) {
+            agregarLogDebug(`✅ GPS promediado: ${promedio.lat.toFixed(5)},${promedio.lng.toFixed(5)} (±${promedio.accuracy.toFixed(0)}m)`);
+            resolve(promedio);
+          } else {
+            setGpsError('Sin lectura consistente');
+            resolve(null);
+          }
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            
+            lecturas.push({ lat, lng, accuracy, timestamp: Date.now() });
+            setIntentosLectura(intento + 1);
+            agregarLogDebug(`📍 Lectura ${intento + 1}/${LECTURAS_REQUERIDAS}: ±${accuracy.toFixed(0)}m`);
+            
+            // Siguiente lectura después de 1 segundo
+            setTimeout(() => hacerLectura(intento + 1), 1000);
+          },
+          (error) => {
+            agregarLogDebug(`❌ Error lectura ${intento + 1}: ${error.message}`);
+            setTimeout(() => hacerLectura(intento + 1), 500);
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      };
+
+      hacerLectura(0);
+    });
+  };
+
+  // Función para verificar permisos de geolocalización
+  const verificarPermisosGPS = async (): Promise<{ granted: boolean; state: string }> => {
+    if (!navigator.geolocation || !navigator.permissions) {
+      return { granted: true, state: 'prompt' };
+    }
+    try {
+      const result = await navigator.permissions.query({ name: 'geolocation' });
+      return { granted: result.state === 'granted', state: result.state };
+    } catch {
+      return { granted: true, state: 'prompt' };
+    }
+  };
+
+  // Función para iniciar GPS avanzado (usar sistema promediado)
+  const iniciarGPSConPermisos = async (): Promise<{ lat: number; lng: number; accuracy: number } | null> => {
+    const result = await obtenerGPSAvanzado();
+    if (result) {
+      setGpsPosicionActual({ lat: result.lat, lng: result.lng });
+    }
+    return result;
+  };
+
+  // Función para verificar cooldown de registro
+  const puedeRegistrar = (): boolean => {
+    const tiempoDesdeUltimo = Date.now() - ultimoRegistroTime;
+    if (tiempoDesdeUltimo < COOLDOWN_REGISTRO) {
+      const segundosRestantes = Math.ceil((COOLDOWN_REGISTRO - tiempoDesdeUltimo) / 1000);
+      agregarLogDebug(`⏳ Cooldown activo: ${segundosRestantes}s`);
+      return false;
+    }
+    return true;
   };
 
   // Función para calcular distancia Haversine entre dos puntos
@@ -132,9 +275,18 @@ export default function DriverViaje() {
   };
 
   // Iniciar watchPosition para detección continua de GPS
-  const iniciarWatchPosition = () => {
+  const iniciarWatchPosition = async () => {
     if (!navigator.geolocation) {
       agregarLogDebug('❌ Geolocalización no disponible');
+      setGpsDisponible(false);
+      return;
+    }
+
+    // Verificar permisos primero
+    const permisos = await verificarPermisosGPS();
+    if (!permisos.granted) {
+      agregarLogDebug('⚠️ Permisos denegados. Usa registro manual.');
+      setGpsDisponible(false);
       return;
     }
 
@@ -143,69 +295,171 @@ export default function DriverViaje() {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
 
-    agregarLogDebug('🚀 Iniciando watchPosition...');
+    agregarLogDebug('🚀 Iniciando watchPosition avanzado...');
+    setEstadoGPS('buscando');
+
+    // Limpiar timers anteriores
+    if (timerPermanenciaRef.current) {
+      clearInterval(timerPermanenciaRef.current);
+      timerPermanenciaRef.current = null;
+    }
+
+    const options = {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 10000
+    };
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        setGpsPosicionActual({ lat, lng });
-
-        // Encontrar el destino actual (punto al que nos dirigimos)
-        const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
+        const accuracy = position.coords.accuracy;
         
-        // Buscar el local destino más cercano que aún no tenga hora_llegada
+        setGpsPosicionActual({ lat, lng });
+        
+        // Detectar y mostrar estado
+        if (accuracy > 100) {
+          agregarLogDebug(`⚠️ Baja precisión: ${accuracy.toFixed(0)}m`);
+          setEstadoGPS('buscando');
+          return;
+        }
+
+        setEstadoGPS('detectado');
+        
+        // Verificar cooldown
+        if (!puedeRegistrar()) {
+          return;
+        }
+
+        // Encontrar el destino actual
+        const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
         const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
 
-        if (localPendiente && localPendiente.latitud && localPendiente.longitud) {
-          const distancia = calcularDistanciaHaversine(
-            lat, lng,
-            localPendiente.latitud, localPendiente.longitud
-          );
-          setDistanciaAlPunto(distancia);
-
-          const dentroDelRadio = distancia <= RADIO_DETECCION_METROS;
-          agregarLogDebug(`📍 Posición: ${lat.toFixed(6)}, ${lng.toFixed(6)} | Distancia: ${distancia.toFixed(1)}m | ${dentroDelRadio ? '✅ DENTRO' : '⭕ FUERA'} del radio (${RADIO_DETECCION_METROS}m)`);
-
-          // Detectar llegada automática
-          if (dentroDelRadio && !llegadaDetectada && bitacoraActual) {
-            agregarLogDebug('🎯 ¡LLEGADA DETECTADA AUTOMÁTICAMENTE!');
-            setLlegadaDetectada(true);
-            
-            // Registrar llegada automáticamente
-            handleRegistrarLlegada(bitacoraActual.id_bitacora);
-            
-            // Detener watch después de detectar
-            if (watchIdRef.current !== null) {
-              navigator.geolocation.clearWatch(watchIdRef.current);
-              watchIdRef.current = null;
-            }
-          }
-        } else {
+        if (!localPendiente || !localPendiente.latitud || !localPendiente.longitud) {
           setDistanciaAlPunto(null);
-          agregarLogDebug(`📍 Posición: ${lat.toFixed(6)}, ${lng.toFixed(6)} | Sin punto destino pendiente`);
+          setEstadoGPS('buscando');
+          return;
+        }
+
+        const radio = getRadioDinamico(accuracy);
+        const distancia = calcularDistanciaHaversine(lat, lng, localPendiente.latitud, localPendiente.longitud);
+        setDistanciaAlPunto(distancia);
+        
+        const dentroDelRadio = distancia <= radio;
+
+        if (dentroDelRadio) {
+          if (estadoGPS !== 'en_rango') {
+            setEstadoGPS('en_rango');
+            setTiempoEnRango(0);
+            agregarLogDebug(`✅ Dentro del radio (${radio}m) - iniciando temporizador...`);
+            
+            // Iniciar temporizador de permanencia
+            timerPermanenciaRef.current = setInterval(() => {
+              setTiempoEnRango(prev => {
+                const nuevoTiempo = prev + 1000;
+                
+                // Actualizar progreso
+                if (nuevoTiempo >= TIEMPO_PERMANENCIA && estadoGPS !== 'registrado' && !llegadaDetectada && bitacoraActual) {
+                  agregarLogDebug(`⏱️ Permanente ${TIEMPO_PERMANENCIA/1000}s - REGISTRANDO LLEGADA!`);
+                  setEstadoGPS('registrado');
+                  setLlegadaDetectada(true);
+                  setUltimoRegistroTime(Date.now());
+                  
+                  // Detener watch y timer
+                  if (timerPermanenciaRef.current) {
+                    clearInterval(timerPermanenciaRef.current);
+                    timerPermanenciaRef.current = null;
+                  }
+                  
+                  handleRegistrarLlegada(bitacoraActual.id_bitacora);
+                  
+                  if (watchIdRef.current !== null) {
+                    navigator.geolocation.clearWatch(watchIdRef.current);
+                    watchIdRef.current = null;
+                  }
+                }
+                
+                return nuevoTiempo;
+              });
+            }, 1000);
+          }
+          
+          const progreso = Math.min(100, Math.round((tiempoEnRango / TIEMPO_PERMANENCIA) * 100));
+          agregarLogDebug(`⏳ ${distancia.toFixed(0)}m | ${progreso}% (${Math.round(tiempoEnRango/1000)}s/${TIEMPO_PERMANENCIA/1000}s)`);
+        } else {
+          // Usuario salió del radio - resetear
+          if (timerPermanenciaRef.current) {
+            clearInterval(timerPermanenciaRef.current);
+            timerPermanenciaRef.current = null;
+          }
+          setTiempoEnRango(0);
+          if (estadoGPS !== 'buscando') {
+            setEstadoGPS('detectado');
+            agregarLogDebug(`⭕ Fuera del radio: ${distancia.toFixed(0)}m (necesita <${radio}m)`);
+          }
         }
       },
       (error) => {
-        agregarLogDebug(`❌ Error GPS: ${error.message}`);
+        let msg = 'Error GPS';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            msg = '❌Permisos negados';
+            setGpsDisponible(false);
+            setGpsError('Permisos denegados');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            msg = '⚠️Sin señal GPS';
+            setGpsError('Sin señal');
+            break;
+          case error.TIMEOUT:
+            msg = '⏱️Timeout GPS';
+            break;
+        }
+        agregarLogDebug(msg + ` (${error.message})`);
+        setEstadoGPS('buscando');
       },
-      GPS_OPTIONS
+      options
     );
   };
 
-  // Detener watchPosition
+  // Detener watchPosition y limpiar timers
   const detenerWatchPosition = () => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
-      agregarLogDebug('🛑 WatchPosition detenido');
     }
+    if (timerPermanenciaRef.current) {
+      clearInterval(timerPermanenciaRef.current);
+      timerPermanenciaRef.current = null;
+    }
+    agregarLogDebug('🛑 GPS detenido');
   };
+
+// useEffect para verificar permisos GPS al montar
+  useEffect(() => {
+    async function verificarAlIniciar() {
+      if (!navigator.geolocation) {
+        agregarLogDebug('❌ GPS no soportado en este dispositivo');
+        setGpsDisponible(false);
+        return;
+      }
+      
+      // Intentar obtener posición inicial
+      const pos = await iniciarGPSConPermisos();
+      if (pos) {
+        agregarLogDebug('✅ GPS inicializado correctamente');
+        setGpsDisponible(true);
+      }
+    }
+    
+    verificarAlIniciar();
+  }, []);
 
   // useEffect para iniciar/detener watchPosition según el estado de la ruta
   useEffect(() => {
     // Solo iniciar watch si hay una ruta en progreso y locales pendientes
-    if (ruta && ruta.estado === 'en_progreso' && !esHistorial && !llegadaDetectada) {
+    if (ruta && ruta.estado === 'en_progreso' && !esHistorial && !llegadaDetectada && gpsDisponible) {
       iniciarWatchPosition();
     } else {
       detenerWatchPosition();
@@ -215,7 +469,7 @@ export default function DriverViaje() {
     return () => {
       detenerWatchPosition();
     };
-  }, [ruta?.id_ruta, ruta?.estado, esHistorial, llegadaDetectada]);
+  }, [ruta?.id_ruta, ruta?.estado, esHistorial, llegadaDetectada, gpsDisponible]);
 
   // Reiniciar detección cuando cambia la bitácora (nuevo tramo iniciado)
   useEffect(() => {
@@ -776,42 +1030,36 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       tipoRegistro = 'manual';
     } else {
       try {
-        // Máximo 2 segundos al GPS, si no responde, avanzar en modo manual
-        const pos = await new Promise<any>((res) => {
-          const timeout = setTimeout(() => res(null), 2000);
-          navigator.geolocation.getCurrentPosition(
-            (p) => { clearTimeout(timeout); res(p); },
-            (e) => { 
-              clearTimeout(timeout); 
-              res(null); 
-            },
-            { timeout: 2000, enableHighAccuracy: false }
-          );
-        });
+        // Usar la nueva función mejorada para obtener GPS
+        agregarLogDebug('📍 Intentando obtener GPS para llegada...');
+        const pos = await iniciarGPSConPermisos();
+        
         if (pos) {
-          lat = pos.coords.latitude;
-          lng = pos.coords.longitude;
+          lat = pos.lat;
+          lng = pos.lng;
           tipoRegistro = 'automatico';
+          agregarLogDebug(`✅ GPS: ${lat.toFixed(5)},${lng.toFixed(5)} (±${pos.accuracy.toFixed(0)}m)`);
         } else {
           tipoRegistro = 'manual';
+          agregarLogDebug('⚠️ Sin GPS - modo manual');
         }
       } catch (e) {
         console.warn('GPS Error:', e);
         tipoRegistro = 'manual';
+        agregarLogDebug('❌ Error GPS');
       }
     }
 
     const now = nowPeru();
+    const accuracy = gpsPosicionActual ? gpsPosicionActual.lat : null;
     
-    // Construir update con o sin tipo_registro según disponibilidad de la columna
+    // Construir update completo con logging
     const updateData: any = { 
       hora_llegada: now, 
       gps_llegada_lat: lat, 
-      gps_llegada_lng: lng
+      gps_llegada_lng: lng,
+      tipo_registro: tipoRegistro
     };
-    
-    // Intentar agregar tipo_registro (puede fallar si la columna no existe aún)
-    updateData.tipo_registro = tipoRegistro;
     
     const { data, error } = await supabase
       .from('viajes_bitacora')
@@ -823,7 +1071,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     if (!error && data) {
       setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
       
-      // Solo marcar como visitado si NO era un detour (ya estaba registrado previamente)
+      // Solo marcar como visitado si NO era un detour
       const eraDetour = localesRegistrados.includes(data.destino_nombre || '');
       
       if (data.destino_nombre !== 'Planta' && !eraDetour) {
@@ -834,10 +1082,16 @@ if (bitError) console.error('Error loading bitacora:', bitError);
          if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
       }
       
-      showToast('success', tipoRegistro === 'automatico' ? '✓ Llegada registrada automáticamente' : '✓ Llegada registrada manualmente');
+      // Actualizar cooldown
+      setUltimoRegistroTime(Date.now());
+      setEstadoGPS('registrado');
+      
+      agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre} | Dist: ${distanciaAlPunto?.toFixed(0) || 'N/A'}m`);
+      showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática registrada' : '✓Llegada manual registrada');
       setShowModoManual(false);
     } else if (error) {
       console.error('[Viaje] Error registrar llegada:', error);
+      agregarLogDebug(`❌ Error DB: ${error.message}`);
       showToast('error', 'Error en llegada: ' + error.message);
     }
     setActionLoading(false);
@@ -1020,35 +1274,66 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       </div>
 
-      {/* Indicador de GPS y Distancia */}
+      {/* Indicador de GPS y Distancia - Sistema Avanzado */}
       {ruta?.estado === 'en_progreso' && !esHistorial && (
-        <Card className={`border ${distanciaAlPunto !== null && distanciaAlPunto <= RADIO_DETECCION_METROS ? 'bg-green-500/20 border-green-500/50' : 'bg-surface-light/50 border-white/10'}`}>
+        <Card className={`border ${estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'bg-green-500/20 border-green-500/50' : estadoGPS === 'buscando' ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-surface-light/50 border-white/10'}`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${gpsPosicionActual ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                  <MapPin size={20} />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${estadoGPS === 'buscando' ? 'bg-yellow-500/20 text-yellow-400 animate-pulse' : estadoGPS === 'detectado' ? 'bg-blue-500/20 text-blue-400' : estadoGPS === 'en_rango' ? 'bg-green-500/20 text-green-400' : estadoGPS === 'registrado' ? 'bg-green-600/40 text-green-300' : 'bg-gray-500/20 text-gray-400'}`}>
+                  {estadoGPS === 'buscando' ? <MapPin size={20} className="animate-bounce" /> : estadoGPS === 'detectado' ? <MapPin size={20} /> : estadoGPS === 'en_rango' ? <CheckCircle2 size={20} /> : estadoGPS === 'registrado' ? <CheckCircle2 size={20} /> : <MapPin size={20} />}
                 </div>
                 <div>
-                  <p className="text-xs text-text-muted uppercase font-bold tracking-wider">GPS Activo</p>
-                  <p className={`text-sm font-black ${distanciaAlPunto !== null && distanciaAlPunto <= RADIO_DETECCION_METROS ? 'text-green-400' : 'text-white'}`}>
-                    {distanciaAlPunto !== null 
-                      ? `Distancia al punto: ${distanciaAlPunto.toFixed(0)}m ${distanciaAlPunto <= RADIO_DETECCION_METROS ? '✅' : `(${RADIO_DETECCION_METROS}m para detectar)`}`
-                      : 'Obteniendo ubicación...'}
+                  <p className="text-xs text-text-muted uppercase font-bold tracking-wider">
+                    {estadoGPS === 'buscando' && '🔍 Buscando señal...'}
+                    {estadoGPS === 'detectado' && '📍 Ubicación detectada'}
+                    {estadoGPS === 'en_rango' && `✅ Dentro del radio (${Math.round(tiempoEnRango/1000)}s/` + TIEMPO_PERMANENCIA/1000 + 's)'}
+                    {estadoGPS === 'registrado' && '✅ Llegada registrada'}
                   </p>
+                  <p className={`text-sm font-black ${estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'text-green-400' : 'text-white'}`}>
+                    {distanciaAlPunto !== null 
+                      ? `${distanciaAlPunto.toFixed(0)}m al punto`
+                      : gpsError || 'Obteniendo ubicación...'}
+                  </p>
+                  {/* Barra de progreso cuando está en rango */}
+                  {estadoGPS === 'en_rango' && (
+                    <div className="mt-2">
+                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-green-500 transition-all duration-1000"
+                          style={{ width: `${Math.min(100, Math.round((tiempoEnRango / TIEMPO_PERMANENCIA) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-text-muted uppercase">Radio</p>
-                <p className="text-xs font-black text-primary">{RADIO_DETECCION_METROS}m</p>
+                <p className="text-[10px] text-text-muted uppercase">Cooldown</p>
+                <p className="text-xs font-black text-primary">{Math.max(0, Math.ceil((COOLDOWN_REGISTRO - (Date.now() - ultimoRegistroTime))/1000))}s</p>
               </div>
+            </div>
+            
+            {/* Estado del sistema */}
+            <div className="mt-3 flex gap-2 text-[10px]">
+              <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                Radio: {RADIO_MIN}-{RADIO_MAX}m
+              </span>
+              <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                Lecturas: {intentosLectura}/{LECTURAS_REQUERIDAS}
+              </span>
+              {gpsError && (
+                <span className="bg-red-500/20 text-red-300 px-2 py-1 rounded">
+                  Error: {gpsError}
+                </span>
+              )}
             </div>
             
             {/* Logs de debug (desplegable) */}
             {gpsDebugLogs.length > 0 && (
               <details className="mt-3">
                 <summary className="text-[10px] text-text-muted cursor-pointer hover:text-white">
-                  Ver logs GPS ({gpsDebugLogs.length})
+                  Debug GPS ({gpsDebugLogs.length})
                 </summary>
                 <div className="mt-2 bg-black/30 rounded-lg p-2 text-[9px] font-mono text-text-muted max-h-32 overflow-y-auto">
                   {gpsDebugLogs.map((log, i) => (
