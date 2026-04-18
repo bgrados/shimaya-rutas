@@ -163,6 +163,33 @@ export default function Reportes() {
   const [descargandoZip, setDescargandoZip] = useState(false);
   const [descargandoZipEvidencia, setDescargandoZipEvidencia] = useState(false);
 
+  const handleDeleteEvidenciaFoto = async (fotoId: string, localId: string) => {
+    if (!confirm('¿Eliminar esta foto de evidencia?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('fotos_visita')
+        .delete()
+        .eq('id_foto', fotoId);
+      
+      if (error) throw error;
+      
+      // Actualizar el estado local
+      setFotosPorLocal(prev => {
+        const newState = { ...prev };
+        if (newState[localId]) {
+          newState[localId] = newState[localId].filter(f => f.id_foto !== fotoId);
+        }
+        return newState;
+      });
+      
+      alert('Foto eliminada correctamente');
+    } catch (err: any) {
+      console.error('Error eliminando foto:', err);
+      alert('Error al eliminar: ' + (err.message || 'Verifica los permisos'));
+    }
+  };
+
   const handleDeleteGasto = async (id_gasto: string) => {
     try {
       // Primero buscar el gasto para obtener la foto_url
@@ -1315,6 +1342,16 @@ const win = window.open('', '_blank');
                                         title="Descargar"
                                       >
                                         <DownloadIcon size={12} className="text-white" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteEvidenciaFoto(foto.id_foto, local.id_local_ruta);
+                                        }}
+                                        className="absolute bottom-1 left-1 bg-red-600 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Eliminar"
+                                      >
+                                        <Trash2 size={12} className="text-white" />
                                       </button>
                                     </div>
                                   ))}

@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car } from 'lucide-react';
+import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car, Wallet, Receipt } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatFriendlyDate } from '../../lib/timezone';
 import { ImageModal } from '../../components/ui/ImageModal';
@@ -37,6 +37,7 @@ export default function DriverDashboard() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [gastosCombustible, setGastosCombustible] = useState<GastoDelDia | null>(null);
   const [gastosOtros, setGastosOtros] = useState<GastoDelDia | null>(null);
+  const [gastosPeaje, setGastosPeaje] = useState<GastoDelDia | null>(null);
   const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
 
   const loadRutas = async () => {
@@ -84,21 +85,20 @@ const loadRutasHistoricas = async () => {
     setLoadingHistory(false);
   };
 
-  const loadGastosDelDia = async () => {
+const loadGastosDelDia = async () => {
     if (!profile) return;
     
-    // Obtener fecha local YYYY-MM-DD
     const today = new Date().toLocaleDateString('sv-SE'); 
     
     try {
-      // Obtener TODOS los gastos de combustible del día y sumar
+      // Gastos de combustible
       const { data: gastosComb } = await supabase
         .from('gastos_combustible')
         .select('monto, tipo_combustible, foto_url')
         .eq('id_chofer', profile.id_usuario)
         .neq('tipo_combustible', 'otro')
         .gte('created_at', `${today}T00:00:00`);
-      
+       
       if (gastosComb && gastosComb.length > 0) {
         const totalComb = gastosComb.reduce((sum, g) => sum + (g.monto || 0), 0);
         setGastosCombustible({
@@ -107,15 +107,15 @@ const loadRutasHistoricas = async () => {
           foto_url: gastosComb.find(g => g.foto_url)?.foto_url || null
         });
       }
-      
-      // Obtener TODOS los gastos de otros del día y sumar
+       
+      // Gastos de otros
       const { data: gastosOt } = await supabase
         .from('gastos_combustible')
         .select('monto, tipo_combustible, foto_url')
         .eq('id_chofer', profile.id_usuario)
         .eq('tipo_combustible', 'otro')
         .gte('created_at', `${today}T00:00:00`);
-      
+       
       if (gastosOt && gastosOt.length > 0) {
         const totalOt = gastosOt.reduce((sum, g) => sum + (g.monto || 0), 0);
         setGastosOtros({
@@ -123,6 +123,35 @@ const loadRutasHistoricas = async () => {
           tipo_combustible: 'otro',
           foto_url: gastosOt.find(g => g.foto_url)?.foto_url || null
         });
+      }
+      
+      // Calcular peajes automáticos del día basándose en rutas finalizadas
+      const { data: rutasDia } = await supabase
+        .from('rutas')
+        .select('id_ruta, id_ruta_base')
+        .eq('id_chofer', profile.id_usuario)
+        .eq('fecha', today)
+        .eq('estado', 'finalizada');
+      
+      let totalPeajes = 0;
+      if (rutasDia && rutasDia.length > 0) {
+        const rutasBaseIds = rutasDia.map(r => r.id_ruta_base).filter(Boolean);
+        if (rutasBaseIds.length > 0) {
+          const { data: rutasBaseData } = await supabase
+            .from('rutas_base')
+            .select('cantidad_peajes, costo_peaje')
+            .in('id_ruta_base', rutasBaseIds);
+          
+          if (rutasBaseData) {
+            for (const rb of rutasBaseData) {
+              totalPeajes += (rb.cantidad_peajes || 0) * (rb.costo_peaje || 0);
+            }
+          }
+        }
+      }
+      
+      if (totalPeajes > 0) {
+        setGastosPeaje({ monto: totalPeajes, tipo_combustible: 'peaje', foto_url: null });
       }
     } catch (e) {
       console.error('Error loading gastos:', e);
@@ -207,76 +236,110 @@ const loadRutasHistoricas = async () => {
 
       <div className="space-y-4">
         {/* Cards de Gastos del Día */}
-        {(gastosCombustible?.monto || gastosOtros?.monto) && (
-          <div className="grid grid-cols-2 gap-3">
+        {(gastosCombustible?.monto || gastosOtros?.monto || gastosPeaje?.monto) && (
+          <div className="grid grid-cols-3 gap-3">
+            {/* Combustible */}
             {gastosCombustible?.monto ? (
               <Card className="bg-yellow-500/10 border-yellow-500/30">
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-500/20 rounded-lg">
-                      <Fuel className="text-yellow-400" size={20} />
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-yellow-500/20 rounded-lg">
+                      <Fuel className="text-yellow-400" size={16} />
                     </div>
                     <div>
-                      <p className="text-xs text-yellow-300 uppercase font-bold">Combustible</p>
-                      <p className="text-xl font-black text-white">S/ {gastosCombustible.monto.toFixed(2)}</p>
-                      {gastosCombustible.foto_url && (
-                        <button 
-                          onClick={() => setActivePhoto({ 
-                            images: [{ url: gastosCombustible.foto_url!, title: 'Comprobante Combustible' }], 
-                            index: 0 
-                          })}
-                          className="text-xs text-yellow-400 hover:underline flex items-center gap-1 mt-1"
-                        >
-                          👁️ Ver comprobante
-                        </button>
-                      )}
+                      <p className="text-[10px] text-yellow-300 uppercase font-bold">Combustible</p>
+                      <p className="text-lg font-black text-white">S/ {gastosCombustible.monto.toFixed(2)}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ) : (
               <Card className="bg-yellow-500/10 border-yellow-500/30 opacity-50">
-                <CardContent className="p-4 text-center">
-                  <Fuel className="text-yellow-400 mx-auto mb-1" size={20} />
-                  <p className="text-xs text-yellow-300">Sin gasto</p>
+                <CardContent className="p-3 text-center">
+                  <Fuel className="text-yellow-400 mx-auto mb-1" size={16} />
+                  <p className="text-[10px] text-yellow-300">S/ 0.00</p>
                 </CardContent>
               </Card>
             )}
             
+            {/* Peajes */}
+            {gastosPeaje?.monto ? (
+              <Card className="bg-purple-500/10 border-purple-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-purple-500/20 rounded-lg">
+                      <Receipt className="text-purple-400" size={16} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-purple-300 uppercase font-bold">Peajes</p>
+                      <p className="text-lg font-black text-white">S/ {gastosPeaje.monto.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-purple-500/10 border-purple-500/30 opacity-50">
+                <CardContent className="p-3 text-center">
+                  <Receipt className="text-purple-400 mx-auto mb-1" size={16} />
+                  <p className="text-[10px] text-purple-300">S/ 0.00</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Otros */}
             {gastosOtros?.monto ? (
               <Card className="bg-blue-500/10 border-blue-500/30">
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/20 rounded-lg">
-                      <Car className="text-blue-400" size={20} />
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-500/20 rounded-lg">
+                      <Car className="text-blue-400" size={16} />
                     </div>
                     <div>
-                      <p className="text-xs text-blue-300 uppercase font-bold">Otros</p>
-                      <p className="text-xl font-black text-white">S/ {gastosOtros.monto.toFixed(2)}</p>
-                      {gastosOtros.foto_url && (
-                        <button 
-                          onClick={() => setActivePhoto({ 
-                            images: [{ url: gastosOtros.foto_url!, title: 'Comprobante Otros Gastos' }], 
-                            index: 0 
-                          })}
-                          className="text-xs text-blue-400 hover:underline flex items-center gap-1 mt-1"
-                        >
-                          👁️ Ver comprobante
-                        </button>
-                      )}
+                      <p className="text-[10px] text-blue-300 uppercase font-bold">Otros</p>
+                      <p className="text-lg font-black text-white">S/ {gastosOtros.monto.toFixed(2)}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ) : (
               <Card className="bg-blue-500/10 border-blue-500/30 opacity-50">
-                <CardContent className="p-4 text-center">
-                  <Car className="text-blue-400 mx-auto mb-1" size={20} />
-                  <p className="text-xs text-blue-300">Sin gasto</p>
+                <CardContent className="p-3 text-center">
+                  <Car className="text-blue-400 mx-auto mb-1" size={16} />
+                  <p className="text-[10px] text-blue-300">S/ 0.00</p>
                 </CardContent>
               </Card>
             )}
           </div>
+        )}
+        
+        {/* Card Total Gastos */}
+        {(gastosCombustible?.monto || gastosOtros?.monto || gastosPeaje?.monto) && (
+          <Card className="bg-green-500/20 border-green-500/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/30 rounded-lg">
+                    <Wallet className="text-green-400" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-green-300 uppercase font-bold">Total Gastos del Día</p>
+                    <p className="text-2xl font-black text-white">
+                      S/ {(
+                        (gastosCombustible?.monto || 0) + 
+                        (gastosPeaje?.monto || 0) + 
+                        (gastosOtros?.monto || 0)
+                      ).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right text-[10px] text-green-400/70">
+                  Comb: S/ {(gastosCombustible?.monto || 0).toFixed(2)}<br/>
+                  Peajes: S/ {(gastosPeaje?.monto || 0).toFixed(2)}<br/>
+                  Otros: S/ {(gastosOtros?.monto || 0).toFixed(2)}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <Card className="bg-primary border-none shadow-lg shadow-primary/20 overflow-hidden">

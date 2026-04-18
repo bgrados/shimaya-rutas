@@ -12,39 +12,85 @@ interface PhotoItem {
   preview: string;
   file: File;
   uploading?: boolean;
+  optimized?: {
+    blob: Blob;
+    originalSize: number;
+    finalSize: number;
+  };
 }
 
 const MAX_PHOTOS = 5;
-const TARGET_WIDTH = 1200;
+const TARGET_WIDTH = 1280;
+const MAX_SIZE_KB = 300;
+const TARGET_QUALITY = 0.7;
 
-function compressToWebP(file: File): Promise<Blob> {
+const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; finalSize: number }> => {
   return new Promise((resolve, reject) => {
+    const originalSize = file.size;
+    console.log(`[Optimize] 📷 Original: ${(originalSize / 1024).toFixed(1)}KB`);
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ratio = TARGET_WIDTH / img.width;
-        canvas.width = TARGET_WIDTH;
-        canvas.height = img.height * ratio;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('No se pudo crear el contexto'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Error al comprimir'));
-        }, 'image/webp', 0.8);
+      img.onload = async () => {
+        try {
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > TARGET_WIDTH) {
+            const ratio = TARGET_WIDTH / width;
+            width = TARGET_WIDTH;
+            height = Math.round(height * ratio);
+          }
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('No context')); return; }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compresión iterativa
+          let quality = TARGET_QUALITY;
+          let blob: Blob | null = null;
+          let attempts = 0;
+          
+          do {
+            blob = await new Promise<Blob | null>((res) => {
+              canvas.toBlob((b) => res(b), 'image/jpeg', quality);
+            });
+            
+            if (blob) {
+              const sizeKB = blob.size / 1024;
+              console.log(`[Optimize] Intento ${attempts + 1}: ${sizeKB.toFixed(1)}KB`);
+              
+              if (sizeKB <= MAX_SIZE_KB || quality <= 0.3) {
+                console.log(`[Optimize] ✅ ${(originalSize/1024).toFixed(1)}KB → ${(blob.size/1024).toFixed(1)}KB`);
+                resolve({ blob, originalSize, finalSize: blob.size });
+                return;
+              }
+            }
+            
+            quality -= 0.1;
+            attempts++;
+          } while (attempts < 5 && blob && blob.size > MAX_SIZE_KB * 1024);
+          
+          if (blob) {
+            resolve({ blob, originalSize, finalSize: blob.size });
+          } else {
+            reject(new Error('Error compress'));
+          }
+        } catch (err) { reject(err); }
       };
-      img.onerror = () => reject(new Error('Error al cargar imagen'));
+      img.onerror = () => reject(new Error('Load error'));
       img.src = e.target?.result as string;
     };
-    reader.onerror = () => reject(new Error('Error al leer archivo'));
+    reader.onerror = () => reject(new Error('Read error'));
     reader.readAsDataURL(file);
   });
-}
+};
 
 export default function VisitaLocal() {
   const { rId, vId } = useParams<{ rId: string; vId: string }>();
@@ -92,15 +138,30 @@ export default function VisitaLocal() {
   const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (ev) => {
+      
+      try {
+        const optimized = await optimizeImage(file);
+        const previewUrl = URL.createObjectURL(optimized.blob);
+        
         const newPhoto: PhotoItem = {
-          preview: ev.target?.result as string,
+          preview: previewUrl,
           file,
+          optimized,
         };
         setPhotos(prev => [...prev, newPhoto]);
-      };
-      reader.readAsDataURL(file);
+        console.log(`[Photo] ✅ Optimizada: ${(optimized.originalSize/1024).toFixed(1)}KB → ${(optimized.finalSize/1024).toFixed(1)}KB`);
+      } catch (err) {
+        console.error('[Photo] Error:', err);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const newPhoto: PhotoItem = {
+            preview: ev.target?.result as string,
+            file,
+          };
+          setPhotos(prev => [...prev, newPhoto]);
+        };
+        reader.readAsDataURL(file);
+      }
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -118,15 +179,18 @@ export default function VisitaLocal() {
     }
   };
 
-  const uploadPhoto = async (file: File, orden: number): Promise<string | null> => {
+  const uploadPhoto = async (photoItem: PhotoItem, orden: number): Promise<string | null> => {
     try {
-      const compressedBlob = await compressToWebP(file);
-      const fileName = `${vId}_${Date.now()}_${orden}.webp`;
+      const blobToUpload = photoItem.optimized?.blob 
+        ? photoItem.optimized.blob 
+        : (await optimizeImage(photoItem.file)).blob;
+      
+      const fileName = `${vId}_${Date.now()}_${orden}.jpg`;
       const filePath = `evidencia/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('visitas_fotos')
-        .upload(filePath, compressedBlob, { contentType: 'image/webp' });
+        .upload(filePath, blobToUpload, { contentType: 'image/jpeg' });
 
       if (uploadError) {
         console.error('Error uploading:', uploadError);
@@ -134,6 +198,11 @@ export default function VisitaLocal() {
       }
 
       const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
+      
+      if (photoItem.optimized) {
+        console.log(`[Upload] ✅ ${(photoItem.optimized.finalSize/1024).toFixed(1)}KB`);
+      }
+      
       return data.publicUrl;
     } catch (err) {
       console.error('Error compressing/uploading:', err);
@@ -153,7 +222,7 @@ export default function VisitaLocal() {
     for (let i = 0; i < photos.length; i++) {
       const photo = photos[i];
       const orden = existingPhotos.length + i + 1;
-      const url = await uploadPhoto(photo.file, orden);
+      const url = await uploadPhoto(photo, orden);
       if (url) {
         await supabase.from('fotos_visita').insert({
           id_local_ruta: vId,
