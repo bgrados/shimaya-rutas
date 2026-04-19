@@ -197,6 +197,12 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       console.log('[Combustible] monto:', manualMonto);
       console.log('[Combustible] foto:', foto ? 'SI' : 'NO');
       console.log('[Combustible] optimizedFoto:', optimizedFoto ? 'SI' : 'NO');
+      console.log('[Combustible] guardando:', guardando);
+      
+      if (!foto) {
+        alert('⚠️ No hay foto para subir. Toma una foto primero.');
+        return;
+      }
       
       if (foto) {
         console.log('[Combustible] ✅ ENTRO AL BLOQUE DE FOTO');
