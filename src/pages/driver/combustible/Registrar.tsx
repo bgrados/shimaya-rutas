@@ -157,15 +157,20 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log('[Foto] Archivo seleccionado:', file.name, file.size);
+    alert('📷 Foto seleccionada: ' + file.name);
+
     try {
       const optimized = await optimizeImage(file);
       const previewUrl = URL.createObjectURL(optimized.blob);
       
+      console.log('[Foto] Preview URL:', previewUrl);
       setOptimizedFoto(optimized);
       setFoto(previewUrl);
       await processOCR(previewUrl);
     } catch (err) {
       console.error('[Optimize] Error:', err);
+      alert('Error al procesar: ' + err);
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const dataUrl = ev.target?.result as string;
@@ -342,11 +347,19 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
                   <Button
                     type="button"
                     variant="secondary"
                     className="flex items-center justify-center gap-2 py-4"
-                    onClick={handleTakePhoto}
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <Camera size={20} />
                     Cámara
@@ -355,7 +368,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                     type="button"
                     variant="secondary"
                     className="flex items-center justify-center gap-2 py-4"
-                    onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => handleFileChange(e as any); input.click(); }}
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <Image size={20} />
                     Fototeca
