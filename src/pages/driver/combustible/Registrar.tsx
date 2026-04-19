@@ -346,20 +346,23 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
               </div>
             ) : (
               <div className="space-y-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
                 <div className="grid grid-cols-2 gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
                   <Button
                     type="button"
                     variant="secondary"
                     className="flex items-center justify-center gap-2 py-4"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                      alert('Abriendo cámara...');
+                      fileInputRef.current?.click();
+                    }}
                   >
                     <Camera size={20} />
                     Cámara
@@ -368,7 +371,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                     type="button"
                     variant="secondary"
                     className="flex items-center justify-center gap-2 py-4"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                      alert('Abriendo fototeca...');
+                      fileInputRef.current?.click();
+                    }}
                   >
                     <Image size={20} />
                     Fototeca
