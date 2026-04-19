@@ -358,7 +358,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="hidden"
                   onChange={handleFileChange}
                 />
@@ -368,8 +367,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                     variant="secondary"
                     className="flex items-center justify-center gap-2 py-4"
                     onClick={() => {
-                      alert('Abriendo cámara...');
-                      fileInputRef.current?.click();
+                      if (fileInputRef.current) {
+                        fileInputRef.current.setAttribute('capture', 'environment');
+                        fileInputRef.current.click();
+                      }
                     }}
                   >
                     <Camera size={20} />
@@ -380,8 +381,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                     variant="secondary"
                     className="flex items-center justify-center gap-2 py-4"
                     onClick={() => {
-                      alert('Abriendo fototeca...');
-                      fileInputRef.current?.click();
+                      if (fileInputRef.current) {
+                        fileInputRef.current.removeAttribute('capture');
+                        fileInputRef.current.click();
+                      }
                     }}
                   >
                     <Image size={20} />
