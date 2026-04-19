@@ -233,9 +233,8 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           }
           
           const uploadResult = await supabase.storage
-            .from('combustible')
+            .from('visitas_fotos')
             .upload(filePath, blobToUpload, { 
-              upsert: true,
               contentType: 'image/jpeg'
             });
 
@@ -252,7 +251,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           }
 
           console.log('[Combustible] ✅ Upload OK');
-          const { data: urlData } = supabase.storage.from('combustible').getPublicUrl(filePath);
+          const { data: urlData } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
           fotoUrl = urlData.publicUrl;
           console.log('[Combustible] URL guardada:', fotoUrl);
         } catch (err: any) {
