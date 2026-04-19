@@ -154,34 +154,28 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    console.log('[Foto] Archivo:', file.name, file.size);
 
-    console.log('[Foto] Archivo seleccionado:', file.name, file.size);
-
-    try {
-      const optimized = await optimizeImage(file);
-      const previewUrl = URL.createObjectURL(optimized.blob);
-      
-      console.log('[Foto] Preview lista:', previewUrl);
-      setOptimizedFoto(optimized);
-      setFoto(previewUrl);
+    // Método simple - directo con FileReader
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      console.log('[Foto] DataURL长度:', dataUrl?.length);
+      setFoto(dataUrl);
       
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
       
-      await processOCR(previewUrl);
-    } catch (err) {
-      console.error('[Optimize] Error:', err);
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const dataUrl = ev.target?.result as string;
-        setFoto(dataUrl);
-        await processOCR(dataUrl);
-      };
-      reader.readAsDataURL(file);
-    }
+      // OCR opcional - no bloquea la preview
+      processOCR(dataUrl).catch(console.error);
+    };
+    reader.onerror = (err) => console.error('[Foto] Reader error:', err);
+    reader.readAsDataURL(file);
   };
 
   const handleGuardar = async () => {
