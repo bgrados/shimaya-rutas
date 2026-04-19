@@ -155,19 +155,15 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) {
-      alert('⚠️ No se detectó archivo');
-      return;
-    }
+    if (!file) return;
 
-    alert('📷 Foto seleccionada: ' + file.name + ' - ' + (file.size/1024).toFixed(0) + 'KB');
+    console.log('[Foto] Archivo seleccionado:', file.name, file.size);
 
     try {
-      alert('⏳ Procesando imagen...');
       const optimized = await optimizeImage(file);
       const previewUrl = URL.createObjectURL(optimized.blob);
       
-      alert('✅ Mostrando previsualización');
+      console.log('[Foto] Preview lista:', previewUrl);
       setOptimizedFoto(optimized);
       setFoto(previewUrl);
       
@@ -178,7 +174,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       await processOCR(previewUrl);
     } catch (err) {
       console.error('[Optimize] Error:', err);
-      alert('Error fallback: ' + err);
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const dataUrl = ev.target?.result as string;
@@ -358,6 +353,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   className="hidden"
                   onChange={handleFileChange}
                 />
@@ -366,12 +362,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                     type="button"
                     variant="secondary"
                     className="flex items-center justify-center gap-2 py-4"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.setAttribute('capture', 'environment');
-                        fileInputRef.current.click();
-                      }
-                    }}
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <Camera size={20} />
                     Cámara
