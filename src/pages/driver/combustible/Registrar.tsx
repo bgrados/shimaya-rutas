@@ -155,22 +155,30 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      alert('⚠️ No se detectó archivo');
+      return;
+    }
 
-    console.log('[Foto] Archivo seleccionado:', file.name, file.size);
-    alert('📷 Foto seleccionada: ' + file.name);
+    alert('📷 Foto seleccionada: ' + file.name + ' - ' + (file.size/1024).toFixed(0) + 'KB');
 
     try {
+      alert('⏳ Procesando imagen...');
       const optimized = await optimizeImage(file);
       const previewUrl = URL.createObjectURL(optimized.blob);
       
-      console.log('[Foto] Preview URL:', previewUrl);
+      alert('✅ Mostrando previsualización');
       setOptimizedFoto(optimized);
       setFoto(previewUrl);
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
       await processOCR(previewUrl);
     } catch (err) {
       console.error('[Optimize] Error:', err);
-      alert('Error al procesar: ' + err);
+      alert('Error fallback: ' + err);
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const dataUrl = ev.target?.result as string;
