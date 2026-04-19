@@ -88,34 +88,37 @@ const loadRutasHistoricas = async () => {
 const loadGastosDelDia = async () => {
     if (!profile) return;
     
-    const today = new Date().toLocaleDateString('sv-SE'); 
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    const todayStart = `${todayStr}T00:00:00`;
+    const todayEnd = `${todayStr}T23:59:59`;
+    
+    console.log('[Gastos] Filter:', todayStart, 'to', todayEnd);
     
     try {
-      // Gastos de combustible
-      const { data: gastosComb } = await supabase
+      const { data: gastosComb, error: errorComb } = await supabase
         .from('gastos_combustible')
-        .select('monto, tipo_combustible, foto_url')
+        .select('monto, tipo_combustible, foto_url, created_at')
         .eq('id_chofer', profile.id_usuario)
         .neq('tipo_combustible', 'otro')
-        .gte('created_at', `${today}T00:00:00`);
-       
-      if (gastosComb && gastosComb.length > 0) {
-        const totalComb = gastosComb.reduce((sum, g) => sum + (g.monto || 0), 0);
-        setGastosCombustible({
-          monto: totalComb,
-          tipo_combustible: 'mixto',
-          foto_url: gastosComb.find(g => g.foto_url)?.foto_url || null
-        });
-      }
-       
-      // Gastos de otros
-      const { data: gastosOt } = await supabase
+        .gte('created_at', todayStart)
+        .lte('created_at', todayEnd);
+      
+      console.log('[Gastos] Comb results:', gastosComb?.length, errorComb);
+         
+      const { data: gastosOt, error: errorOt } = await supabase
         .from('gastos_combustible')
-        .select('monto, tipo_combustible, foto_url')
+        .select('monto, tipo_combustible, foto_url, created_at')
         .eq('id_chofer', profile.id_usuario)
         .eq('tipo_combustible', 'otro')
-        .gte('created_at', `${today}T00:00:00`);
-       
+        .gte('created_at', todayStart)
+        .lte('created_at', todayEnd);
+      
+      console.log('[Gastos] Otros results:', gastosOt?.length, errorOt);
+        
       if (gastosOt && gastosOt.length > 0) {
         const totalOt = gastosOt.reduce((sum, g) => sum + (g.monto || 0), 0);
         setGastosOtros({
@@ -123,6 +126,20 @@ const loadGastosDelDia = async () => {
           tipo_combustible: 'otro',
           foto_url: gastosOt.find(g => g.foto_url)?.foto_url || null
         });
+      } else {
+        setGastosOtros(null);
+      }
+        
+      // Limpiar combustible cuando no hay gastos
+      if (gastosComb && gastosComb.length > 0) {
+        const totalComb = gastosComb.reduce((sum, g) => sum + (g.monto || 0), 0);
+        setGastosCombustible({
+          monto: totalComb,
+          tipo_combustible: 'mixto',
+          foto_url: gastosComb.find(g => g.foto_url)?.foto_url || null
+        });
+      } else {
+        setGastosCombustible(null);
       }
       
       // Calcular peajes automáticos del día basándose en rutas finalizadas
@@ -172,6 +189,14 @@ const loadGastosDelDia = async () => {
       }, () => {
         loadRutas();
         loadRutasHistoricas();
+        loadGastosDelDia();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'gastos_combustible',
+        filter: `id_chofer=eq.${profile?.id_usuario}`
+      }, () => {
         loadGastosDelDia();
       })
       .subscribe();

@@ -89,6 +89,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   const [manualMonto, setManualMonto] = useState('');
   const [notas, setNotas] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -191,40 +192,82 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
     try {
       let fotoUrl: string | null = null;
       
+      console.log('[Combustible] ========== GUARDANDO ==========');
+      console.log('[Combustible] tipo:', tipoDetectado);
+      console.log('[Combustible] monto:', manualMonto);
+      console.log('[Combustible] foto:', foto ? 'SI' : 'NO');
+      console.log('[Combustible] optimizedFoto:', optimizedFoto ? 'SI' : 'NO');
+      
       if (foto) {
-        console.log('[Combustible] Intentando subir foto...');
+        console.log('[Combustible] ✅ ENTRO AL BLOQUE DE FOTO');
+        setSubiendoFoto(true);
+        
         try {
           const fileName = `combustible_${idRuta}_${Date.now()}.jpg`;
           const filePath = `combustible/${fileName}`;
 
-          const blobToUpload = optimizedFoto?.blob 
-            ? optimizedFoto.blob 
-            : await optimizeImage(new File([foto], 'photo.jpg')).then(o => o.blob);
+          let blobToUpload: Blob;
+          
+          if (optimizedFoto?.blob) {
+            blobToUpload = optimizedFoto.blob;
+            console.log('[Combustible] Blob optimizado size:', blobToUpload.size);
+          } else {
+            console.log('[Combustible] Fallback: fetch blob');
+            const res = await fetch(foto);
+            blobToUpload = await res.blob();
+            console.log('[Combustible] Fallback blob size:', blobToUpload.size);
+          }
 
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          console.log('[Combustible] === INICIANDO UPLOAD ===');
+          console.log('[Combustible] Bucket:combustible');
+          console.log('[Combustible] Path:', filePath);
+          console.log('[Combustible] Blob type:', blobToUpload.type);
+          
+          // FORZAR error si no hay blob
+          if (!blobToUpload || blobToUpload.size === 0) {
+            console.error('[Combustible] ❌ Blob vacío!');
+            setError('Error: la imagen está vacía');
+            setSubiendoFoto(false);
+            setGuardando(false);
+            return;
+          }
+          
+          const uploadResult = await supabase.storage
             .from('combustible')
-            .upload(filePath, blobToUpload, { upsert: true });
+            .upload(filePath, blobToUpload, { 
+              upsert: true,
+              contentType: 'image/jpeg'
+            });
 
-          if (uploadError) {
-            console.error('[Combustible] Upload error:', uploadError.message);
-            setError('Error al subir la foto: ' + uploadError.message);
+          console.log('[Combustible] Upload result:', uploadResult);
+
+          setSubiendoFoto(false);
+
+          if (uploadResult.error) {
+            console.error('[Combustible] ❌ Upload ERROR:', uploadResult.error);
+            alert('ERROR al subir foto: ' + uploadResult.error.message);
+            setError('Error al subir la foto: ' + uploadResult.error.message);
             setGuardando(false);
             return;
           }
 
-          console.log('[Combustible] Foto subida:', uploadData);
+          console.log('[Combustible] ✅ Upload OK');
           const { data: urlData } = supabase.storage.from('combustible').getPublicUrl(filePath);
           fotoUrl = urlData.publicUrl;
-          console.log('[Combustible] Foto URL:', fotoUrl);
-        } catch (uploadErr) {
-          console.error('[Combustible] Error uploading photo:', uploadErr);
-          setError('Error al procesar la foto');
+          console.log('[Combustible] URL guardada:', fotoUrl);
+        } catch (err: any) {
+          setSubiendoFoto(false);
+          console.error('[Combustible] ❌ CATCH ERROR:', err);
+          alert('ERROR al procesar foto: ' + err.message);
+          setError('Error al procesar la foto: ' + err.message);
           setGuardando(false);
           return;
         }
+      } else {
+        console.log('[Combustible] ⚠️ NO HAY FOTO, saltando upload');
       }
 
-      console.log('[Combustible] Guardando gasto con foto_url:', fotoUrl);
+      console.log('[Combustible] Insertando en DB tipo:', tipoDetectado);
       const { error: insertError } = await supabase.from('gastos_combustible').insert({
         id_ruta: idRuta,
         id_chofer: idChofer,
@@ -241,14 +284,14 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         throw new Error(insertError.message);
       }
 
-      console.log('[Combustible] Gasto guardado correctamente');
+      console.log('[Combustible] ✅ Gasto guardado correctamente');
       setGuardado(true);
       setTimeout(() => {
         if (onClose) onClose();
       }, 2000);
 
     } catch (err: any) {
-      console.error('[Combustible] Error:', err);
+      console.error('[Combustible] Error general:', err);
       setError(err.message || 'Error al guardar');
     } finally {
       setGuardando(false);
@@ -372,6 +415,13 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           </select>
         </div>
 
+        {subiendoFoto && (
+          <div className="bg-blue-500/10 border border-blue-500 text-blue-400 p-3 rounded-lg text-sm flex items-center justify-center gap-2">
+            <Loader2 size={16} className="animate-spin" />
+            Subiendo imagen...
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded-lg text-sm">
             {error}
@@ -382,7 +432,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           className="w-full py-3"
           onClick={handleGuardar}
           isLoading={guardando}
-          disabled={!manualMonto}
+          disabled={!manualMonto || subiendoFoto}
         >
           <Fuel size={18} className="mr-2" />
           Registrar Gasto
