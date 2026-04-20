@@ -426,26 +426,37 @@ async function loadCombustible() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  const getGastosSemana = () => {
+  const getGastosFiltrados = () => {
     const now = new Date();
     const day = now.getDay();
     const hoyStr = format(now, 'yyyy-MM-dd');
     
+    if (filtroFecha === 'todo') {
+      return { comb: gastosCombustible, otros: gastosOtros };
+    }
+    
+    if (filtroFecha === 'mes') {
+      const mesStr = format(now, 'yyyy-MM');
+      const comb = gastosCombustible.filter((g: any) => g.rutas?.fecha?.startsWith(mesStr));
+      const otros = gastosOtros.filter((g: any) => g.rutas?.fecha?.startsWith(mesStr));
+      return { comb, otros };
+    }
+    
+    // semana (default)
     const inicioSemana = new Date(now);
     inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
     const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
     
-    console.log('[Gastos] Semana:', semanaStr, 'a', hoyStr);
-    
     const comb = gastosCombustible.filter((g: any) => {
-      return g.rutas?.fecha >= semanaStr;
+      const f = g.rutas?.fecha;
+      return f >= semanaStr && f <= hoyStr;
     });
     const otros = gastosOtros.filter((g: any) => {
-      return g.rutas?.fecha >= semanaStr;
+      const f = g.rutas?.fecha;
+      return f >= semanaStr && f <= hoyStr;
     });
     
-    const suma = otros.reduce((s: number, g: any) => s + (g.monto || 0), 0);
-    console.log('[Gastos] Desde:', semanaStr, 'Comb:', comb.length, 'Otros:', otros.length, 'Suma:', suma);
+    console.log('[Gastos] Semana:', semanaStr, 'a', hoyStr, 'Comb:', comb.length, 'Otros:', otros.length);
     return { comb, otros };
   };
 
@@ -1477,13 +1488,13 @@ const win = window.open('', '_blank');
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-blue-300 uppercase font-bold">Otros Semanal</p>
-                <p className="text-xl font-black text-blue-400">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
+                <p className="text-xl font-black text-blue-400">S/ {getGastosFiltrados().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-blue-300 uppercase font-bold">Transacciones</p>
-                <p className="text-xl font-black text-blue-400">{getGastosSemana().otros.length}</p>
+                <p className="text-xl font-black text-blue-400">{getGastosFiltrados().otros.length}</p>
               </CardContent>
             </Card>
           </div>
@@ -1759,7 +1770,7 @@ const win = window.open('', '_blank');
                   {/* Total */}
                   <div className="mt-4 p-4 bg-surface-light/30 rounded-xl flex justify-between items-center">
                     <span className="text-white font-bold">Total Otros Gastos:</span>
-                    <span className="text-green-400 font-black text-xl">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
+                    <span className="text-green-400 font-black text-xl">S/ {getGastosFiltrados().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
                   </div>
                 </>
               )}
