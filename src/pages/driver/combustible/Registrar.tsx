@@ -251,7 +251,8 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           console.log('[Combustible] ✅ Upload OK');
           const { data: urlData } = supabase.storage.from('combustible').getPublicUrl(filePath);
           fotoUrl = urlData.publicUrl;
-          console.log('[Combustible] URL guardada:', fotoUrl);
+          console.log('[Combustible] URL guardada en DB:', fotoUrl);
+          console.log('[Combustible] Tipo gasto:', tipoDetectado);
         } catch (err: any) {
           setSubiendoFoto(false);
           console.error('[Combustible] ❌ CATCH ERROR:', err);
@@ -264,7 +265,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         console.log('[Combustible] ⚠️ NO HAY FOTO, saltando upload');
       }
 
-      console.log('[Combustible] Insertando en DB tipo:', tipoDetectado);
+      console.log('[Combustible] Insertando en DB - tipo:', tipoDetectado, 'fotoUrl:', fotoUrl ? 'SI' : 'NO');
       const { error: insertError } = await supabase.from('gastos_combustible').insert({
         id_ruta: idRuta,
         id_chofer: idChofer,
