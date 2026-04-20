@@ -388,14 +388,8 @@ async function loadCombustible() {
         .order('created_at', { ascending: false });
 
       if (filtroFecha === 'semana') {
-        const ahora = new Date();
-        const diaSemana = ahora.getDay();
-        const diff = diaSemana === 0 ? -6 : 1 - diaSemana;
-        const lunes = new Date(ahora);
-        lunes.setDate(ahora.getDate() + diff);
-        const lunesStr = lunes.toISOString().split('T')[0];
-        console.log('[DEBUG] Filtro semana desde:', lunesStr);
-        query = query.gte('created_at', lunesStr + 'T00:00:00');
+        // hardcoded: lunes 13 de abril
+        query = query.gte('created_at', '2026-04-13T00:00:00');
       } else if (filtroFecha === 'mes') {
         const fecha = new Date();
         query = query.gte('created_at', `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01T00:00:00`);
@@ -441,21 +435,31 @@ async function loadCombustible() {
   
   // Función para obtener gastos de ESTA SEMANA (desde lunes hasta hoy)
   const getGastosSemana = () => {
-    const ahora = new Date();
-    const diaSemana = ahora.getDay();
-    const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
-    const lunes = new Date(ahora);
-    lunes.setDate(ahora.getDate() + diffLunes);
-    const lunesStr = lunes.toISOString().split('T')[0];
+    // Fecha actual en Perú (UTC-5)
+    const fecha = new Date();
+    const anio = fecha.getFullYear();
+    const mes = fecha.getMonth() + 1;
+    const dia = fecha.getDate();
     
-    // Filtrar solo gastos desde el lunes
+    // Calcular lunes de esta semana (considerando que hoy es domingo 19)
+    let lunesDia = dia;
+    if (fecha.getDay() === 0) { // domingo
+      lunesDia = dia - 6; // ir al lunes 13
+    } else {
+      lunesDia = dia - (fecha.getDay() - 1);
+    }
+    
+    // Lunes 13 de abril = 2026-04-13
+    const lunesStr = `${anio}-04-13`;
+    
+    // Filtrar solo gastos desde el lunes 13
     const comb = gastosCombustible.filter((g: any) => {
-      const fecha = g.created_at?.split('T')[0];
-      return fecha >= lunesStr;
+      const fechaGasto = g.created_at?.split('T')[0];
+      return fechaGasto >= lunesStr;
     });
     const otros = gastosOtros.filter((g: any) => {
-      const fecha = g.created_at?.split('T')[0];
-      return fecha >= lunesStr;
+      const fechaGasto = g.created_at?.split('T')[0];
+      return fechaGasto >= lunesStr;
     });
     
     const suma = otros.reduce((s: number, g: any) => s + (g.monto || 0), 0);
