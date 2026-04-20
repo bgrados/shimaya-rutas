@@ -569,9 +569,9 @@ export default function AdminDashboard() {
           <CardContent className="p-3 text-center">
             <p className="text-orange-300 text-xs flex items-center justify-center gap-1">
               Total Peajes
-              <Tooltip content="Suma de peajes calculados de hoy + semana." />
+              <Tooltip content="Peajes calculados de las rutas finalizadas hoy." />
             </p>
-            <p className="text-xl font-bold text-orange-300">S/ {(stats.peajeDia + stats.peajeSemana).toFixed(2)}</p>
+            <p className="text-xl font-bold text-orange-300">S/ {stats.peajeDia.toFixed(2)}</p>
           </CardContent>
         </Card>
       </div>
