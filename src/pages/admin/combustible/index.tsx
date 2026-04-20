@@ -131,18 +131,26 @@ export default function GastosCombustible() {
   const loadGastos = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('gastos_combustible')
-        .select('id_gasto, id_chofer, id_ruta, tipo_combustible, monto, foto_url, estado, created_at, usuarios(nombre), rutas(nombre)')
-        .order('created_at', { ascending: false });
-
-      //Aplicar filtro solo si hay fecha seleccionada
+      // Primero obtener las rutas dentro del rango de fechas
+      let rutasQuery = supabase.from('rutas').select('id_ruta, fecha');
+      
       if (filtroFechaDesde) {
-        query = query.gte('created_at', `${filtroFechaDesde}T00:00:00`);
+        rutasQuery = rutasQuery.gte('fecha', filtroFechaDesde);
       }
       if (filtroFechaHasta) {
-        query = query.lte('created_at', `${filtroFechaHasta}T23:59:59`);
+        rutasQuery = rutasQuery.lte('fecha', filtroFechaHasta);
       }
+      
+      const { data: rutasData } = await rutasQuery;
+      const rutaIds = rutasData?.map(r => r.id_ruta) || [];
+      
+      // Luego obtener gastos de esas rutas
+      let query = supabase
+        .from('gastos_combustible')
+        .select('id_gasto, id_chofer, id_ruta, tipo_combustible, monto, foto_url, estado, created_at, usuarios(nombre), rutas(nombre, fecha)')
+        .in('id_ruta', rutaIds.length > 0 ? rutaIds : [''])
+        .order('created_at', { ascending: false });
+
       if (filtroChofer) {
         query = query.eq('id_chofer', filtroChofer);
       }
