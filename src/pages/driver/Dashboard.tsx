@@ -92,33 +92,36 @@ const loadGastosDelDia = async () => {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const today = `${year}-${month}-${day}`; // YYYY-MM-DD para rutas
-    const todayStr = `${year}-${month}-${day}`;
-    const todayStart = `${todayStr}T00:00:00`;
-    const todayEnd = `${todayStr}T23:59:59`;
+    const today = `${year}-${month}-${day}`;
     
     console.log('[Gastos] Today:', today);
     
-    console.log('[Gastos] Filter:', todayStart, 'to', todayEnd);
-    
     try {
+      const { data: rutasDelDia, error: errorRutas } = await supabase
+        .from('rutas')
+        .select('id_ruta')
+        .eq('id_chofer', profile.id_usuario)
+        .eq('fecha', today);
+      
+      console.log('[Gastos] Rutas del dia:', rutasDelDia?.length, errorRutas);
+      
+      const rutaIds = rutasDelDia?.map(r => r.id_ruta) || [];
+      
       const { data: gastosComb, error: errorComb } = await supabase
         .from('gastos_combustible')
-        .select('monto, tipo_combustible, foto_url, created_at')
+        .select('monto, tipo_combustible, foto_url')
         .eq('id_chofer', profile.id_usuario)
         .neq('tipo_combustible', 'otro')
-        .gte('created_at', todayStart)
-        .lte('created_at', todayEnd);
+        .in('id_ruta', rutaIds.length > 0 ? rutaIds : ['']);
       
       console.log('[Gastos] Comb results:', gastosComb?.length, errorComb);
          
       const { data: gastosOt, error: errorOt } = await supabase
         .from('gastos_combustible')
-        .select('monto, tipo_combustible, foto_url, created_at')
+        .select('monto, tipo_combustible, foto_url')
         .eq('id_chofer', profile.id_usuario)
         .eq('tipo_combustible', 'otro')
-        .gte('created_at', todayStart)
-        .lte('created_at', todayEnd);
+        .in('id_ruta', rutaIds.length > 0 ? rutaIds : ['']);
       
       console.log('[Gastos] Otros results:', gastosOt?.length, errorOt);
         
@@ -133,7 +136,6 @@ const loadGastosDelDia = async () => {
         setGastosOtros(null);
       }
         
-      // Limpiar combustible cuando no hay gastos
       if (gastosComb && gastosComb.length > 0) {
         const totalComb = gastosComb.reduce((sum, g) => sum + (g.monto || 0), 0);
         setGastosCombustible({
@@ -145,7 +147,6 @@ const loadGastosDelDia = async () => {
         setGastosCombustible(null);
       }
       
-      // Calcular peajes automáticos del día basándose en rutas finalizadas
       const { data: rutasDia } = await supabase
         .from('rutas')
         .select('id_ruta, id_ruta_base')

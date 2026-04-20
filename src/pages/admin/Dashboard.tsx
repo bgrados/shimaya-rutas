@@ -101,17 +101,25 @@ export default function AdminDashboard() {
 
       console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr);
 
-      const todayStart = `${hoyStr}T00:00:00`;
-      const weekStart = `${semanaStr}T00:00:00`;
+      const [rutasDelDiaRes, rutasDeSemanaRes] = await Promise.all([
+        supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
+        supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr)
+      ]);
+      
+      const rutaIdsDelDia = rutasDelDiaRes.data?.map(r => r.id_ruta) || [];
+      const rutaIdsSemana = rutasDeSemanaRes.data?.map(r => r.id_ruta) || [];
+      
+      const emptyFilter = [''];
+      const filterDia = rutaIdsDelDia.length > 0 ? rutaIdsDelDia : emptyFilter;
+      const filterSemana = rutaIdsSemana.length > 0 ? rutaIdsSemana : emptyFilter;
 
-      // Consultas en paralelo para estadísticas básicas
       const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
-        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', todayStart),
-        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').gte('created_at', weekStart),
-        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', todayStart),
-        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').gte('created_at', weekStart),
+        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterDia),
+        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
+        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterDia),
+        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
         supabase.from('usuarios').select('id_usuario, dias_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
 
@@ -273,7 +281,7 @@ export default function AdminDashboard() {
       const { data: gastosChofer } = await supabase
         .from('gastos_combustible')
         .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
-        .gte('created_at', `${semanaStr}T00:00:00`)
+        .in('id_ruta', filterSemana)
         .order('monto', { ascending: false });
 
       if (gastosChofer) {
