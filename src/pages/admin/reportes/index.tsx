@@ -388,11 +388,14 @@ async function loadCombustible() {
         .order('created_at', { ascending: false });
 
       if (filtroFecha === 'semana') {
-        const fecha = new Date();
-        const diaSemana = fecha.getDay();
+        const ahora = new Date();
+        const diaSemana = ahora.getDay();
         const diff = diaSemana === 0 ? -6 : 1 - diaSemana;
-        fecha.setDate(fecha.getDate() + diff);
-        query = query.gte('created_at', fecha.toISOString().split('T')[0] + 'T00:00:00');
+        const lunes = new Date(ahora);
+        lunes.setDate(ahora.getDate() + diff);
+        const lunesStr = lunes.toISOString().split('T')[0];
+        console.log('[DEBUG] Filtro semana desde:', lunesStr);
+        query = query.gte('created_at', lunesStr + 'T00:00:00');
       } else if (filtroFecha === 'mes') {
         const fecha = new Date();
         query = query.gte('created_at', `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01T00:00:00`);
