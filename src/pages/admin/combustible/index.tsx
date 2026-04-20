@@ -95,6 +95,8 @@ interface GrupoChofer {
 }
 
 export default function GastosCombustible() {
+  console.log('=== COMPONENTE GASTOS COMBUSTIBLE RENDERIZADO ===');
+  alert('COMPONENTE CARGADO');
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [choferes, setChoferes] = useState<Usuario[]>([]);
   const getFechaActual = () => {
