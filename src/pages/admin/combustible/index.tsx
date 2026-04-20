@@ -141,6 +141,8 @@ export default function GastosCombustible() {
   const loadGastos = async () => {
     setLoading(true);
     try {
+      console.log('[Combustible] Filtro fechas:', filtroFechaDesde, 'a', filtroFechaHasta);
+      
       // Primero obtener las rutas dentro del rango de fechas
       let rutasQuery = supabase.from('rutas').select('id_ruta, fecha');
       
@@ -151,14 +153,24 @@ export default function GastosCombustible() {
         rutasQuery = rutasQuery.lte('fecha', filtroFechaHasta);
       }
       
-      const { data: rutasData } = await rutasQuery;
+      const { data: rutasData, error: rutasError } = await rutasQuery;
+      console.log('[Combustible] Rutas encontradas:', rutasData?.length, rutasError);
+      
       const rutaIds = rutasData?.map(r => r.id_ruta) || [];
+      console.log('[Combustible] Ruta IDs:', rutaIds);
+      
+      // Si no hay rutas, no mostrar nada
+      if (rutaIds.length === 0) {
+        setGastos([]);
+        setLoading(false);
+        return;
+      }
       
       // Luego obtener gastos de esas rutas
       let query = supabase
         .from('gastos_combustible')
         .select('id_gasto, id_chofer, id_ruta, tipo_combustible, monto, foto_url, estado, created_at, usuarios(nombre), rutas(nombre, fecha)')
-        .in('id_ruta', rutaIds.length > 0 ? rutaIds : [''])
+        .in('id_ruta', rutaIds)
         .order('created_at', { ascending: false });
 
       if (filtroChofer) {
