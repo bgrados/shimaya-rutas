@@ -100,7 +100,7 @@ export default function GastosCombustible() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todos');
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState(() => '2026-04-13'); // Desde lunes 13
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState(() => format(new Date(), 'yyyy-MM-dd')); // Solo hoy
   const [filtroFechaHasta, setFiltroFechaHasta] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [filtroChofer, setFiltroChofer] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
