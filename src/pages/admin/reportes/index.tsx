@@ -1497,7 +1497,7 @@ const win = window.open('', '_blank');
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
-                <p className="text-xs text-blue-300 uppercase font-bold">Otros Hoy</p>
+                <p className="text-xs text-blue-300 uppercase font-bold">Otros</p>
                 <p className="text-xl font-black text-blue-400">S/ {getGastosHoy().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
               </CardContent>
             </Card>
