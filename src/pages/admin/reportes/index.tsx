@@ -451,12 +451,12 @@ export default function Reportes() {
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
   // Función para obtener gastos de HOY nomás
-  const getGastosHoy = useMemo(() => {
+  const getGastosHoy = () => {
     const today = new Date().toISOString().split('T')[0];
     const comb = gastosCombustible.filter((g: any) => g.created_at?.startsWith(today));
     const otros = gastosOtros.filter((g: any) => g.created_at?.startsWith(today));
     return { comb, otros };
-  }, [gastosCombustible, gastosOtros]);
+  };
 
   const rutas = useMemo(() => {
     return allRutas.filter(r => {
