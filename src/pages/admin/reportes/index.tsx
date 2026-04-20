@@ -420,7 +420,12 @@ export default function Reportes() {
         const gastosConFoto = data.filter((g: any) => g.foto_url);
         console.log('[Gastos] GASTOS CON FOTO:', gastosConFoto.length);
         if (gastosConFoto.length > 0) {
-          console.log('[Gastos] Primera foto_url:', gastosConFoto[0].foto_url?.substring(0, 80));
+          console.log('[Gastos] Primera foto_url:', gastosConFoto[0].foto_url);
+          // Probar cargar esa foto
+          try {
+            const testBase64 = await urlToBase64(gastosConFoto[0].foto_url);
+            console.log('[Gastos] Primera foto cargó:', testBase64 ? 'SI' : 'NO');
+          } catch(e) { console.log('[Gastos] Error:', e); }
         }
         
         // Cargar fotos de TODOS los gastos
