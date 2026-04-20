@@ -119,11 +119,13 @@ export default function GastosCombustible() {
   
   const initialDates = getFechasIniciales();
   
+  const [forceKey, setForceKey] = useState(0);
+  
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todos');
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>('2026-04-20');
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>('2026-04-20');
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>('');
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>('');
   const [filtroChofer, setFiltroChofer] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
@@ -134,8 +136,9 @@ export default function GastosCombustible() {
   const [tipoEditando, setTipoEditando] = useState('');
 
   useEffect(() => {
+    // Force reload to avoid cache
+    console.log('[MOUNT] Componente combustible montado');
     loadChoferes();
-    console.log('[INIT] Fechas - Desde:', calcularInicioSemana(), 'Hasta:', format(new Date(), 'yyyy-MM-dd'));
     setPaginaActual(1);
     loadGastos();
   }, []);
@@ -156,18 +159,32 @@ export default function GastosCombustible() {
 
   const loadGastos = async () => {
     setLoading(true);
-    try {
-      console.log('[Combustible] Filtro fechas:', filtroFechaDesde, 'a', filtroFechaHasta);
-      
-      // Primero obtener las rutas dentro del rango de fechas
-      let rutasQuery = supabase.from('rutas').select('id_ruta, fecha');
-      
-      if (filtroFechaDesde) {
-        rutasQuery = rutasQuery.gte('fecha', filtroFechaDesde);
-      }
-      if (filtroFechaHasta) {
-        rutasQuery = rutasQuery.lte('fecha', filtroFechaHasta);
-      }
+    
+// Si no hay fechas, usar la semana actual
+    let desde = filtroFechaDesde;
+    let hasta = filtroFechaHasta;
+    
+    if (!desde || !hasta) {
+      const now = new Date();
+      const day = now.getDay();
+      const inicioSemana = new Date(now);
+      inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+      desde = format(inicioSemana, 'yyyy-MM-dd');
+      hasta = format(now, 'yyyy-MM-dd');
+      console.log('[Combustible] Fechas por defecto:', desde, hasta);
+    } else {
+      console.log('[Combustible] Fechas usadas:', desde, hasta);
+    }
+       
+    // Primero obtener las rutas dentro del rango de fechas
+    let rutasQuery = supabase.from('rutas').select('id_ruta, fecha');
+       
+    if (desde) {
+      rutasQuery = rutasQuery.gte('fecha', desde);
+    }
+    if (hasta) {
+      rutasQuery = rutasQuery.lte('fecha', hasta);
+    }
       
       const { data: rutasData, error: rutasError } = await rutasQuery;
       console.log('[Combustible] Fechas filtro:', filtroFechaDesde, '-', filtroFechaHasta);
