@@ -428,19 +428,16 @@ export default function Reportes() {
           } catch(e) { console.log('[Gastos] Error:', e); }
         }
         
-        // Cargar fotos - guardar URL directa
+        // Cargar fotos - guardar URL directa SIN conversión
         const fotosMap: Record<string, string> = {};
         for (const gasto of data) {
-          if (gasto.foto_url) {
-            fotosMap[gasto.id_gasto] = gasto.foto_url;
+          const url = gasto.foto_url;
+          if (url && typeof url === 'string' && url.length > 0 && url.startsWith('http')) {
+            fotosMap[gasto.id_gasto] = url;
           }
         }
-        console.log('[Gastos] TOTAL gastos:', data?.length || 0);
-        console.log('[Gastos] CON foto_url:', Object.keys(fotosMap).length);
-        if (Object.keys(fotosMap).length > 0) {
-          const primerId = Object.keys(fotosMap)[0];
-          console.log('[Gastos] Primera URL:', fotosMap[primerId]);
         setFotosCombustible(fotosMap);
+        console.log('[Gastos] Fotos guardadas:', Object.keys(fotosMap).length);
       }
     } catch (err) {
       console.error('[Gastos] Error:', err);
