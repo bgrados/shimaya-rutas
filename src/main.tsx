@@ -11,7 +11,22 @@ registerSW({
       window.location.reload()
     }
   },
+  onOfflineReady() {
+    console.log('App ready to work offline');
+  },
 })
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (reg) {
+        reg.update().then(() => {
+          console.log('SW updated');
+        });
+      }
+    });
+  });
+}
 
 const rootEl = document.getElementById('root')
 
