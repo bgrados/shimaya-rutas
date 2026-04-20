@@ -428,20 +428,14 @@ export default function Reportes() {
           } catch(e) { console.log('[Gastos] Error:', e); }
         }
         
-        // Cargar fotos de TODOS los gastos
+        // Cargar fotos - guardar URL directa
         const fotosMap: Record<string, string> = {};
         for (const gasto of data) {
           if (gasto.foto_url) {
-            try {
-              const base64 = await urlToBase64(gasto.foto_url);
-              if (base64) {
-                fotosMap[gasto.id_gasto] = base64;
-              }
-            } catch (e) {
-              console.warn('[Gastos] Error loading foto:', gasto.id_gasto, e);
-            }
+            fotosMap[gasto.id_gasto] = gasto.foto_url;
           }
         }
+        console.log('[Gastos] Fotos guardadas (URL directa):', Object.keys(fotosMap).length);
         console.log('[Gastos] Fotos loaded:', Object.keys(fotosMap).length, 'de', data.length);
         setFotosCombustible(fotosMap);
       }
@@ -455,23 +449,18 @@ export default function Reportes() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  // Función para obtener gastos de HOY nomás
-  const getGastosHoy = () => {
+  // Función para obtener gastos de la semana actual (desde lunes)
+  const getGastosSemana = () => {
     const fecha = new Date();
-    const anio = fecha.getFullYear();
-    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-    const dia = String(fecha.getDate()).padStart(2, '0');
-    const hoy = `${anio}-${mes}-${dia}`;
-    console.log('[Gastos] Buscando gastos de hoy:', hoy);
-    const comb = gastosCombustible.filter((g: any) => {
-      const f = g.created_at?.split('T')[0];
-      return f === hoy;
-    });
-    const otros = gastosOtros.filter((g: any) => {
-      const f = g.created_at?.split('T')[0];
-      return f === hoy;
-    });
-    console.log('[Gastos] Combustible hoy:', comb.length, 'Otros hoy:', otros.length);
+    const diaSemana = fecha.getDay();
+    const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+    const lunes = new Date(fecha);
+    lunes.setDate(fecha.getDate() + diffLunes);
+    const lunesStr = lunes.toISOString().split('T')[0];
+    
+    const comb = gastosCombustible.filter((g: any) => g.created_at?.startsWith(lunesStr));
+    const otros = gastosOtros.filter((g: any) => g.created_at?.startsWith(lunesStr));
+    console.log('[Gastos] Semana desde:', lunesStr, 'Comb:', comb.length, 'Otros:', otros.length);
     return { comb, otros };
   };
 
@@ -1502,14 +1491,14 @@ const win = window.open('', '_blank');
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
-                <p className="text-xs text-blue-300 uppercase font-bold">Otros</p>
-                <p className="text-xl font-black text-blue-400">S/ {getGastosHoy().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
+                <p className="text-xs text-blue-300 uppercase font-bold">Otros Semanal</p>
+                <p className="text-xl font-black text-blue-400">S/ {getGastosSemana().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-blue-300 uppercase font-bold">Transacciones</p>
-                <p className="text-xl font-black text-blue-400">{getGastosHoy().otros.length}</p>
+                <p className="text-xl font-black text-blue-400">{getGastosSemana().otros.length}</p>
               </CardContent>
             </Card>
           </div>
