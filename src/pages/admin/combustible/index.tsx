@@ -153,7 +153,9 @@ export default function GastosCombustible() {
       }
       
       const { data: rutasData, error: rutasError } = await rutasQuery;
+      console.log('[Combustible] Fechas filtro:', filtroFechaDesde, '-', filtroFechaHasta);
       console.log('[Combustible] Rutas encontradas:', rutasData?.length, rutasError);
+      console.log('[Combustible] Rutas:', rutasData?.map(r => r.fecha));
       
       const rutaIds = rutasData?.map(r => r.id_ruta) || [];
       console.log('[Combustible] Ruta IDs:', rutaIds);
@@ -205,6 +207,7 @@ export default function GastosCombustible() {
           ruta_nombre: g.rutas?.nombre
         }));
         setGastos(mapped as GastoCombustible[]);
+      console.log('[Combustible] Gastos cargados:', mapped?.length, 'GLP:', mapped?.filter(g => g.tipo_combustible === 'glp').reduce((s, g) => s + (g.monto || 0), 0));
         
         // Cargar fotos de combustible
         const fotosMap: Record<string, string> = {};
