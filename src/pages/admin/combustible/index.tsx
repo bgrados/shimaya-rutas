@@ -137,10 +137,10 @@ export default function GastosCombustible() {
         .order('created_at', { ascending: false });
 
       if (filtroFechaDesde) {
-        query = query.gte('created_at', `${filtroFechaDesde}T00:00:00`);
+        query = query.gte('fecha', filtroFechaDesde);
       }
       if (filtroFechaHasta) {
-        query = query.lte('created_at', `${filtroFechaHasta}T23:59:59`);
+        query = query.lte('fecha', filtroFechaHasta);
       }
       if (filtroChofer) {
         query = query.eq('id_chofer', filtroChofer);
