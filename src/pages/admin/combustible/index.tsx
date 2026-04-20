@@ -152,7 +152,7 @@ export default function GastosCombustible() {
       } else if (activeTab === 'rechazados') {
         query = query.eq('estado', 'rechazado');
       } else if (activeTab === 'combustible') {
-        query = query.neq('tipo_combustible', 'otro');
+        query = query.in('tipo_combustible', ['glp', 'gasolina', 'diesel']);
       } else if (activeTab === 'otros') {
         query = query.eq('tipo_combustible', 'otro');
       }
