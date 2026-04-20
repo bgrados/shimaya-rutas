@@ -157,12 +157,17 @@ export default function GastosCombustible() {
         query = query.eq('tipo_combustible', 'otro');
       }
 
-      const { data } = await query;
+      const { data, error } = await query;
 
+      if (error) {
+        console.error('[Gastos] Error:', error);
+      }
+      
       if (data) {
-        console.log('[Gastos] activos - tab:', activeTab, 'desde:', filtroFechaDesde, 'hasta:', filtroFechaHasta);
-        console.log('[Gastos] Total en DB:', data.length);
+        console.log('[Gastos] activos - tab:', activeTab);
+        console.log('[Gastos] Total:', data.length);
         console.log('[Gastos] Tipos:', [...new Set(data.map((g: any) => g.tipo_combustible))]);
+        console.log('[Gastos] Detalle:', data.map(g => `${g.tipo_combustible} - S/${g.monto}`));
         console.log('Gastos con fotos:', data.filter((g: any) => g.foto_url).length);
         const mapped = data.map((g: any) => ({
           ...g,
@@ -531,10 +536,10 @@ export default function GastosCombustible() {
 
   const tabs = [
     { key: 'todos', label: 'Todos' },
-    { key: 'combustible', label: 'Combustible' },
+    { key: 'combustible', label: 'GLP/Gas/Diesel' },
     { key: 'pendientes', label: 'Pendientes' },
     { key: 'confirmados', label: 'Confirmados' },
-    { key: 'otros', label: 'Otros (Est/Peaje)' },
+    { key: 'otros', label: 'Otros' },
   ];
 
   return (
