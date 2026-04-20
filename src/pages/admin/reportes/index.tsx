@@ -428,15 +428,6 @@ async function loadCombustible() {
         }
         setFotosCombustible(fotosMap);
         console.log('[Gastos] Fotos guardadas:', Object.keys(fotosMap).length);
-        const fotosMap: Record<string, string> = {};
-        for (const gasto of data) {
-          const url = gasto.foto_url;
-          if (url && typeof url === 'string' && url.length > 0 && url.startsWith('http')) {
-            fotosMap[gasto.id_gasto] = url;
-          }
-        }
-        setFotosCombustible(fotosMap);
-        console.log('[Gastos] Fotos guardadas:', Object.keys(fotosMap).length);
       }
     } catch (err) {
       console.error('[Gastos] Error:', err);
