@@ -97,7 +97,12 @@ interface GrupoChofer {
 export default function GastosCombustible() {
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [choferes, setChoferes] = useState<Usuario[]>([]);
-  const calcularInicioSemana = () => {
+  const getFechaActual = () => {
+    const now = new Date();
+    return format(now, 'yyyy-MM-dd');
+  };
+  
+  const getInicioSemana = () => {
     const now = new Date();
     const day = now.getDay();
     const inicioSemana = new Date(now);
@@ -105,11 +110,20 @@ export default function GastosCombustible() {
     return format(inicioSemana, 'yyyy-MM-dd');
   };
   
+  const getFechasIniciales = () => {
+    const desde = getInicioSemana();
+    const hasta = getFechaActual();
+    console.log('[DEBUG] Fechas iniciales calculadas:', desde, hasta);
+    return { desde, hasta };
+  };
+  
+  const initialDates = getFechasIniciales();
+  
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todos');
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>(calcularInicioSemana());
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>(initialDates.desde);
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>(initialDates.hasta);
   const [filtroChofer, setFiltroChofer] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
