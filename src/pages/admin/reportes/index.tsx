@@ -439,13 +439,27 @@ async function loadCombustible() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  // Función para obtener TODOS los gastos
+  // Función para obtener gastos de ESTA SEMANA (desde lunes hasta hoy)
   const getGastosSemana = () => {
-    // Mostrar TODOS los gastos, sin filtro de fecha
-    const comb = [...gastosCombustible];
-    const otros = [...gastosOtros];
-    console.log('[Gastos] TOTAL - Comb:', comb.length, 'Otros:', otros.length);
-    console.log('[Gastos] Suma otros:', otros.reduce((s: number, g: any) => s + (g.monto || 0), 0));
+    const ahora = new Date();
+    const diaSemana = ahora.getDay();
+    const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+    const lunes = new Date(ahora);
+    lunes.setDate(ahora.getDate() + diffLunes);
+    const lunesStr = lunes.toISOString().split('T')[0];
+    
+    // Filtrar solo gastos desde el lunes
+    const comb = gastosCombustible.filter((g: any) => {
+      const fecha = g.created_at?.split('T')[0];
+      return fecha >= lunesStr;
+    });
+    const otros = gastosOtros.filter((g: any) => {
+      const fecha = g.created_at?.split('T')[0];
+      return fecha >= lunesStr;
+    });
+    
+    const suma = otros.reduce((s: number, g: any) => s + (g.monto || 0), 0);
+    console.log('[Gastos] Desde:', lunesStr, 'Comb:', comb.length, 'Otros:', otros.length, 'Suma:', suma);
     return { comb, otros };
   };
 
