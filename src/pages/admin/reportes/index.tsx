@@ -382,20 +382,10 @@ export default function Reportes() {
 async function loadCombustible() {
     setCombustibleLoading(true);
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('gastos_combustible')
-        .select('*, usuarios(nombre), rutas(nombre)')
+        .select('*, usuarios(nombre), rutas(nombre, fecha)')
         .order('created_at', { ascending: false });
-
-      if (filtroFecha === 'semana') {
-        // hardcoded: lunes 13 de abril
-        query = query.gte('created_at', '2026-04-13T00:00:00');
-      } else if (filtroFecha === 'mes') {
-        const fecha = new Date();
-        query = query.gte('created_at', `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01T00:00:00`);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('[DEBUG-Gastos] Error en query Supabase:', error);
@@ -436,37 +426,26 @@ async function loadCombustible() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  // Función para obtener gastos de ESTA SEMANA (desde lunes hasta hoy)
   const getGastosSemana = () => {
-    // Fecha actual en Perú (UTC-5)
-    const fecha = new Date();
-    const anio = fecha.getFullYear();
-    const mes = fecha.getMonth() + 1;
-    const dia = fecha.getDate();
+    const now = new Date();
+    const day = now.getDay();
+    const hoyStr = format(now, 'yyyy-MM-dd');
     
-    // Calcular lunes de esta semana (considerando que hoy es domingo 19)
-    let lunesDia = dia;
-    if (fecha.getDay() === 0) { // domingo
-      lunesDia = dia - 6; // ir al lunes 13
-    } else {
-      lunesDia = dia - (fecha.getDay() - 1);
-    }
+    const inicioSemana = new Date(now);
+    inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+    const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
     
-    // Lunes 13 de abril = 2026-04-13
-    const lunesStr = `${anio}-04-13`;
+    console.log('[Gastos] Semana:', semanaStr, 'a', hoyStr);
     
-    // Filtrar solo gastos desde el lunes 13
     const comb = gastosCombustible.filter((g: any) => {
-      const fechaGasto = g.created_at?.split('T')[0];
-      return fechaGasto >= lunesStr;
+      return g.rutas?.fecha >= semanaStr;
     });
     const otros = gastosOtros.filter((g: any) => {
-      const fechaGasto = g.created_at?.split('T')[0];
-      return fechaGasto >= lunesStr;
+      return g.rutas?.fecha >= semanaStr;
     });
     
     const suma = otros.reduce((s: number, g: any) => s + (g.monto || 0), 0);
-    console.log('[Gastos] Desde:', lunesStr, 'Comb:', comb.length, 'Otros:', otros.length, 'Suma:', suma);
+    console.log('[Gastos] Desde:', semanaStr, 'Comb:', comb.length, 'Otros:', otros.length, 'Suma:', suma);
     return { comb, otros };
   };
 
