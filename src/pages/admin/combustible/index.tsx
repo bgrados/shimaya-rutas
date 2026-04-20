@@ -121,10 +121,13 @@ export default function GastosCombustible() {
 
   useEffect(() => {
     loadChoferes();
-    console.log('[INIT] Fechas inicializadas - Desde:', calcularInicioSemana(), 'Hasta:', format(new Date(), 'yyyy-MM-dd'));
+    console.log('[INIT] Fechas - Desde:', calcularInicioSemana(), 'Hasta:', format(new Date(), 'yyyy-MM-dd'));
+    setPaginaActual(1);
+    loadGastos();
   }, []);
 
   useEffect(() => {
+    setPaginaActual(1);
     loadGastos();
   }, [activeTab, filtroFechaDesde, filtroFechaHasta, filtroChofer]);
 
