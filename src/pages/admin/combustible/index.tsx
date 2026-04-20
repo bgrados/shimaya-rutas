@@ -160,8 +160,9 @@ export default function GastosCombustible() {
       const { data } = await query;
 
       if (data) {
-        console.log('Gastos loaded:', data.length);
-        console.log('Primer gasto:', JSON.stringify(data[0], null, 2));
+        console.log('[Gastos] activos - tab:', activeTab, 'desde:', filtroFechaDesde, 'hasta:', filtroFechaHasta);
+        console.log('[Gastos] Total en DB:', data.length);
+        console.log('[Gastos] Tipos:', [...new Set(data.map((g: any) => g.tipo_combustible))]);
         console.log('Gastos con fotos:', data.filter((g: any) => g.foto_url).length);
         const mapped = data.map((g: any) => ({
           ...g,
