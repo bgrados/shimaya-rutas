@@ -100,8 +100,8 @@ export default function GastosCombustible() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todos');
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState(() => format(new Date(), 'yyyy-MM-dd')); // Solo hoy
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState(() => '2026-04-13'); // Desde lunes 13
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState(() => '2026-04-19'); // Hasta domingo 19
   const [filtroChofer, setFiltroChofer] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
@@ -137,10 +137,10 @@ export default function GastosCombustible() {
         .order('created_at', { ascending: false });
 
       if (filtroFechaDesde) {
-        query = query.gte('fecha', filtroFechaDesde);
+        query = query.gte('created_at', `${filtroFechaDesde}T00:00:00`);
       }
       if (filtroFechaHasta) {
-        query = query.lte('fecha', filtroFechaHasta);
+        query = query.lte('created_at', `${filtroFechaHasta}T23:59:59`);
       }
       if (filtroChofer) {
         query = query.eq('id_chofer', filtroChofer);
