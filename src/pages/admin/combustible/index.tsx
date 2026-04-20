@@ -97,11 +97,21 @@ interface GrupoChofer {
 export default function GastosCombustible() {
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [choferes, setChoferes] = useState<Usuario[]>([]);
+  const getSemanaActual = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const inicioSemana = new Date(now);
+    inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+    return format(inicioSemana, 'yyyy-MM-dd');
+  };
+  
+  const getHoy = () => format(new Date(), 'yyyy-MM-dd');
+  
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todos');
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>('2026-04-19'); // Hoy
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>('2026-04-19');
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>(getSemanaActual());
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>(getHoy());
   const [filtroChofer, setFiltroChofer] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
