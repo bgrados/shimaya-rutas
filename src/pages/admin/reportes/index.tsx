@@ -412,16 +412,17 @@ async function loadCombustible() {
         }));
         setGastos(mapped as GastoCombustible[]);
         
-        // Cargar fotos - guardar URL directa
+        // Cargar fotos
         const fotosMap: Record<string, string> = {};
         for (const gasto of data) {
           const url = gasto.foto_url;
-          if (url && typeof url === 'string' && url.startsWith('http')) {
+          console.log('[Foto] gasto:', gasto.id_gasto, 'foto_url:', url);
+          if (url && typeof url === 'string' && url.length > 10) {
             fotosMap[gasto.id_gasto] = url;
           }
         }
         setFotosCombustible(fotosMap);
-        console.log('[Gastos] Fotos guardadas:', Object.keys(fotosMap).length);
+        console.log('[Gastos] Total fotos guardadas:', Object.keys(fotosMap).length);
       }
     } catch (err) {
       console.error('[Gastos] Error:', err);
@@ -1494,7 +1495,7 @@ const win = window.open('', '_blank');
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
-                <p className="text-xs text-blue-300 uppercase font-bold">Otros</p>
+                <p className="text-xs text-blue-300 uppercase font-bold">Otros Semanal</p>
                 <p className="text-xl font-black text-blue-400">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
               </CardContent>
             </Card>
