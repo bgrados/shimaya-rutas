@@ -449,6 +449,14 @@ export default function Reportes() {
 
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
+  
+  // Función para obtener gastos de HOY nomás
+  const getGastosHoy = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const comb = gastosCombustible.filter((g: any) => g.created_at?.startsWith(today));
+    const otros = gastosOtros.filter((g: any) => g.created_at?.startsWith(today));
+    return { comb, otros };
+  }, [gastosCombustible, gastosOtros]);
 
   const rutas = useMemo(() => {
     return allRutas.filter(r => {
@@ -1478,13 +1486,13 @@ const win = window.open('', '_blank');
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-blue-300 uppercase font-bold">Otros Hoy</p>
-                <p className="text-xl font-black text-blue-400">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
+                <p className="text-xl font-black text-blue-400">S/ {getGastosHoy().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-blue-300 uppercase font-bold">Transacciones</p>
-                <p className="text-xl font-black text-blue-400">{gastosOtros.length}</p>
+                <p className="text-xl font-black text-blue-400">{getGastosHoy().otros.length}</p>
               </CardContent>
             </Card>
           </div>
