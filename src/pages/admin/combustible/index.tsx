@@ -122,8 +122,8 @@ export default function GastosCombustible() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todos');
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>(initialDates.desde);
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>(initialDates.hasta);
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>('2026-04-20');
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>('2026-04-20');
   const [filtroChofer, setFiltroChofer] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
