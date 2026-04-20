@@ -248,6 +248,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
             return;
           }
 
+          alert('✅ Foto subida, guardando gasto...');
           console.log('[Combustible] ✅ Upload OK');
           const { data: urlData } = supabase.storage.from('combustible').getPublicUrl(filePath);
           fotoUrl = urlData.publicUrl;
