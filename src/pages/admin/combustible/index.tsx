@@ -79,7 +79,7 @@ const urlToBase64Supabase = async (url: string): Promise<string | null> => {
   }
 };
 
-type TabType = 'todos' | 'pendientes' | 'confirmados' | 'otros';
+type TabType = 'todos' | 'pendientes' | 'confirmados' | 'combustible' | 'otros';
 
 interface GrupoFecha {
   fecha: string;
@@ -151,6 +151,8 @@ export default function GastosCombustible() {
         query = query.eq('estado', 'confirmado');
       } else if (activeTab === 'rechazados') {
         query = query.eq('estado', 'rechazado');
+      } else if (activeTab === 'combustible') {
+        query = query.neq('tipo_combustible', 'otro');
       } else if (activeTab === 'otros') {
         query = query.eq('tipo_combustible', 'otro');
       }
@@ -528,9 +530,9 @@ export default function GastosCombustible() {
 
   const tabs = [
     { key: 'todos', label: 'Todos' },
+    { key: 'combustible', label: 'Combustible' },
     { key: 'pendientes', label: 'Pendientes' },
     { key: 'confirmados', label: 'Confirmados' },
-    { key: 'rechazados', label: 'Rechazados' },
     { key: 'otros', label: 'Otros (Est/Peaje)' },
   ];
 
