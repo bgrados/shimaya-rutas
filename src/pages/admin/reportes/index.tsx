@@ -406,19 +406,16 @@ async function loadCombustible() {
         }));
         setGastos(mapped as GastoCombustible[]);
         
-        // Debug: mostrar primeras URLs de fotos
-        const gastosConFoto = data.filter((g: any) => g.foto_url);
-        console.log('[Gastos] GASTOS CON FOTO:', gastosConFoto.length);
-        if (gastosConFoto.length > 0) {
-          console.log('[Gastos] Primera foto_url:', gastosConFoto[0].foto_url);
-          // Probar cargar esa foto
-          try {
-            const testBase64 = await urlToBase64(gastosConFoto[0].foto_url);
-            console.log('[Gastos] Primera foto cargó:', testBase64 ? 'SI' : 'NO');
-          } catch(e) { console.log('[Gastos] Error:', e); }
+        // Cargar fotos - guardar URL directa
+        const fotosMap: Record<string, string> = {};
+        for (const gasto of data) {
+          const url = gasto.foto_url;
+          if (url && typeof url === 'string' && url.startsWith('http')) {
+            fotosMap[gasto.id_gasto] = url;
+          }
         }
-        
-        // Cargar fotos - guardar URL directa SIN conversión
+        setFotosCombustible(fotosMap);
+        console.log('[Gastos] Fotos guardadas:', Object.keys(fotosMap).length);
         const fotosMap: Record<string, string> = {};
         for (const gasto of data) {
           const url = gasto.foto_url;
