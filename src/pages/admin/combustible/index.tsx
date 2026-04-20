@@ -242,6 +242,7 @@ export default function GastosCombustible() {
         }));
         setGastos(mapped as GastoCombustible[]);
       console.log('[Combustible] Gastos cargados:', mapped?.length, 'GLP:', mapped?.filter(g => g.tipo_combustible === 'glp').reduce((s, g) => s + (g.monto || 0), 0));
+      alert(`CARGADOS: ${mapped?.length} gastos. GLP: S/${mapped?.filter(g => g.tipo_combustible === 'glp').reduce((s, g) => s + (g.monto || 0), 0)}`);
         
         // Cargar fotos de combustible
         const fotosMap: Record<string, string> = {};
