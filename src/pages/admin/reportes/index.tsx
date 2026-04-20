@@ -379,27 +379,17 @@ export default function Reportes() {
     setLoading(false);
   }
 
-  async function loadCombustible() {
+async function loadCombustible() {
     setCombustibleLoading(true);
     console.log('[DEBUG-Gastos] Iniciando carga con filtro:', filtroFecha);
     try {
-      let query = supabase
+      // QUITIR filtro para traer TODO
+      const { data, error } = await supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre)')
         .order('created_at', { ascending: false });
 
-      if (filtroFecha === 'semana') {
-        const monday = getStartOfCurrentWeek();
-        // Usar la fecha local de Perú convertida a inicio del día (00:00:00)
-        query = query.gte('created_at', `${monday}T00:00:00.000Z`);
-        console.log('[DEBUG-Gastos] Filtrando desde:', `${monday}T00:00:00.000Z`);
-      } else if (filtroFecha === 'mes') {
-        const mesInicio = format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
-        query = query.gte('created_at', `${mesInicio}T00:00:00.000Z`);
-        console.log('[DEBUG-Gastos] Filtrando desde inicio de mes:', mesInicio);
-      }
-
-      const { data, error } = await query;
+      console.log('[DEBUG-Gastos]Traidos:', data?.length || 0, 'registros');
 
       if (error) {
         console.error('[DEBUG-Gastos] Error en query Supabase:', error);
@@ -449,18 +439,13 @@ export default function Reportes() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  // Función para obtener gastos de la semana actual (desde lunes)
+  // Función para obtener TODOS los gastos
   const getGastosSemana = () => {
-    const fecha = new Date();
-    const diaSemana = fecha.getDay();
-    const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
-    const lunes = new Date(fecha);
-    lunes.setDate(fecha.getDate() + diffLunes);
-    const lunesStr = lunes.toISOString().split('T')[0];
-    
-    const comb = gastosCombustible.filter((g: any) => g.created_at?.startsWith(lunesStr));
-    const otros = gastosOtros.filter((g: any) => g.created_at?.startsWith(lunesStr));
-    console.log('[Gastos] Semana desde:', lunesStr, 'Comb:', comb.length, 'Otros:', otros.length);
+    // Mostrar TODOS los gastos, sin filtro de fecha
+    const comb = [...gastosCombustible];
+    const otros = [...gastosOtros];
+    console.log('[Gastos] TOTAL - Comb:', comb.length, 'Otros:', otros.length);
+    console.log('[Gastos] Suma otros:', otros.reduce((s: number, g: any) => s + (g.monto || 0), 0));
     return { comb, otros };
   };
 
