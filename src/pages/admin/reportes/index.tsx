@@ -412,17 +412,19 @@ async function loadCombustible() {
         }));
         setGastos(mapped as GastoCombustible[]);
         
-        // Cargar fotos
+        // Debug: mostrar primeros 3 gastos con foto_url
+        const conFoto = data.filter((g: any) => g.foto_url);
+        console.log('[Debug] Gastos CON foto_url:', conFoto.length);
+        conFoto.slice(0,3).forEach((g: any) => {
+          console.log('[Debug]  - id:', g.id_gasto, 'monto:', g.monto, 'foto_url:', g.foto_url?.substring(0,80));
+        });
+        
+        // Mapear fotos
         const fotosMap: Record<string, string> = {};
-        for (const gasto of data) {
-          const url = gasto.foto_url;
-          console.log('[Foto] gasto:', gasto.id_gasto, 'foto_url:', url);
-          if (url && typeof url === 'string' && url.length > 10) {
-            fotosMap[gasto.id_gasto] = url;
-          }
-        }
+        data.forEach((g: any) => {
+          if (g.foto_url) fotosMap[g.id_gasto] = g.foto_url;
+        });
         setFotosCombustible(fotosMap);
-        console.log('[Gastos] Total fotos guardadas:', Object.keys(fotosMap).length);
       }
     } catch (err) {
       console.error('[Gastos] Error:', err);
