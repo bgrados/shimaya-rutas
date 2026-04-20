@@ -381,26 +381,21 @@ export default function Reportes() {
 
 async function loadCombustible() {
     setCombustibleLoading(true);
-    console.log('[DEBUG-Gastos] Iniciando carga con filtro:', filtroFecha);
     try {
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre)')
         .order('created_at', { ascending: false });
 
-      // Aplicar filtros
       if (filtroFecha === 'semana') {
         const fecha = new Date();
         const diaSemana = fecha.getDay();
         const diff = diaSemana === 0 ? -6 : 1 - diaSemana;
-        const lunes = new Date(fecha);
-        lunes.setDate(fecha.getDate() + diff);
-        const lunesStr = lunes.toISOString().split('T')[0];
-        query = query.gte('created_at', `${lunesStr}T00:00:00`);
+        fecha.setDate(fecha.getDate() + diff);
+        query = query.gte('created_at', fecha.toISOString().split('T')[0] + 'T00:00:00');
       } else if (filtroFecha === 'mes') {
-        const mes = new Date();
-        const mesStr = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}-01`;
-        query = query.gte('created_at', `${mesStr}T00:00:00`);
+        const fecha = new Date();
+        query = query.gte('created_at', `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-01T00:00:00`);
       }
 
       const { data, error } = await query;
@@ -1501,7 +1496,7 @@ const win = window.open('', '_blank');
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
-                <p className="text-xs text-blue-300 uppercase font-bold">Otros ({filtroFecha})</p>
+                <p className="text-xs text-blue-300 uppercase font-bold">Otros</p>
                 <p className="text-xl font-black text-blue-400">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
               </CardContent>
             </Card>
