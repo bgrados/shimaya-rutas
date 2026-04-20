@@ -452,9 +452,21 @@ export default function Reportes() {
   
   // Función para obtener gastos de HOY nomás
   const getGastosHoy = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const comb = gastosCombustible.filter((g: any) => g.created_at?.startsWith(today));
-    const otros = gastosOtros.filter((g: any) => g.created_at?.startsWith(today));
+    const fecha = new Date();
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const hoy = `${anio}-${mes}-${dia}`;
+    console.log('[Gastos] Buscando gastos de hoy:', hoy);
+    const comb = gastosCombustible.filter((g: any) => {
+      const f = g.created_at?.split('T')[0];
+      return f === hoy;
+    });
+    const otros = gastosOtros.filter((g: any) => {
+      const f = g.created_at?.split('T')[0];
+      return f === hoy;
+    });
+    console.log('[Gastos] Combustible hoy:', comb.length, 'Otros hoy:', otros.length);
     return { comb, otros };
   };
 
