@@ -435,8 +435,11 @@ export default function Reportes() {
             fotosMap[gasto.id_gasto] = gasto.foto_url;
           }
         }
-        console.log('[Gastos] Fotos guardadas (URL directa):', Object.keys(fotosMap).length);
-        console.log('[Gastos] Fotos loaded:', Object.keys(fotosMap).length, 'de', data.length);
+        console.log('[Gastos] TOTAL gastos:', data?.length || 0);
+        console.log('[Gastos] CON foto_url:', Object.keys(fotosMap).length);
+        if (Object.keys(fotosMap).length > 0) {
+          const primerId = Object.keys(fotosMap)[0];
+          console.log('[Gastos] Primera URL:', fotosMap[primerId]);
         setFotosCombustible(fotosMap);
       }
     } catch (err) {
