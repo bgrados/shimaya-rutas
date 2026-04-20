@@ -214,31 +214,21 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           const fileName = `combustible_${idRuta}_${Date.now()}.jpg`;
           const filePath = `combustible/${fileName}`;
 
-          let blobToUpload: Blob;
+          // Convertir dataURL a blob de forma segura
+          const base64Response = await fetch(foto);
+          const blobToUpload = await base64Response.blob();
           
-          if (optimizedFoto?.blob) {
-            blobToUpload = optimizedFoto.blob;
-            console.log('[Combustible] Blob optimizado size:', blobToUpload.size);
-          } else {
-            console.log('[Combustible] Fallback: fetch blob');
-            const res = await fetch(foto);
-            blobToUpload = await res.blob();
-            console.log('[Combustible] Fallback blob size:', blobToUpload.size);
-          }
-
-          console.log('[Combustible] === INICIANDO UPLOAD ===');
-          console.log('[Combustible] Bucket:combustible');
-          console.log('[Combustible] Path:', filePath);
-          console.log('[Combustible] Blob type:', blobToUpload.type);
+          console.log('[Combustible] Blob size:', blobToUpload.size, 'type:', blobToUpload.type);
           
-          // FORZAR error si no hay blob
+          // Validar blob
           if (!blobToUpload || blobToUpload.size === 0) {
-            console.error('[Combustible] ❌ Blob vacío!');
-            setError('Error: la imagen está vacía');
+            alert('Error: imagen vacía');
             setSubiendoFoto(false);
             setGuardando(false);
             return;
           }
+
+          console.log('[Combustible] === INICIANDO UPLOAD ===');
           
           const uploadResult = await supabase.storage
             .from('visitas_fotos')

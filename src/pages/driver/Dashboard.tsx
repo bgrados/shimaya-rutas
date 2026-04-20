@@ -92,9 +92,12 @@ const loadGastosDelDia = async () => {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`; // YYYY-MM-DD para rutas
     const todayStr = `${year}-${month}-${day}`;
     const todayStart = `${todayStr}T00:00:00`;
     const todayEnd = `${todayStr}T23:59:59`;
+    
+    console.log('[Gastos] Today:', today);
     
     console.log('[Gastos] Filter:', todayStart, 'to', todayEnd);
     
