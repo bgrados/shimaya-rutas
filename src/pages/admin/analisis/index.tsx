@@ -130,6 +130,13 @@ export default function AnalisisRutas() {
   const [choferes, setChoferes] = useState<{id: string; nombre: string}[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Label dinámico para comparación día vs día equivalent
+  const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const hoy = new Date();
+  const diaActual = diasSemana[hoy.getDay()];
+  const diaAnterior = diasSemana[subDays(hoy, 7).getDay()];
+  const comparacionDiaLabel = `${diaActual} vs ${diaAnterior}`;
 
   // ── Semana auto: lunes–domingo de la semana actual y la anterior ──
   const semanaActualInicio = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -578,7 +585,7 @@ export default function AnalisisRutas() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <p className="text-xs font-black uppercase tracking-widest text-text-muted flex items-center gap-1">
-                Total horas semana
+                Comparación día equivalente ({comparacionDiaLabel})
                 <Tooltip content="Suma de horas trabajadas en los días seleccionados. Se compara con los mismos días de la semana anterior para medir si trabajaste más rápido o más lento." />
               </p>
               {semanaStats.comparacionParcial && (semanaStats.horasActual > 0 || semanaStats.horasAnterior > 0) && (
@@ -739,7 +746,10 @@ export default function AnalisisRutas() {
                   Rutas
                   <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
                 </p>
-                <p className="text-xl font-black text-white">{stats.rutasCompletadas}/{stats.totalRutas}</p>
+                <p className="text-xl font-black text-white">
+                {stats.rutasCompletadas}/{stats.totalRutas} 
+                ({stats.totalRutas > 0 ? Math.round(stats.rutasCompletadas / stats.totalRutas * 100) : 0}%)
+              </p>
               </div>
             </div>
           </CardContent>
