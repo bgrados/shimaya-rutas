@@ -145,10 +145,32 @@ export default function NuevaRuta() {
                 required
               >
                 <option value="">-- Seleccionar --</option>
-                {choferes.map(c => (
-                  <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
-                ))}
+                {choferes.map(c => {
+                  const diasDescanso = c.dias_descanso || [];
+                  const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+                  const diaHoy = diasSemana[new Date().getDay()];
+                  const tieneDescansoHoy = diasDescanso.includes(diaHoy);
+                  return (
+                    <option key={c.id_usuario} value={c.id_usuario}>
+                      {c.nombre} {tieneDescansoHoy ? '💤 (DESCANSO HOY)' : ''}
+                    </option>
+                  );
+                })}
               </select>
+              {idChofer && (() => {
+                const choferSeleccionado = choferes.find(c => c.id_usuario === idChofer);
+                const diasDescanso = choferSeleccionado?.dias_descanso || [];
+                const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+                const diaHoy = diasSemana[new Date().getDay()];
+                if (diasDescanso.includes(diaHoy)) {
+                  return (
+                    <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-yellow-400 text-sm">
+                      ⚠️ Este chofer tiene descanso los días: {diasDescanso.join(', ')}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <Input
