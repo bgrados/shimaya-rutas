@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Truck, CheckCircle2, MoveRight } from 'lucide-react';
+import { Truck, CheckCircle2, MoveRight, Shield } from 'lucide-react';
 
 export default function Login() {
   const { signIn, profile, loading, user } = useAuth();
@@ -48,18 +48,51 @@ export default function Login() {
           <CheckCircle2 className="text-green-500" size={48} />
         </div>
         <h2 className="text-2xl font-black text-white mb-2 uppercase italic">¡Acceso Concedido!</h2>
-        <p className="text-text-muted mb-8">Bienvenido, <span className="text-white font-bold">{profile.nombre}</span></p>
-        <div className="p-4 bg-white/5 rounded-xl border border-white/10 mb-8">
-          <p className="text-xs text-text-muted uppercase font-bold mb-1">Rol Detectado</p>
-          <p className="text-primary font-bold text-lg capitalize">{profile.rol}</p>
-        </div>
-        <button
-          type="button"
-          onClick={profile.rol === 'administrador' || profile.rol === 'supervisor' ? goToAdmin : goToDriver}
-          className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30 rounded-lg"
-        >
-          IR AL PANEL DE CONTROL
-        </button>
+        <p className="text-text-muted mb-4">Bienvenido, <span className="text-white font-bold">{profile.nombre}</span></p>
+        
+        {/* Selector de rol si tiene acceso a ambos */}
+        {['administrador', 'supervisor'].includes(profile.rol) && (
+          <div className="mb-6">
+            <p className="text-xs text-text-muted uppercase font-bold mb-2">¿Cómo quieres entrar?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={goToAdmin}
+                className="p-4 bg-primary/20 hover:bg-primary/30 border-2 border-primary/50 rounded-xl transition-all"
+              >
+                <Shield className="mx-auto mb-2 text-primary" size={24} />
+                <span className="text-sm font-bold text-primary block">ADMINISTRADOR</span>
+              </button>
+              <button
+                type="button"
+                onClick={goToDriver}
+                className="p-4 bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 rounded-xl transition-all"
+              >
+                <Truck className="mx-auto mb-2 text-blue-400" size={24} />
+                <span className="text-sm font-bold text-blue-400 block">CONDUCTOR</span>
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Solo un rol - ir directamente */}
+        {profile.rol === 'chofer' || profile.rol === 'descansero' ? (
+          <button
+            type="button"
+            onClick={goToDriver}
+            className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30 rounded-lg"
+          >
+            IR A MIS RUTAS
+          </button>
+        ) : !['administrador', 'supervisor'].includes(profile.rol) && (
+          <button
+            type="button"
+            onClick={profile.rol === 'administrador' || profile.rol === 'supervisor' ? goToAdmin : goToDriver}
+            className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30 rounded-lg"
+          >
+            IR AL PANEL
+          </button>
+        )}
       </div>
     );
   }
