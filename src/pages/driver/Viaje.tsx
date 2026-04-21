@@ -109,21 +109,24 @@ export default function DriverViaje() {
   const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
   const [diaDescansoBloqueado, setDiaDescansoBloqueado] = useState(false);
 
-  // Constantes de configuración GPS - Sistema robusto MEJORADO
+  // Constantes de configuración GPS - Sistema robusto MEJORADO v2
   const RADIO_BASE = 100; // Radio base de detección
   const RADIO_MIN = 60; // Radio mínimo (alta precisión GPS)
   const RADIO_MAX = 150; // Radio máximo (baja precisión GPS)
-  const LECTURAS_REQUERIDAS = 3; // Cantidad de lecturas para promediar
-  const TIEMPO_PERMANENCIA = 5000; // Tiempo requerido dentro del radio (ms) - REDUCIDO a 5s
-  const COOLDOWN_REGISTRO = 30000; // 30 segundos entre registros para permitir re-detección
+  const LECTURAS_PROMEDIAR = 5; // Cantidad de lecturas para promediar
+  const TIEMPO_LLEGADA = 12000; // Tiempo requerido dentro del radio (ms) - 12 segundos
+  const TIEMPO_SALIDA = 6000; // Tiempo requerido fuera del radio (ms) - 6 segundos
+  const COOLDOWN_REGISTRO = 18000; // 18 segundos entre registros
   const STABILIDAD_ACEPTABLE = 50; // metros de variación máxima para considerar estable
+  const ALERTA_PRECISION = 100; // Umbral para mostrar alerta de señal baja
+  const TIEMPO_BOTON_MANUAL = 25000; // Mostrar botón manual después de 25s
   const GPS_OPTIONS = {
     enableHighAccuracy: true,
     maximumAge: 0,
     timeout: 20000
   };
 
-  // Estado para sistema avanzado de GPS
+  // Estado para sistema avanzado de GPS v2
   const [LecturasGPS, setLecturasGPS] = useState<{ lat: number; lng: number; accuracy: number; timestamp: number }[]>([]);
   const [tiempoEnRango, setTiempoEnRango] = useState<number>(0);
   const [ultimoRegistroTime, setUltimoRegistroTime] = useState<number>(0);
@@ -132,6 +135,17 @@ export default function DriverViaje() {
   const [intentosLectura, setIntentosLectura] = useState(0);
   const timerPermanenciaRef = useRef<NodeJS.Timeout | null>(null);
   const lecturasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Nuevos estados para GPS v2 con promediado
+  const [lecturasBuffer, setLecturasBuffer] = useState<{ lat: number; lng: number; accuracy: number; timestamp: number }[]>([]);
+  const [posicionPromediada, setPosicionPromediada] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [estadoDetectar, setEstadoDetectar] = useState<'idle' | 'validando_llegada' | 'validando_salida'>('idle');
+  const [mensajeGPS, setMensajeGPS] = useState<string>('');
+  const [mostrarBotonManual, setMostrarBotonManual] = useState<boolean>(false);
+  const [tiempoValidando, setTiempoValidando] = useState<number>(0);
+  const [signalBaja, setSignalBaja] = useState<boolean>(false);
+  const timerValidacionRef = useRef<NodeJS.Timeout | null>(null);
+  const timerSignalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Función para calcular radio dinámico según precisión
   const getRadioDinamico = (accuracy: number): number => {
@@ -281,6 +295,119 @@ export default function DriverViaje() {
     setGpsDebugLogs(prev => [...prev.slice(-9), log]); // Mantener últimos 10 logs
   };
 
+  // Función para promediar lecturas GPS con filtro de consistencia
+  const promediarLecturasConsistentes = (lecturas: { lat: number; lng: number; accuracy: number }[]): { lat: number; lng: number; accuracy: number } | null => {
+    if (lecturas.length < LECTURAS_PROMEDIAR) return null;
+    
+    // Filtrar lecturas inconsistentes (más de 50m de diferencia entre lecturas)
+    const lats = lecturas.map(l => l.lat);
+    const lngs = lecturas.map(l => l.lng);
+    const latProm = lats.reduce((a, b) => a + b, 0) / lats.length;
+    const lngProm = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+    
+    // Verificar consistencia
+    const consistente = lecturas.every(l => {
+      const dist = calcularDistanciaHaversine(latProm, lngProm, l.lat, l.lng);
+      return dist < STABILIDAD_ACEPTABLE;
+    });
+    
+    if (!consistente) {
+      agregarLogDebug('⚠️ Lecturas inconsistentes - ignorando');
+      return null;
+    }
+    
+    const accuracyProm = lecturas.reduce((a, b) => a + b.accuracy, 0) / lecturas.length;
+    return { lat: latProm, lng: lngProm, accuracy: accuracyProm };
+  };
+
+  // Función para procesar lectura con buffer y promediado
+  const procesarLecturaConPromedio = (lat: number, lng: number, accuracy: number): { lat: number; lng: number; accuracy: number } | null => {
+    const timestamp = Date.now();
+    
+    // Agregar al buffer
+    const nuevaLectura = { lat, lng, accuracy, timestamp };
+    setLecturasBuffer(prev => {
+      const nuevoBuffer = [...prev, nuevaLectura];
+      // Mantener solo las últimas 5 lecturas
+      if (nuevoBuffer.length > LECTURAS_PROMEDIAR) {
+        return nuevoBuffer.slice(-LECTURAS_PROMEDIAR);
+      }
+      return nuevoBuffer;
+    });
+    
+    // Verificar si tenemos suficientes lecturas
+    if (lecturasBuffer.length >= LECTURAS_PROMEDIAR - 1) {
+      // Usar lecturas actuales del buffer más la nueva
+      const bufferActual = [...lecturasBuffer, nuevaLectura].slice(-LECTURAS_PROMEDIAR);
+      const promedio = promediarLecturasConsistentes(bufferActual);
+      
+      if (promedio) {
+        agregarLogDebug(`📊 Promedio GPS: ${promedio.lat.toFixed(5)}, ${promedio.lng.toFixed(5)} (±${promedio.accuracy.toFixed(0)}m) [${bufferActual.length}/${LECTURAS_PROMEDIAR}]`);
+        setPosicionPromediada(promedio);
+        return promedio;
+      }
+    }
+    
+    agregarLogDebug(`📡 Lectura ${lecturasBuffer.length + 1}/${LECTURAS_PROMEDIAR}: ${lat.toFixed(5)}, ${lng.toFixed(5)} (±${accuracy.toFixed(0)}m)`);
+    return null;
+  };
+
+  // Función para iniciar temporizador de validación
+  const iniciarTemporizadorValidacion = (tipo: 'llegada' | 'salida', onComplete: () => void) => {
+    // Limpiar timer anterior
+    if (timerValidacionRef.current) {
+      clearInterval(timerValidacionRef.current);
+    }
+    
+    const tiempoTotal = tipo === 'llegada' ? TIEMPO_LLEGADA : TIEMPO_SALIDA;
+    setTiempoValidando(0);
+    setEstadoDetectar(tipo === 'llegada' ? 'validando_llegada' : 'validando_salida');
+    setMensajeGPS(tipo === 'llegada' ? 'Validando llegada...' : 'Validando salida...');
+    setMostrarBotonManual(false);
+    
+    // Timer para mostrar botón manual después de 25s
+    if (timerSignalRef.current) clearTimeout(timerSignalRef.current);
+    timerSignalRef.current = setTimeout(() => {
+      setMostrarBotonManual(true);
+      setMensajeGPS('GPS inestable, puedes registrar manualmente');
+    }, TIEMPO_BOTON_MANUAL);
+    
+    timerValidacionRef.current = setInterval(() => {
+      setTiempoValidando(prev => {
+        const nuevoTiempo = prev + 1000;
+        
+        if (nuevoTiempo >= tiempoTotal) {
+          // Tiempo completado - ejecutar callback
+          if (timerValidacionRef.current) {
+            clearInterval(timerValidacionRef.current);
+            timerValidacionRef.current = null;
+          }
+          setEstadoDetectar('idle');
+          setMensajeGPS('');
+          onComplete();
+        }
+        
+        return nuevoTiempo;
+      });
+    }, 1000);
+  };
+
+  // Función para limpiar timers de validación
+  const limpiarTemporizadoresValidacion = () => {
+    if (timerValidacionRef.current) {
+      clearInterval(timerValidacionRef.current);
+      timerValidacionRef.current = null;
+    }
+    if (timerSignalRef.current) {
+      clearTimeout(timerSignalRef.current);
+      timerSignalRef.current = null;
+    }
+    setTiempoValidando(0);
+    setEstadoDetectar('idle');
+    setMensajeGPS('');
+    setMostrarBotonManual(false);
+  };
+
   // Iniciar watchPosition para detección continua de GPS
   const iniciarWatchPosition = async () => {
     if (!navigator.geolocation) {
@@ -302,19 +429,15 @@ export default function DriverViaje() {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
 
-    agregarLogDebug('🚀 Iniciando watchPosition avanzado...');
+    agregarLogDebug('🚀 Iniciando watchPosition v2 con promediado...');
     setEstadoGPS('buscando');
-
-    // Limpiar timers anteriores
-    if (timerPermanenciaRef.current) {
-      clearInterval(timerPermanenciaRef.current);
-      timerPermanenciaRef.current = null;
-    }
+    limpiarTemporizadoresValidacion();
+    setLecturasBuffer([]);
 
     const options = {
       enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 10000
+      maximumAge: 0,
+      timeout: 15000
     };
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -325,106 +448,114 @@ export default function DriverViaje() {
         
         setGpsPosicionActual({ lat, lng });
         
-        // Detectar y mostrar estado con más detalle
-        agregarLogDebug(`📍 GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)} | Precisión: ${accuracy.toFixed(0)}m`);
+        // Detectar señal baja
+        if (accuracy > ALERTA_PRECISION) {
+          setSignalBaja(true);
+          setMensajeGPS(`⚠️ Señal GPS baja (${accuracy.toFixed(0)}m), acércate más al punto`);
+        } else {
+          setSignalBaja(false);
+          if (!mensajeGPS.includes('inestable')) {
+            setMensajeGPS('');
+          }
+        }
         
-        // Mostrar distancia en tiempo real
+        // Obtener local actual
         const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
         const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
         const localActual = localPendiente || (bitacoraActual ? locales.find(l => l.id_local === bitacoraActual?.id_local) : null);
         
-        if (localActual?.latitud && localActual?.longitud) {
-          const radioBase = getRadioDinamico(accuracy);
-          const distanciaActual = calcularDistanciaHaversine(lat, lng, localActual.latitud, localActual.longitud);
-          setDistanciaAlPunto(distanciaActual);
-          agregarLogDebug(`📏 Distancia al local: ${distanciaActual.toFixed(0)}m (radio: ${radioBase}m)`);
-        }
-        
-        // Ignorar lecturas con precisión mala
-        if (accuracy > 150) {
-          agregarLogDebug(`⚠️ GPS impreciso: ${accuracy.toFixed(0)}m - ignorando`);
-          setEstadoGPS('buscando');
-          return;
-        }
-
-        setEstadoGPS('detectado');
-        
-        // Verificar cooldown muy reducido
-        if (!puedeRegistrar()) {
-          agregarLogDebug(`⏳ Cooldown activo - esperando`);
-          return;
-        }
-
-        // Encontrar el destino actual
-        if (!localActual || !localActual.latitud || !localActual.longitud) {
+        if (!localActual?.latitud || !localActual?.longitud) {
           setDistanciaAlPunto(null);
           setEstadoGPS('buscando');
+          limpiarTemporizadoresValidacion();
           agregarLogDebug(`❓ Sin local pendiente para detectar`);
           return;
         }
-
-        // Calcular radio dinámico con mejor lógica
+        
         const radioBase = getRadioDinamico(accuracy);
-        const distancia = calcularDistanciaHaversine(lat, lng, localActual.latitud, localActual.longitud);
+        
+        // Ignorar lecturas con precisión muy mala (>150m)
+        if (accuracy > 150) {
+          agregarLogDebug(`⚠️ GPS muy impreciso: ${accuracy.toFixed(0)}m - ignorando`);
+          setEstadoGPS('buscando');
+          return;
+        }
+
+        // Procesar lectura con buffer y promediado
+        const promedio = procesarLecturaConPromedio(lat, lng, accuracy);
+        
+        // Usar promedio si existe, si no usar lectura actual
+        const latUsar = promedio?.lat || lat;
+        const lngUsar = promedio?.lng || lng;
+        const accuracyUsar = promedio?.accuracy || accuracy;
+        
+        // Calcular distancia
+        const distancia = calcularDistanciaHaversine(latUsar, lngUsar, localActual.latitud, localActual.longitud);
         setDistanciaAlPunto(distancia);
         
-        agregarLogDebug(`🎯 Detectando: distancia=${distancia.toFixed(0)}m, radio=${radioBase}m`);
-        
-        // Detección de llegada
         const dentroDelRadio = distancia <= radioBase;
         const necesitaLlegada = bitacoraActual && !bitacoraActual.hora_llegada;
         const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
-
-        if (dentroDelRadio) {
-          if (necesitaLlegada && estadoGPS !== 'en_rango') {
-            setEstadoGPS('en_rango');
-            setTiempoEnRango(0);
-            agregarLogDebug(`✅ LLEGADA detectada! D:${distancia.toFixed(0)}m - iniciando validación...`);
-            
-            // Iniciar temporizador de permanencia más corto
-            timerPermanenciaRef.current = setInterval(() => {
-              setTiempoEnRango(prev => {
-                const nuevoTiempo = prev + 1000;
-                
-                // Actualizar progreso
-                if (nuevoTiempo >= TIEMPO_PERMANENCIA && estadoGPS !== 'registrado' && !llegadaDetectada && bitacoraActual) {
-                  agregarLogDebug(`⏱️ Permanente ${TIEMPO_PERMANENCIA/1000}s - REGISTRANDO LLEGADA!`);
-                  setEstadoGPS('registrado');
-                  setLlegadaDetectada(true);
-                  setUltimoRegistroTime(Date.now());
-                  
-                  // Detener watch y timer
-                  if (timerPermanenciaRef.current) {
-                    clearInterval(timerPermanenciaRef.current);
-                    timerPermanenciaRef.current = null;
-                  }
-                  
-                  handleRegistrarLlegada(bitacoraActual.id_bitacora);
-                  
-                  if (watchIdRef.current !== null) {
-                    navigator.geolocation.clearWatch(watchIdRef.current);
-                    watchIdRef.current = null;
-                  }
-                }
-                
-                return nuevoTiempo;
-              });
-            }, 1000);
+        
+        // Logging
+        if (promedio) {
+          agregarLogDebug(`📊 Promediado: ${distancia.toFixed(0)}m (radio: ${radioBase}m) | L:${necesitaLlegada ? 'SI' : 'NO'} S:${necesitaSalida ? 'SI' : 'NO'}`);
+        }
+        
+        // Verificar cooldown
+        if (!puedeRegistrar()) {
+          setEstadoGPS('buscando');
+          agregarLogDebug(`⏳ Cooldown activo - esperando`);
+          return;
+        }
+        
+        setEstadoGPS(dentroDelRadio ? 'en_rango' : 'detectado');
+        
+        // LÓGICA DE DETECCIÓN DE LLEGADA
+        if (dentroDelRadio && necesitaLlegada) {
+          if (estadoDetectar !== 'validando_llegada') {
+            agregarLogDebug(`✅ DENTRO DEL RADIO - iniciando validación de LLEGADA (${distancia.toFixed(0)}m)`);
+            iniciarTemporizadorValidacion('llegada', () => {
+              if (bitacoraActual && !bitacoraActual.hora_llegada) {
+                agregarLogDebug(`⏱️ 12s completado - REGISTRANDO LLEGADA!`);
+                setLlegadaDetectada(true);
+                setUltimoRegistroTime(Date.now());
+                handleRegistrarLlegada(bitacoraActual.id_bitacora);
+                // NO detener watch - mantener activo para detectar salida
+              }
+            });
           }
-          
-          const progreso = Math.min(100, Math.round((tiempoEnRango / TIEMPO_PERMANENCIA) * 100));
-          agregarLogDebug(`⏳ ${distancia.toFixed(0)}m | ${progreso}% (${Math.round(tiempoEnRango/1000)}s/${TIEMPO_PERMANENCIA/1000}s)`);
-        } else {
-          // Usuario salió del radio - resetear
-          if (timerPermanenciaRef.current) {
-            clearInterval(timerPermanenciaRef.current);
-            timerPermanenciaRef.current = null;
+        }
+        
+        // LÓGICA DE DETECCIÓN DE SALIDA
+        else if (!dentroDelRadio && necesitaSalida) {
+          if (estadoDetectar !== 'validando_salida') {
+            agregarLogDebug(`⭕ FUERA DEL RADIO - iniciando validación de SALIDA (${distancia.toFixed(0)}m)`);
+            iniciarTemporizadorValidacion('salida', () => {
+              if (bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida) {
+                agregarLogDebug(`⏱️ 6s fuera - REGISTRANDO SALIDA!`);
+                setUltimoRegistroTime(Date.now());
+                handleRegistrarSalidaAutomatica(bitacoraActual.id_bitacora);
+              }
+            });
           }
-          setTiempoEnRango(0);
-          if (estadoGPS !== 'buscando') {
-            setEstadoGPS('detectado');
-            agregarLogDebug(`⭕ Fuera del radio: ${distancia.toFixed(0)}m (necesita <${radio}m)`);
+        }
+        
+        // Resetear si cambia el estado de validación
+        else if (!necesitaLlegada && !necesitaSalida) {
+          if (estadoDetectar !== 'idle') {
+            limpiarTemporizadoresValidacion();
+            setLecturasBuffer([]);
           }
+        }
+        
+        // Mostrar estado actual
+        if (estadoDetectar === 'validando_llegada') {
+          const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_LLEGADA) * 100));
+          agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando/1000)}s/12s) - ${distancia.toFixed(0)}m`);
+        } else if (estadoDetectar === 'validando_salida') {
+          const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_SALIDA) * 100));
+          agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando/1000)}s/6s) - ${distancia.toFixed(0)}m`);
         }
       },
       (error) => {
@@ -1144,6 +1275,58 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     setActionLoading(false);
   };
 
+  // Función para registrar salida automáticamente
+  const handleRegistrarSalidaAutomatica = async (idBitacora: string) => {
+    if (esDiaDescanso) return;
+    if (actionLoading) return;
+    if (esHistorial) return;
+    
+    setActionLoading(true);
+    let lat = null, lng = null;
+    
+    try {
+      agregarLogDebug('📍 Intentando obtener GPS para salida...');
+      const pos = await iniciarGPSConPermisos();
+      if (pos) {
+        lat = pos.lat;
+        lng = pos.lng;
+        agregarLogDebug(`✅ GPS salida: ${lat.toFixed(5)},${lng.toFixed(5)}`);
+      }
+    } catch (e) {
+      console.warn('GPS Error:', e);
+    }
+    
+    const now = nowPeru();
+    
+    const { data, error } = await supabase
+      .from('viajes_bitacora')
+      .update({ hora_salida: now, gps_salida_lat: lat, gps_salida_lng: lng })
+      .eq('id_bitacora', idBitacora)
+      .select()
+      .single();
+    
+    if (!error && data) {
+      setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
+      
+      // Actualizar estado del local
+      if (data.origen_nombre && data.origen_nombre !== 'Planta') {
+        await supabase.from('locales_ruta').update({ hora_salida: now }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.origen_nombre);
+      }
+      
+      setUltimoRegistroTime(Date.now());
+      agregarLogDebug(`✅ SALIDA REGISTRADA automáticamente: ${data.destino_nombre}`);
+      showToast('success', '✓Salida automática registrada');
+      
+      // Limpiar buffer y continuar
+      setLecturasBuffer([]);
+      setPosicionPromediada(null);
+    } else if (error) {
+      console.error('[Viaje] Error registrar salida:', error);
+      agregarLogDebug(`❌ Error DB: ${error.message}`);
+    }
+    setActionLoading(false);
+  };
+
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
 
   // Helper: verificar si la ruta es de hoy o es historial
@@ -1352,34 +1535,51 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       </div>
 
-      {/* Indicador de GPS y Distancia - Sistema Avanzado */}
+      {/* Indicador de GPS y Distancia - Sistema Avanzado v2 */}
       {ruta?.estado === 'en_progreso' && !esHistorial && (
-        <Card className={`border ${estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'bg-green-500/20 border-green-500/50' : estadoGPS === 'buscando' ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-surface-light/50 border-white/10'}`}>
+        <Card className={`border ${signalBaja ? 'bg-red-500/20 border-red-500/50' : estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'bg-green-500/20 border-green-500/50' : estadoGPS === 'buscando' ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-surface-light/50 border-white/10'}`}>
           <CardContent className="p-4">
+            {/* Alerta de señal baja */}
+            {signalBaja && (
+              <div className="mb-3 bg-red-500/20 border border-red-500/50 rounded-lg p-2 flex items-center gap-2">
+                <span className="text-red-400">⚠️</span>
+                <span className="text-red-300 text-xs font-bold">Señal GPS baja, acércate más al punto</span>
+              </div>
+            )}
+            
+            {/* Mensaje de validación */}
+            {mensajeGPS && !signalBaja && (
+              <div className="mb-3 bg-blue-500/20 border border-blue-500/50 rounded-lg p-2 flex items-center gap-2">
+                {estadoDetectar === 'validando_llegada' && <span className="text-blue-400">📍</span>}
+                {estadoDetectar === 'validando_salida' && <span className="text-orange-400">🚗</span>}
+                <span className="text-blue-300 text-xs font-bold">{mensajeGPS}</span>
+              </div>
+            )}
+            
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${estadoGPS === 'buscando' ? 'bg-yellow-500/20 text-yellow-400 animate-pulse' : estadoGPS === 'detectado' ? 'bg-blue-500/20 text-blue-400' : estadoGPS === 'en_rango' ? 'bg-green-500/20 text-green-400' : estadoGPS === 'registrado' ? 'bg-green-600/40 text-green-300' : 'bg-gray-500/20 text-gray-400'}`}>
-                  {estadoGPS === 'buscando' ? <MapPin size={20} className="animate-bounce" /> : estadoGPS === 'detectado' ? <MapPin size={20} /> : estadoGPS === 'en_rango' ? <CheckCircle2 size={20} /> : estadoGPS === 'registrado' ? <CheckCircle2 size={20} /> : <MapPin size={20} />}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${estadoGPS === 'buscando' ? 'bg-yellow-500/20 text-yellow-400 animate-pulse' : signalBaja ? 'bg-red-500/20 text-red-400' : estadoGPS === 'detectado' ? 'bg-blue-500/20 text-blue-400' : estadoGPS === 'en_rango' ? 'bg-green-500/20 text-green-400' : estadoGPS === 'registrado' ? 'bg-green-600/40 text-green-300' : 'bg-gray-500/20 text-gray-400'}`}>
+                  {estadoGPS === 'buscando' ? <MapPin size={20} className="animate-bounce" /> : signalBaja ? <MapPin size={20} /> : estadoGPS === 'detectado' ? <MapPin size={20} /> : estadoGPS === 'en_rango' ? <CheckCircle2 size={20} /> : estadoGPS === 'registrado' ? <CheckCircle2 size={20} /> : <MapPin size={20} />}
                 </div>
                 <div>
                   <p className="text-xs text-text-muted uppercase font-bold tracking-wider">
                     {estadoGPS === 'buscando' && '🔍 Buscando señal...'}
                     {estadoGPS === 'detectado' && '📍 Ubicación detectada'}
-                    {estadoGPS === 'en_rango' && `✅ Dentro del radio (${Math.round(tiempoEnRango/1000)}s/` + TIEMPO_PERMANENCIA/1000 + 's)'}
-                    {estadoGPS === 'registrado' && '✅ Llegada registrada'}
+                    {estadoGPS === 'en_rango' && (estadoDetectar === 'validando_llegada' ? `⏳ Validando LLEGADA (${Math.round(tiempoValidando/1000)}s/12s)` : estadoDetectar === 'validando_salida' ? `⏳ Validando SALIDA (${Math.round(tiempoValidando/1000)}s/6s)` : `✅ Dentro del radio`)}
+                    {estadoGPS === 'registrado' && '✅ Registro completado'}
                   </p>
-                  <p className={`text-sm font-black ${estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'text-green-400' : 'text-white'}`}>
+                  <p className={`text-sm font-black ${signalBaja ? 'text-red-400' : estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'text-green-400' : 'text-white'}`}>
                     {distanciaAlPunto !== null 
-                      ? `${distanciaAlPunto.toFixed(0)}m al punto`
+                      ? `${distanciaAlPunto.toFixed(0)}m ${distanciaAlPunto <= RADIO_BASE ? 'dentro del radio' : 'fuera del radio'}`
                       : gpsError || 'Obteniendo ubicación...'}
                   </p>
-                  {/* Barra de progreso cuando está en rango */}
-                  {estadoGPS === 'en_rango' && (
+                  {/* Barra de progreso cuando está validando */}
+                  {(estadoDetectar === 'validando_llegada' || estadoDetectar === 'validando_salida') && (
                     <div className="mt-2">
                       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-green-500 transition-all duration-1000"
-                          style={{ width: `${Math.min(100, Math.round((tiempoEnRango / TIEMPO_PERMANENCIA) * 100))}%` }}
+                          className={`h-full transition-all duration-1000 ${estadoDetectar === 'validando_llegada' ? 'bg-green-500' : 'bg-orange-500'}`}
+                          style={{ width: `${Math.min(100, Math.round((tiempoValidando / (estadoDetectar === 'validando_llegada' ? TIEMPO_LLEGADA : TIEMPO_SALIDA)) * 100))}%` }}
                         />
                       </div>
                     </div>
@@ -1392,14 +1592,39 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               </div>
             </div>
             
+            {/* Botón manual si GPS inestable */}
+            {mostrarBotonManual && (
+              <div className="mt-3">
+                <Button 
+                  onClick={() => {
+                    const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
+                    if (bitacoraActual && !bitacoraActual.hora_llegada) {
+                      handleRegistrarLlegada(bitacoraActual.id_bitacora, true);
+                    } else if (bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida) {
+                      handleRegistrarSalidaAutomatica(bitacoraActual.id_bitacora);
+                    }
+                    limpiarTemporizadoresValidacion();
+                  }}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2"
+                >
+                  📝 Registrar manualmente
+                </Button>
+              </div>
+            )}
+            
             {/* Estado del sistema */}
-            <div className="mt-3 flex gap-2 text-[10px]">
+            <div className="mt-3 flex gap-2 text-[10px] flex-wrap">
               <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
                 Radio: {RADIO_MIN}-{RADIO_MAX}m
               </span>
               <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
-                Lecturas: {intentosLectura}/{LECTURAS_REQUERIDAS}
+                Buffer: {lecturasBuffer.length}/{LECTURAS_PROMEDIAR}
               </span>
+              {posicionPromediada && (
+                <span className="bg-green-500/20 text-green-300 px-2 py-1 rounded">
+                  ✓ Promediado
+                </span>
+              )}
               {gpsError && (
                 <span className="bg-red-500/20 text-red-300 px-2 py-1 rounded">
                   Error: {gpsError}
