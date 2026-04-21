@@ -191,6 +191,8 @@ export default function AnalisisRutas() {
       // Labels for transparency
       labelActual: `${semActIni} – ${semActFin}`,
       labelAnterior: `${semAntIni} – ${semAntFin}`,
+      // Día equivalente para UI
+      diaEquivalente: diasSemana[subDays(today, 7).getDay()],
     };
   }, [rutas, choferFilter]);
 
@@ -623,6 +625,29 @@ export default function AnalisisRutas() {
               &nbsp;·&nbsp;
               Sem. anterior (equiv.): {semanaStats.labelAnterior} ({semanaStats.rutasAnterior} ruta{semanaStats.rutasAnterior !== 1 ? 's' : ''})
             </p>
+            {semanaStats.horasActual > 0 && semanaStats.horasAnterior > 0 && (
+              (() => {
+                const minActual = Math.round(semanaStats.horasActual * 60);
+                const minAnterior = Math.round(semanaStats.horasAnterior * 60);
+                const diff = minActual - minAnterior;
+                const diffAbs = Math.abs(diff);
+                const diaEq = semanaStats.diaEquivalente || diaAnterior;
+                const diffText = diffAbs < 1 
+                  ? `Sin diferencia vs ${diaEq}`
+                  : diff > 0 
+                    ? `+${diffAbs} min vs ${diaEq}`
+                    : `-${diffAbs} min vs ${diaEq}`;
+                const esPositivo = diff > 0;
+                const esNegativo = diff < 0;
+                return (
+                  <p className={`text-[11px] mt-1 font-medium ${
+                    esPositivo ? 'text-red-400' : esNegativo ? 'text-green-400' : 'text-text-muted'
+                  }`}>
+                    {esPositivo ? 'Mayor tiempo que el ' + diaEq : esNegativo ? 'Menor tiempo que el ' + diaEq : diffText}
+                  </p>
+                );
+              })()
+            )}
           </div>
           <div className="hidden lg:flex flex-col items-center">
             {semanaStats.pct !== null && (
