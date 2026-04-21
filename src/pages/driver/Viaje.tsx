@@ -103,17 +103,18 @@ export default function DriverViaje() {
   const [gpsDebugLogs, setGpsDebugLogs] = useState<string[]>([]);
   const watchIdRef = useRef<number | null>(null);
 
-  // Constantes de configuración GPS - Sistema robusto
+  // Constantes de configuración GPS - Sistema robusto MEJORADO
   const RADIO_BASE = 100; // Radio base de detección
-  const RADIO_MIN = 80; // Radio mínimo (alta precisión)
-  const RADIO_MAX = 120; // Radio máximo (baja precisión)
+  const RADIO_MIN = 60; // Radio mínimo (alta precisión GPS)
+  const RADIO_MAX = 150; // Radio máximo (baja precisión GPS)
   const LECTURAS_REQUERIDAS = 3; // Cantidad de lecturas para promediar
-  const TIEMPO_PERMANENCIA = 8000; // Tiempo requerido dentro del radio (ms)
-  const COOLDOWN_REGISTRO = 180000; // 3 minutos entre registros
+  const TIEMPO_PERMANENCIA = 5000; // Tiempo requerido dentro del radio (ms) - REDUCIDO a 5s
+  const COOLDOWN_REGISTRO = 30000; // 30 segundos entre registros para permitir re-detección
+  const STABILIDAD_ACEPTABLE = 50; // metros de variación máxima para considerar estable
   const GPS_OPTIONS = {
     enableHighAccuracy: true,
     maximumAge: 0,
-    timeout: 15000
+    timeout: 20000
   };
 
   // Estado para sistema avanzado de GPS
@@ -318,43 +319,63 @@ export default function DriverViaje() {
         
         setGpsPosicionActual({ lat, lng });
         
-        // Detectar y mostrar estado
-        if (accuracy > 100) {
-          agregarLogDebug(`⚠️ Baja precisión: ${accuracy.toFixed(0)}m`);
+        // Detectar y mostrar estado con más detalle
+        agregarLogDebug(`📍 GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)} | Precisión: ${accuracy.toFixed(0)}m`);
+        
+        // Mostrar distancia en tiempo real
+        const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
+        const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
+        const localActual = localPendiente || (bitacoraActual ? locales.find(l => l.id_local === bitacoraActual?.id_local) : null);
+        
+        if (localActual?.latitud && localActual?.longitud) {
+          const radioBase = getRadioDinamico(accuracy);
+          const distanciaActual = calcularDistanciaHaversine(lat, lng, localActual.latitud, localActual.longitud);
+          setDistanciaAlPunto(distanciaActual);
+          agregarLogDebug(`📏 Distancia al local: ${distanciaActual.toFixed(0)}m (radio: ${radioBase}m)`);
+        }
+        
+        // Ignorar lecturas con precisión mala
+        if (accuracy > 150) {
+          agregarLogDebug(`⚠️ GPS impreciso: ${accuracy.toFixed(0)}m - ignorando`);
           setEstadoGPS('buscando');
           return;
         }
 
         setEstadoGPS('detectado');
         
-        // Verificar cooldown
+        // Verificar cooldown muy reducido
         if (!puedeRegistrar()) {
+          agregarLogDebug(`⏳ Cooldown activo - esperando`);
           return;
         }
 
         // Encontrar el destino actual
-        const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
-        const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
-
-        if (!localPendiente || !localPendiente.latitud || !localPendiente.longitud) {
+        if (!localActual || !localActual.latitud || !localActual.longitud) {
           setDistanciaAlPunto(null);
           setEstadoGPS('buscando');
+          agregarLogDebug(`❓ Sin local pendiente para detectar`);
           return;
         }
 
-        const radio = getRadioDinamico(accuracy);
-        const distancia = calcularDistanciaHaversine(lat, lng, localPendiente.latitud, localPendiente.longitud);
+        // Calcular radio dinámico con mejor lógica
+        const radioBase = getRadioDinamico(accuracy);
+        const distancia = calcularDistanciaHaversine(lat, lng, localActual.latitud, localActual.longitud);
         setDistanciaAlPunto(distancia);
         
-        const dentroDelRadio = distancia <= radio;
+        agregarLogDebug(`🎯 Detectando: distancia=${distancia.toFixed(0)}m, radio=${radioBase}m`);
+        
+        // Detección de llegada
+        const dentroDelRadio = distancia <= radioBase;
+        const necesitaLlegada = bitacoraActual && !bitacoraActual.hora_llegada;
+        const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
 
         if (dentroDelRadio) {
-          if (estadoGPS !== 'en_rango') {
+          if (necesitaLlegada && estadoGPS !== 'en_rango') {
             setEstadoGPS('en_rango');
             setTiempoEnRango(0);
-            agregarLogDebug(`✅ Dentro del radio (${radio}m) - iniciando temporizador...`);
+            agregarLogDebug(`✅ LLEGADA detectada! D:${distancia.toFixed(0)}m - iniciando validación...`);
             
-            // Iniciar temporizador de permanencia
+            // Iniciar temporizador de permanencia más corto
             timerPermanenciaRef.current = setInterval(() => {
               setTiempoEnRango(prev => {
                 const nuevoTiempo = prev + 1000;
