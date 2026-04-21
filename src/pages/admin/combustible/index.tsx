@@ -129,6 +129,7 @@ export default function GastosCombustible() {
   const [filtroChofer, setFiltroChofer] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [paginaActual, setPaginaActual] = useState(1);
   const registrosPorPagina = 20;
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
@@ -923,35 +924,64 @@ export default function GastosCombustible() {
       {showFotoModal && (
         <div 
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowFotoModal(null)}
+          onClick={() => { setShowFotoModal(null); setZoomLevel(1); }}
         >
-          <div className="relative max-w-4xl w-full">
+          <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-2">
-              <button
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = showFotoModal;
-                  link.download = `ticket-combustible-${Date.now()}.jpg`;
-                  link.click();
-                }}
-                className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-lg"
-              >
-                <Download size={18} />
-                Descargar
-              </button>
-              <button
-                onClick={() => setShowFotoModal(null)}
-                className="text-white hover:text-gray-300 bg-surface-light p-2 rounded-lg"
-              >
-                <X size={24} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.25))}
+                  className="flex items-center justify-center bg-surface-light hover:bg-gray-700 text-white font-bold w-10 h-10 rounded-lg"
+                  title="Alejar"
+                >
+                  <span className="text-xl">−</span>
+                </button>
+                <span className="text-white font-bold w-16 text-center">{Math.round(zoomLevel * 100)}%</span>
+                <button
+                  onClick={() => setZoomLevel(Math.min(3, zoomLevel + 0.25))}
+                  className="flex items-center justify-center bg-surface-light hover:bg-gray-700 text-white font-bold w-10 h-10 rounded-lg"
+                  title="Acercar"
+                >
+                  <span className="text-xl">+</span>
+                </button>
+                <button
+                  onClick={() => setZoomLevel(1)}
+                  className="text-white hover:text-gray-300 bg-surface-light px-3 py-2 rounded-lg text-sm font-bold"
+                  title="Restablecer"
+                >
+                  100%
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = showFotoModal;
+                    link.download = `ticket-combustible-${Date.now()}.jpg`;
+                    link.click();
+                  }}
+                  className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-lg"
+                >
+                  <Download size={18} />
+                  Descargar
+                </button>
+                <button
+                  onClick={() => { setShowFotoModal(null); setZoomLevel(1); }}
+                  className="text-white hover:text-gray-300 bg-surface-light p-2 rounded-lg"
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
-            <img 
-              src={showFotoModal} 
-              alt="Foto del ticket" 
-              className="max-h-[85vh] w-full object-contain rounded-lg border-2 border-white/20"
-            />
-            <p className="text-center text-white/60 text-sm mt-2">Click fuera para cerrar</p>
+            <div className="overflow-auto max-h-[80vh] flex justify-center">
+              <img 
+                src={showFotoModal} 
+                alt="Foto del ticket" 
+                style={{ transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease' }}
+                className="max-w-full h-auto rounded-lg border-2 border-white/20 cursor-grab"
+              />
+            </div>
+            <p className="text-center text-white/60 text-sm mt-2">Usa los botones + y - para hacer zoom • Click fuera para cerrar</p>
           </div>
         </div>
       )}
