@@ -28,6 +28,7 @@ interface Stats {
   gastosHoy: number;
   peajeDia: number;
   peajeSemana: number;
+  peajeMes: number;
 }
 
 interface RutaEnProgreso {
@@ -69,7 +70,8 @@ export default function AdminDashboard() {
     gastosHoy: 0,
     choferesSinRuta: 0,
     peajeDia: 0,
-    peajeSemana: 0
+    peajeSemana: 0,
+    peajeMes: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
@@ -98,12 +100,17 @@ export default function AdminDashboard() {
       const inicioSemana = new Date(now);
       inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
       const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
+      
+      // Primer día del mes
+      const primerDiaMes = new Date(now.getFullYear(), now.getMonth(), 1);
+      const mesStr = format(primerDiaMes, 'yyyy-MM-dd');
 
-      console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr);
+      console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr, 'mes:', mesStr);
 
-      const [rutasDelDiaRes, rutasDeSemanaRes] = await Promise.all([
+      const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
-        supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr)
+        supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
+        supabase.from('rutas').select('id_ruta, fecha').gte('fecha', mesStr).lte('fecha', hoyStr)
       ]);
       
       const rutaIdsDelDia = rutasDelDiaRes.data?.map(r => r.id_ruta) || [];
@@ -194,9 +201,10 @@ export default function AdminDashboard() {
       // Calcular peajes automáticos
       const rutasFinalizadasDeHoy = rutas.filter(r => r.estado === 'finalizada' && (r.fecha || '').split('T')[0] === hoyStr);
       const rutasFinalizadasDeSemana = rutas.filter(r => r.estado === 'finalizada' && r.fecha >= semanaStr);
+      const rutasFinalizadasDelMes = rutas.filter(r => r.estado === 'finalizada' && r.fecha >= mesStr);
       
-      // Obtener datos de rutas_base para cada ruta
-      const rutasBaseIds = [...new Set([...rutasFinalizadasDeHoy, ...rutasFinalizadasDeSemana].map(r => r.id_ruta_base).filter(Boolean))];
+      // Obtener datos de rutas_base para cada ruta (incluyendo del mes)
+      const rutasBaseIds = [...new Set([...rutasFinalizadasDeHoy, ...rutasFinalizadasDeSemana, ...rutasFinalizadasDelMes].map(r => r.id_ruta_base).filter(Boolean))];
       let rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
       
       if (rutasBaseIds.length > 0) {
@@ -219,6 +227,7 @@ export default function AdminDashboard() {
       
       const peajeDia = rutasFinalizadasDeHoy.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
       const peajeSemana = rutasFinalizadasDeSemana.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
+      const peajeMes = rutasFinalizadasDelMes.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
       
       setStats({
         rutasActivas: rutasEnCurso.length,
@@ -239,7 +248,8 @@ export default function AdminDashboard() {
         gastoOtrosSemana: gastoOtrosSemana,
         gastosHoy,
         peajeDia,
-        peajeSemana
+        peajeSemana,
+        peajeMes
       });
 
       const { data: rutasProgreso } = await supabase
@@ -568,10 +578,10 @@ export default function AdminDashboard() {
         <Card className="bg-orange-600/20 border-orange-500/50">
           <CardContent className="p-3 text-center">
             <p className="text-orange-300 text-xs flex items-center justify-center gap-1">
-              Total Peajes
-              <Tooltip content="Peajes calculados de las rutas finalizadas hoy." />
+              Total Peajes Mes
+              <Tooltip content="Suma total de peajes de todas las rutas finalizadas desde el inicio del mes. Se reinicia automáticamente cada nuevo mes." />
             </p>
-            <p className="text-xl font-bold text-orange-300">S/ {stats.peajeDia.toFixed(2)}</p>
+            <p className="text-xl font-bold text-orange-300">S/ {stats.peajeMes.toFixed(2)}</p>
           </CardContent>
         </Card>
       </div>
