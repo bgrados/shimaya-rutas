@@ -102,6 +102,11 @@ export default function DriverViaje() {
   const [llegadaDetectada, setLlegadaDetectada] = useState(false);
   const [gpsDebugLogs, setGpsDebugLogs] = useState<string[]>([]);
   const watchIdRef = useRef<number | null>(null);
+  
+  // Verificar día de descanso al inicio
+  const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+  const diaHoy = diasSemana[new Date().getDay()];
+  const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
 
   // Constantes de configuración GPS - Sistema robusto MEJORADO
   const RADIO_BASE = 100; // Radio base de detección
@@ -457,7 +462,14 @@ export default function DriverViaje() {
     agregarLogDebug('🛑 GPS detenido');
   };
 
-// useEffect para verificar permisos GPS al montar
+// useEffect para verificar día de descanso al montar
+  useEffect(() => {
+    if (esDiaDescanso) {
+      showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'warning');
+    }
+  }, []);
+
+  // useEffect para verificar permisos GPS al montar
   useEffect(() => {
     async function verificarAlIniciar() {
       if (!navigator.geolocation) {
@@ -880,6 +892,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   }, [ruta?.id_ruta, ruta?.estado]);
 
   const handleCreateViaje = async () => {
+    if (esDiaDescanso) {
+      showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'error');
+      return;
+    }
     if (!selectedRutaBase || !profile) return;
     if (!nuevaPlaca.trim() && !tienePlacaAsignada) {
       setCreateError('Por favor ingresa la placa del vehículo.');
@@ -980,6 +996,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   const [searchTermGuias, setSearchTermGuias] = useState('');
 
   const handleRegistrarSalida = async () => {
+    if (esDiaDescanso) {
+      showToast('Hoy es tu día de descanso.', 'error');
+      return;
+    }
     if (!ruta || !nuevoDestino || actionLoading) return;
     if (esHistorial) {
       alert('No puedes modificar un viaje histórico');
@@ -1037,6 +1057,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   };
 
   const handleRegistrarLlegada = async (idBitacora: string, modoManual = false) => {
+    if (esDiaDescanso) {
+      showToast('Hoy es tu día de descanso.', 'error');
+      return;
+    }
     if (actionLoading) return; 
     if (esHistorial) {
       alert('No puedes modificar un viaje histórico');
