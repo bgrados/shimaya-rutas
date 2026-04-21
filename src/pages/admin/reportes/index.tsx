@@ -382,10 +382,40 @@ export default function Reportes() {
 async function loadCombustible() {
     setCombustibleLoading(true);
     try {
-      const { data, error } = await supabase
+      // Calcular rango de fechas según filtro
+      const now = new Date();
+      let fechaDesde = '';
+      
+      if (filtroFecha === 'semana') {
+        const day = now.getDay();
+        const inicioSemana = new Date(now);
+        inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+        fechaDesde = format(inicioSemana, 'yyyy-MM-dd');
+      } else if (filtroFecha === 'mes') {
+        fechaFrom = format(now, 'yyyy-MM');
+      }
+      
+      let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
         .order('created_at', { ascending: false });
+      
+      // Si hay filtro de fecha, filtrar por rutas
+      if (fechaDesde) {
+        const { data: rutasData } = await supabase
+          .from('rutas')
+          .select('id_ruta')
+          .gte('fecha', fechaDesde);
+        
+        const rutaIds = rutasData?.map(r => r.id_ruta) || [];
+        if (rutaIds.length > 0) {
+          query = query.in('id_ruta', rutaIds);
+        } else {
+          query = query.in('id_ruta', ['']); // vacío
+        }
+      }
+      
+      const { data, error } = await query;
 
       if (error) {
         console.error('[DEBUG-Gastos] Error en query Supabase:', error);
