@@ -7,6 +7,11 @@ export const DriverLayout: React.FC = () => {
   const { user, profile, loading, signOut } = useAuth();
   const location = useLocation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  // Verificar día de descanso
+  const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+  const diaHoy = diasSemana[new Date().getDay()];
+  const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -70,11 +75,19 @@ export const DriverLayout: React.FC = () => {
       {!isRutaActiva && (
         <nav className="fixed bottom-0 w-full bg-surface border-t border-surface-light pb-safe">
           <div className="flex justify-around items-center p-3">
-            <Link to="/driver" className={`flex flex-col items-center p-2 ${location.pathname === '/driver' ? 'text-primary' : 'text-text-muted'}`}>
+            <Link 
+              to={esDiaDescanso ? "#" : "/driver"} 
+              className={`flex flex-col items-center p-2 ${esDiaDescanso ? 'opacity-50 pointer-events-none' : ''} ${location.pathname === '/driver' ? 'text-primary' : 'text-text-muted'}`}
+              onClick={(e) => esDiaDescanso && e.preventDefault()}
+            >
               <Map size={24} className="mb-1" />
               <span className="text-[10px] uppercase font-bold tracking-wider">Hoy</span>
             </Link>
-            <Link to="/driver/viaje" className={`flex flex-col items-center p-2 ${location.pathname === '/driver/viaje' ? 'text-primary' : 'text-text-muted'}`}>
+            <Link 
+              to={esDiaDescanso ? "#" : "/driver/viaje"} 
+              className={`flex flex-col items-center p-2 ${esDiaDescanso ? 'opacity-50 pointer-events-none' : ''} ${location.pathname === '/driver/viaje' ? 'text-primary' : 'text-text-muted'}`}
+              onClick={(e) => esDiaDescanso && e.preventDefault()}
+            >
               <Truck size={24} className="mb-1" />
               <span className="text-[10px] uppercase font-bold tracking-wider">Viaje</span>
             </Link>
