@@ -420,9 +420,33 @@ export default function Usuarios() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${user.activo ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                        {user.activo ? 'ACTIVO' : 'INACTIVO'}
-                      </span>
+                      {(() => {
+                        const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+                        const diaHoy = diasSemana[new Date().getDay()];
+                        const tieneDescansoHoy = (user as any).dias_descanso?.includes(diaHoy);
+                        
+                        if (!user.activo) {
+                          return (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-red-500/10 text-red-500">
+                              INACTIVO
+                            </span>
+                          );
+                        }
+                        
+                        if (tieneDescansoHoy && (user.rol === 'chofer' || user.rol === 'descansero')) {
+                          return (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-yellow-500/10 text-yellow-500">
+                              DESCANS0
+                            </span>
+                          );
+                        }
+                        
+                        return (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-green-500/10 text-green-500">
+                            ACTIVO
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
