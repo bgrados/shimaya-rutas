@@ -113,13 +113,13 @@ export default function GastosCombustible() {
   const getFechasIniciales = () => {
     const desde = getInicioSemana();
     const hasta = getFechaActual();
-    console.log('[DEBUG] Fechas iniciales calculadas:', desde, hasta);
+    if (import.meta.env.DEV) {
+      console.log('[DEBUG] Fechas iniciales calculadas:', desde, hasta);
+    }
     return { desde, hasta };
   };
   
   const initialDates = getFechasIniciales();
-  
-  const [forceKey, setForceKey] = useState(0);
   
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todos');
@@ -137,7 +137,6 @@ export default function GastosCombustible() {
 
   useEffect(() => {
     // Force reload to avoid cache
-    console.log('[MOUNT] Componente combustible montado');
     loadChoferes();
     setPaginaActual(1);
     loadGastos();
@@ -290,13 +289,13 @@ export default function GastosCombustible() {
       grupos[choferId].gastos.push(gasto);
     });
     return Object.entries(grupos)
-      .sort(([, a], [, b]) => b.total - a.total)
       .map(([choferId, data]) => ({
         choferId,
         choferNombre: data.nombre,
         gastos: data.gastos,
         total: data.gastos.reduce((sum, g) => sum + (g.monto || 0), 0)
-      }));
+      }))
+      .sort((a, b) => b.total - a.total);
   };
 
   const totalesPorTipo = gastos.reduce((acc, g) => {
@@ -319,7 +318,14 @@ export default function GastosCombustible() {
   const totalPaginas = Math.ceil(gastos.length / registrosPorPagina);
 
   const getPeriodoLabel = () => {
-    return `${format(parseISO(filtroFechaDesde), 'dd/MM/yyyy')} - ${format(parseISO(filtroFechaHasta), 'dd/MM/yyyy')}`;
+    if (!filtroFechaDesde || !filtroFechaHasta) {
+      return 'Período no seleccionado';
+    }
+    try {
+      return `${format(parseISO(filtroFechaDesde), 'dd/MM/yyyy')} - ${format(parseISO(filtroFechaHasta), 'dd/MM/yyyy')}`;
+    } catch {
+      return 'Período inválido';
+    }
   };
 
   const generarPDF = () => {
