@@ -150,7 +150,7 @@ export default function Reportes() {
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [combustibleLoading, setCombustibleLoading] = useState(true);
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFecha, setFiltroFecha] = useState<'semana' | 'mes' | 'todo'>('semana');
+  const [filtroFecha, setFiltroFecha] = useState<'dia' | 'semana' | 'mes' | 'todo'>('dia');
   const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
   
   // Estado para editar hora de llegada
@@ -385,14 +385,20 @@ async function loadCombustible() {
       // Calcular rango de fechas según filtro
       const now = new Date();
       let fechaDesde = '';
+      let fechaHasta = '';
       
-      if (filtroFecha === 'semana') {
+      if (filtroFecha === 'dia') {
+        const hoy = format(now, 'yyyy-MM-dd');
+        fechaDesde = hoy;
+        fechaHasta = hoy;
+      } else if (filtroFecha === 'semana') {
         const day = now.getDay();
         const inicioSemana = new Date(now);
         inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
         fechaDesde = format(inicioSemana, 'yyyy-MM-dd');
+        fechaHasta = format(now, 'yyyy-MM-dd');
       } else if (filtroFecha === 'mes') {
-        fechaFrom = format(now, 'yyyy-MM');
+        fechaDesde = format(now, 'yyyy-MM');
       }
       
       let query = supabase
@@ -402,10 +408,16 @@ async function loadCombustible() {
       
       // Si hay filtro de fecha, filtrar por rutas
       if (fechaDesde) {
-        const { data: rutasData } = await supabase
+        let rutasQuery = supabase
           .from('rutas')
           .select('id_ruta')
           .gte('fecha', fechaDesde);
+        
+        if (fechaHasta) {
+          rutasQuery = rutasQuery.lte('fecha', fechaHasta);
+        }
+        
+        const { data: rutasData } = await rutasQuery;
         
         const rutaIds = rutasData?.map(r => r.id_ruta) || [];
         if (rutaIds.length > 0) {
@@ -463,6 +475,12 @@ async function loadCombustible() {
     
     if (filtroFecha === 'todo') {
       return { comb: gastosCombustible, otros: gastosOtros };
+    }
+    
+    if (filtroFecha === 'dia') {
+      const comb = gastosCombustible.filter((g: any) => g.rutas?.fecha === hoyStr);
+      const otros = gastosOtros.filter((g: any) => g.rutas?.fecha === hoyStr);
+      return { comb, otros };
     }
     
     if (filtroFecha === 'mes') {
@@ -817,6 +835,7 @@ const win = window.open('', '_blank');
   const totalGeneral = gastosCombustible.reduce((sum, g) => sum + (g.monto || 0), 0);
 
   const getFiltroLabel = () => {
+    if (filtroFecha === 'dia') return 'Hoy';
     if (filtroFecha === 'semana') return 'Esta semana';
     if (filtroFecha === 'mes') return 'Este mes';
     return 'Todo';
@@ -1709,8 +1728,9 @@ const win = window.open('', '_blank');
               <div className="flex flex-wrap gap-3 items-center mb-4">
                 <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
                   {[
-                    { key: 'semana', label: 'Esta Semana' },
-                    { key: 'mes', label: 'Este Mes' },
+                    { key: 'dia', label: 'Hoy' },
+                    { key: 'semana', label: 'Semana' },
+                    { key: 'mes', label: 'Mes' },
                     { key: 'todo', label: 'Todo' }
                   ].map(p => (
                     <button key={p.key} onClick={() => setFiltroFecha(p.key as any)}

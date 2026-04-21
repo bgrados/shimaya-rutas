@@ -160,18 +160,16 @@ export default function GastosCombustible() {
     setLoading(true);
     try {
     
-// Si no hay fechas, usar la semana actual
+// Si no hay fechas, usar solo el día de hoy
     let desde = filtroFechaDesde;
     let hasta = filtroFechaHasta;
     
     if (!desde || !hasta) {
       const now = new Date();
-      const day = now.getDay();
-      const inicioSemana = new Date(now);
-      inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
-      desde = format(inicioSemana, 'yyyy-MM-dd');
-      hasta = format(now, 'yyyy-MM-dd');
-      console.log('[Combustible] Fechas por defecto:', desde, hasta);
+      const hoy = format(now, 'yyyy-MM-dd');
+      desde = hoy;
+      hasta = hoy;
+      console.log('[Combustible] Fechas por defecto (solo hoy):', desde, hasta);
     } else {
       console.log('[Combustible] Fechas usadas:', desde, hasta);
     }
