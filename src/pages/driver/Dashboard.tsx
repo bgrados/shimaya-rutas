@@ -414,13 +414,20 @@ const loadGastosDelDia = async () => {
                 </div>
               )}
               
-              {!esDiaDescanso && (
-                <Link to="/driver/viaje">
-                  <Button className="bg-white text-primary hover:bg-white/90 font-black px-6">
-                    IR A MI VIAJE
-                  </Button>
-                </Link>
-              )}
+              <Link to={esDiaDescanso ? "#" : "/driver/viaje"}>
+                <Button 
+                  className={`font-black px-6 ${esDiaDescanso ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-white text-primary hover:bg-white/90'}`}
+                  disabled={esDiaDescanso}
+                  onClick={(e) => {
+                    if (esDiaDescanso) {
+                      e.preventDefault();
+                      return;
+                    }
+                  }}
+                >
+                  IR A MI VIAJE
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

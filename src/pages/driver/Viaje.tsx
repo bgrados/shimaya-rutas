@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { ModalEvidencia } from './viaje/components/ModalEvidencia';
 import { TramoBitacora } from './viaje/components/TramoBitacora';
 import { formatPeru, nowPeru } from '../../lib/timezone';
-import { RefreshCw, MapPinOff, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw, MapPinOff, Wifi, WifiOff, Coffee, Phone } from 'lucide-react';
 import { 
   MapPin, 
   CheckCircle2, 
@@ -107,6 +107,7 @@ export default function DriverViaje() {
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const diaHoy = diasSemana[new Date().getDay()];
   const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
+  const [diaDescansoBloqueado, setDiaDescansoBloqueado] = useState(false);
 
   // Constantes de configuración GPS - Sistema robusto MEJORADO
   const RADIO_BASE = 100; // Radio base de detección
@@ -465,6 +466,7 @@ export default function DriverViaje() {
 // useEffect para verificar día de descanso al montar
   useEffect(() => {
     if (esDiaDescanso) {
+      setDiaDescansoBloqueado(true);
       showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'warning');
     }
   }, []);
@@ -1284,6 +1286,37 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   let proximoOrigen = 'Planta';
   if (bitacora.length > 0) {
     proximoOrigen = bitacora[bitacora.length - 1].destino_nombre || 'Planta';
+  }
+
+  // Pantalla de bloqueo por día de descanso
+  if (diaDescansoBloqueado) {
+    return (
+      <div className="p-4 space-y-6 max-w-lg mx-auto pb-24 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Coffee size={64} className="mx-auto text-yellow-400 mb-4" />
+          <h1 className="text-2xl font-black text-yellow-400 mb-2">🛌 Día de Descanso</h1>
+          <p className="text-text-muted mb-6">Hoy es tu día de descanso. No puedes iniciar rutas.</p>
+          <a 
+            href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg"
+          >
+            <Phone size={20} />
+            Contactar Administrador
+          </a>
+          <div className="mt-8">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/driver')}
+              className="text-text-muted"
+            >
+              ← Volver al inicio
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
