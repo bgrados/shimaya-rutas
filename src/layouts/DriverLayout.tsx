@@ -36,7 +36,10 @@ export const DriverLayout: React.FC = () => {
     );
   }
 
-  if (!user || !profile || profile.rol !== 'chofer') {
+  const rolesPermitidos = ['chofer', 'descansero', 'administrador'];
+  const puedeAccederDriver = user && profile && rolesPermitidos.includes(profile.rol);
+  
+  if (!puedeAccederDriver) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
@@ -50,7 +53,7 @@ export const DriverLayout: React.FC = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-lg font-bold text-white">Hola, {profile.nombre}</h1>
-              <p className="text-sm text-text-muted">Conductor</p>
+              <p className="text-sm text-text-muted capitalize">{profile.rol === 'descansero' ? 'Descansero' : profile.rol === 'administrador' ? 'Administrador' : 'Conductor'}</p>
             </div>
             <div className="flex items-center gap-2">
               {!isOnline && (
