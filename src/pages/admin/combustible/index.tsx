@@ -922,21 +922,36 @@ export default function GastosCombustible() {
 
       {showFotoModal && (
         <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
           onClick={() => setShowFotoModal(null)}
         >
-          <div className="relative max-w-3xl w-full">
-            <button
-              onClick={() => setShowFotoModal(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
-            >
-              <X size={24} />
-            </button>
+          <div className="relative max-w-4xl w-full">
+            <div className="flex justify-between items-center mb-2">
+              <button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = showFotoModal;
+                  link.download = `ticket-combustible-${Date.now()}.jpg`;
+                  link.click();
+                }}
+                className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-lg"
+              >
+                <Download size={18} />
+                Descargar
+              </button>
+              <button
+                onClick={() => setShowFotoModal(null)}
+                className="text-white hover:text-gray-300 bg-surface-light p-2 rounded-lg"
+              >
+                <X size={24} />
+              </button>
+            </div>
             <img 
               src={showFotoModal} 
               alt="Foto del ticket" 
-              className="max-h-[80vh] w-full object-contain rounded-lg"
+              className="max-h-[85vh] w-full object-contain rounded-lg border-2 border-white/20"
             />
+            <p className="text-center text-white/60 text-sm mt-2">Click fuera para cerrar</p>
           </div>
         </div>
       )}
