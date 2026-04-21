@@ -161,6 +161,7 @@ export default function GastosCombustible() {
 
   const loadGastos = async () => {
     setLoading(true);
+    try {
     
 // Si no hay fechas, usar la semana actual
     let desde = filtroFechaDesde;
