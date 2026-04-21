@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car, Wallet, Receipt } from 'lucide-react';
+import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car, Wallet, Receipt, Phone, Coffee } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatFriendlyDate } from '../../lib/timezone';
 import { ImageModal } from '../../components/ui/ImageModal';
@@ -39,6 +39,11 @@ export default function DriverDashboard() {
   const [gastosOtros, setGastosOtros] = useState<GastoDelDia | null>(null);
   const [gastosPeaje, setGastosPeaje] = useState<GastoDelDia | null>(null);
   const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
+
+  // Verificar día de descanso
+  const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+  const diaHoy = diasSemana[new Date().getDay()];
+  const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
 
   const loadRutas = async () => {
     if (!profile) {
@@ -390,11 +395,32 @@ const loadGastosDelDia = async () => {
                   <p className="text-white/80 text-sm">Registra tus movimientos en la Bitácora</p>
                 )}
               </div>
-              <Link to="/driver/viaje">
-                <Button className="bg-white text-primary hover:bg-white/90 font-black px-6">
-                  IR A MI VIAJE
-                </Button>
-              </Link>
+              
+              {/* DÍA DE DESCANSO - Mostrar cuando sea día de descanso */}
+              {esDiaDescanso && (
+                <div className="bg-yellow-500/10 border-2 border-yellow-500/30 rounded-xl p-6 text-center">
+                  <Coffee size={48} className="mx-auto text-yellow-400 mb-3" />
+                  <h3 className="text-xl font-black text-yellow-400 mb-2">🛌 Hoy es tu día de descanso</h3>
+                  <p className="text-text-muted text-sm mb-4">Disfruta tu día libre. No tienes rutas asignadas para hoy.</p>
+                  <a 
+                    href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <Phone size={18} />
+                    Contactar Administrador
+                  </a>
+                </div>
+              )}
+              
+              {!esDiaDescanso && (
+                <Link to="/driver/viaje">
+                  <Button className="bg-white text-primary hover:bg-white/90 font-black px-6">
+                    IR A MI VIAJE
+                  </Button>
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>
