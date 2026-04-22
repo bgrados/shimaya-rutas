@@ -12,11 +12,13 @@ export default function NuevaRuta() {
   const navigate = useNavigate();
   const [rutasBase, setRutasBase] = useState<RutaBase[]>([]);
   const [choferes, setChoferes] = useState<Usuario[]>([]);
+  const [asistentes, setAsistentes] = useState<Usuario[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
   const [nombre, setNombre] = useState(`Ruta ${format(new Date(), 'dd/MM/yyyy', { locale: es })}`);
   const [idRutaBase, setIdRutaBase] = useState('');
   const [idChofer, setIdChofer] = useState('');
+  const [idAsistente, setIdAsistente] = useState('');
   const [placa, setPlaca] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [loadingSubmit, setLoadingSubmit] = useState(false);
@@ -26,10 +28,12 @@ export default function NuevaRuta() {
     async function loadConfig() {
       const [rutasRes, choferesRes] = await Promise.all([
         supabase.from('rutas_base').select('*').eq('activo', true),
-        supabase.from('usuarios').select('*').eq('rol', 'chofer').eq('activo', true)
+        supabase.from('usuarios').select('*').in('rol', ['chofer', 'descansero']).eq('activo', true).order('nombre'),
+        supabase.from('usuarios').select('*').in('rol', ['asistente', 'chofer']).eq('activo', true).order('nombre')
       ]);
       if (rutasRes.data) setRutasBase(rutasRes.data as RutaBase[]);
       if (choferesRes.data) setChoferes(choferesRes.data as Usuario[]);
+      if (asistentesRes.data) setAsistentes(asistentesRes.data as Usuario[]);
       setLoadingConfig(false);
     }
     loadConfig();
@@ -55,6 +59,8 @@ export default function NuevaRuta() {
           estado: 'pendiente',
           id_ruta_base: idRutaBase,
           id_chofer: idChofer,
+          id_asistente: idAsistente || null,
+          nombre_asistente: idAsistente ? asistentes.find(a => a.id_usuario === idAsistente)?.nombre : null,
           placa,
           observaciones
         })
@@ -171,6 +177,21 @@ export default function NuevaRuta() {
                 }
                 return null;
               })()}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-muted mb-1">Asistente (Ayudante)</label>
+              <select 
+                title="Asistente"
+                className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none transition-colors"
+                value={idAsistente}
+                onChange={e => setIdAsistente(e.target.value)}
+              >
+                <option value="">-- Sin asistente --</option>
+                {asistentes.map(a => (
+                  <option key={a.id_usuario} value={a.id_usuario}>{a.nombre}</option>
+                ))}
+              </select>
             </div>
 
             <Input

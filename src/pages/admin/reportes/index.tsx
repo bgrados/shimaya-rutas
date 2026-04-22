@@ -1224,6 +1224,7 @@ const win = window.open('', '_blank');
                           <p className="text-xs text-text-muted">
                             🚛 {ruta.placa || 'Sin placa'} &nbsp;·&nbsp;
                             📅 {ruta.fecha ? formatFriendlyDate(ruta.fecha) : '-'} &nbsp;·&nbsp;
+                            👤 {ruta.chofer_nombre || 'S/C'} {ruta.nombre_asistente ? `+ ${ruta.nombre_asistente}` : ''} &nbsp;·&nbsp;
                             📍 {ruta.km_inicio || '0'} → {ruta.km_fin || '?'} KM
                           </p>
                         </div>

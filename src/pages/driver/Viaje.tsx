@@ -116,9 +116,9 @@ export default function DriverViaje() {
   const [diaDescansoBloqueado, setDiaDescansoBloqueado] = useState(false);
 
   // Constantes de configuración GPS - Sistema robusto MEJORADO v2
-  const RADIO_BASE = 100; // Radio base de detección
-  const RADIO_MIN = 60; // Radio mínimo (alta precisión GPS)
-  const RADIO_MAX = 150; // Radio máximo (baja precisión GPS)
+  const RADIO_BASE = 150; // Radio base de detección (aumentado de 100)
+  const RADIO_MIN = 100; // Radio mínimo (aumentado de 60)
+  const RADIO_MAX = 200; // Radio máximo (aumentado de 150)
   const LECTURAS_PROMEDIAR = 5; // Cantidad de lecturas para promediar
   const TIEMPO_LLEGADA = 12000; // Tiempo requerido dentro del radio (ms) - 12 segundos
   const TIEMPO_SALIDA = 6000; // Tiempo requerido fuera del radio (ms) - 6 segundos
@@ -544,6 +544,16 @@ export default function DriverViaje() {
               }
             });
           }
+        }
+        
+        // RESETEAR VALIDACIÓN SI SE SALE DEL RANGO
+        else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
+          agregarLogDebug(`⚠️ SALISTE DEL RADIO - reiniciando validación de llegada`);
+          limpiarTemporizadoresValidacion();
+        }
+        else if (dentroDelRadio && estadoDetectar === 'validando_salida') {
+          agregarLogDebug(`⚠️ REGRESASTE AL RADIO - reiniciando validación de salida`);
+          limpiarTemporizadoresValidacion();
         }
         
         // Resetear si cambia el estado de validación
@@ -1055,6 +1065,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         return;
       }
 
+      console.log('KM a guardar (inicial):', kmInicio);
       const { data: newRuta, error: rError } = await supabase.from('rutas').insert({
         nombre: baseRuta.nombre,
         id_ruta_base: selectedRutaBase,
@@ -1064,6 +1075,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         estado: 'pendiente',
         km_inicio: parseFloat(kmInicio) || 0
       }).select().single();
+
+      console.log('Respuesta Supabase (KM Inicial):', newRuta, rError);
 
       if (rError) throw rError;
 
@@ -1200,18 +1213,26 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       tipoRegistro = 'manual';
     } else {
       try {
-        // Usar la nueva función mejorada para obtener GPS
-        agregarLogDebug('📍 Intentando obtener GPS para llegada...');
-        const pos = await iniciarGPSConPermisos();
-        
-        if (pos) {
-          lat = pos.lat;
-          lng = pos.lng;
+        // SI ya tenemos una posición reciente y precisa del watchPosition, usarla
+        if (gpsPosicionActual && !signalBaja) {
+          lat = gpsPosicionActual.lat;
+          lng = gpsPosicionActual.lng;
           tipoRegistro = 'automatico';
-          agregarLogDebug(`✅ GPS: ${lat.toFixed(5)},${lng.toFixed(5)} (±${pos.accuracy.toFixed(0)}m)`);
+          agregarLogDebug(`✅ Usando GPS validado: ${lat.toFixed(5)},${lng.toFixed(5)}`);
         } else {
-          tipoRegistro = 'manual';
-          agregarLogDebug('⚠️ Sin GPS - modo manual');
+          // Si no, intentar obtener una nueva
+          agregarLogDebug('📍 Intentando obtener GPS fresco para llegada...');
+          const pos = await iniciarGPSConPermisos();
+          
+          if (pos) {
+            lat = pos.lat;
+            lng = pos.lng;
+            tipoRegistro = 'automatico';
+            agregarLogDebug(`✅ GPS Fresco: ${lat.toFixed(5)},${lng.toFixed(5)} (±${pos.accuracy.toFixed(0)}m)`);
+          } else {
+            tipoRegistro = 'manual';
+            agregarLogDebug('⚠️ Sin GPS - modo manual');
+          }
         }
       } catch (e) {
         console.warn('GPS Error:', e);
@@ -1221,7 +1242,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
 
     const now = nowPeru();
-    const accuracy = gpsPosicionActual ? gpsPosicionActual.lat : null;
+    const accuracy = positionPromediada?.accuracy || 0;
     
     // Construir update completo con logging
     const updateData: any = { 
@@ -1237,6 +1258,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       .eq('id_bitacora', idBitacora)
       .select()
       .single();
+
+    console.log('Respuesta Supabase (Llegada):', data, error);
 
     if (!error && data) {
       setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
@@ -1278,12 +1301,18 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     let lat = null, lng = null;
     
     try {
-      agregarLogDebug('📍 Intentando obtener GPS para salida...');
-      const pos = await iniciarGPSConPermisos();
-      if (pos) {
-        lat = pos.lat;
-        lng = pos.lng;
-        agregarLogDebug(`✅ GPS salida: ${lat.toFixed(5)},${lng.toFixed(5)}`);
+      if (gpsPosicionActual && !signalBaja) {
+        lat = gpsPosicionActual.lat;
+        lng = gpsPosicionActual.lng;
+        agregarLogDebug(`✅ Usando GPS validado para salida: ${lat.toFixed(5)},${lng.toFixed(5)}`);
+      } else {
+        agregarLogDebug('📍 Intentando obtener GPS fresco para salida...');
+        const pos = await iniciarGPSConPermisos();
+        if (pos) {
+          lat = pos.lat;
+          lng = pos.lng;
+          agregarLogDebug(`✅ GPS Fresco salida: ${lat.toFixed(5)},${lng.toFixed(5)}`);
+        }
       }
     } catch (e) {
       console.warn('GPS Error:', e);
@@ -1437,7 +1466,19 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-bold text-white uppercase italic tracking-tighter">Mi Bitácora</h1>
-            <p className="text-text-muted text-sm italic font-medium">{ruta.nombre} • <span className="text-primary font-black uppercase">{ruta.placa || 'Sin Placa'}</span></p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-text-muted text-sm italic font-medium">{ruta.nombre} • <span className="text-primary font-black uppercase">{ruta.placa || 'Sin Placa'}</span></p>
+              {ruta.km_inicio && (
+                <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded border border-primary/20">
+                  KM: {ruta.km_inicio}
+                </span>
+              )}
+              {ruta.nombre_asistente && (
+                <span className="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded text-[10px] font-black border border-purple-500/30">
+                  👤 ASISTENTE: {ruta.nombre_asistente}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -1855,7 +1896,19 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 <CheckCircle2 size={36} />
               </div>
               <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
-              <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
+              <div className="flex flex-col gap-1 my-3">
+                <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
+                <div className="flex justify-center gap-3 mt-2">
+                  <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
+                    <p className="text-[10px] text-text-muted uppercase font-bold">Km Inicial</p>
+                    <p className="text-white font-black italic">{ruta.km_inicio || 0}</p>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
+                    <p className="text-[10px] text-text-muted uppercase font-bold">Km Final</p>
+                    <p className="text-white font-black italic">{ruta.km_fin || '?'}</p>
+                  </div>
+                </div>
+              </div>
               <button
                 onClick={iniciarNuevoViaje}
                 className="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm"
@@ -2252,10 +2305,13 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   disabled={!kmFin || parseFloat(kmFin) <= (ruta.km_inicio || 0)}
                   onClick={async () => {
                     try {
+                      console.log('KM a guardar (final):', kmFin);
                       const { error } = await supabase
                         .from('rutas')
                         .update({ km_fin: parseFloat(kmFin) })
                         .eq('id_ruta', ruta.id_ruta);
+                      
+                      console.log('Respuesta Supabase (KM Final):', error);
                       
                       if (error) throw error;
                       setRuta({ ...ruta, km_fin: parseFloat(kmFin) });
