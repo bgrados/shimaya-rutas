@@ -3,12 +3,12 @@ import { supabase } from '../../../lib/supabase';
 import type { PeajeCalculado } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Route, Truck, Calendar, Download, FileText, FileSpreadsheet, Search, X, Eye, AlertCircle } from 'lucide-react';
+import { Route, Truck, Calendar, FileText, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { formatHoraPeru } from '../../../lib/timezone';
+
 
 interface Chofer {
   id_usuario: string;

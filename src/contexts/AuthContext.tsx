@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { Session, User, AuthChangeEvent } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import type { Usuario } from '../types'
+import type { Usuario, PresenceState, PresenceUser } from '../types'
 
 export interface AuthContextType {
   session: Session | null
@@ -57,21 +57,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Configurar listener de presencia ANTES de suscribirse
     presenceChannel.on('presence', { event: 'sync' }, () => {
-      const state = presenceChannel.presenceState()
+      const state = presenceChannel.presenceState() as unknown as PresenceState
       const onlineIds = new Set<string>()
       Object.keys(state).forEach(key => {
-        const users = state[key] as any[]
-        users.forEach((u: any) => {
+        const users = state[key]
+        users.forEach((u: PresenceUser) => {
           if (u.user_id) onlineIds.add(u.user_id)
         })
       })
       setOnlineUsers(Array.from(onlineIds))
     })
 
-    // Suscribir al canal
-    presenceChannel.subscribe((status) => {
-      console.log('[Presence] Channel status:', status);
-    })
+    presenceChannel.subscribe()
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, newSession: Session | null) => {
@@ -84,7 +81,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await fetchProfile(newSession.user.email, newSession.user.id)
           // Track presence cuando se loguea - esperar un poco para que el canal esté listo
           setTimeout(async () => {
-            console.log('[Presence] Tracking user:', newSession.user.id, newSession.user.email);
             await presenceChannel.track({
               user_id: newSession.user.id,
               email: newSession.user.email,
@@ -132,7 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const fetchProfile = async (email?: string | null, userId?: string) => {
-    console.log('[Auth] fetchProfile llamado con email:', email, 'userId:', userId)
     
     if (!email && !userId) {
       setProfile(null)
@@ -160,7 +155,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let profileFound: Usuario | null = null
 
     if (userId) {
-      console.log('[Auth] Buscando por id_usuario:', userId)
       const { data: dataById, error: errorById } = await supabase
         .from('usuarios')
         .select('*')
@@ -168,13 +162,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle()
       
       if (!errorById && dataById) {
-        console.log('[Auth] Encontrado por id_usuario:', dataById.email)
         profileFound = dataById
       }
     }
 
     if (!profileFound && emailLower) {
-      console.log('[Auth] Buscando por email:', emailLower)
       const { data: dataByEmail, error: errorByEmail } = await supabase
         .from('usuarios')
         .select('*')
@@ -182,7 +174,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle()
       
       if (!errorByEmail && dataByEmail) {
-        console.log('[Auth] Encontrado por email:', dataByEmail.email)
         profileFound = dataByEmail
       }
     }
@@ -195,9 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       setProfile(p)
       localStorage.setItem('user_profile', JSON.stringify(p))
-      console.log('[Auth] Perfil cargado:', p.email, p.rol)
     } else {
-      console.warn('[Auth] No se encontró perfil para:', emailLower, userId)
       setProfile(null)
       localStorage.removeItem('user_profile')
     }
@@ -208,13 +197,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     localStorage.removeItem('user_profile')
     const emailClean = email.toLowerCase().trim()
-    console.log('[Auth] Intentando signIn con:', emailClean)
     const { error } = await supabase.auth.signInWithPassword({ 
       email: emailClean, 
       password 
     })
     if (error) {
-      console.error('[Auth] Error signIn:', error)
       throw error
     }
   }

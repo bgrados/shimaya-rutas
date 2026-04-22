@@ -13,23 +13,19 @@ import * as XLSX from 'xlsx';
 
 const urlToBase64 = async (url: string): Promise<string | null> => {
   try {
-    console.log('[PDF] Fetching URL:', url);
     
     const response = await fetch(url, {
       mode: 'cors',
       credentials: 'include'
     });
-    console.log('[PDF] Response status:', response.status, response.statusText);
     if (!response.ok) {
       console.error('[PDF] Fetch failed:', response.status);
       return null;
     }
     const blob = await response.blob();
-    console.log('[PDF] Blob size:', blob.size, 'type:', blob.type);
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        console.log('[PDF] Reader result length:', reader.result ? (reader.result as string).length : 0);
         resolve(reader.result as string);
       };
       reader.onerror = () => {
@@ -46,7 +42,6 @@ const urlToBase64 = async (url: string): Promise<string | null> => {
 
 const urlToBase64Supabase = async (url: string): Promise<string | null> => {
   try {
-    console.log('[PDF] Trying to download image from URL:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -59,12 +54,10 @@ const urlToBase64Supabase = async (url: string): Promise<string | null> => {
     }
     
     const blob = await response.blob();
-    console.log('[PDF] Blob received:', blob.size, 'type:', blob.type);
     
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        console.log('[PDF] Converted to base64, length:', (reader.result as string)?.length);
         resolve(reader.result as string);
       };
       reader.onerror = () => {
@@ -114,7 +107,6 @@ export default function GastosCombustible() {
     const desde = getInicioSemana();
     const hasta = getFechaActual();
     if (import.meta.env.DEV) {
-      console.log('[DEBUG] Fechas iniciales calculadas:', desde, hasta);
     }
     return { desde, hasta };
   };
@@ -170,9 +162,7 @@ export default function GastosCombustible() {
       const hoy = format(now, 'yyyy-MM-dd');
       desde = hoy;
       hasta = hoy;
-      console.log('[Combustible] Fechas por defecto (solo hoy):', desde, hasta);
     } else {
-      console.log('[Combustible] Fechas usadas:', desde, hasta);
     }
        
     // Primero obtener las rutas dentro del rango de fechas
@@ -186,12 +176,8 @@ export default function GastosCombustible() {
     }
       
       const { data: rutasData, error: rutasError } = await rutasQuery;
-      console.log('[Combustible] Fechas filtro:', filtroFechaDesde, '-', filtroFechaHasta);
-      console.log('[Combustible] Rutas encontradas:', rutasData?.length, rutasError);
-      console.log('[Combustible] Rutas:', rutasData?.map(r => r.fecha));
       
       const rutaIds = rutasData?.map(r => r.id_ruta) || [];
-      console.log('[Combustible] Ruta IDs:', rutaIds);
       
       // Si no hay rutas, no mostrar nada
       if (rutaIds.length === 0) {
@@ -229,18 +215,12 @@ export default function GastosCombustible() {
       }
       
       if (data) {
-        console.log('[Gastos] activos - tab:', activeTab);
-        console.log('[Gastos] Total:', data.length);
-        console.log('[Gastos] Tipos:', [...new Set(data.map((g: any) => g.tipo_combustible))]);
-        console.log('[Gastos] Detalle:', data.map(g => `${g.tipo_combustible} - S/${g.monto}`));
-        console.log('Gastos con fotos:', data.filter((g: any) => g.foto_url).length);
         const mapped = data.map((g: any) => ({
           ...g,
           chofer_nombre: g.usuarios?.nombre,
           ruta_nombre: g.rutas?.nombre
         }));
         setGastos(mapped as GastoCombustible[]);
-      console.log('[Combustible] Gastos cargados:', mapped?.length, 'GLP:', mapped?.filter(g => g.tipo_combustible === 'glp').reduce((s, g) => s + (g.monto || 0), 0));
         
         // Cargar fotos de combustible
         const fotosMap: Record<string, string> = {};

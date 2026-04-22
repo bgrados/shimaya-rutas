@@ -126,7 +126,6 @@ export default function MapaGeneral() {
 
         if (rutasRes.data) setRutasBase(rutasRes.data);
         if (localesRes.data) {
-          console.log(`[Mapa] Locales cargados: ${localesRes.data.length}`);
           setLocales(localesRes.data);
         }
       } catch (err) {

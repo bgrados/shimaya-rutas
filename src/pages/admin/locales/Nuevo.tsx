@@ -73,7 +73,6 @@ export default function NuevoLocal() {
         const simplifiedAddress = addressParts.slice(0, 3).join(',').trim();
         setDireccion(simplifiedAddress);
         
-        console.log('[NuevoLocal] Geocalización exitosa:', newPos, simplifiedAddress);
       } else {
         alert("No se encontró la dirección exacta. Intenta con un nombre de calle y distrito.");
       }
@@ -137,7 +136,6 @@ export default function NuevoLocal() {
     setError('');
 
     try {
-      console.log('[NuevoLocal] Intentando registrar local:', { nombre, direccion, telefono });
       
       let photoUrl = null;
       if (fotoFile) {
@@ -161,7 +159,6 @@ export default function NuevoLocal() {
         throw insertError;
       }
 
-      console.log('[NuevoLocal] Registro exitoso, navegando...');
       navigate('/admin/locales');
     } catch (err: any) {
       console.error('[NuevoLocal] Catch error:', err);

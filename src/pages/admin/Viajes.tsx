@@ -25,8 +25,10 @@ const parseLocalDate = (dateStr: string | null) => {
   } catch { return null; }
 };
 
+type RutaConDetalle = Ruta & { chofer?: Usuario, bitacora?: ViajeBitacora[], locales?: LocalRuta[] };
+
 export default function AdminViajes() {
-  const [rutas, setRutas] = useState<(Ruta & { chofer?: Usuario, bitacora?: ViajeBitacora[], locales?: LocalRuta[] })[]>([]);
+  const [rutas, setRutas] = useState<RutaConDetalle[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [expandedRuta, setExpandedRuta] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export default function AdminViajes() {
     return { bg: '#1e3a5f', border: '#3b82f6', text: '#93c5fd', icon: '#60a5fa' };
   };
 
-  const handleCloseViaje = async (viaje: any) => {
+  const handleCloseViaje = async (viaje: RutaConDetalle) => {
     setIsSubmitting(true);
     try {
       const now = nowPeru();
@@ -145,11 +147,9 @@ export default function AdminViajes() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'guias_remision' }, () => loadData())
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('Realtime conectado');
-          loadData(); // Asegurar datos frescos al conectar
+          loadData();
         }
         if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.error('Realtime desconectado, reintentando...');
           setTimeout(loadData, 2000);
         }
       });
@@ -180,12 +180,12 @@ export default function AdminViajes() {
       }
       await loadData();
       setShowForm(null);
-    } catch (err) { console.error(err); } finally { setIsSubmitting(false); }
+    } catch (err) { /* segment add failed */ } finally { setIsSubmitting(false); }
   };
 
   // formatDuration importado de lib/timezone
 
-  const calcularDuracionTotal = (viaje: any): string => {
+  const calcularDuracionTotal = (viaje: RutaConDetalle): string => {
     const bitacora = viaje.bitacora || [];
     if (bitacora.length === 0) return formatDuration(viaje.hora_salida_planta, viaje.hora_llegada_planta);
     const primerTramo = bitacora[0];
@@ -196,7 +196,7 @@ export default function AdminViajes() {
     return formatDuration(primerTramo.hora_salida, ultimoConLlegada.hora_llegada);
   };
 
-  const handlePrint = (viaje: any) => {
+  const handlePrint = (viaje: RutaConDetalle) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -361,6 +361,9 @@ export default function AdminViajes() {
                                 <span className="bg-primary/20 text-primary-light px-2 py-0.5 rounded text-[10px] font-black border border-primary/30">
                                   {viaje.placa || 'S/P'}
                                 </span>
+                                <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-[10px] font-black border border-blue-500/30 italic">
+                                  📍 {viaje.km_inicio || 0} → {viaje.km_fin || '?'} KM
+                                </span>
                               </div>
                               <p className="text-text-muted text-sm font-medium">
                                 Chofer: <span className="text-white">{viaje.chofer?.nombre || 'No asignado'}</span>
@@ -472,7 +475,6 @@ export default function AdminViajes() {
                                           
                                           await loadData();
                                         } catch (err) {
-                                          console.error(err);
                                           alert('Error al eliminar la ruta.');
                                         } finally {
                                           setIsSubmitting(false);

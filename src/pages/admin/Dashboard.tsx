@@ -7,6 +7,7 @@ import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle
 import { format } from 'date-fns';
 import { formatPeru, formatHoraPeru } from '../../lib/timezone';
 import { Link } from 'react-router-dom';
+import type { DashboardStats, Usuario, Ruta } from '../../types';
 
 interface Stats {
   rutasActivas: number;
@@ -52,7 +53,7 @@ interface TopChofer {
 
 export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<Stats>({
+  const [stats, setStats] = useState<DashboardStats>({
     rutasActivas: 0,
     rutasPendientes: 0,
     rutasFinalizadas: 0,
@@ -105,7 +106,6 @@ export default function AdminDashboard() {
       const primerDiaMes = new Date(now.getFullYear(), now.getMonth(), 1);
       const mesStr = format(primerDiaMes, 'yyyy-MM-dd');
 
-      console.log('[Dashboard] Fechas - hoy:', hoyStr, 'semana:', semanaStr, 'mes:', mesStr);
 
       const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
@@ -134,7 +134,6 @@ export default function AdminDashboard() {
 
       // Verificar si hay errores de permisos
       if (rutasRes.error) {
-        console.error('[Dashboard] Error rutas:', rutasRes.error);
         if (rutasRes.error.message.includes('permission') || rutasRes.error.code === 'PGRST204') {
           setError('No tienes permisos para ver los datos del Panel de Control. Contacta al administrador.');
           setLoading(false);
@@ -146,8 +145,8 @@ export default function AdminDashboard() {
       const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
       const diaHoy = diasSemana[now.getDay()];
       
-      const todosChoferes = todosChoferesRes.data || [];
-      const choferesEnDescanso = todosChoferes.filter((c: any) => {
+      const todosChoferes = (todosChoferesRes.data as Usuario[]) || [];
+      const choferesEnDescanso = todosChoferes.filter(c => {
         const diasDescanso = c.dias_descanso || [];
         return diasDescanso.includes(diaHoy);
       });
@@ -210,7 +209,7 @@ export default function AdminDashboard() {
       if (rutasBaseIds.length > 0) {
         const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, cantidad_peajes, costo_peaje').in('id_ruta_base', rutasBaseIds);
         if (rutasBaseData) {
-          rutasBaseData.forEach((rb: any) => {
+          rutasBaseData.forEach((rb) => {
             rutasBaseMap[rb.id_ruta_base] = {
               cantidad_peajes: rb.cantidad_peajes || 0,
               costo_peaje: rb.costo_peaje || 0
@@ -298,8 +297,8 @@ export default function AdminDashboard() {
         const groupedCombustible: Record<string, { nombre: string; total: number; cargas: number }> = {};
         const groupedOtros: Record<string, { nombre: string; total: number; cargas: number }> = {};
         
-        gastosChofer.forEach((g: any) => {
-          const choferId = g.id_chofer;
+        gastosChofer.forEach((g) => {
+          const choferId = g.id_chofer || '';
           if (g.tipo_combustible === 'otro') {
             // Es gasto de "otro" (estacionamiento, peaje, etc.)
             if (!groupedOtros[choferId]) {
@@ -334,13 +333,12 @@ export default function AdminDashboard() {
           rutas,
           choferesActivosEnCurso.size, // Solo choferes con rutas en curso
           totalChoferesRegistrados,
-          [...(combustibleSemanaRes.data || [])].map((g: any) => ({ fecha: g.created_at, monto: g.monto })),
+          (combustibleSemanaRes.data || []).map(g => ({ fecha: g.created_at, monto: g.monto || 0 })),
           5 // Días laborables de la semana
         );
         setAlertas(inconsistencias);
       }
     } catch (err) {
-      console.error('Error loading dashboard:', err);
       setError('Error al cargar los datos. Intenta de nuevo.');
     } finally {
       setLoading(false);

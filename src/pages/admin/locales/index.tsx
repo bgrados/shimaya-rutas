@@ -345,7 +345,6 @@ export default function LocalesBase() {
   useEffect(() => { load(); }, []);
 
   const handleSave = async (id: string, payload: Partial<LocalBase>) => {
-    console.log('[LocalesBase] saveEdit →', id, payload);
     const { data, error } = await supabase
       .from('locales_base')
       .update(payload)
@@ -359,7 +358,6 @@ export default function LocalesBase() {
       return;
     }
 
-    console.log('[LocalesBase] Guardado OK:', data);
     setLocales(prev => prev.map(l => l.id_local_base === id ? { ...l, ...(data as LocalBase) } : l));
     setEditId(null);
   };
