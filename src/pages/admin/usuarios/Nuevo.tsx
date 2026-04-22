@@ -34,8 +34,6 @@ export default function NuevoUsuario() {
 
     try {
       const emailLower = email.toLowerCase().trim();
-      
-      console.log('[NuevoUsuario] Verificando email:', emailLower);
 
       const { data: existing } = await supabase
         .from('usuarios')
@@ -49,7 +47,6 @@ export default function NuevoUsuario() {
         return;
       }
 
-      console.log('[NuevoUsuario] Verificando en Auth...');
       try {
         const { data: existingAuth } = await supabase.auth.admin.getUserByEmail(emailLower);
         if (existingAuth?.user) {
@@ -58,25 +55,22 @@ export default function NuevoUsuario() {
           return;
         }
       } catch (adminErr) {
-        console.log('[NuevoUsuario] Admin check no disponible, continuando...');
+        // Admin check not available, continue with signup
       }
 
-      console.log('[NuevoUsuario] Creando usuario en Auth...');
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: emailLower,
         password,
       });
 
       if (authError) {
-        console.error('[NuevoUsuario] Auth error:', authError);
-        
         if (authError.message.includes('already been registered')) {
           throw new Error('Este email ya está registrado. Usa otro correo.');
         }
         throw new Error(authError.message);
       }
 
-      console.log('[NuevoUsuario] Auth response:', authData);
 
       const userId = authData.user?.id;
       
@@ -84,7 +78,7 @@ export default function NuevoUsuario() {
         throw new Error('No se pudo obtener el ID del usuario. El email ya podría estar registrado.');
       }
 
-      console.log('[NuevoUsuario] Insertando en tabla usuarios...');
+
       const { error: dbError } = await supabase
         .from('usuarios')
         .insert({
@@ -97,13 +91,10 @@ export default function NuevoUsuario() {
         });
 
       if (dbError) {
-        console.error('[NuevoUsuario] DB error:', dbError);
-        
-        console.log('[NuevoUsuario] Limpiando usuario de Auth...');
         try {
           await supabase.auth.admin.deleteUser(userId);
         } catch (cleanupError) {
-          console.error('[NuevoUsuario] Error al limpiar usuario:', cleanupError);
+          // Cleanup failed, user may need manual removal
         }
         
         if (dbError.message.includes('duplicate')) {
@@ -112,7 +103,6 @@ export default function NuevoUsuario() {
         throw new Error(`Error al crear usuario: ${dbError.message}`);
       }
 
-      console.log('[NuevoUsuario] Usuario creado exitosamente');
       setSuccess(true);
       
       setTimeout(() => {
@@ -120,7 +110,6 @@ export default function NuevoUsuario() {
       }, 2000);
       
     } catch (err: any) {
-      console.error('[NuevoUsuario] Error completo:', err);
       setError(err.message || 'Error desconocido');
     } finally {
       setLoadingSubmit(false);

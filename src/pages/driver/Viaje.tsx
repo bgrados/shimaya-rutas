@@ -12,6 +12,9 @@ import { format, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ModalEvidencia } from './viaje/components/ModalEvidencia';
 import { TramoBitacora } from './viaje/components/TramoBitacora';
+import { RutaSelector } from './viaje/components/RutaSelector';
+import { BitacoraList } from './viaje/components/BitacoraList';
+import { LocalList } from './viaje/components/LocalList';
 import { formatPeru, nowPeru } from '../../lib/timezone';
 import { RefreshCw, MapPinOff, Wifi, WifiOff, Coffee, Phone } from 'lucide-react';
 import { 
@@ -62,6 +65,9 @@ export default function DriverViaje() {
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
   const [nuevaPlaca, setNuevaPlaca] = useState(profile?.placa_camion || '');
   const [createError, setCreateError] = useState('');
+  const [kmInicio, setKmInicio] = useState('');
+  const [kmFin, setKmFin] = useState('');
+  const [showFinalKmModal, setShowFinalKmModal] = useState(false);
 
   // Si el perfil ya tiene placa, usarla por defecto y deshabilitar edición
   const tienePlacaAsignada = !!(profile?.placa_camion);
@@ -291,7 +297,6 @@ export default function DriverViaje() {
   const agregarLogDebug = (mensaje: string) => {
     const timestamp = new Date().toLocaleTimeString();
     const log = `[${timestamp}] ${mensaje}`;
-    console.log(log);
     setGpsDebugLogs(prev => [...prev.slice(-9), log]); // Mantener últimos 10 logs
   };
 
@@ -716,7 +721,7 @@ export default function DriverViaje() {
       }
     }
 
-    const updates: any = { hora_salida: nuevaSalida.toISOString() };
+    const updates: Partial<ViajeBitacora> = { hora_salida: nuevaSalida.toISOString() };
     if (nuevaLlegada) {
       updates.hora_llegada = nuevaLlegada.toISOString();
     }
@@ -777,10 +782,8 @@ export default function DriverViaje() {
   };
 
   const loadCurrentRuta = async () => {
-    console.log('[loadCurrentRuta] INICIO');
     if (!profile) {
       setLoading(false);
-      console.log('[loadCurrentRuta] SIN PERFIL');
       return;
     }
     setLoading(true);
@@ -792,7 +795,6 @@ export default function DriverViaje() {
       // Si hay ID en URL, cargar esa ruta específica
       if (pathParts.length > 1) {
         const rutaIdFromUrl = pathParts[1];
-        console.log('[loadCurrentRuta] Cargando ruta histórica:', rutaIdFromUrl);
         const { data: rutaHistorica, error: rhError } = await supabase
           .from('rutas')
           .select('*')
@@ -899,28 +901,22 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         setLoadError('No se pudo cargar la información. Reintenta.');
       }
     } finally {
-      console.log('[loadCurrentRuta] FIN loading=false');
       setLoading(false);
     }
   };
 
   const loadRutasBase = async (force = false) => {
-    console.log('[loadRutasBase] INICIO force:', force, 'loadingRutasBase:', loadingRutasBase, 'rutasBaseLoaded:', rutasBaseLoaded);
     // Evitar cargas duplicadas si ya se cargó (a menos que force=true)
     if (rutasBaseLoaded && !force && rutasBase.length > 0) {
-      console.log('[loadRutasBase] SKIP (ya cargado)');
       return;
     }
-    console.log('[loadRutasBase] EJECUTANDO, profile:', profile?.id_usuario);
     setLoadingRutasBase(true);
-    console.log('[Viaje] loadRutasBase -> loadingRutasBase=true');
     try {
       const { data: baseData, error: rbError } = await supabase
         .from('rutas_base')
         .select('*')
         .order('nombre');
         
-      console.log('[Viaje] rutas_base response:', baseData, rbError);
         
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
@@ -936,7 +932,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               .select('id_local_base', { count: 'exact', head: true })
               .eq('id_ruta_base', rb.id_ruta_base);
             
-            console.log(`[Viaje] count for ${rb.nombre}:`, count, cError);
             if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
             return { ...rb, locales_count: count ?? 0 };
           } catch (e) {
@@ -945,15 +940,11 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           }
         }));
         
-        console.log('[Viaje] Final rutasBase:', withCounts);
-        console.log('[loadRutasBase] ACABA DE CARGAR, count:', withCounts.length);
         setRutasBase(withCounts);
         setRutasBaseLoaded(true);
         setLoadedAtLeastOnce(true);
-        console.log('[loadRutasBase] setRutasBase + flags DONE, total:', withCounts.length);
         setLoadingRutasBase(false);
       } else {
-        console.log('[loadRutasBase] No hay plantillas');
         setRutasBase([]);
         setRutasBaseLoaded(true);
         setLoadedAtLeastOnce(true);
@@ -1070,7 +1061,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         id_chofer: profile.id_usuario,
         placa: nuevaPlaca.trim().toUpperCase(),
         fecha: today,
-        estado: 'pendiente'
+        estado: 'pendiente',
+        km_inicio: parseFloat(kmInicio) || 0
       }).select().single();
 
       if (rError) throw rError;
@@ -1258,6 +1250,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       if (data.destino_nombre === 'Planta') {
          await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
          if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
+         setShowFinalKmModal(true);
       }
       
       // Actualizar cooldown
@@ -1376,93 +1369,21 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   if (!mostrarRuta) {
     return (
-      <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
-        <div className="text-center space-y-2 pt-8">
-           <div className="bg-primary/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-primary">
-              <Truck size={40} />
-           </div>
-           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">Nueva Jornada</h1>
-           <p className="text-text-muted text-sm">Selecciona una plantilla y placa para iniciar tu ruta del día.</p>
-        </div>
-
-        <Card className="border-primary/30 bg-surface shadow-2xl overflow-hidden relative">
-           <div className="absolute top-0 right-0 p-4 opacity-5">
-              <PlusCircle size={120} />
-           </div>
-           <CardContent className="p-8 space-y-6">
-              <div className="space-y-4">
-                  <div className="space-y-1">
-<label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Plantilla de Ruta</label>
-                      {loadingRutasBase ? (
-                        <div className="bg-surface-light rounded-xl px-4 py-3 text-text-muted text-sm">
-                          ⏳ Cargando plantillas...
-                        </div>
-                      ) : !rutasBase.length ? (
-                        <div className="bg-surface-light rounded-xl px-4 py-3 text-text-muted text-sm">
-                          Selecciona una plantilla...
-                        </div>
-                      ) : (
-                      <div className="relative">
-                       <select
-                            className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white font-bold italic appearance-none focus:border-primary transition-colors cursor-pointer"
-                            value={selectedRutaBase}
-                            onChange={e => setSelectedRutaBase(e.target.value)}
-                          >
-                            <option value="" disabled>Elige tu ruta...</option>
-                            {rutasBase.map(r => (
-                              <option key={r.id_ruta_base} value={r.id_ruta_base} className="bg-surface text-white">
-                                {r.nombre} ({r.locales_count} paradas)
-                              </option>
-                            ))}
-                          </select>
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2">
-                            <ChevronDown size={20} className="text-primary" />
-                          </div>
-                       </div>
-                      )}
-                 </div>
-
-                  <div className="space-y-1">
-                     <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">
-                       {tienePlacaAsignada ? '🚛 Vehículo Asignado' : 'Placa del Vehículo'}
-                     </label>
-                     {tienePlacaAsignada ? (
-                       <div className="bg-green-500/10 border-2 border-green-500/30 rounded-xl px-4 py-3 text-green-400 font-black italic uppercase text-lg tracking-widest text-center">
-                         {nuevaPlaca}
-                       </div>
-                     ) : (
-                       <Input 
-                         placeholder="ABC-123" 
-                         className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg tracking-widest"
-                         value={nuevaPlaca}
-                         onChange={handlePlacaChange}
-                         maxLength={7}
-                       />
-                     )}
-                  </div>
-
-                 {createError && (
-                   <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm font-bold">
-                     ❌ {createError}
-                   </div>
-                 )}
-                 {loadError && (
-                   <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm font-bold">
-                     ❌ {loadError}
-                   </div>
-                 )}
-              </div>
-
-              <Button 
-                onClick={handleCreateViaje}
-                disabled={isCreating || !selectedRutaBase || (!nuevaPlaca.trim() && !tienePlacaAsignada) || rutasBase.length === 0}
-                className="w-full h-16 text-xl font-black italic bg-primary hover:bg-primary-hover shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {isCreating ? '⏳ CREANDO RUTA...' : '🚛 INICIAR MI RUTA'}
-              </Button>
-           </CardContent>
-        </Card>
-      </div>
+      <RutaSelector 
+        loadingRutasBase={loadingRutasBase}
+        rutasBase={rutasBase}
+        selectedRutaBase={selectedRutaBase}
+        setSelectedRutaBase={setSelectedRutaBase}
+        nuevaPlaca={nuevaPlaca}
+        handlePlacaChange={handlePlacaChange}
+        tienePlacaAsignada={tienePlacaAsignada}
+        createError={createError}
+        loadError={loadError}
+        isCreating={isCreating}
+        kmInicio={kmInicio}
+        setKmInicio={setKmInicio}
+        handleCrearRuta={handleCreateViaje}
+      />
     );
   }
 
@@ -1892,79 +1813,29 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </Card>
       )}
 
-      {/* LISTA DE LOCALES PENDIENTES CON GUÍAS */}
-      {localesDisponibles.length > 0 && ruta.estado !== 'finalizada' && (
-        <div className="space-y-3">
-          <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] italic px-1">Próximos Destinos Planificados</h4>
-          <div className="grid grid-cols-1 gap-2">
-            {localesDisponibles.map(local => (
-              <div key={local.id_local_ruta} className="bg-surface/50 border border-white/5 p-3 rounded-xl flex items-center justify-between">
-                <span className="text-[11px] font-bold text-white uppercase">{local.nombre}</span>
-                {local.guias && local.guias.length > 0 && (
-                  <button onClick={() => { setViewingGuias(local.guias || []); setCurrentGuiaIndex(0); }} className="flex items-center gap-1.5 bg-primary/20 text-primary px-3 py-1.5 rounded-lg active:scale-95 transition-transform">
-                    <FileText size={14} />
-                    <span className="text-[10px] font-black">{local.guias.length} GUÍAS</span>
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <LocalList 
+        localesDisponibles={localesDisponibles}
+        rutaEstado={ruta.estado}
+        localesRegistrados={localesRegistrados}
+        locales={locales}
+        setViewingGuias={setViewingGuias}
+        setCurrentGuiaIndex={setCurrentGuiaIndex}
+      />
 
-      {/* BARRA DE PROGRESO */}
-      <div className="bg-surface/50 p-4 rounded-2xl border border-white/5 space-y-3">
-         <div className="flex justify-between text-[10px] uppercase font-black text-text-muted tracking-[0.2em]">
-            <span>LOCALES VISITADOS</span>
-            <span className="text-primary">{localesRegistrados.filter(l => l !== 'Planta').length} / {locales.filter(l => l.nombre !== 'Planta').length}</span>
-         </div>
-         <div className="h-3 bg-surface-light rounded-full overflow-hidden flex p-0.5 shadow-inner">
-            {locales.map((l, i) => (
-              <div 
-                key={i} 
-                className={`flex-1 mx-0.5 rounded-full transition-all duration-500 ${localesRegistrados.includes(l.nombre || '') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-surface'}`}
-              />
-            ))}
-         </div>
-      </div>
-
-      <h3 className="text-xs font-black text-text-muted uppercase tracking-[0.3em] pt-6 flex items-center gap-2 italic">
-         <div className="w-4 h-[1px] bg-text-muted opacity-20" />
-         Bitácora de Movimientos
-         <div className="flex-1 h-[1px] bg-gradient-to-r from-text-muted to-transparent opacity-20" />
-      </h3>
-
-      <div className="space-y-4 relative before:absolute before:left-[19px] before:top-4 before:bottom-4 before:w-1 before:bg-gradient-to-b before:from-primary/30 before:to-surface-light/10">
-        {bitacora.length > 0 ? (
-          bitacora.map((tramo, idx) => (
-            <TramoBitacora
-              key={tramo.id_bitacora}
-              tramo={tramo}
-              idx={idx}
-              esUltimo={idx === bitacora.length - 1}
-              editando={editandoBitacora === tramo.id_bitacora}
-              editHoraSalida={editHoraSalida}
-              editHoraLlegada={editHoraLlegada}
-              onEdit={() => handleEditarHora(tramo)}
-              onSave={() => guardarEdicionHora(tramo)}
-              onCancel={() => setEditandoBitacora(null)}
-              onSetHoraSalida={setEditHoraSalida}
-              onSetHoraLlegada={setEditHoraLlegada}
-              tramoAnterior={idx > 0 ? bitacora[idx - 1] : undefined}
-              guias={locales.find(l => (l.nombre || '').trim().toLowerCase() === (tramo.destino_nombre || '').trim().toLowerCase())?.guias}
-              onViewGuias={(docs) => {
-                setViewingGuias(docs);
-                setCurrentGuiaIndex(0);
-              }}
-            />
-          ))
-        ) : (
-          <div className="text-center py-10 opacity-30 select-none bg-surface-light/10 rounded-2xl border border-dashed border-white/5">
-            <Truck size={32} className="mx-auto mb-2" />
-            <p className="text-sm italic font-bold">Inicia tu salida en Planta para comenzar</p>
-          </div>
-        )}
-      </div>
+      <BitacoraList 
+        bitacora={bitacora}
+        locales={locales}
+        editandoBitacora={editandoBitacora}
+        editHoraSalida={editHoraSalida}
+        editHoraLlegada={editHoraLlegada}
+        handleEditarHora={handleEditarHora}
+        guardarEdicionHora={guardarEdicionHora}
+        setEditandoBitacora={setEditandoBitacora}
+        setEditHoraSalida={setEditHoraSalida}
+        setEditHoraLlegada={setEditHoraLlegada}
+        setViewingGuias={setViewingGuias}
+        setCurrentGuiaIndex={setCurrentGuiaIndex}
+      />
 
       {/* Botón para registrar combustible DURANTE la ruta */}
       {(ruta.estado === 'en_progreso' || ruta.estado === 'en_curso') && (
@@ -2266,7 +2137,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               </button>
             </div>
             
-            {/* Buscador de Productos */}
             <div className="relative group mx-2">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 group-focus-within:text-primary transition-colors" />
               <input 
@@ -2281,7 +2151,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           
           <div className="flex-1 w-full flex items-center justify-center p-2 pt-40 pb-28 relative overflow-hidden">
             <div className={`w-full h-full flex items-center justify-center transition-transform duration-300 ease-out cursor-move ${zoomScale > 1 ? 'overflow-auto scrollbar-hide' : ''}`}>
-               {/* Etiqueta del archivo actual si tiene comentario */}
                {viewingGuias[currentGuiaIndex].comentario && (
                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
                     <span className="bg-primary/90 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg backdrop-blur-sm border border-white/20">
@@ -2302,7 +2171,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               />
             </div>
             
-            {/* Nav Arrows */}
             {viewingGuias.length > 1 && (
               <>
                 <button 
@@ -2327,7 +2195,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             )}
           </div>
           
-          {/* Thumbnails con filtro de búsqueda */}
           <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto z-10 py-1 scrollbar-hide">
             {viewingGuias.map((g, i) => {
               const matched = searchTermGuias && g.comentario?.toLowerCase().includes(searchTermGuias.toLowerCase());
@@ -2338,6 +2205,76 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   key={g.id_guia}
                   onClick={() => {
                     setCurrentGuiaIndex(i);
+                    setZoomScale(1);
+                  }}
+                  className={`relative w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden shadow-lg transition-all ${currentGuiaIndex === i ? 'ring-2 ring-primary scale-110 z-10 opacity-100' : 'opacity-40 hover:opacity-100 border border-white/20'} ${matched ? 'ring-2 ring-yellow-400 scale-105 opacity-100' : ''}`}
+                >
+                  <img src={g.archivo_url} className="w-full h-full object-cover" />
+                  {matched && (
+                    <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center">
+                       <Check size={20} className="text-yellow-400 drop-shadow-lg" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Kilometraje Final */}
+      {showFinalKmModal && ruta && (
+        <div className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center p-4 backdrop-blur-lg">
+          <Card className="max-w-md w-full border-primary/20 bg-surface shadow-2xl">
+            <CardContent className="p-8 space-y-6">
+              <div className="text-center space-y-2">
+                <div className="bg-primary/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-primary">
+                  <Flag size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Ruta Finalizada</h2>
+                <p className="text-text-muted text-sm">Ingresa el kilometraje final del vehículo.</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Km Inicial: {ruta.km_inicio || 0}</label>
+                  <Input 
+                    type="number"
+                    placeholder="Kilometraje Final" 
+                    className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg tracking-widest"
+                    value={kmFin}
+                    onChange={e => setKmFin(e.target.value)}
+                  />
+                </div>
+
+                <Button 
+                  className="w-full h-14 text-lg font-black italic bg-primary hover:bg-primary-hover shadow-xl"
+                  disabled={!kmFin || parseFloat(kmFin) <= (ruta.km_inicio || 0)}
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase
+                        .from('rutas')
+                        .update({ km_fin: parseFloat(kmFin) })
+                        .eq('id_ruta', ruta.id_ruta);
+                      
+                      if (error) throw error;
+                      setRuta({ ...ruta, km_fin: parseFloat(kmFin) });
+                      setShowFinalKmModal(false);
+                      showToast('success', 'Kilometraje final registrado correctamente');
+                    } catch (err: any) {
+                      showToast('error', 'Error al guardar kilometraje: ' + err.message);
+                    }
+                  }}
+                >
+                  FINALIZAR Y REGISTRAR
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
                     setZoomScale(1);
                   }}
                   className={`relative w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden shadow-lg transition-all ${currentGuiaIndex === i ? 'ring-2 ring-primary scale-110 z-10 opacity-100' : 'opacity-40 hover:opacity-100 border border-white/20'} ${matched ? 'ring-2 ring-yellow-400 scale-105 opacity-100' : ''}`}

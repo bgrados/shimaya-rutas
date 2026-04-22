@@ -27,7 +27,6 @@ const TARGET_QUALITY = 0.7;
 const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; finalSize: number }> => {
   return new Promise((resolve, reject) => {
     const originalSize = file.size;
-    console.log(`[Optimize] 📷 Original: ${(originalSize / 1024).toFixed(1)}KB`);
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -64,10 +63,8 @@ const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; 
             
             if (blob) {
               const sizeKB = blob.size / 1024;
-              console.log(`[Optimize] Intento ${attempts + 1}: ${sizeKB.toFixed(1)}KB`);
               
               if (sizeKB <= MAX_SIZE_KB || quality <= 0.3) {
-                console.log(`[Optimize] ✅ ${(originalSize/1024).toFixed(1)}KB → ${(blob.size/1024).toFixed(1)}KB`);
                 resolve({ blob, originalSize, finalSize: blob.size });
                 return;
               }
@@ -149,7 +146,6 @@ export default function VisitaLocal() {
           optimized,
         };
         setPhotos(prev => [...prev, newPhoto]);
-        console.log(`[Photo] ✅ Optimizada: ${(optimized.originalSize/1024).toFixed(1)}KB → ${(optimized.finalSize/1024).toFixed(1)}KB`);
       } catch (err) {
         console.error('[Photo] Error:', err);
         const reader = new FileReader();
@@ -200,7 +196,6 @@ export default function VisitaLocal() {
       const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
       
       if (photoItem.optimized) {
-        console.log(`[Upload] ✅ ${(photoItem.optimized.finalSize/1024).toFixed(1)}KB`);
       }
       
       return data.publicUrl;

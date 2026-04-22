@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
-import type { Ruta, GastoCombustible, FotoVisita } from '../../../types';
+import type { Ruta, GastoCombustible, FotoVisita, LocalRuta, ViajeBitacora } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check } from 'lucide-react';
@@ -36,7 +36,13 @@ function formatMins(mins: number | null) {
 type Period = 'diario' | 'semanal' | 'mensual';
 type ReportType = 'rutas' | 'combustible' | 'otros';
 
-interface RutaConBitacora extends Ruta { bitacora?: any[]; duracionMins?: number | null; localesRuta?: any[]; }
+interface RutaConBitacora extends Ruta { 
+  bitacora?: ViajeBitacora[]; 
+  duracionMins?: number | null; 
+  localesRuta?: LocalRuta[]; 
+  horaLlegadaReal?: string | null; 
+  distanciaGpsKm?: number | null;
+}
 interface Usuario { id_usuario: string; nombre: string; }
 interface GrupoFecha { fecha: string; gastos: GastoCombustible[]; total: number; }
 interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCombustible[]; total: number; }
@@ -46,89 +52,45 @@ const reprocessAllPhotos = async () => {
 };
 
 const applyWatermarkToUrl = async (imageUrl: string): Promise<string | null> => {
-  console.log('[Watermark] Cargando imagen:', imageUrl);
   try {
     const img = new Image();
-    
-    // Timeout para cargar imagen
-    const timeoutPromise = new Promise<void>((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout')), 15000)
-    );
-    
+    const timeoutPromise = new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000));
     const loadPromise = new Promise<void>((resolve, reject) => {
-      img.onload = () => { console.log('[Watermark] Imagen cargada OK'); resolve(); };
       img.onerror = () => reject(new Error('Error cargando imagen'));
-      img.crossOrigin = 'anonymous';
-      img.src = imageUrl;
+      img.crossOrigin = 'anonymous'; img.src = imageUrl;
     });
-    
     await Promise.race([loadPromise, timeoutPromise]);
-    
-    const canvas = document.createElement('canvas');
-    const ratio = 1200 / img.width;
-    canvas.width = 1200;
-    canvas.height = img.height * ratio;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { console.log('[Watermark] No hay contexto 2D'); return null; }
-    
+    const canvas = document.createElement('canvas'); const ratio = 1200 / img.width;
+    canvas.width = 1200; canvas.height = img.height * ratio;
+    const ctx = canvas.getContext('2d'); if (!ctx) return null;
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    console.log('[Watermark] Imagen dibujada en canvas');
-    
     const LOGO_URL = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTTcvbdl7qk6b_Rb5ihYLyfkqzryxsK9uiU5w&s';
-    const logo = new Image();
-    logo.crossOrigin = 'anonymous';
-    
-    await new Promise<void>((resolve) => {
-      logo.onload = () => { console.log('[Watermark] Logo cargado OK'); resolve(); };
-      logo.onerror = () => { console.log('[Watermark] Logo no cargado, continuando'); resolve(); };
-      logo.src = LOGO_URL;
-    });
-    
+    const logo = new Image(); logo.crossOrigin = 'anonymous';
+    await new Promise<void>((resolve) => { logo.src = LOGO_URL; logo.onload = () => resolve(); logo.onerror = () => resolve(); });
     if (logo.complete && logo.naturalWidth > 0) {
-      const logoSize = canvas.width * 0.08;
-      const padding = canvas.width * 0.012;
-      const x = canvas.width - logoSize - padding;
-      const y = canvas.height - logoSize - padding;
-      
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.roundRect(x - 2, y - 2, logoSize + 4, logoSize + 4, 6);
-      ctx.fill();
-      ctx.globalAlpha = 0.6;
-      ctx.drawImage(logo, x, y, logoSize, logoSize);
-      ctx.restore();
-      console.log('[Watermark] Logo aplicado');
-    } else {
-      console.log('[Watermark] Logo no disponible, se omite');
+      const logoSize = canvas.width * 0.08; const padding = canvas.width * 0.012;
+      const x = canvas.width - logoSize - padding; const y = canvas.height - logoSize - padding;
+      ctx.save(); ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(x - 2, y - 2, logoSize + 4, logoSize + 4, 6); ctx.fill();
+      ctx.globalAlpha = 0.6; ctx.drawImage(logo, x, y, logoSize, logoSize); ctx.restore();
     }
-    
-    // Convertir a blob
     return new Promise<string>((resolve) => {
       canvas.toBlob((blob) => {
-        if (blob) {
-          console.log('[Watermark] Blob creado, tamaño:', blob.size);
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            console.log('[Watermark] Base64 generado');
-            resolve(reader.result as string);
-          };
-          reader.onerror = () => {
-            console.log('[Watermark] Error en FileReader');
-            resolve(null);
-          };
-          reader.readAsDataURL(blob);
-        } else {
-          console.log('[Watermark] toBlob devolvió null');
-          resolve(null);
-        }
+        if (blob) { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result as string); reader.onerror = () => resolve(null); reader.readAsDataURL(blob); }
+        else resolve(null);
       }, 'image/jpeg', 0.9);
     });
-  } catch (e) {
-    console.log('[Watermark] Error:', e);
-    return null;
-  }
+  } catch { return null; }
+};
+
+const calcularDistanciaHaversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 };
 
 export default function Reportes() {
@@ -261,7 +223,7 @@ export default function Reportes() {
       
       // Actualizar la tabla bitácora - buscar el último tramo hacia planta y actualizar su hora_llegada
       const bits = ruta.bitacora || [];
-      const ultimoTramoPlanta = [...bits].reverse().find((b: any) => 
+      const ultimoTramoPlanta = [...bits].reverse().find(b => 
         b.destino_nombre?.toLowerCase() === 'planta' && b.hora_llegada
       );
       
@@ -323,7 +285,7 @@ export default function Reportes() {
       .order('created_at', { ascending: false });
 
     if (rutasData && rutasData.length > 0) {
-      const ids = rutasData.map((r: any) => r.id_ruta);
+      const ids = rutasData.map(r => r.id_ruta);
       const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
       
       // Cargar locales_ruta para cada ruta
@@ -335,7 +297,7 @@ export default function Reportes() {
       if (localRutaIds.length > 0) {
         const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
         if (fotosData) {
-          fotosData.forEach((f: any) => {
+          (fotosData as FotoVisita[]).forEach(f => {
             if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
             fotosMap[f.id_local_ruta].push(f as FotoVisita);
           });
@@ -343,12 +305,12 @@ export default function Reportes() {
       }
       setFotosPorLocal(fotosMap);
 
-      const enriched = rutasData.map((r: any) => {
-        const bits = (bitData || []).filter((b: any) => b.id_ruta === r.id_ruta);
-        const locales = (localesData || []).filter((l: any) => l.id_ruta === r.id_ruta);
+      const enriched = (rutasData as Ruta[]).map(r => {
+        const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
+        const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
         
         // Ordenar bitácora por hora de creación
-        const bitsOrdenados = [...bits].sort((a: any, b: any) => 
+        const bitsOrdenados = [...bits].sort((a, b) => 
           new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
         );
         
@@ -366,11 +328,22 @@ export default function Reportes() {
           horaLlegadaReal = r.hora_llegada_planta;
         }
         
-        // Calcular duración real: desde hora_salida_planta hasta la última hora_llegada
-        const duracionMins = r.hora_salida_planta && horaLlegadaReal
-          ? differenceInMinutes(new Date(horaLlegadaReal), new Date(r.hora_salida_planta)) : null;
-          
-        return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal };
+        // Calcular distancia GPS total recorrida
+        let distanciaGpsKm = 0;
+        const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
+        
+        // Asumiendo que el viaje empieza en Planta (podríamos usar coordenadas de planta si existieran)
+        // Por ahora calculamos entre puntos de bitácora consecutivos
+        for (let i = 0; i < bitsValidos.length - 1; i++) {
+          const p1 = bitsValidos[i];
+          const p2 = bitsValidos[i+1];
+          distanciaGpsKm += calcularDistanciaHaversine(
+            p1.gps_llegada_lat!, p1.gps_llegada_lng!,
+            p2.gps_llegada_lat!, p2.gps_llegada_lng!
+          );
+        }
+
+        return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal, distanciaGpsKm };
       });
       setAllRutas(enriched as RutaConBitacora[]);
     } else {
@@ -434,21 +407,18 @@ async function loadCombustible() {
         throw error;
       }
 
-      console.log('[DEBUG-Gastos] Registros encontrados en DB:', data?.length || 0);
 
       if (data) {
-        const mapped = data.map((g: any) => ({
+        const mapped = (data as GastoCombustible[]).map(g => ({
           ...g,
-          chofer_nombre: g.usuarios?.nombre,
-          ruta_nombre: g.rutas?.nombre
+          chofer_nombre: (g as any).usuarios?.nombre,
+          ruta_nombre: (g as any).rutas?.nombre
         }));
         setGastos(mapped as GastoCombustible[]);
         
         // Debug: mostrar primeros 3 gastos con foto_url
         const conFoto = data.filter((g: any) => g.foto_url);
-        console.log('[Debug] Gastos CON foto_url:', conFoto.length);
         conFoto.slice(0,3).forEach((g: any) => {
-          console.log('[Debug]  - id:', g.id_gasto, 'monto:', g.monto, 'foto_url:', g.foto_url?.substring(0,80));
         });
         
         // Mapear fotos
@@ -478,8 +448,8 @@ async function loadCombustible() {
     }
     
     if (filtroFecha === 'dia') {
-      const comb = gastosCombustible.filter((g: any) => g.rutas?.fecha === hoyStr);
-      const otros = gastosOtros.filter((g: any) => g.rutas?.fecha === hoyStr);
+      const comb = gastosCombustible.filter(g => (g as any).rutas?.fecha === hoyStr);
+      const otros = gastosOtros.filter(g => (g as any).rutas?.fecha === hoyStr);
       return { comb, otros };
     }
     
@@ -495,16 +465,15 @@ async function loadCombustible() {
     inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
     const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
     
-    const comb = gastosCombustible.filter((g: any) => {
-      const f = g.rutas?.fecha;
+    const comb = gastosCombustible.filter(g => {
+      const f = (g as any).rutas?.fecha;
       return f >= semanaStr && f <= hoyStr;
     });
-    const otros = gastosOtros.filter((g: any) => {
-      const f = g.rutas?.fecha;
+    const otros = gastosOtros.filter(g => {
+      const f = (g as any).rutas?.fecha;
       return f >= semanaStr && f <= hoyStr;
     });
     
-    console.log('[Gastos] Semana:', semanaStr, 'a', hoyStr, 'Comb:', comb.length, 'Otros:', otros.length);
     return { comb, otros };
   };
 
@@ -580,11 +549,11 @@ async function loadCombustible() {
   const handleExportarEvidenciaZip = async () => {
     const todasLasFotos: { foto: FotoVisita; local: any; ruta: any }[] = [];
     
-    allRutas.forEach((ruta: any) => {
+    allRutas.forEach(ruta => {
       if (ruta.localesRuta) {
-        ruta.localesRuta.forEach((local: any) => {
+        ruta.localesRuta.forEach(local => {
           const fotos = fotosPorLocal[local.id_local_ruta] || [];
-          fotos.forEach((foto: FotoVisita) => {
+          fotos.forEach(foto => {
             todasLasFotos.push({ foto, local, ruta });
           });
         });
@@ -1254,7 +1223,8 @@ const win = window.open('', '_blank');
                           <p className="font-black text-white italic">{ruta.nombre}</p>
                           <p className="text-xs text-text-muted">
                             🚛 {ruta.placa || 'Sin placa'} &nbsp;·&nbsp;
-                            📅 {ruta.fecha ? formatFriendlyDate(ruta.fecha) : '-'}
+                            📅 {ruta.fecha ? formatFriendlyDate(ruta.fecha) : '-'} &nbsp;·&nbsp;
+                            📍 {ruta.km_inicio || '0'} → {ruta.km_fin || '?'} KM
                           </p>
                         </div>
                       </div>
@@ -1264,6 +1234,7 @@ const win = window.open('', '_blank');
                             🕐 {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
                             {ruta.horaLlegadaReal && ` → ${formatPeru(ruta.horaLlegadaReal, 'HH:mm')}`}
                             {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
+                            {ruta.distanciaGpsKm && ` · 🧭 ~${ruta.distanciaGpsKm.toFixed(1)} km`}
                           </span>
                         )}
                         {editandoLlegada === ruta.id_ruta ? (
@@ -1376,7 +1347,6 @@ const win = window.open('', '_blank');
                                           const clickedIndex = allRouteFotos.findIndex(f => f.url === foto.foto_url);
                                           const finalIndex = clickedIndex >= 0 ? clickedIndex : 0;
                                           
-                                          console.log('[Gallery] Abriendo:', { total: allRouteFotos.length, index: finalIndex });
                                           
                                           setActivePhoto({ 
                                             images: allRouteFotos, 
@@ -1579,6 +1549,11 @@ const win = window.open('', '_blank');
                           }`}>
                             {gasto.tipo_combustible}
                           </span>
+                          {gasto.kilometraje && (
+                            <span className="text-[11px] text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded font-black italic">
+                              📍 {gasto.kilometraje} KM
+                            </span>
+                          )}
                         </div>
                         <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
                       </div>
@@ -1616,6 +1591,11 @@ const win = window.open('', '_blank');
                           }`}>
                             {gasto.tipo_combustible}
                           </span>
+                          {gasto.kilometraje && (
+                            <span className="text-[11px] text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded font-black italic">
+                              📍 {gasto.kilometraje} KM
+                            </span>
+                          )}
                         </div>
                         <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
                       </div>

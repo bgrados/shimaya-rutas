@@ -46,7 +46,6 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      external: ['canvg'],
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],

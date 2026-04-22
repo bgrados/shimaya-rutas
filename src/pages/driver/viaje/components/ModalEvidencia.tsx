@@ -27,7 +27,6 @@ interface OptimizedImage {
 const optimizeImage = (file: File): Promise<OptimizedImage> => {
   return new Promise((resolve, reject) => {
     const originalSize = file.size;
-    console.log(`[Optimize] 📷 Archivo original: ${(originalSize / 1024).toFixed(1)}KB - ${file.name}`);
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -44,7 +43,6 @@ const optimizeImage = (file: File): Promise<OptimizedImage> => {
             height = Math.round(height * ratio);
           }
           
-          console.log(`[Optimize] 📐 Dimensiones: ${img.width}x${img.height} → ${width}x${height}`);
           
           // Crear canvas con las dimensiones calculadas
           const canvas = document.createElement('canvas');
@@ -73,7 +71,6 @@ const optimizeImage = (file: File): Promise<OptimizedImage> => {
             
             if (blob) {
               const sizeKB = blob.size / 1024;
-              console.log(`[Optimize] 🔄 Intento ${attempts + 1}: calidad=${Math.round(quality*100)}%, tamaño=${sizeKB.toFixed(1)}KB`);
               
               if (sizeKB <= MAX_SIZE_KB || quality <= 0.3) {
                 resolve({
@@ -93,7 +90,6 @@ const optimizeImage = (file: File): Promise<OptimizedImage> => {
           
           // Si aún supera el límite, intentar redimensionar más
           if (blob && blob.size > MAX_SIZE_KB * 1024) {
-            console.log(`[Optimize] ⚠️ Intentando reducción adicional...`);
             
             const reducedWidth = Math.round(width * 0.7);
             const reducedHeight = Math.round(height * 0.7);
@@ -114,7 +110,6 @@ const optimizeImage = (file: File): Promise<OptimizedImage> => {
           
           if (blob) {
             const finalSizeKB = blob.size / 1024;
-            console.log(`[Optimize] ✅ Optimización completa: ${(originalSize/1024).toFixed(1)}KB → ${finalSizeKB.toFixed(1)}KB (reducción: ${Math.round((1 - finalSizeKB/(originalSize/1024))*100)}%)`);
             
             resolve({
               blob,
@@ -265,7 +260,6 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
       const fotosSinWM = data.filter(f => !f.foto_url.includes('/wm_'));
       
       if (fotosSinWM.length > 0 && !reprocesando) {
-        console.log(`[Foto] ${fotosSinWM.length} fotos sin marca de agua, reprocesando...`);
         setReprocesando(true);
         setReprocesCount(fotosSinWM.length);
         
@@ -311,7 +305,6 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
             optimized 
           }]);
           
-          console.log(`[Foto] ✅ Optimizada: ${(optimized.originalSize/1024).toFixed(1)}KB → ${(optimized.finalSize/1024).toFixed(1)}KB`);
         } catch (err) {
           console.error('[Foto] Error optimizando:', err);
           // Usar imagen original si falla la optimización
@@ -362,7 +355,6 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
         });
         
         if (optimized) {
-          console.log(`[Upload] ✅ Subida: ${local.nombre} - ${(optimized.finalSize/1024).toFixed(1)}KB`);
         }
       }
       

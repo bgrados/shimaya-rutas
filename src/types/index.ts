@@ -9,6 +9,7 @@ export interface Usuario {
   activo: boolean;
   foto_url: string | null;
   placa_camion: string | null;
+  dias_descanso?: string[];
   created_at: string;
 }
 
@@ -25,6 +26,8 @@ export interface Ruta {
   observaciones: string | null;
   hora_salida_planta: string | null;
   hora_llegada_planta: string | null;
+  km_inicio: number | null;
+  km_fin: number | null;
   created_at: string;
 }
 
@@ -119,6 +122,7 @@ export interface GastoCombustible {
   foto_url: string | null;
   notas: string | null;
   estado: GastoCombustibleEstado | null;
+  kilometraje: number | null;
   ocr_confidence: number | null;
   created_at: string;
   chofer_nombre?: string;
@@ -173,6 +177,38 @@ export interface AuditLog {
   accion: 'delete' | 'create' | 'update';
   datos_anteriores: Record<string, unknown> | null;
   datos_nuevos: Record<string, unknown> | null;
-  usuario_id: string | null;
   created_at: string;
+}
+
+export interface PresenceUser {
+  user_id: string;
+  email: string;
+  online_at: string;
+}
+
+export interface PresenceState {
+  [key: string]: PresenceUser[];
+}
+
+export interface DashboardStats {
+  rutasActivas: number;
+  rutasPendientes: number;
+  rutasFinalizadas: number;
+  visitasCompletadas: number;
+  visitasPendientes: number;
+  localesVisitados: number;
+  numeroViajes: number;
+  choferesEnRuta: number;
+  choferesDisponibles: number;
+  choferesDescanso: number;
+  choferesSinRuta: number;
+  totalChoferes: number;
+  gastoCombustibleDia: number;
+  gastoCombustibleSemana: number;
+  gastoOtrosDia: number;
+  gastoOtrosSemana: number;
+  gastosHoy: number;
+  peajeDia: number;
+  peajeSemana: number;
+  peajeMes: number;
 }

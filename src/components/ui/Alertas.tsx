@@ -1,4 +1,5 @@
 import { AlertTriangle, Clock, MapPin, Fuel, CheckCircle2, Info, XCircle, Truck, RefreshCw } from 'lucide-react';
+import type { Ruta, LocalRuta, ViajeBitacora } from '../../types';
 
 export interface Alerta {
   id: string;
@@ -91,9 +92,9 @@ export function ListaAlertas({ alertas, titulo, className = '' }: ListaAlertasPr
 
 // Funciones de detección de inconsistencias
 export function detectarInconsistenciasRuta(
-  ruta: any,
-  locales: any[],
-  bitacora: any[],
+  ruta: Ruta,
+  locales: LocalRuta[],
+  bitacora: ViajeBitacora[],
   gastoCombustible: number,
   gastoPromedio: number,
   tiempoPromedio: number
@@ -199,7 +200,7 @@ export function detectarInconsistenciasRuta(
 }
 
 export function detectarInconsistenciasGlobales(
-  rutas: any[],
+  rutas: Ruta[],
   choferesActivos: number,
   choferesTotal: number,
   gastosSemana: { fecha: string; monto: number }[],

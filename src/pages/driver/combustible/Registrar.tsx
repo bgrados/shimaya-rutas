@@ -14,7 +14,6 @@ const TARGET_QUALITY = 0.7;
 const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; finalSize: number }> => {
   return new Promise((resolve, reject) => {
     const originalSize = file.size;
-    console.log(`[Optimize] 📷 Original: ${(originalSize / 1024).toFixed(1)}KB`);
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -51,7 +50,6 @@ const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; 
             if (blob) {
               const sizeKB = blob.size / 1024;
               if (sizeKB <= MAX_SIZE_KB || quality <= 0.3) {
-                console.log(`[Optimize] ✅ ${(originalSize/1024).toFixed(1)}KB → ${(blob.size/1024).toFixed(1)}KB`);
                 resolve({ blob, originalSize, finalSize: blob.size });
                 return;
               }
@@ -85,8 +83,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   const [procesando, setProcesando] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [montoDetectado, setMontoDetectado] = useState<number | null>(null);
+  const [kilometrajeDetectado, setKilometrajeDetectado] = useState<number | null>(null);
   const [tipoDetectado, setTipoDetectado] = useState<string>('');
   const [manualMonto, setManualMonto] = useState('');
+  const [manualKilometraje, setManualKilometraje] = useState('');
   const [notas, setNotas] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
@@ -109,7 +109,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       });
 
       const text = result.data.text.toLowerCase();
-      console.log('[OCR] Texto detectado:', text);
 
       const montoPatterns = [
         /s\/\.\s*(\d+[.,]\d{2})/,
@@ -135,10 +134,31 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         tipoEncontrado = 'diesel';
       }
 
+      const kilometrajePatterns = [
+        /(\d{4,7})\s*km/i,
+        /km[:\s]*(\d{4,7})/i,
+        /kilom[.:\s]*(\d{4,7})/i,
+        /odo[.:\s]*(\d{4,7})/i,
+      ];
+
+      let kmEncontrado: number | null = null;
+      for (const pattern of kilometrajePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          kmEncontrado = parseInt(match[1]);
+          break;
+        }
+      }
+
       setMontoDetectado(montoEncontrado);
+      setKilometrajeDetectado(kmEncontrado);
       setTipoDetectado(tipoEncontrado);
+      
       if (montoEncontrado) {
         setManualMonto(montoEncontrado.toString());
+      }
+      if (kmEncontrado) {
+        setManualKilometraje(kmEncontrado.toString());
       }
 
     } catch (err) {
@@ -158,13 +178,11 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
     if (!files || files.length === 0) return;
     
     const file = files[0];
-    console.log('[Foto] Archivo:', file.name, file.size);
 
     // Método simple - directo con FileReader
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
-      console.log('[Foto] DataURL长度:', dataUrl?.length);
       setFoto(dataUrl);
       
       if (fileInputRef.current) {
@@ -187,6 +205,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       setError('Ingresa el monto del combustible');
       return;
     }
+    if (!manualKilometraje || parseInt(manualKilometraje) <= 0) {
+      setError('Ingresa el kilometraje actual');
+      return;
+    }
 
     setGuardando(true);
     setError(null);
@@ -194,12 +216,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
     try {
       let fotoUrl: string | null = null;
       
-      console.log('[Combustible] ========== GUARDANDO ==========');
-      console.log('[Combustible] tipo:', tipoDetectado);
-      console.log('[Combustible] monto:', manualMonto);
-      console.log('[Combustible] foto:', foto ? 'SI' : 'NO');
-      console.log('[Combustible] optimizedFoto:', optimizedFoto ? 'SI' : 'NO');
-      console.log('[Combustible] guardando:', guardando);
       
       if (!foto) {
         alert('⚠️ No hay foto para subir. Toma una foto primero.');
@@ -207,7 +223,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       }
       
       if (foto) {
-        console.log('[Combustible] ✅ ENTRO AL BLOQUE DE FOTO');
         setSubiendoFoto(true);
         
         try {
@@ -218,7 +233,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           const base64Response = await fetch(foto);
           const blobToUpload = await base64Response.blob();
           
-          console.log('[Combustible] Blob size:', blobToUpload.size, 'type:', blobToUpload.type);
           
           // Validar blob
           if (!blobToUpload || blobToUpload.size === 0) {
@@ -228,7 +242,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
             return;
           }
 
-          console.log('[Combustible] === INICIANDO UPLOAD ===');
           
           const uploadResult = await supabase.storage
             .from('combustible')
@@ -236,7 +249,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
               contentType: 'image/jpeg'
             });
 
-          console.log('[Combustible] Upload result:', uploadResult);
 
           setSubiendoFoto(false);
 
@@ -249,11 +261,8 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           }
 
           alert('✅ Foto subida, guardando gasto...');
-          console.log('[Combustible] ✅ Upload OK');
           const { data: urlData } = supabase.storage.from('combustible').getPublicUrl(filePath);
           fotoUrl = urlData.publicUrl;
-          console.log('[Combustible] URL guardada en DB:', fotoUrl);
-          console.log('[Combustible] Tipo gasto:', tipoDetectado);
         } catch (err: any) {
           setSubiendoFoto(false);
           console.error('[Combustible] ❌ CATCH ERROR:', err);
@@ -263,15 +272,14 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           return;
         }
       } else {
-        console.log('[Combustible] ⚠️ NO HAY FOTO, saltando upload');
       }
 
-      console.log('[Combustible] Insertando en DB - tipo:', tipoDetectado, 'fotoUrl:', fotoUrl ? 'SI' : 'NO');
       const { error: insertError } = await supabase.from('gastos_combustible').insert({
         id_ruta: idRuta,
         id_chofer: idChofer,
         tipo_combustible: tipoDetectado,
         monto: parseFloat(manualMonto),
+        kilometraje: parseInt(manualKilometraje) || null,
         foto_url: fotoUrl,
         notas: notas || null,
         estado: 'confirmado',
@@ -283,7 +291,6 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         throw new Error(insertError.message);
       }
 
-      console.log('[Combustible] ✅ Gasto guardado correctamente');
       setGuardado(true);
       setTimeout(() => {
         if (onClose) onClose();
@@ -392,24 +399,44 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         {montoDetectado && !procesando && (
           <Card className="bg-green-500/10 border-green-500/30">
             <CardContent className="p-3">
-              <div className="flex items-center gap-2 text-green-400 text-sm">
-                <Check size={16} />
-                <span>Monto: S/ {montoDetectado.toFixed(2)}</span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-green-400 text-sm font-bold">
+                  <Check size={16} />
+                  <span>Monto detectado: S/ {montoDetectado.toFixed(2)}</span>
+                </div>
+                {kilometrajeDetectado && (
+                  <div className="flex items-center gap-2 text-blue-400 text-sm font-bold border-t border-white/5 pt-1 mt-1">
+                    <Truck size={16} />
+                    <span>KM detectado: {kilometrajeDetectado} km</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-text-muted mb-1">Monto (S/)</label>
-          <input
-            type="number"
-            step="0.01"
-            value={manualMonto}
-            onChange={(e) => setManualMonto(e.target.value)}
-            placeholder="0.00"
-            className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-text-muted mb-1">Monto (S/)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={manualMonto}
+              onChange={(e) => setManualMonto(e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-muted mb-1">Kilometraje</label>
+            <input
+              type="number"
+              value={manualKilometraje}
+              onChange={(e) => setManualKilometraje(e.target.value)}
+              placeholder="0"
+              className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary font-bold"
+            />
+          </div>
         </div>
 
         <div>

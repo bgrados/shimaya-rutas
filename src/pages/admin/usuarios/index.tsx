@@ -18,7 +18,7 @@ interface UsuarioExtendido extends Usuario {
 
 interface EditFormProps {
   user: Usuario;
-  onSave: (id: string, payload: any) => Promise<void>;
+  onSave: (id: string, payload: Partial<Usuario> & { password?: string }) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -40,7 +40,7 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
     { key: 'sabado', label: 'Sáb' },
     { key: 'domingo', label: 'Dom' },
   ];
-  const [diasDescanso, setDiasDescanso] = useState<string[]>((user as any).dias_descanso || []);
+  const [diasDescanso, setDiasDescanso] = useState<string[]>(user.dias_descanso || []);
 
   const toggleDiaDescanso = (dia: string) => {
     setDiasDescanso(prev => 
@@ -229,7 +229,7 @@ export default function Usuarios() {
         setUsuarios(usuariosActualizados);
       }
     } catch(err) {
-      console.error('Error load:', err);
+      // Error loading users
     } finally {
       setLoading(false);
     }
@@ -247,7 +247,7 @@ export default function Usuarios() {
     load();
   }, []);
 
-  const handleSaveEdit = async (id: string, payload: any) => {
+  const handleSaveEdit = async (id: string, payload: Partial<Usuario> & { password?: string }) => {
     // 1. Update in Table
       const { error: tableErr } = await supabase
       .from('usuarios')
@@ -290,9 +290,7 @@ export default function Usuarios() {
     const { error: tableErr } = await supabase.from('usuarios').delete().eq('id_usuario', user.id_usuario);
     
     // Si hay error de foreign key constraint
-    console.log('[handleDelete] Error:', tableErr?.message);
     if (tableErr && (tableErr.message?.indexOf('foreign key') >= 0 || tableErr.message?.indexOf('violates') >= 0 || tableErr.code === '23503')) {
-      console.log('[handleDelete] Foreign key constraint detectado, intentando desactivar...');
       const { error: deactivateErr } = await supabase.from('usuarios').update({ activo: false }).eq('id_usuario', user.id_usuario);
       
       if (deactivateErr) {
@@ -318,7 +316,7 @@ export default function Usuarios() {
           body: { action: 'delete_user', userId: user.id_usuario }
         });
       } catch(err) {
-        console.warn('Fallo Auth Delete:', err);
+        // Auth deletion failed, but DB record is already removed
       }
     }
     
