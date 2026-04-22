@@ -36,7 +36,7 @@ export const DriverLayout: React.FC = () => {
     );
   }
 
-  const rolesPermitidos = ['chofer', 'descansero'];
+  const rolesPermitidos = ['chofer', 'descansero', 'asistente'];
   const puedeAccederDriver = user && profile && rolesPermitidos.includes(profile.rol);
   
   if (!puedeAccederDriver) {

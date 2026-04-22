@@ -809,7 +809,7 @@ export default function DriverViaje() {
           .from('rutas')
           .select('*')
           .eq('id_ruta', rutaIdFromUrl)
-          .eq('id_chofer', profile.id_usuario)
+          .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
           .maybeSingle();
         
         if (rhError) console.error('Error loading ruta histórica:', rhError);
@@ -840,7 +840,7 @@ export default function DriverViaje() {
       const { data: rutaActiva, error: rError } = await supabase
         .from('rutas')
         .select('*')
-        .eq('id_chofer', profile.id_usuario)
+        .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
         .in('estado', ['pendiente', 'en_progreso'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -870,7 +870,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         const { data: rutaFinalizada, error: rfError } = await supabase
           .from('rutas')
           .select('*')
-          .eq('id_chofer', profile.id_usuario)
+          .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
           .eq('estado', 'finalizada')
           .eq('fecha', today)
           .order('created_at', { ascending: false })

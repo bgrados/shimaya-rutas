@@ -59,7 +59,7 @@ export default function DriverDashboard() {
       const { data, error } = await supabase
         .from('rutas')
         .select('*')
-        .eq('id_chofer', profile.id_usuario)
+        .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
         .in('estado', ['pendiente', 'en_progreso'])
         .order('fecha', { ascending: false });
         
@@ -83,7 +83,7 @@ const loadRutasHistoricas = async () => {
     const { data, error } = await supabase
       .from('rutas')
       .select('id_ruta, nombre, fecha, km_inicio, km_fin')
-      .eq('id_chofer', profile.id_usuario)
+      .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
       .eq('estado', 'finalizada')
       .gte('fecha', minDate)
       .order('fecha', { ascending: false });
@@ -107,7 +107,7 @@ const loadGastosDelDia = async () => {
       const { data: rutasDelDia, error: errorRutas } = await supabase
         .from('rutas')
         .select('id_ruta')
-        .eq('id_chofer', profile.id_usuario)
+        .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
         .eq('fecha', today);
       
       console.log('[Gastos] Rutas del dia:', rutasDelDia?.length, errorRutas);
@@ -157,7 +157,7 @@ const loadGastosDelDia = async () => {
       const { data: rutasDia } = await supabase
         .from('rutas')
         .select('id_ruta, id_ruta_base')
-        .eq('id_chofer', profile.id_usuario)
+        .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
         .eq('fecha', today)
         .eq('estado', 'finalizada');
       
@@ -195,8 +195,8 @@ const loadGastosDelDia = async () => {
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'rutas',
-        filter: `id_chofer=eq.${profile?.id_usuario}`
+        table: 'rutas'
+        // Eliminamos filtro complejo para asegurar que asistentes también reciban cambios
       }, () => {
         loadRutas();
         loadRutasHistoricas();
