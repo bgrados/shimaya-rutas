@@ -162,6 +162,7 @@ export default function NuevoUsuario() {
                 required
               >
                 <option value="chofer">Chofer</option>
+                <option value="asistente">Asistente (Ayudante)</option>
                 <option value="supervisor">Supervisor</option>
                 <option value="administrador">Administrador</option>
               </select>

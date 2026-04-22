@@ -18,6 +18,8 @@ interface RutaHistorica {
   hora_salida_planta: string | null;
   hora_llegada_planta: string | null;
   locales_count?: number;
+  km_inicio: number | null;
+  km_fin: number | null;
 }
 
 interface GastoDelDia {
@@ -80,7 +82,7 @@ const loadRutasHistoricas = async () => {
     
     const { data, error } = await supabase
       .from('rutas')
-      .select('id_ruta, nombre, fecha')
+      .select('id_ruta, nombre, fecha, km_inicio, km_fin')
       .eq('id_chofer', profile.id_usuario)
       .eq('estado', 'finalizada')
       .gte('fecha', minDate)
@@ -493,9 +495,15 @@ const loadGastosDelDia = async () => {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <p className="text-white font-bold text-sm">{ruta.nombre}</p>
-                          <div className="flex items-center gap-2 text-text-muted text-xs mt-1">
-                            <Calendar size={12} />
-                            <span>{formatFriendlyDate(ruta.fecha)}</span>
+                          <div className="flex items-center gap-3 text-text-muted text-xs mt-1">
+                            <div className="flex items-center gap-1">
+                              <Calendar size={12} />
+                              <span>{formatFriendlyDate(ruta.fecha)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Navigation size={12} />
+                              <span>{ruta.km_inicio || 0} → {ruta.km_fin || '?'} KM</span>
+                            </div>
                           </div>
                         </div>
                         <Button

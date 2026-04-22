@@ -40,6 +40,17 @@ export default function AdminViajes() {
     destino_nombre: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // States for Editing Route
+  const [editingRuta, setEditingRuta] = useState<RutaConDetalle | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    id_chofer: '',
+    id_asistente: '',
+    placa: '',
+    observaciones: ''
+  });
+  const [allChoferes, setAllChoferes] = useState<Usuario[]>([]);
+  const [allAsistentes, setAllAsistentes] = useState<Usuario[]>([]);
 
   const ROUTE_COLORS: Record<string, { bg: string; border: string; text: string; icon: string }> = {
     amarilla: { bg: '#713f12', border: '#ca8a04', text: '#fef08a', icon: '#fde047' },
@@ -132,6 +143,14 @@ export default function AdminViajes() {
 
       setRutas(rutasWithBitacora);
     }
+    
+    // Load users for editing
+    const { data: users } = await supabase.from('usuarios').select('*').eq('activo', true);
+    if (users) {
+      setAllChoferes(users.filter(u => u.rol === 'chofer' || u.rol === 'descansero'));
+      setAllAsistentes(users.filter(u => u.rol === 'asistente' || u.rol === 'chofer'));
+    }
+
     setLoading(false);
   };
 
@@ -183,6 +202,34 @@ export default function AdminViajes() {
     } catch (err) { /* segment add failed */ } finally { setIsSubmitting(false); }
   };
 
+  const handleUpdateRuta = async () => {
+    if (!editingRuta) return;
+    setIsSubmitting(true);
+    try {
+      const selectedAsistente = allAsistentes.find(a => a.id_usuario === editFormData.id_asistente);
+      
+      const { error } = await supabase
+        .from('rutas')
+        .update({
+          id_chofer: editFormData.id_chofer,
+          id_asistente: editFormData.id_asistente || null,
+          nombre_asistente: selectedAsistente?.nombre || null,
+          placa: editFormData.placa,
+          observaciones: editFormData.observaciones
+        })
+        .eq('id_ruta', editingRuta.id_ruta);
+
+      if (error) throw error;
+      
+      await loadData();
+      setEditingRuta(null);
+    } catch (err) {
+      alert('Error al actualizar la ruta');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // formatDuration importado de lib/timezone
 
   const calcularDuracionTotal = (viaje: RutaConDetalle): string => {
@@ -225,6 +272,7 @@ export default function AdminViajes() {
           <div class="details">
             <div>
               <p><strong>Chofer:</strong> ${viaje.chofer?.nombre || 'No asignado'}</p>
+              <p><strong>Asistente:</strong> ${viaje.nombre_asistente || 'N/A'}</p>
               <p><strong>Fecha:</strong> ${viaje.fecha ? format(parseLocalDate(viaje.fecha)!, 'PPPP', { locale: es }) : 'S/F'}</p>
             </div>
             <div>
@@ -367,6 +415,9 @@ export default function AdminViajes() {
                               </div>
                               <p className="text-text-muted text-sm font-medium">
                                 Chofer: <span className="text-white">{viaje.chofer?.nombre || 'No asignado'}</span>
+                                {viaje.nombre_asistente && (
+                                  <> | Asistente: <span className="text-white">{viaje.nombre_asistente}</span></>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -434,13 +485,27 @@ export default function AdminViajes() {
                                     <Printer size={16} className="mr-2" /> PDF
                                   </Button>
                                   {viaje.estado !== 'finalizada' && (
-                                    <Button size="sm" variant="primary" className="font-black italic shadow-lg shadow-primary/20"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowForm(viaje.id_ruta);
-                                        setNewSegment({ origen_nombre: viaje.bitacora?.length ? (viaje.bitacora[viaje.bitacora.length-1].destino_nombre || 'Local') : 'Planta', destino_nombre: '' });
-                                      }}
-> <Plus size={16} className="mr-1" /> AGREGAR </Button>
+                                    <>
+                                      <Button size="sm" variant="secondary" className="font-bold border-white/10"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingRuta(viaje);
+                                          setEditFormData({
+                                            id_chofer: viaje.id_chofer || '',
+                                            id_asistente: viaje.id_asistente || '',
+                                            placa: viaje.placa || '',
+                                            observaciones: viaje.observaciones || ''
+                                          });
+                                        }}
+                                      > EDITAR </Button>
+                                      <Button size="sm" variant="primary" className="font-black italic shadow-lg shadow-primary/20"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setShowForm(viaje.id_ruta);
+                                          setNewSegment({ origen_nombre: viaje.bitacora?.length ? (viaje.bitacora[viaje.bitacora.length-1].destino_nombre || 'Local') : 'Planta', destino_nombre: '' });
+                                        }}
+  > <Plus size={16} className="mr-1" /> AGREGAR </Button>
+                                    </>
                                   )}
                                    
                                    {/* Botón de eliminar solo para administradores */}
@@ -589,6 +654,61 @@ export default function AdminViajes() {
 
       {editingLocalParaGuia && (
         <SubirGuiasModal local={editingLocalParaGuia} onClose={() => setEditingLocalParaGuia(null)} />
+      )}
+
+      {editingRuta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <Card className="w-full max-w-lg bg-surface border-primary/30 shadow-2xl animate-in zoom-in-95">
+            <CardContent className="p-6">
+              <h3 className="text-xl font-black text-white uppercase italic mb-6 border-b border-surface-light pb-2">Editar Información de Ruta</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1 uppercase">Chofer Asignado</label>
+                  <select 
+                    className="w-full bg-background border border-surface-light rounded-lg px-4 py-2 text-white focus:ring-1 focus:ring-primary outline-none"
+                    value={editFormData.id_chofer}
+                    onChange={e => setEditFormData({...editFormData, id_chofer: e.target.value})}
+                  >
+                    {allChoferes.map(c => <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1 uppercase">Asistente (Ayudante)</label>
+                  <select 
+                    className="w-full bg-background border border-surface-light rounded-lg px-4 py-2 text-white focus:ring-1 focus:ring-primary outline-none"
+                    value={editFormData.id_asistente}
+                    onChange={e => setEditFormData({...editFormData, id_asistente: e.target.value})}
+                  >
+                    <option value="">-- Sin asistente --</option>
+                    {allAsistentes.map(a => <option key={a.id_usuario} value={a.id_usuario}>{a.nombre}</option>)}
+                  </select>
+                </div>
+
+                <Input 
+                  label="Placa del Camión"
+                  value={editFormData.placa}
+                  onChange={e => setEditFormData({...editFormData, placa: e.target.value})}
+                />
+
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1 uppercase">Observaciones</label>
+                  <textarea 
+                    className="w-full bg-background border border-surface-light rounded-lg px-4 py-2 text-white focus:ring-1 focus:ring-primary outline-none min-h-[80px]"
+                    value={editFormData.observaciones}
+                    onChange={e => setEditFormData({...editFormData, observaciones: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-surface-light">
+                <Button variant="ghost" onClick={() => setEditingRuta(null)}>CANCELAR</Button>
+                <Button onClick={handleUpdateRuta} isLoading={isSubmitting}>GUARDAR CAMBIOS</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

@@ -14,16 +14,22 @@ export default function Login() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    if (user && profile && !loading && !showSuccess) {
-      setShowSuccess(true);
+    if (user && profile && !loading) {
+      const timer = setTimeout(() => {
+        if (['administrador', 'supervisor'].includes(profile.rol)) {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/driver';
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
     }
-  }, [user, profile, loading, showSuccess]);
+  }, [user, profile, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoggingIn(true);
-    setShowSuccess(false);
     try {
       const cleanEmail = email.trim().replace('@shimaya.com', '');
       await signIn(`${cleanEmail}@shimaya.com`, password);
@@ -33,66 +39,25 @@ export default function Login() {
     }
   };
 
-  const goToAdmin = () => {
-    window.location.href = '/admin';
-  };
-
-  const goToDriver = () => {
-    window.location.href = '/driver';
-  };
-
-  if (showSuccess && user && profile && !loading) {
+  if (user && profile && !loading) {
     return (
       <div className="w-full max-w-md bg-surface p-10 rounded-2xl shadow-2xl border border-primary/50 text-center animate-in zoom-in-95 duration-500">
         <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 className="text-green-500" size={48} />
         </div>
         <h2 className="text-2xl font-black text-white mb-2 uppercase italic">¡Acceso Concedido!</h2>
-        <p className="text-text-muted mb-4">Bienvenido, <span className="text-white font-bold">{profile.nombre}</span></p>
+        <p className="text-text-muted mb-6">Bienvenido, <span className="text-white font-bold">{profile.nombre}</span></p>
         
-        {/* Selector de rol si tiene acceso a ambos */}
-        {['administrador', 'supervisor'].includes(profile.rol) && (
-          <div className="mb-6">
-            <p className="text-xs text-text-muted uppercase font-bold mb-2">¿Cómo quieres entrar?</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={goToAdmin}
-                className="p-4 bg-primary/20 hover:bg-primary/30 border-2 border-primary/50 rounded-xl transition-all"
-              >
-                <Shield className="mx-auto mb-2 text-primary" size={24} />
-                <span className="text-sm font-bold text-primary block">ADMINISTRADOR</span>
-              </button>
-              <button
-                type="button"
-                onClick={goToDriver}
-                className="p-4 bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 rounded-xl transition-all"
-              >
-                <Truck className="mx-auto mb-2 text-blue-400" size={24} />
-                <span className="text-sm font-bold text-blue-400 block">CONDUCTOR</span>
-              </button>
-            </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-center gap-3 text-primary animate-pulse">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
           </div>
-        )}
-        
-        {/* Solo un rol - ir directamente */}
-        {profile.rol === 'chofer' || profile.rol === 'descansero' ? (
-          <button
-            type="button"
-            onClick={goToDriver}
-            className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30 rounded-lg"
-          >
-            IR A MIS RUTAS
-          </button>
-        ) : !['administrador', 'supervisor'].includes(profile.rol) && (
-          <button
-            type="button"
-            onClick={profile.rol === 'administrador' || profile.rol === 'supervisor' ? goToAdmin : goToDriver}
-            className="w-full h-14 text-lg font-black bg-primary hover:bg-primary-hover shadow-lg shadow-primary/30 rounded-lg"
-          >
-            IR AL PANEL
-          </button>
-        )}
+          <p className="text-xs text-text-muted uppercase tracking-widest font-bold">
+            Redirigiendo al módulo de {['administrador', 'supervisor'].includes(profile.rol) ? 'ADMINISTRACIÓN' : 'CONDUCTOR'}...
+          </p>
+        </div>
       </div>
     );
   }

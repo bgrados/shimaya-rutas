@@ -1,4 +1,4 @@
-export type UserRole = 'administrador' | 'supervisor' | 'chofer';
+export type UserRole = 'administrador' | 'supervisor' | 'chofer' | 'descansero' | 'asistente';
 
 export interface Usuario {
   id_usuario: string;
@@ -28,6 +28,8 @@ export interface Ruta {
   hora_llegada_planta: string | null;
   km_inicio: number | null;
   km_fin: number | null;
+  id_asistente: string | null;
+  nombre_asistente: string | null;
   created_at: string;
 }
 

@@ -112,6 +112,7 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
               onChange={e => setRol(e.target.value as any)}
             >
               <option value="chofer">Chofer</option>
+              <option value="asistente">Asistente</option>
               <option value="supervisor">Supervisor</option>
               <option value="administrador">Administrador</option>
             </select>
@@ -328,6 +329,7 @@ export default function Usuarios() {
     switch (rol) {
       case 'administrador': return <Shield size={14} />;
       case 'chofer': return <Truck size={14} />;
+      case 'asistente': return <User size={14} className="text-purple-400" />;
       default: return <User size={14} />;
     }
   };
@@ -398,7 +400,8 @@ export default function Usuarios() {
                     <td className="px-6 py-4">
                       <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${
                         user.rol === 'administrador' ? 'bg-primary/20 text-primary' : 
-                        user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'
+                        user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' : 
+                        user.rol === 'asistente' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-500'
                       }`}>
                         {getRoleIcon(user.rol)} {user.rol}
                       </div>
