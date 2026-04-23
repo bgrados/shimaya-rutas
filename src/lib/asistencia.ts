@@ -12,13 +12,10 @@ export interface AsistenciaMensualResult {
   fin: string;
 }
 
-function toLocalDate(date: Date | string): string {
-  if (!date) return '';
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return '';
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+function toLocalDateStr(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -37,51 +34,51 @@ export function calcularAsistenciaMensual({
 }): AsistenciaMensualResult {
   const diaDescanso = chofer.dia_descanso ?? 0;
   
-  const primerDia = new Date(year, month - 1, 1);
-  const ultimoDia = new Date(year, month, 0);
+  // ✅ CREAR FECHAS COMO DATE OBJECTS SIN UTC
+  const primerDia = new Date(year, month - 1, 1, 0, 0, 0);
+  const ultimoDia = new Date(year, month, 0, 0, 0, 0);
   const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
   
-  // ✅ USAR FECHA DE HOY como fin, NO el último día del mes
-  const fechaFin = hoy;
+  let inicioDate = new Date(primerDia);
+  let finDate = new Date(hoy > ultimoDia ? ultimoDia : hoy);
   
-  const inicioStr = toLocalDate(primerDia);
-  const finStr = toLocalDate(fechaFin);
-  
-  // ✅ DEFINIR INICIO DESDE FECHA DE INGRESO Si está en el mes
-  let inicioCalculado = inicioStr;
+  // ✅ AJUSTAR DESDE FECHA DE INGRESO
   if (chofer.fecha_ingreso) {
-    const fechaIngreso = toLocalDate(chofer.fecha_ingreso);
-    // Si дата de ingreso está dentro del mes, usarla
-    if (fechaIngreso >= inicioStr && fechaIngreso <= finStr) {
-      inicioCalculado = fechaIngreso;
+    const fechaIngreso = new Date(chofer.fecha_ingreso);
+    if (fechaIngreso >= primerDia && fechaIngreso <= finDate) {
+      inicioDate = new Date(fechaIngreso);
     }
   }
-  const finCalculado = finStr;
   
-  const inicioDate = new Date(inicioCalculado);
-  const finDate = new Date(finCalculado);
+  const inicioCalculado = toLocalDateStr(inicioDate);
+  const finCalculado = toLocalDateStr(finDate);
   
-  // ✅ NORMALIZAR RUTAS
   const rutasFiltradas = rutasDelMes.filter(r => r.id_chofer === chofer.id_usuario && r.fecha);
-  const rutasSet = new Set(rutasFiltradas.map(r => toLocalDate(r.fecha)));
+  const rutasSet = new Set(rutasFiltradas.map(r => {
+    const d = new Date(r.fecha);
+    return toLocalDateStr(d);
+  }));
   
-  // ✅ NORMALIZAR ASISTENCIA
   const asistenciaMap = new Map<string, AsistenciaChofer>();
   asistenciaManual
     .filter(a => a.id_chofer === chofer.id_usuario)
-    .forEach(a => asistenciaMap.set(toLocalDate(a.fecha), a));
+    .forEach(a => {
+      const d = new Date(a.fecha);
+      asistenciaMap.set(toLocalDateStr(d), a);
+    });
   
   let trabajados = 0;
   let descansos = 0;
   let faltan = 0;
   
-  // ✅ ITERAR DÍA POR DÍA correctamente
+  // ✅ ITERAR CON DATE OBJECTS LOCALES
   const current = new Date(inicioDate);
+  current.setHours(0, 0, 0, 0);
+  
   while (current <= finDate) {
-    const fechaStr = toLocalDate(current);
+    const fechaStr = toLocalDateStr(current);
     const dayOfWeek = current.getDay();
-    
-    // ✅ getDay(): 0=domingo, 1=lunes, 2=martes, etc.
     const esDescanso = dayOfWeek === diaDescanso;
     const tieneRuta = rutasSet.has(fechaStr);
     const registro = asistenciaMap.get(fechaStr);
