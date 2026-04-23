@@ -10,6 +10,8 @@ export interface Alerta {
   origen: 'ruta' | 'tiempo' | 'gps' | 'gasto' | 'visita';
 }
 
+export { Alerta };
+
 interface AlertaCardProps {
   alerta: Alerta;
 }

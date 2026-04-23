@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
+import { calcularAsistenciaMensual } from '../../lib/asistencia';
 import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta } from '../../components/ui/Alertas';
 import type { Alerta } from '../../components/ui/Alertas';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route } from 'lucide-react';
@@ -85,6 +86,7 @@ export default function AdminDashboard() {
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [asistenciaStats, setAsistenciaStats] = useState({ porcentaje: 0, trabajados: 0, descansos: 0, faltas: 0, programados: 0, totalChoferes: 0 });
 
   useEffect(() => {
     loadDashboardData();
@@ -114,10 +116,12 @@ export default function AdminDashboard() {
       const mesStr = format(primerDiaMes, 'yyyy-MM-dd');
 
 
-      const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes] = await Promise.all([
+      const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
-        supabase.from('rutas').select('id_ruta, fecha').gte('fecha', mesStr).lte('fecha', hoyStr)
+        supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr),
+        supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr),
+        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
       
       const rutaIdsDelDia = rutasDelDiaRes.data?.map(r => r.id_ruta) || [];
@@ -127,14 +131,16 @@ export default function AdminDashboard() {
       const filterDia = rutaIdsDelDia.length > 0 ? rutaIdsDelDia : emptyFilter;
       const filterSemana = rutaIdsSemana.length > 0 ? rutaIdsSemana : emptyFilter;
 
-      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes] = await Promise.all([
+      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
         supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterDia),
         supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
         supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterDia),
         supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
-        supabase.from('usuarios').select('id_usuario, dias_descanso').eq('rol', 'chofer').eq('activo', true)
+        supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
+        supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr),
+        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
 
       clearTimeout(timeoutId);
@@ -358,6 +364,45 @@ export default function AdminDashboard() {
           5 // Días laborables de la semana
         );
         setAlertas(inconsistencias);
+        
+        // Calcular asistencia mensual
+        const choferesConInfo = (choferesConInfoRes.data as any[]) || [];
+        const rutasDelMes = (rutasDelMesRes.data as any[]) || [];
+        const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
+        
+        let totalTrabajados = 0;
+        let totalDescansos = 0;
+        let totalFaltas = 0;
+        let totalProgramados = 0;
+        let choferesConDatos = 0;
+        
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        
+        choferesConInfo.forEach(chofer => {
+          const result = calcularAsistenciaMensual({
+            chofer: chofer as any,
+            year,
+            month,
+            rutasDelMes: rutasDelMes as any,
+            asistenciaManual: asistenciaManual as any
+          });
+          totalTrabajados += result.trabajados;
+          totalDescansos += result.descansos;
+          totalFaltas += result.faltas;
+          totalProgramados += result.programados;
+          choferesConDatos++;
+        });
+        
+        const asistenciaPorcentaje = totalProgramados > 0 ? Math.round((totalTrabajados / totalProgramados) * 100) : 0;
+        setAsistenciaStats({
+          porcentaje: asistenciaPorcentaje,
+          trabajados: totalTrabajados,
+          descansos: totalDescansos,
+          faltas: totalFaltas,
+          programados: totalProgramados,
+          totalChoferes: choferesConDatos
+        });
       }
     } catch (err) {
       setError('Error al cargar los datos. Intenta de nuevo.');
@@ -635,6 +680,26 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Asistencia Mensual */}
+      <Card className="bg-blue-600/20 border-blue-500/50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-300 text-xs flex items-center gap-1">
+                Asistencia Mensual
+                <Tooltip content="Calculado desde fecha de ingreso y excluyendo día de descanso semanal" />
+              </p>
+              <p className="text-3xl font-bold text-blue-400">{asistenciaStats.porcentaje}%</p>
+            </div>
+            <div className="text-right text-xs text-blue-300/70">
+              <p>✓ {asistenciaStats.trabajados} trabajados</p>
+              <p>○ {asistenciaStats.descansos} descansos</p>
+              <p className={asistenciaStats.faltas > 0 ? 'text-red-400' : ''}>✗ {asistenciaStats.faltas} faltas</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Rutas en Progreso - Agrupadas por Chofer */}
       <Card>

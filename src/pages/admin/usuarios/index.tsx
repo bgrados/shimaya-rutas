@@ -31,21 +31,28 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   
+  // Nuevos campos para asistencia
+  const [fechaIngreso, setFechaIngreso] = useState(user.fecha_ingreso || '');
+  const [diaDescanso, setDiaDescanso] = useState(user.dia_descanso ?? 0);
+  
   const diasSemana = [
-    { key: 'lunes', label: 'Lun' },
-    { key: 'martes', label: 'Mar' },
-    { key: 'miercoles', label: 'Mié' },
-    { key: 'jueves', label: 'Jue' },
-    { key: 'viernes', label: 'Vie' },
-    { key: 'sabado', label: 'Sáb' },
-    { key: 'domingo', label: 'Dom' },
+    { key: 0, label: 'Domingo' },
+    { key: 1, label: 'Lunes' },
+    { key: 2, label: 'Martes' },
+    { key: 3, label: 'Miércoles' },
+    { key: 4, label: 'Jueves' },
+    { key: 5, label: 'Viernes' },
+    { key: 6, label: 'Sábado' },
   ];
   const [diasDescanso, setDiasDescanso] = useState<string[]>(user.dias_descanso || []);
 
-  const toggleDiaDescanso = (dia: string) => {
-    setDiasDescanso(prev => 
-      prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]
-    );
+  const handleDiaDescansoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === '') {
+      setDiasDescanso([]);
+    } else {
+      setDiasDescanso([val]);
+    }
   };
   
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -92,7 +99,9 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
         foto_url: photoUrl,
         activo,
         password: password.trim() || undefined,
-        dias_descanso: diasDescanso
+        dias_descanso: [diasSemana.find(d => d.key === diaDescanso)?.key?.toString() || 'domingo'],
+        fecha_ingreso: fechaIngreso || null,
+        dia_descanso: diaDescanso
       });
     } finally {
       setSaving(false);
@@ -124,35 +133,29 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
           <>
             <Input label="Placa del Camión (Solo para choferes)" value={placa} onChange={e => setPlaca(e.target.value)} placeholder="Ej. ABC-123" />
             
-            <div>
-              <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-tighter flex items-center gap-1">
-                <Coffee size={12} />
-                Días de Descanso
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {diasSemana.map(dia => (
-                  <button
-                    key={dia.key}
-                    type="button"
-                    onClick={() => toggleDiaDescanso(dia.key)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      diasDescanso.includes(dia.key)
-                        ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
-                        : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
-                    }`}
-                  >
-                    {dia.label}
-                  </button>
-                ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-tighter">Día de Descanso</label>
+                <select
+                  className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none transition-colors text-sm"
+                  value={diaDescanso}
+                  onChange={e => setDiaDescanso(Number(e.target.value))}
+                >
+                  {diasSemana.map(dia => (
+                    <option key={dia.key} value={dia.key}>
+                      {dia.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              {diasDescanso.length > 0 && (
-                <p className="text-[10px] text-blue-400 mt-1">
-                  Descansa: {diasDescanso.map(d => {
-                    const dia = diasSemana.find(dd => dd.key === d);
-                    return dia?.label;
-                  }).join(', ')}
-                </p>
-              )}
+              <div>
+                <Input 
+                  label="Fecha de Ingreso" 
+                  type="date"
+                  value={fechaIngreso} 
+                  onChange={e => setFechaIngreso(e.target.value)} 
+                />
+              </div>
             </div>
           </>
         )}

@@ -10,6 +10,19 @@ export interface Usuario {
   foto_url: string | null;
   placa_camion: string | null;
   dias_descanso: string[];
+  fecha_ingreso: string | null;
+  dia_descanso: number;
+  created_at: string;
+}
+
+export type TipoAsistencia = 'trabajo' | 'descanso' | 'falta' | 'permiso';
+
+export interface AsistenciaChofer {
+  id: string;
+  id_chofer: string;
+  fecha: string;
+  estado: TipoAsistencia;
+  observaciones: string | null;
   created_at: string;
 }
 
