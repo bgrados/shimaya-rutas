@@ -44,7 +44,6 @@ export function calcularAsistenciaMensual({
   asistenciaManual: AsistenciaChofer[];
 }): AsistenciaMensualResult {
   const diaDescanso = chofer.dia_descanso ?? 0;
-  const fechaIngreso = chofer.fecha_ingreso ? toLocalDate(chofer.fecha_ingreso) : null;
   
   const primerDia = getPrimerDiaMes(year, month);
   const ultimoDia = getUltimoDiaMes(year, month);
@@ -54,7 +53,13 @@ export function calcularAsistenciaMensual({
   const inicioStr = toLocalDate(primerDia);
   const finStr = toLocalDate(fechaFinReal);
   
-  const inicioCalculado = fechaIngreso && fechaIngreso > inicioStr ? fechaIngreso : inicioStr;
+  let inicioCalculado = inicioStr;
+  if (chofer.fecha_ingreso) {
+    const fechaIngreso = toLocalDate(chofer.fecha_ingreso);
+    if (fechaIngreso && fechaIngreso > inicioStr) {
+      inicioCalculado = fechaIngreso;
+    }
+  }
   const finCalculado = finStr;
   
   const inicioDate = parseISO(inicioCalculado);
