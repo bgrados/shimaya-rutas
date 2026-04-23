@@ -127,11 +127,15 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         }
       }
 
-      let tipoEncontrado = 'glp';
+      let tipoEncontrado = '';
       if (text.includes('gasolina') || text.includes('84') || text.includes('95') || text.includes('98')) {
         tipoEncontrado = 'gasolina';
-      } else if (text.includes('diesel') || text.includes('gnv')) {
+      } else if (text.includes('diesel') || text.includes('gnv') || text.includes('petroleo')) {
         tipoEncontrado = 'diesel';
+      } else if (text.includes('glp')) {
+        tipoEncontrado = 'glp';
+      } else if (text.includes('peaje') || text.includes('estacionamiento') || text.includes('parqueo') || text.includes('parking')) {
+        tipoEncontrado = 'otro';
       }
 
       const kilometrajePatterns = [

@@ -207,127 +207,8 @@ export default function AnalisisRutas() {
       labelActual: `${semActIni} – ${semActFin}`,
       labelAnterior: `${semAntIni} – ${semAntFin}`,
       // Día equivalente para UI
-      diaEquivalente: diasSemana[subDays(today, 7).getDay()],
     };
   }, [rutas, choferFilter]);
-
-  const stats = useMemo(() => {
-    const filtered = rutas.filter(r => {
-      if (choferFilter !== 'todos' && r.id_chofer !== choferFilter) return false;
-      return true;
-    });
-
-    const totalReal = filtered.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
-    const totalUnicos = filtered.reduce((sum, r) => sum + (r.locales_unicos || 0), 0);
-    const totalExtra = filtered.reduce((sum, r) => sum + (r.visitas_extra || 0), 0);
-    
-    const tiempoPromedio = filtered.length > 0 
-      ? filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / filtered.length 
-      : 0;
-    
-    const conEficiencia = filtered.filter(r => (r.tiempo_estimado || 0) > 0);
-    const eficienciaGlobal = conEficiencia.length > 0
-      ? conEficiencia.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEficiencia.length
-      : null;
-
-    const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
-
-    const totalFaltas = rendimientoChoferes.reduce((sum, c) => sum + c.faltas, 0);
-    const totalEsperados = rendimientoChoferes.reduce((sum, c) => sum + c.diasEsperados, 0);
-    const asistenciaGlobal = totalEsperados > 0 ? ((totalEsperados - totalFaltas) / totalEsperados) * 100 : 100;
-    const totalKm = rendimientoChoferes.reduce((sum, c) => sum + c.kmTotal, 0);
-
-    return {
-      totalReal,
-      totalUnicos,
-      totalExtra,
-      tiempoPromedio,
-      eficienciaGlobal,
-      rutasCompletadas,
-      totalRutas: filtered.length,
-      totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60,
-      totalFaltas,
-      asistenciaGlobal,
-      totalKm
-    };
-  }, [rutas, choferFilter]);
-
-  const comparacionSemanal = useMemo((): DiaStats[] => {
-    // 0: Domingo, 1: Lunes, ...
-    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const result: DiaStats[] = [];
-    
-    // Mostramos los últimos 7 días terminando en 'hoy' (fechaFin)
-    const end = parseISO(fechaFin);
-    
-    for (let i = 6; i >= 0; i--) {
-      const fechaActual = subDays(end, i);
-      const fechaAnterior = subDays(fechaActual, 7);
-      
-      const rutasActual = rutas.filter(r => r.fecha === format(fechaActual, 'yyyy-MM-dd'));
-      const rutasAnterior = rutas.filter(r => r.fecha === format(fechaAnterior, 'yyyy-MM-dd'));
-      
-      const tiempoActual = rutasActual.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
-      const tiempoAnterior = rutasAnterior.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
-      const entregas = rutasActual.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
-      
-      const conEff = rutasActual.filter(r => (r.tiempo_estimado || 0) > 0);
-      const eficiencia = conEff.length > 0
-        ? conEff.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEff.length
-        : 0;
-
-      // Variación diaria
-      const variacion = tiempoAnterior > 0 ? ((tiempoActual - tiempoAnterior) / tiempoAnterior) * 100 : 0;
-
-      result.push({
-        dia: dias[fechaActual.getDay()],
-        fecha: format(fechaActual, 'yyyy-MM-dd'),
-        semanaActual: Number(tiempoActual.toFixed(1)),
-        semanaAnterior: Number(tiempoAnterior.toFixed(1)),
-        entregas,
-        eficiencia: Number(eficiencia.toFixed(0)),
-        variacion: Number(variacion.toFixed(1))
-      } as any);
-    }
-    return result;
-  }, [rutas, fechaFin]);
-
-  const eficienciaDiaria = useMemo(() => {
-    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const result: {
-      dia: string; fecha: string;
-      eficiencia: number | null;
-      tiempoReal: number;
-      mejorTiempo: number;
-      tieneHistorial: boolean;
-    }[] = [];
-    
-    for (let i = 13; i >= 0; i--) {
-      const fecha = subDays(new Date(), i);
-      const fechaStr = format(fecha, 'yyyy-MM-dd');
-      const rutasDia = rutas.filter(r => r.fecha === fechaStr);
-      
-      if (rutasDia.length > 0) {
-        const diaSemana = fecha.getDay();
-        const mejorTiempo = mejorTiempoPorDia[diaSemana] || 0;
-        const tRealTotal = rutasDia.reduce((s, r) => s + (r.tiempo_real || 0), 0) / rutasDia.length;
-        const tieneHistorial = mejorTiempo > 0;
-        const eficiencia = tieneHistorial && tRealTotal > 0
-          ? Math.min(Math.round((mejorTiempo / tRealTotal) * 100), 100)
-          : null;
-
-        result.push({
-          dia: dias[diaSemana],
-          fecha: fechaStr,
-          eficiencia,
-          tiempoReal: Math.round(tRealTotal),
-          mejorTiempo,
-          tieneHistorial,
-        });
-      }
-    }
-    return result;
-  }, [rutas, mejorTiempoPorDia]);
 
   const rendimientoChoferes = useMemo((): ChoferStats[] => {
     const choferMap = new Map<string, {
@@ -419,6 +300,124 @@ export default function AnalisisRutas() {
         return b.visitasRealizadas - a.visitasRealizadas;
       });
   }, [rutas, choferes, fechaInicio, fechaFin]);
+
+  const stats = useMemo(() => {
+    const filtered = rutas.filter(r => {
+      if (choferFilter !== 'todos' && r.id_chofer !== choferFilter) return false;
+      return true;
+    });
+
+    const totalReal = filtered.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
+    const totalUnicos = filtered.reduce((sum, r) => sum + (r.locales_unicos || 0), 0);
+    const totalExtra = filtered.reduce((sum, r) => sum + (r.visitas_extra || 0), 0);
+    
+    const tiempoPromedio = filtered.length > 0 
+      ? filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / filtered.length 
+      : 0;
+    
+    const conEficiencia = filtered.filter(r => (r.tiempo_estimado || 0) > 0);
+    const eficienciaGlobal = conEficiencia.length > 0
+      ? conEficiencia.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEficiencia.length
+      : null;
+
+    const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
+
+    const totalFaltas = rendimientoChoferes.reduce((sum, c) => sum + c.faltas, 0);
+    const totalEsperados = rendimientoChoferes.reduce((sum, c) => sum + c.diasEsperados, 0);
+    const asistenciaGlobal = totalEsperados > 0 ? ((totalEsperados - totalFaltas) / totalEsperados) * 100 : 100;
+    const totalKm = rendimientoChoferes.reduce((sum, c) => sum + c.kmTotal, 0);
+
+    return {
+      totalReal,
+      totalUnicos,
+      totalExtra,
+      tiempoPromedio,
+      eficienciaGlobal,
+      rutasCompletadas,
+      totalRutas: filtered.length,
+      totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60,
+      totalFaltas,
+      asistenciaGlobal,
+      totalKm
+    };
+  }, [rutas, choferFilter, rendimientoChoferes]);
+
+  const comparacionSemanal = useMemo((): DiaStats[] => {
+    // 0: Domingo, 1: Lunes, ...
+    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const result: DiaStats[] = [];
+    
+    // Mostramos los últimos 7 días terminando en 'hoy' (fechaFin)
+    const end = parseISO(fechaFin);
+    
+    for (let i = 6; i >= 0; i--) {
+      const fechaActual = subDays(end, i);
+      const fechaAnterior = subDays(fechaActual, 7);
+      
+      const rutasActual = rutas.filter(r => r.fecha === format(fechaActual, 'yyyy-MM-dd'));
+      const rutasAnterior = rutas.filter(r => r.fecha === format(fechaAnterior, 'yyyy-MM-dd'));
+      
+      const tiempoActual = rutasActual.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
+      const tiempoAnterior = rutasAnterior.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
+      const entregas = rutasActual.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
+      
+      const conEff = rutasActual.filter(r => (r.tiempo_estimado || 0) > 0);
+      const eficiencia = conEff.length > 0
+        ? conEff.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEff.length
+        : 0;
+
+      // Variación diaria
+      const variacion = tiempoAnterior > 0 ? ((tiempoActual - tiempoAnterior) / tiempoAnterior) * 100 : 0;
+
+      result.push({
+        dia: dias[fechaActual.getDay()],
+        fecha: format(fechaActual, 'yyyy-MM-dd'),
+        semanaActual: Number(tiempoActual.toFixed(1)),
+        semanaAnterior: Number(tiempoAnterior.toFixed(1)),
+        entregas,
+        eficiencia: Number(eficiencia.toFixed(0)),
+        variacion: Number(variacion.toFixed(1))
+      } as any);
+    }
+    return result;
+  }, [rutas, fechaFin]);
+
+  const eficienciaDiaria = useMemo(() => {
+    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const result: {
+      dia: string; fecha: string;
+      eficiencia: number | null;
+      tiempoReal: number;
+      mejorTiempo: number;
+      tieneHistorial: boolean;
+    }[] = [];
+    
+    for (let i = 13; i >= 0; i--) {
+      const fecha = subDays(new Date(), i);
+      const fechaStr = format(fecha, 'yyyy-MM-dd');
+      const rutasDia = rutas.filter(r => r.fecha === fechaStr);
+      
+      if (rutasDia.length > 0) {
+        const diaSemana = fecha.getDay();
+        const mejorTiempo = mejorTiempoPorDia[diaSemana] || 0;
+        const tRealTotal = rutasDia.reduce((s, r) => s + (r.tiempo_real || 0), 0) / rutasDia.length;
+        const tieneHistorial = mejorTiempo > 0;
+        const eficiencia = tieneHistorial && tRealTotal > 0
+          ? Math.min(Math.round((mejorTiempo / tRealTotal) * 100), 100)
+          : null;
+
+        result.push({
+          dia: dias[diaSemana],
+          fecha: fechaStr,
+          eficiencia,
+          tiempoReal: Math.round(tRealTotal),
+          mejorTiempo,
+          tieneHistorial,
+        });
+      }
+    }
+    return result;
+  }, [rutas, mejorTiempoPorDia]);
 
   useEffect(() => {
     generateInsights();

@@ -275,81 +275,89 @@ export default function Reportes() {
 
   async function loadData() {
     setLoading(true);
-    const { from, to } = getRange(period, selectedDate);
-    const { data: rutasData } = await supabase
-      .from('rutas')
-      .select('*')
-      .gte('fecha', from)
-      .lte('fecha', to)
-      .order('fecha', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { from, to } = getRange(period, selectedDate);
+      const { data: rutasData } = await supabase
+        .from('rutas')
+        .select('*')
+        .gte('fecha', from)
+        .lte('fecha', to)
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (rutasData && rutasData.length > 0) {
-      const ids = rutasData.map(r => r.id_ruta);
-      const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
-      
-      // Cargar locales_ruta para cada ruta
-      const { data: localesData } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
-      
-      // Cargar fotos de evidencia por local
-      const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
-      let fotosMap: Record<string, FotoVisita[]> = {};
-      if (localRutaIds.length > 0) {
-        const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
-        if (fotosData) {
-          (fotosData as FotoVisita[]).forEach(f => {
-            if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
-            fotosMap[f.id_local_ruta].push(f as FotoVisita);
-          });
-        }
-      }
-      setFotosPorLocal(fotosMap);
-
-      const enriched = (rutasData as Ruta[]).map(r => {
-        const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
-        const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
+      if (rutasData && rutasData.length > 0) {
+        const ids = rutasData.map(r => r.id_ruta);
+        const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
         
-        // Ordenar bitácora por hora de creación
-        const bitsOrdenados = [...bits].sort((a, b) => 
-          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-        );
+        // Cargar locales_ruta para cada ruta
+        const { data: localesData } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
         
-        // Buscar la última hora de llegada registrada en bitácora (cualquier destino)
-        let horaLlegadaReal: string | null = null;
-        for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
-          if (bitsOrdenados[i].hora_llegada) {
-            horaLlegadaReal = bitsOrdenados[i].hora_llegada;
-            break;
+        // Cargar fotos de evidencia por local
+        const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
+        let fotosMap: Record<string, FotoVisita[]> = {};
+        if (localRutaIds.length > 0) {
+          const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
+          if (fotosData) {
+            (fotosData as FotoVisita[]).forEach(f => {
+              if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
+              fotosMap[f.id_local_ruta].push(f as FotoVisita);
+            });
           }
         }
-        
-        // Si no hay hora en bitácora, usar hora_llegada_planta
-        if (!horaLlegadaReal) {
-          horaLlegadaReal = r.hora_llegada_planta;
-        }
-        
-        // Calcular distancia GPS total recorrida
-        let distanciaGpsKm = 0;
-        const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
-        
-        // Asumiendo que el viaje empieza en Planta (podríamos usar coordenadas de planta si existieran)
-        // Por ahora calculamos entre puntos de bitácora consecutivos
-        for (let i = 0; i < bitsValidos.length - 1; i++) {
-          const p1 = bitsValidos[i];
-          const p2 = bitsValidos[i+1];
-          distanciaGpsKm += calcularDistanciaHaversine(
-            p1.gps_llegada_lat!, p1.gps_llegada_lng!,
-            p2.gps_llegada_lat!, p2.gps_llegada_lng!
-          );
-        }
+        setFotosPorLocal(fotosMap);
 
-        return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal, distanciaGpsKm };
-      });
-      setAllRutas(enriched as RutaConBitacora[]);
-    } else {
-      setAllRutas([]);
+        const enriched = (rutasData as Ruta[]).map(r => {
+          const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
+          const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
+          
+          // Ordenar bitácora por hora de creación
+          const bitsOrdenados = [...bits].sort((a, b) => 
+            new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+          );
+          
+          // Buscar la última hora de llegada registrada en bitácora (cualquier destino)
+          let horaLlegadaReal: string | null = null;
+          for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
+            if (bitsOrdenados[i].hora_llegada) {
+              horaLlegadaReal = bitsOrdenados[i].hora_llegada;
+              break;
+            }
+          }
+          
+          // Si no hay hora en bitácora, usar hora_llegada_planta
+          if (!horaLlegadaReal) {
+            horaLlegadaReal = r.hora_llegada_planta;
+          }
+          
+          // Calcular duración
+          const duracionMins = (r.hora_salida_planta && horaLlegadaReal)
+            ? differenceInMinutes(new Date(horaLlegadaReal), new Date(r.hora_salida_planta))
+            : null;
+
+          // Calcular distancia GPS total recorrida
+          let distanciaGpsKm = 0;
+          const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
+          
+          for (let i = 0; i < bitsValidos.length - 1; i++) {
+            const p1 = bitsValidos[i];
+            const p2 = bitsValidos[i+1];
+            distanciaGpsKm += calcularDistanciaHaversine(
+              p1.gps_llegada_lat!, p1.gps_llegada_lng!,
+              p2.gps_llegada_lat!, p2.gps_llegada_lng!
+            );
+          }
+
+          return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal, distanciaGpsKm };
+        });
+        setAllRutas(enriched as RutaConBitacora[]);
+      } else {
+        setAllRutas([]);
+      }
+    } catch (err) {
+      console.error('[Reportes] Error loading data:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
 async function loadCombustible() {
@@ -435,7 +443,12 @@ async function loadCombustible() {
     }
   }
 
-  const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
+  const gastosCombustible = useMemo(() => {
+    return gastos.filter(g => 
+      g.tipo_combustible && 
+      ['glp', 'gasolina', 'diesel'].includes(g.tipo_combustible.toLowerCase())
+    );
+  }, [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
   const getGastosFiltrados = () => {
@@ -1621,7 +1634,7 @@ const win = window.open('', '_blank');
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-bold flex items-center gap-2">
                   📸 Fotos de Comprobantes
-                  <span className="text-text-muted text-sm font-normal">({[...gastosCombustible, ...gastosOtros].filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                  <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
                 </h3>
                 {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
                   <Button
