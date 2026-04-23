@@ -31,6 +31,9 @@ interface Stats {
   peajeDia: number;
   peajeSemana: number;
   peajeMes: number;
+  kmDia: number;
+  kmSemana: number;
+  kmMes: number;
 }
 
 interface RutaEnProgreso {
@@ -73,7 +76,10 @@ export default function AdminDashboard() {
     choferesSinRuta: 0,
     peajeDia: 0,
     peajeSemana: 0,
-    peajeMes: 0
+    peajeMes: 0,
+    kmDia: 0,
+    kmSemana: 0,
+    kmMes: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
@@ -229,6 +235,17 @@ export default function AdminDashboard() {
       const peajeSemana = rutasFinalizadasDeSemana.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
       const peajeMes = rutasFinalizadasDelMes.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
       
+      const calcularKmRuta = (ruta: any) => {
+        if (ruta.km_inicio != null && ruta.km_fin != null && ruta.km_fin >= ruta.km_inicio) {
+          return ruta.km_fin - ruta.km_inicio;
+        }
+        return 0;
+      };
+
+      const kmDia = rutasFinalizadasDeHoy.reduce((sum, r) => sum + calcularKmRuta(r), 0);
+      const kmSemana = rutasFinalizadasDeSemana.reduce((sum, r) => sum + calcularKmRuta(r), 0);
+      const kmMes = rutasFinalizadasDelMes.reduce((sum, r) => sum + calcularKmRuta(r), 0);
+      
       setStats({
         rutasActivas: rutasEnCurso.length,
         rutasPendientes: rutasEnCurso.length,
@@ -249,7 +266,10 @@ export default function AdminDashboard() {
         gastosHoy,
         peajeDia,
         peajeSemana,
-        peajeMes
+        peajeMes,
+        kmDia,
+        kmSemana,
+        kmMes
       });
 
       const { data: rutasProgreso } = await supabase
@@ -581,6 +601,37 @@ export default function AdminDashboard() {
               <Tooltip content="Suma total de peajes de todas las rutas finalizadas desde el inicio del mes. Se reinicia automáticamente cada nuevo mes." />
             </p>
             <p className="text-xl font-bold text-orange-300">S/ {stats.peajeMes.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Métricas de Kilometraje */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <Card className="bg-emerald-500/10 border-emerald-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-emerald-300 text-xs flex items-center justify-center gap-1">
+              KM Hoy
+              <Tooltip content="Kilometraje total recorrido en rutas finalizadas hoy." />
+            </p>
+            <p className="text-xl font-bold text-emerald-400">{stats.kmDia} km</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-500/10 border-emerald-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-emerald-300 text-xs flex items-center justify-center gap-1">
+              KM Semana
+              <Tooltip content="Kilometraje total recorrido en la semana actual." />
+            </p>
+            <p className="text-xl font-bold text-emerald-400">{stats.kmSemana} km</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-600/20 border-emerald-500/50">
+          <CardContent className="p-3 text-center">
+            <p className="text-emerald-300 text-xs flex items-center justify-center gap-1">
+              KM Mes
+              <Tooltip content="Kilometraje total recorrido desde el inicio del mes." />
+            </p>
+            <p className="text-xl font-bold text-emerald-300">{stats.kmMes} km</p>
           </CardContent>
         </Card>
       </div>

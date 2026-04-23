@@ -8,6 +8,7 @@ import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clo
 import { Link, useNavigate } from 'react-router-dom';
 import { formatFriendlyDate } from '../../lib/timezone';
 import { ImageModal } from '../../components/ui/ImageModal';
+import { format } from 'date-fns';
 
 interface RutaHistorica {
   id_ruta: string;
@@ -41,6 +42,7 @@ export default function DriverDashboard() {
   const [gastosOtros, setGastosOtros] = useState<GastoDelDia | null>(null);
   const [gastosPeaje, setGastosPeaje] = useState<GastoDelDia | null>(null);
   const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
+  const [kmStats, setKmStats] = useState({ hoy: 0, semana: 0, mes: 0 });
 
   // Verificar día de descanso
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
@@ -87,7 +89,26 @@ const loadRutasHistoricas = async () => {
       .eq('estado', 'finalizada')
       .gte('fecha', minDate)
       .order('fecha', { ascending: false });
-       
+    const now = new Date();
+    const hoyStr = format(now, 'yyyy-MM-dd');
+    const day = now.getDay();
+    const inicioSemana = new Date(now);
+    inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+    const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
+    const mesStr = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
+
+    let kHoy = 0; let kSem = 0; let kMes = 0;
+
+    (data || []).forEach(r => {
+      if (r.km_inicio != null && r.km_fin != null && r.km_fin >= r.km_inicio) {
+        const diff = r.km_fin - r.km_inicio;
+        if (r.fecha === hoyStr) kHoy += diff;
+        if (r.fecha && r.fecha >= semanaStr) kSem += diff;
+        if (r.fecha && r.fecha >= mesStr) kMes += diff;
+      }
+    });
+
+    setKmStats({ hoy: kHoy, semana: kSem, mes: kMes });
     setRutasHistoricas(data || []);
     setLoadingHistory(false);
   };
@@ -268,6 +289,27 @@ const loadGastosDelDia = async () => {
         >
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
         </Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <Card className="bg-emerald-500/10 border-emerald-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-emerald-300 text-[10px] uppercase font-bold">KM Hoy</p>
+            <p className="text-xl font-black text-emerald-400">{kmStats.hoy}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-500/10 border-emerald-500/30">
+          <CardContent className="p-3 text-center">
+            <p className="text-emerald-300 text-[10px] uppercase font-bold">KM Semana</p>
+            <p className="text-xl font-black text-emerald-400">{kmStats.semana}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-600/20 border-emerald-500/50">
+          <CardContent className="p-3 text-center">
+            <p className="text-emerald-300 text-[10px] uppercase font-bold">KM Mes</p>
+            <p className="text-xl font-black text-emerald-300">{kmStats.mes}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="space-y-4">

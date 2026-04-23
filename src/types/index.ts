@@ -225,4 +225,7 @@ export interface DashboardStats {
   peajeDia: number;
   peajeSemana: number;
   peajeMes: number;
+  kmDia: number;
+  kmSemana: number;
+  kmMes: number;
 }
