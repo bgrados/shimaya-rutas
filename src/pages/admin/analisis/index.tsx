@@ -14,7 +14,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatFriendlyDate } from '../../../lib/timezone';
-import { Falta } from '../../../types';
+import type { Falta } from '../../../types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line,
