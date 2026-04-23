@@ -105,12 +105,13 @@ export function calcularAsistenciaMensual({
     debugRuta(r);
   });
   
-  // Crear set de fechas de rutas
+  // Crear set de fechas de rutas (cualquier estado = trabajo)
   const fechasRutas = new Set<string>();
   rutasDelMes
     .filter(r => r.id_chofer === chofer.id_usuario && r.fecha)
     .forEach(r => {
       const fechaNorm = normalizarFecha(r.fecha!);
+      console.log('[RUTA ENCONTRADA]', fechaNorm, 'estado:', r.estado);
       fechasRutas.add(fechaNorm);
     });
   
