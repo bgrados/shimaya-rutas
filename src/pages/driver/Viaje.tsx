@@ -96,10 +96,11 @@ export default function DriverViaje() {
   // Estado para capturar fotos de evidencia
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
 
-  // Estado para editar horas de bitácora
   const [editandoBitacora, setEditandoBitacora] = useState<string | null>(null);
   const [editHoraSalida, setEditHoraSalida] = useState('');
   const [editHoraLlegada, setEditHoraLlegada] = useState('');
+  const [isEditingKmInicio, setIsEditingKmInicio] = useState(false);
+  const [tempKmInicio, setTempKmInicio] = useState('');
 
   // Estado para volver a local anterior
   const [mostrarLocalesVisitados, setMostrarLocalesVisitados] = useState(false);
@@ -1488,10 +1489,20 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             <h1 className="text-2xl font-bold text-white uppercase italic tracking-tighter">Mi Bitácora</h1>
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-text-muted text-sm italic font-medium">{ruta.nombre} • <span className="text-primary font-black uppercase">{ruta.placa || 'Sin Placa'}</span></p>
-              {ruta.km_inicio && (
-                <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded border border-primary/20">
+              {ruta.km_inicio ? (
+                <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded border border-primary/20 flex items-center gap-1">
                   KM: {ruta.km_inicio}
+                  <button onClick={() => { setTempKmInicio(ruta.km_inicio?.toString() || ''); setIsEditingKmInicio(true); }} className="ml-1 text-primary hover:text-white">
+                    <Edit2 size={10} />
+                  </button>
                 </span>
+              ) : (
+                <button 
+                  onClick={() => { setTempKmInicio(''); setIsEditingKmInicio(true); }}
+                  className="bg-orange-500/20 text-orange-400 text-[10px] font-black px-2 py-0.5 rounded border border-orange-500/30 flex items-center gap-1 animate-pulse"
+                >
+                  <PlusCircle size={10} /> ASIGNAR KM INICIAL
+                </button>
               )}
               {ruta.nombre_asistente && (
                 <span className="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded text-[10px] font-black border border-purple-500/30">
@@ -2082,7 +2093,45 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       )}
 
       {localParaFoto && (
-        <ModalEvidencia
+        {/* Modal para Editar KM Inicial en Ruta Activa */}
+      {isEditingKmInicio && (
+        <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
+          <Card className="max-w-xs w-full border-primary/30 bg-surface">
+            <CardContent className="p-6 space-y-4">
+              <div className="text-center space-y-1">
+                <Truck className="mx-auto text-primary" size={32} />
+                <h3 className="text-lg font-black text-white italic uppercase">Kilometraje Inicial</h3>
+                <p className="text-xs text-text-muted">Ingresa el odómetro al salir de planta.</p>
+              </div>
+              <Input 
+                type="number"
+                value={tempKmInicio}
+                onChange={e => setTempKmInicio(e.target.value)}
+                placeholder="0"
+                className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg text-center"
+              />
+              <div className="flex gap-2">
+                <Button variant="ghost" className="flex-1 text-xs" onClick={() => setIsEditingKmInicio(false)}>Cancelar</Button>
+                <Button className="flex-1 text-xs font-black" onClick={async () => {
+                  try {
+                    const km = parseFloat(tempKmInicio);
+                    if (isNaN(km)) return;
+                    const { error } = await supabase.from('rutas').update({ km_inicio: km }).eq('id_ruta', ruta?.id_ruta);
+                    if (error) throw error;
+                    setRuta(prev => prev ? { ...prev, km_inicio: km } : null);
+                    setIsEditingKmInicio(false);
+                    showToast('success', 'Kilometraje actualizado');
+                  } catch (err: any) {
+                    showToast('error', err.message);
+                  }
+                }}>Guardar</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <ModalEvidencia
           local={localParaFoto}
           onClose={() => setLocalParaFoto(null)}
           onSuccess={() => {
