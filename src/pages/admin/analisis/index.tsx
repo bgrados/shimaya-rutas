@@ -6,7 +6,7 @@ import { Tooltip } from '../../../components/ui/Tooltip';
 import { 
   BarChart3, TrendingUp, Clock, Target, Truck, 
   Calendar, Filter, ChevronDown, ChevronUp, Info,
-  Users, RefreshCw, AlertCircle, Plus, Trash2
+  Users, RefreshCw, AlertCircle, Plus, Trash2, MapPin
 } from 'lucide-react';
 import { 
   format, subDays, startOfWeek, endOfWeek, 
