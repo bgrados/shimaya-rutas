@@ -1,8 +1,8 @@
 import React from 'react';
 import { Truck, PlusCircle, ChevronDown, Play, RefreshCw, Camera, X } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
-import { Card, CardContent } from '../../../components/ui/Card';
-import { Input } from '../../../components/ui/Input';
+import { Button } from '../../../../components/ui/Button';
+import { Card, CardContent } from '../../../../components/ui/Card';
+import { Input } from '../../../../components/ui/Input';
 
 interface RutaSelectorProps {
   loadingRutasBase: boolean;
