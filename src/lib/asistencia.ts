@@ -12,6 +12,7 @@ export interface AsistenciaMensualResult {
   fin: string;
 }
 
+// ✅ FUNCIÓN SEGURA DE FECHA LOCAL - formato YYYY-MM-DD
 function toLocalDate(date: Date | string): string {
   if (!date) return '';
   const d = new Date(date);
@@ -45,6 +46,7 @@ export function calcularAsistenciaMensual({
 }): AsistenciaMensualResult {
   const diaDescanso = chofer.dia_descanso ?? 0;
   
+  // Rango del mes
   const primerDia = getPrimerDiaMes(year, month);
   const ultimoDia = getUltimoDiaMes(year, month);
   const hoy = new Date();
@@ -53,10 +55,11 @@ export function calcularAsistenciaMensual({
   const inicioStr = toLocalDate(primerDia);
   const finStr = toLocalDate(fechaFinReal);
   
+  // ✅ USAR FECHA DE INGRESO Si está dentro del mes
   let inicioCalculado = inicioStr;
   if (chofer.fecha_ingreso) {
     const fechaIngreso = toLocalDate(chofer.fecha_ingreso);
-    if (fechaIngreso && fechaIngreso > inicioStr) {
+    if (fechaIngreso >= inicioStr && fechaIngreso <= finStr) {
       inicioCalculado = fechaIngreso;
     }
   }
@@ -65,9 +68,11 @@ export function calcularAsistenciaMensual({
   const inicioDate = parseISO(inicioCalculado);
   const finDate = parseISO(finCalculado);
   
+  // ✅ NORMALIZAR RUTAS a YYYY-MM-DD
   const rutasFiltradas = rutasDelMes.filter(r => r.id_chofer === chofer.id_usuario && r.fecha);
   const rutasSet = new Set(rutasFiltradas.map(r => toLocalDate(r.fecha)));
   
+  // ✅ NORMALIZAR ASISTENCIA MANUAL a YYYY-MM-DD
   const asistenciaMap = new Map<string, AsistenciaChofer>();
   asistenciaManual
     .filter(a => a.id_chofer === chofer.id_usuario)
@@ -81,6 +86,9 @@ export function calcularAsistenciaMensual({
   while (current <= finDate) {
     const fechaStr = toLocalDate(current);
     const dayOfWeek = current.getDay();
+    
+    // ✅ VALIDAR DÍA DE DESCANSO con getDay()
+    // 0=domingo, 1=lunes, 2=martes, 3=miércoles, 4=jueves, 5=viernes, 6=sábado
     const esDescanso = dayOfWeek === diaDescanso;
     const tieneRuta = rutasSet.has(fechaStr);
     const registro = asistenciaMap.get(fechaStr);
@@ -90,7 +98,7 @@ export function calcularAsistenciaMensual({
       else if (registro.estado === 'descanso') descansos++;
     } else {
       if (esDescanso) {
-        if (tieneRuta) trabajados++;
+        if (tieneRuta) trabajados++; // trabalhado en día de descanso
         else descansos++;
       } else {
         if (tieneRuta) trabajados++;
