@@ -1,7 +1,7 @@
 import { Clock, CheckCircle2, Timer, Edit2, FileText, Wifi, WifiOff } from 'lucide-react';
 import { differenceInMinutes, format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { ViajeBitacora, GuiaRemision } from '../../../types';
+import type { ViajeBitacora, GuiaRemision } from '../../../../types';
 
 const formatPeru = (dateStr: string | null | undefined, fmt: string): string => {
   if (!dateStr) return '-';

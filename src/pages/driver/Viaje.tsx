@@ -42,8 +42,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Search,
-  ArrowRight
+  Search
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -1064,7 +1063,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         return;
       }
 
-    try {
       const template = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
       
       let publicUrlInicio = '';
@@ -2092,8 +2090,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       )}
 
-      {localParaFoto && (
-        {/* Modal para Editar KM Inicial en Ruta Activa */}
       {isEditingKmInicio && (
         <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
           <Card className="max-w-xs w-full border-primary/30 bg-surface">
@@ -2131,7 +2127,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       )}
 
-      <ModalEvidencia
+      {localParaFoto && (
+        <ModalEvidencia
           local={localParaFoto}
           onClose={() => setLocalParaFoto(null)}
           onSuccess={() => {
@@ -2452,24 +2449,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
-    </div>
-  );
-                    setZoomScale(1);
-                  }}
-                  className={`relative w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden shadow-lg transition-all ${currentGuiaIndex === i ? 'ring-2 ring-primary scale-110 z-10 opacity-100' : 'opacity-40 hover:opacity-100 border border-white/20'} ${matched ? 'ring-2 ring-yellow-400 scale-105 opacity-100' : ''}`}
-                >
-                  <img src={g.archivo_url} className="w-full h-full object-cover" />
-                  {matched && (
-                    <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center">
-                       <Check size={20} className="text-yellow-400 drop-shadow-lg" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
         </div>
       )}
     </div>
