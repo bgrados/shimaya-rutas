@@ -32,8 +32,13 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
   const [saving, setSaving] = useState(false);
   
   // Nuevos campos para asistencia
-  // ✅ GUARDAR COMO STRING 直接 - NO convertir a Date
-  const [fechaIngreso, setFechaIngreso] = useState(user.fecha_ingreso ? String(user.fecha_ingreso).split('T')[0] : '');
+  // ✅ EXTRAER solo la parte de fecha YYYY-MM-DD sin timezone
+  const getFechaSolo = (f: string | null): string => {
+    if (!f) return '';
+    return f.split('T')[0];
+  };
+  
+  const [fechaIngreso, setFechaIngreso] = useState(getFechaSolo(user.fecha_ingreso));
   const [diaDescanso, setDiaDescanso] = useState(user.dia_descanso ?? 0);
   
   const diasSemana = [
