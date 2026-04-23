@@ -100,9 +100,11 @@ export function calcularAsistenciaMensual({
   const rutasDelChofer = rutasDelMes.filter(r => r.id_chofer === chofer.id_usuario);
   console.log('Rutas del chofer:', rutasDelChofer.length);
   
-  // Mostrar algunas rutas
-  rutasDelChofer.slice(0, 5).forEach(r => {
-    debugRuta(r);
+  // Debug: mostrar algunas rutas
+  rutasDelChofer.slice(0, 10).forEach(r => {
+    const fechaOriginal = r.fecha;
+    const fechaNorm = normalizarFecha(fechaOriginal);
+    console.log(`[DEBUG RUTA] Chofer: ${r.id_chofer}, Original: "${fechaOriginal}", Normalizada: "${fechaNorm}", Estado: ${r.estado}`);
   });
   
   // Crear set de fechas de rutas (cualquier estado = trabajo)
@@ -111,11 +113,12 @@ export function calcularAsistenciaMensual({
     .filter(r => r.id_chofer === chofer.id_usuario && r.fecha)
     .forEach(r => {
       const fechaNorm = normalizarFecha(r.fecha!);
-      console.log('[RUTA ENCONTRADA]', fechaNorm, 'estado:', r.estado);
+      console.log('[RUTA AGREGADA]', fechaNorm);
       fechasRutas.add(fechaNorm);
     });
   
-  console.log('Fechas de rutas únicas:', Array.from(fechasRutas).sort());
+  console.log('>>> Fechas de rutas únicas del chofer:', Array.from(fechasRutas).sort());
+  console.log('>>> Total rutas encontradas:', fechasRutas.size);
   
   const asistenciaMap = new Map<string, AsistenciaChofer>(
     asistenciaManual
@@ -131,22 +134,18 @@ export function calcularAsistenciaMensual({
   let faltas = 0;
   
   console.log('--- ITERANDO DÍAS ---');
+  console.log('>>> Periodo inicio:', inicioCalculado, 'fin:', finCalculado, 'dias_descanso:', diaDescanso);
+  
   const current = new Date(inicioDate);
   let diaCount = 0;
   while (current <= finDate) {
     const fechaActual = toLocalDateString(current);
     const esDescanso = esDiaDescanso(current, diaDescanso);
     const tieneRuta = fechasRutas.has(fechaActual);
-    const tieneRegistro = !!asistenciaMap.get(fechaActual);
     
-    // Log cada día (solo primero y si cambió estado)
-    if (diaCount < 5 || tieneRuta) {
-      console.log(`Día ${fechaActual} (${DIAS_SEMANA[current.getDay()]}):`, {
-        esDescanso,
-        tieneRuta,
-        tieneRegistro,
-        estadoAsistencia: asistenciaMap.get(fechaActual)?.estado
-      });
+    // SIEMPRE loggear si tiene ruta o es descanso
+    if (tieneRuta || esDescanso) {
+      console.log(`>>> DÍA ${fechaActual} (${DIAS_SEMANA[current.getDay()]}): esDescanso=${esDescanso}, tieneRuta=${tieneRuta}`);
     }
     
     const registroManual = asistenciaMap.get(fechaActual);
