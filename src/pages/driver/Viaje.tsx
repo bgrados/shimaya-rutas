@@ -1847,7 +1847,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                     {localesVisitados.map(l => (
                       <button key={l.id_local_ruta} onClick={() => { setNuevoDestino(l.nombre || ''); setMostrarLocalesVisitados(false); }} className="text-left p-3 bg-black/30 rounded-lg border border-white/5 flex justify-between items-center hover:bg-yellow-500/10 transition-colors">
                         <span className="text-xs font-bold text-white uppercase">{l.nombre}</span>
-                        <ArrowRight size={14} className="text-yellow-500" />
+                        <ChevronRight size={14} className="text-yellow-500" />
                       </button>
                     ))}
                   </div>
