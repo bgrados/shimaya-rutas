@@ -6,13 +6,15 @@ import { Tooltip } from '../../../components/ui/Tooltip';
 import { 
   BarChart3, TrendingUp, Clock, Target, Truck, 
   Calendar, Filter, ChevronDown, ChevronUp, Info,
-  Users, RefreshCw, AlertCircle
+  Users, RefreshCw, AlertCircle, Plus, Trash2
 } from 'lucide-react';
 import { 
   format, subDays, startOfWeek, endOfWeek, 
-  differenceInMinutes, parseISO, isValid 
+  differenceInMinutes, parseISO, isValid, parse 
 } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatFriendlyDate } from '../../../lib/timezone';
+import { Falta } from '../../../types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line,
@@ -34,6 +36,8 @@ interface RutaData {
   visitas_realizadas: number;
   locales_unicos: number;
   visitas_extra: number;
+  km_inicio?: number;
+  km_fin?: number;
 }
 
 interface ChoferStats {
@@ -45,6 +49,11 @@ interface ChoferStats {
   tiempoTotal: number;      // minutos
   eficienciaPromedio: number; // 0–100, basada en mejor tiempo histórico
   tieneEficiencia: boolean;   // false si no hay historial suficiente
+  diasTrabajados: number;
+  diasEsperados: number;
+  faltas: number;
+  diasDescanso: string[];
+  kmTotal: number;
 }
 
 interface DiaStats {
@@ -127,7 +136,13 @@ export default function AnalisisRutas() {
   const [fechaInicio, setFechaInicio] = useState<string>(() => format(subDays(new Date(), 20), 'yyyy-MM-dd'));
   const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [choferFilter, setChoferFilter] = useState<string>('todos');
-  const [choferes, setChoferes] = useState<{id: string; nombre: string}[]>([]);
+  const [choferes, setChoferes] = useState<{id_usuario: string; nombre: string; dias_descanso: string[]}[]>([]);
+  const [faltas, setFaltas] = useState<Falta[]>([]);
+  const [showFaltaModal, setShowFaltaModal] = useState(false);
+  const [nuevaFalta, setNuevaFalta] = useState<Partial<Falta>>({
+    tipo: 'falta',
+    fecha: format(new Date(), 'yyyy-MM-dd')
+  });
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   
@@ -217,6 +232,11 @@ export default function AnalisisRutas() {
 
     const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
 
+    const totalFaltas = rendimientoChoferes.reduce((sum, c) => sum + c.faltas, 0);
+    const totalEsperados = rendimientoChoferes.reduce((sum, c) => sum + c.diasEsperados, 0);
+    const asistenciaGlobal = totalEsperados > 0 ? ((totalEsperados - totalFaltas) / totalEsperados) * 100 : 100;
+    const totalKm = rendimientoChoferes.reduce((sum, c) => sum + c.kmTotal, 0);
+
     return {
       totalReal,
       totalUnicos,
@@ -225,7 +245,10 @@ export default function AnalisisRutas() {
       eficienciaGlobal,
       rutasCompletadas,
       totalRutas: filtered.length,
-      totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60
+      totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60,
+      totalFaltas,
+      asistenciaGlobal,
+      totalKm
     };
   }, [rutas, choferFilter]);
 
@@ -311,46 +334,91 @@ export default function AnalisisRutas() {
       id: string; nombre: string;
       rutas: number; visitasRealizadas: number; visitasExtra: number;
       tiempoTotal: number; eficienciaSuma: number; rutasConEff: number;
+      fechasTrabajadas: Set<string>;
+      diasDescanso: string[];
+      kmTotal: number;
     }>();
+
+    // Inicializar mapa con todos los choferes para incluirlos aunque no tengan rutas
+    choferes.forEach(c => {
+      choferMap.set(c.id_usuario, {
+        id: c.id_usuario,
+        nombre: c.nombre,
+        rutas: 0, visitasRealizadas: 0, visitasExtra: 0,
+        tiempoTotal: 0, eficienciaSuma: 0, rutasConEff: 0,
+        fechasTrabajadas: new Set<string>(),
+        diasDescanso: c.dias_descanso || [],
+        kmTotal: 0,
+      });
+    });
     
     rutas.forEach(ruta => {
       if (!ruta.id_chofer) return;
-      const existing = choferMap.get(ruta.id_chofer) || {
-        id: ruta.id_chofer,
-        nombre: ruta.chofer_nombre || 'Sin nombre',
-        rutas: 0, visitasRealizadas: 0, visitasExtra: 0,
-        tiempoTotal: 0, eficienciaSuma: 0, rutasConEff: 0,
-      };
+      const existing = choferMap.get(ruta.id_chofer);
+      if (!existing) return;
+
       existing.rutas++;
       existing.visitasRealizadas += ruta.visitas_realizadas || 0;
       existing.visitasExtra     += ruta.visitas_extra || 0;
       existing.tiempoTotal      += ruta.tiempo_real || 0;
+      if (ruta.fecha) existing.fechasTrabajadas.add(ruta.fecha);
+      
+      if (ruta.km_inicio && ruta.km_fin && ruta.km_fin > ruta.km_inicio) {
+        existing.kmTotal += (ruta.km_fin - ruta.km_inicio);
+      }
+      
       if ((ruta.eficiencia || 0) > 0) {
         existing.eficienciaSuma += ruta.eficiencia!;
         existing.rutasConEff++;
       }
-      choferMap.set(ruta.id_chofer, existing);
     });
 
+    const getDiasEsperados = (inicio: string, fin: string, descansos: string[]) => {
+      if (!inicio || !fin) return 0;
+      const start = parseISO(inicio);
+      const end = parseISO(fin);
+      let count = 0;
+      const diasSemanaMap: Record<string, number> = {
+        'domingo': 0, 'lunes': 1, 'martes': 2, 'miercoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6,
+        'miércoles': 3, 'sábado': 6
+      };
+      const restIndices = descansos.map(d => diasSemanaMap[d.toLowerCase()]).filter(v => v !== undefined);
+      
+      const curr = new Date(start);
+      while (curr <= end) {
+        if (!restIndices.includes(curr.getDay())) count++;
+        curr.setDate(curr.getDate() + 1);
+      }
+      return count;
+    };
+
     return Array.from(choferMap.values())
-      .map(c => ({
-        id: c.id,
-        nombre: c.nombre,
-        rutas: c.rutas,
-        visitasRealizadas: c.visitasRealizadas,
-        visitasExtra: c.visitasExtra,
-        tiempoTotal: c.tiempoTotal,
-        eficienciaPromedio: c.rutasConEff > 0 ? c.eficienciaSuma / c.rutasConEff : 0,
-        tieneEficiencia: c.rutasConEff > 0,
-      }))
+      .map(c => {
+        const esperados = getDiasEsperados(fechaInicio, fechaFin, c.diasDescanso);
+        const trabajados = c.fechasTrabajadas.size;
+        return {
+          id: c.id,
+          nombre: c.nombre,
+          rutas: c.rutas,
+          visitasRealizadas: c.visitasRealizadas,
+          visitasExtra: c.visitasExtra,
+          tiempoTotal: c.tiempoTotal,
+          eficienciaPromedio: c.rutasConEff > 0 ? c.eficienciaSuma / c.rutasConEff : 0,
+          tieneEficiencia: c.rutasConEff > 0,
+          diasTrabajados: trabajados,
+          diasEsperados: esperados,
+          faltas: Math.max(0, esperados - trabajados),
+          diasDescanso: c.diasDescanso,
+          kmTotal: c.kmTotal
+        };
+      })
       .sort((a, b) => {
-        // Sort by efficiency if available, otherwise by visits
         if (a.tieneEficiencia && b.tieneEficiencia) return b.eficienciaPromedio - a.eficienciaPromedio;
         if (a.tieneEficiencia) return -1;
         if (b.tieneEficiencia) return 1;
         return b.visitasRealizadas - a.visitasRealizadas;
       });
-  }, [rutas]);
+  }, [rutas, choferes, fechaInicio, fechaFin]);
 
   useEffect(() => {
     generateInsights();
@@ -416,8 +484,40 @@ export default function AnalisisRutas() {
   }, [fechaInicio, fechaFin]);
 
   const loadChoferes = async () => {
-    const { data } = await supabase.from('usuarios').select('id_usuario, nombre').eq('rol', 'chofer').eq('activo', true);
-    if (data) setChoferes(data);
+    const { data } = await supabase.from('usuarios')
+      .select('id_usuario, nombre, dias_descanso')
+      .eq('rol', 'chofer')
+      .eq('activo', true);
+    if (data) setChoferes(data as any);
+  };
+
+  const eliminarFalta = async (id: string) => {
+    if (!confirm('¿Eliminar este registro?')) return;
+    const { error } = await supabase.from('faltas').delete().eq('id_falta', id);
+    if (error) alert('Error: ' + error.message);
+    else loadData();
+  };
+
+  const registrarFaltaManual = async () => {
+    if (!nuevaFalta.id_usuario || !nuevaFalta.fecha || !nuevaFalta.tipo) {
+      alert('Por favor complete todos los campos');
+      return;
+    }
+
+    const { error } = await supabase.from('faltas').insert({
+      id_usuario: nuevaFalta.id_usuario,
+      fecha: nuevaFalta.fecha,
+      tipo: nuevaFalta.tipo,
+      observaciones: nuevaFalta.observaciones
+    });
+
+    if (error) {
+      alert('Error: ' + error.message);
+    } else {
+      setShowFaltaModal(false);
+      setNuevaFalta({ tipo: 'falta', fecha: format(new Date(), 'yyyy-MM-dd') });
+      loadData();
+    }
   };
 
   const loadData = async () => {
@@ -457,6 +557,20 @@ export default function AnalisisRutas() {
 
       if (rutasError) throw rutasError;
 
+      // 2. Fetch manual faltas
+      const { data: fData } = await supabase
+        .from('faltas')
+        .select('*, usuarios(nombre)')
+        .gte('fecha', fechaInicio)
+        .lte('fecha', fechaFin);
+      
+      if (fData) {
+        setFaltas(fData.map((f: any) => ({
+          ...f,
+          usuario_nombre: f.usuarios?.nombre
+        })));
+      }
+
       // 3. Fetch viajes_bitacora to count REAL visits (excluding Planta)
       const { data: bitacoraData, error: bitacoraError } = await supabase
         .from('viajes_bitacora')
@@ -495,7 +609,9 @@ export default function AnalisisRutas() {
             mejor_tiempo_dia: tEstimado,
             visitas_realizadas: totalVisitas,
             locales_unicos: uniqueLocales,
-            visitas_extra: totalVisitas - uniqueLocales
+            visitas_extra: totalVisitas - uniqueLocales,
+            km_inicio: r.km_inicio,
+            km_fin: r.km_fin
           };
         });
         setRutas(processed);
@@ -539,7 +655,7 @@ export default function AnalisisRutas() {
             >
               <option value="todos">Todos los choferes</option>
               {choferes.map(c => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
+                <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
               ))}
             </select>
 
@@ -680,7 +796,48 @@ export default function AnalisisRutas() {
             Según filtros de fecha
           </span>
         </h3>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          <Card className="bg-surface border border-surface-light overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <Calendar className="text-green-400" size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                    Asistencia
+                    <Tooltip content="Porcentaje de días trabajados sobre el total de días laborables esperados (excluyendo descansos)." />
+                  </p>
+                  <div className="flex items-baseline gap-1">
+                    <p className={`text-xl font-black ${stats.asistenciaGlobal >= 95 ? 'text-green-400' : 'text-yellow-400'}`}>
+                      {stats.asistenciaGlobal.toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-surface border border-surface-light overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-500/20 rounded-lg">
+                  <AlertCircle className="text-red-400" size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                    Faltas
+                    <Tooltip content="Número total de inasistencias detectadas en el período." />
+                  </p>
+                  <div className="flex items-baseline gap-1">
+                    <p className={`text-xl font-black ${stats.totalFaltas > 0 ? 'text-red-400' : 'text-text-muted'}`}>
+                      {stats.totalFaltas}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           <Card className="bg-surface border border-surface-light overflow-hidden">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -694,6 +851,25 @@ export default function AnalisisRutas() {
                   </p>
                   <div className="flex items-baseline gap-1">
                     <p className="text-xl font-black text-white">{stats.totalHoras.toFixed(1)}h</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-surface border border-surface-light overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <MapPin className="text-blue-400" size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
+                    Kilometraje Total
+                    <Tooltip content="Suma de kilómetros recorridos en todas las rutas del periodo seleccionado." />
+                  </p>
+                  <div className="flex items-baseline gap-1">
+                    <p className="text-xl font-black text-white">{stats.totalKm.toFixed(0)} km</p>
                   </div>
                 </div>
               </div>
@@ -971,6 +1147,18 @@ export default function AnalisisRutas() {
                     </th>
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
+                        Kilometraje
+                        <Tooltip content="Total de kilómetros recorridos calculados por la diferencia entre odómetro inicial y final de cada ruta." />
+                      </span>
+                    </th>
+                    <th className="text-center py-2 px-3">
+                      <span className="inline-flex items-center gap-1 justify-center">
+                        Asistencia
+                        <Tooltip content="Días trabajados vs días esperados (excluyendo sus días de descanso)." />
+                      </span>
+                    </th>
+                    <th className="text-center py-2 px-3">
+                      <span className="inline-flex items-center gap-1 justify-center">
                         Rutas
                         <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
                       </span>
@@ -1019,6 +1207,19 @@ export default function AnalisisRutas() {
                           )}
                         </td>
                         <td className="py-3 px-3 text-center">
+                          <span className="text-white text-xs font-bold">{c.kmTotal.toFixed(1)} km</span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex flex-col items-center">
+                            <span className={`font-bold ${c.faltas > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                              {c.diasTrabajados}/{c.diasEsperados}
+                            </span>
+                            <span className="text-[10px] text-text-muted capitalize">
+                              {c.diasDescanso.length > 0 ? `${c.diasDescanso.join(', ')}` : 'Sin descanso'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-center">
                           <span className="text-text-muted text-xs">{c.rutas}</span>
                         </td>
                         <td className="py-3 px-3 text-right">
@@ -1057,6 +1258,145 @@ export default function AnalisisRutas() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Gestión de Faltas */}
+      <Card className="bg-surface border border-surface-light">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Calendar size={20} className="text-orange-400" />
+              Gestión de Faltas y Permisos
+              <Tooltip content="Registro manual de inasistencias, permisos médicos o justificaciones. Estas se descuentan de las faltas calculadas automáticamente." />
+            </h3>
+            <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-xs" onClick={() => {
+              setNuevaFalta({ tipo: 'falta', fecha: format(new Date(), 'yyyy-MM-dd') });
+              setShowFaltaModal(true);
+            }}>
+              <Plus size={14} className="mr-1" /> Registrar Falta/Permiso
+            </Button>
+          </div>
+
+          {faltas.length === 0 ? (
+            <div className="text-center py-8 border-2 border-dashed border-surface-light rounded-xl">
+              <Info className="mx-auto mb-2 opacity-30 text-white" size={32} />
+              <p className="text-text-muted text-sm uppercase font-black tracking-widest">Sin registros manuales en este periodo</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-surface-light text-[10px] uppercase tracking-widest text-text-muted">
+                    <th className="py-2 px-3 text-left">Fecha</th>
+                    <th className="py-2 px-3 text-left">Chofer</th>
+                    <th className="py-2 px-3 text-left">Tipo</th>
+                    <th className="py-2 px-3 text-left">Observaciones</th>
+                    <th className="py-2 px-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-light/30">
+                  {faltas.map((f) => (
+                    <tr key={f.id_falta} className="hover:bg-surface-light/10 transition-colors">
+                      <td className="py-3 px-3 text-white font-medium">{formatFriendlyDate(f.fecha)}</td>
+                      <td className="py-3 px-3 text-white font-bold">{f.usuario_nombre}</td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          f.tipo === 'falta' ? 'bg-red-500/20 text-red-400' :
+                          f.tipo === 'permiso' ? 'bg-blue-500/20 text-blue-400' :
+                          f.tipo === 'medico' ? 'bg-green-500/20 text-green-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {f.tipo}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-text-muted text-xs">{f.observaciones || '-'}</td>
+                      <td className="py-3 px-3 text-right">
+                        <button onClick={() => eliminarFalta(f.id_falta)} className="text-red-400 hover:text-red-300 p-1">
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal Registrar Falta */}
+      {showFaltaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-surface border border-surface-light rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <Plus className="text-orange-500" size={24} />
+                Registrar Falta o Permiso
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-black text-text-muted uppercase mb-1.5">Chofer</label>
+                  <select 
+                    className="w-full bg-background border border-surface-light rounded-xl px-4 py-3 text-white focus:border-primary transition-colors outline-none"
+                    value={nuevaFalta.id_usuario || ''}
+                    onChange={e => setNuevaFalta({...nuevaFalta, id_usuario: e.target.value})}
+                  >
+                    <option value="">Seleccionar chofer...</option>
+                    {choferes.map(c => (
+                      <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-black text-text-muted uppercase mb-1.5">Fecha</label>
+                    <input 
+                      type="date"
+                      className="w-full bg-background border border-surface-light rounded-xl px-4 py-3 text-white focus:border-primary transition-colors outline-none"
+                      value={nuevaFalta.fecha}
+                      onChange={e => setNuevaFalta({...nuevaFalta, fecha: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-text-muted uppercase mb-1.5">Tipo</label>
+                    <select 
+                      className="w-full bg-background border border-surface-light rounded-xl px-4 py-3 text-white focus:border-primary transition-colors outline-none"
+                      value={nuevaFalta.tipo}
+                      onChange={e => setNuevaFalta({...nuevaFalta, tipo: e.target.value as any})}
+                    >
+                      <option value="falta">Falta</option>
+                      <option value="permiso">Permiso</option>
+                      <option value="medico">Médico</option>
+                      <option value="justificada">Justificada</option>
+                      <option value="suspension">Suspensión</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-text-muted uppercase mb-1.5">Observaciones</label>
+                  <textarea 
+                    className="w-full bg-background border border-surface-light rounded-xl px-4 py-3 text-white focus:border-primary transition-colors outline-none h-24 resize-none"
+                    placeholder="Opcional..."
+                    value={nuevaFalta.observaciones || ''}
+                    onChange={e => setNuevaFalta({...nuevaFalta, observaciones: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-8">
+                <Button variant="secondary" className="flex-1 py-3" onClick={() => setShowFaltaModal(false)}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 bg-orange-600 hover:bg-orange-700 py-3" onClick={registrarFaltaManual}>
+                  Guardar Registro
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && (

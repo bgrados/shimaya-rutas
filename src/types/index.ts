@@ -9,7 +9,7 @@ export interface Usuario {
   activo: boolean;
   foto_url: string | null;
   placa_camion: string | null;
-  dias_descanso?: string[];
+  dias_descanso: string[];
   created_at: string;
 }
 
@@ -180,6 +180,18 @@ export interface AuditLog {
   datos_anteriores: Record<string, unknown> | null;
   datos_nuevos: Record<string, unknown> | null;
   created_at: string;
+}
+
+export type TipoFalta = 'falta' | 'permiso' | 'justificada' | 'medico' | 'suspension';
+
+export interface Falta {
+  id_falta: string;
+  id_usuario: string;
+  fecha: string;
+  tipo: TipoFalta;
+  observaciones: string | null;
+  created_at: string;
+  usuario_nombre?: string;
 }
 
 export interface PresenceUser {
