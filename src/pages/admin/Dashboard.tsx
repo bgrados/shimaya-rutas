@@ -370,6 +370,8 @@ export default function AdminDashboard() {
         const rutasDelMes = (rutasDelMesRes.data as any[]) || [];
         const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
         
+        console.log('>>> DATOS ASISTENCIA:', { choferes: choferesConInfo.length, rutas: rutasDelMes.length, manual: asistenciaManual.length });
+        
         let totalTrabajados = 0;
         let totalDescansos = 0;
         let totalFaltas = 0;
@@ -380,6 +382,7 @@ export default function AdminDashboard() {
         const month = now.getMonth() + 1;
         
         choferesConInfo.forEach(chofer => {
+          console.log('>>> CHOFER:', chofer?.nombre, 'ingreso:', chofer?.fecha_ingreso, 'descanso:', chofer?.dia_descanso);
           const result = calcularAsistenciaMensual({
             chofer: chofer as any,
             year,
@@ -387,6 +390,8 @@ export default function AdminDashboard() {
             rutasDelMes: rutasDelMes as any,
             asistenciaManual: asistenciaManual as any
           });
+          console.log('>>> RESULTADO:', result);
+          
           totalTrabajados += result.trabajados;
           totalDescansos += result.descansos;
           totalFaltas += result.faltas;
