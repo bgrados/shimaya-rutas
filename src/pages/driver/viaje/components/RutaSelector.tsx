@@ -1,5 +1,5 @@
 import React from 'react';
-import { Truck, PlusCircle, ChevronDown, Play, RefreshCw } from 'lucide-react';
+import { Truck, PlusCircle, ChevronDown, Play, RefreshCw, Camera, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Input } from '../../../components/ui/Input';
@@ -17,6 +17,8 @@ interface RutaSelectorProps {
   isCreating: boolean;
   kmInicio: string;
   setKmInicio: (val: string) => void;
+  fotoKmInicio: string | null;
+  setFotoKmInicio: (val: string | null) => void;
   handleCrearRuta: () => void;
 }
 
@@ -33,6 +35,8 @@ export function RutaSelector({
   isCreating,
   kmInicio,
   setKmInicio,
+  fotoKmInicio,
+  setFotoKmInicio,
   handleCrearRuta
 }: RutaSelectorProps) {
   return (
@@ -112,6 +116,44 @@ export function RutaSelector({
                 value={kmInicio}
                 onChange={e => setKmInicio(e.target.value)}
               />
+            </div>
+
+            {/* Foto Kilometraje Inicial */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Foto del Odómetro (Opcional)</label>
+              {!fotoKmInicio ? (
+                <button 
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.capture = 'environment';
+                    input.onchange = (e: any) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (re) => setFotoKmInicio(re.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    };
+                    input.click();
+                  }}
+                  className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 text-text-muted hover:border-primary/50 hover:text-primary transition-all"
+                >
+                  <Camera size={24} />
+                  <span className="text-xs font-bold uppercase">Tomar Foto</span>
+                </button>
+              ) : (
+                <div className="relative group">
+                  <img src={fotoKmInicio} className="w-full h-32 object-cover rounded-xl border-2 border-primary/50" />
+                  <button 
+                    onClick={() => setFotoKmInicio(null)}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {createError && (

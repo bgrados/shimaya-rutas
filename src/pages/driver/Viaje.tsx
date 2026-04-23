@@ -42,7 +42,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Search
+  Search,
+  ArrowRight
 } from 'lucide-react';
 
 export default function DriverViaje() {
@@ -67,7 +68,10 @@ export default function DriverViaje() {
   const [createError, setCreateError] = useState('');
   const [kmInicio, setKmInicio] = useState('');
   const [kmFin, setKmFin] = useState('');
+  const [fotoKmInicio, setFotoKmInicio] = useState<string | null>(null);
+  const [fotoKmFin, setFotoKmFin] = useState<string | null>(null);
   const [showFinalKmModal, setShowFinalKmModal] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   // Si el perfil ya tiene placa, usarla por defecto y deshabilitar edición
   const tienePlacaAsignada = !!(profile?.placa_camion);
@@ -1059,24 +1063,38 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         return;
       }
 
-      if (esHistorial) {
-        setCreateError('No puedes crear un nuevo viaje desde el historial.');
-        setIsCreating(false);
-        return;
+    try {
+      const template = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
+      
+      let publicUrlInicio = '';
+      if (fotoKmInicio) {
+        setSubiendoFoto(true);
+        const blob = await (await fetch(fotoKmInicio)).blob();
+        const fileName = `${profile?.id_usuario}_start_${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('combustible_fotos')
+          .upload(`kilometraje/${fileName}`, blob);
+        
+        if (!uploadError) {
+          const { data } = supabase.storage.from('combustible_fotos').getPublicUrl(`kilometraje/${fileName}`);
+          publicUrlInicio = data.publicUrl;
+        }
       }
 
-      console.log('KM a guardar (inicial):', kmInicio);
-      const { data: newRuta, error: rError } = await supabase.from('rutas').insert({
-        nombre: baseRuta.nombre,
-        id_ruta_base: selectedRutaBase,
-        id_chofer: profile.id_usuario,
-        placa: nuevaPlaca.trim().toUpperCase(),
-        fecha: today,
-        estado: 'pendiente',
-        km_inicio: parseFloat(kmInicio) || 0
-      }).select().single();
-
-      console.log('Respuesta Supabase (KM Inicial):', newRuta, rError);
+      const { data: newRuta, error: rError } = await supabase
+        .from('rutas')
+        .insert({
+          id_chofer: profile?.id_usuario,
+          id_ruta_base: selectedRutaBase,
+          placa: nuevaPlaca,
+          nombre: template?.nombre,
+          fecha: format(nowPeru(), 'yyyy-MM-dd'),
+          estado: 'pendiente',
+          km_inicio: parseFloat(kmInicio) || 0,
+          foto_km_inicio: publicUrlInicio
+        })
+        .select()
+        .single();
 
       if (rError) throw rError;
 
@@ -1411,6 +1429,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         isCreating={isCreating}
         kmInicio={kmInicio}
         setKmInicio={setKmInicio}
+        fotoKmInicio={fotoKmInicio}
+        setFotoKmInicio={setFotoKmInicio}
         handleCrearRuta={handleCreateViaje}
       />
     );
@@ -2300,18 +2320,72 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   />
                 </div>
 
+                {/* Foto Opcional Kilometraje Final */}
+                <div className="space-y-1">
+                  <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Foto del Odómetro (Opcional)</label>
+                  {!fotoKmFin ? (
+                    <button 
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.capture = 'environment';
+                        input.onchange = (e: any) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (re) => setFotoKmFin(re.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        };
+                        input.click();
+                      }}
+                      className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 text-text-muted hover:border-primary/50 hover:text-primary transition-all"
+                    >
+                      <Camera size={24} />
+                      <span className="text-xs font-bold uppercase">Tomar Foto</span>
+                    </button>
+                  ) : (
+                    <div className="relative group">
+                      <img src={fotoKmFin} className="w-full h-32 object-cover rounded-xl border-2 border-primary/50" />
+                      <button 
+                        onClick={() => setFotoKmFin(null)}
+                        className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <Button 
                   className="w-full h-14 text-lg font-black italic bg-primary hover:bg-primary-hover shadow-xl"
-                  disabled={!kmFin || parseFloat(kmFin) <= (ruta.km_inicio || 0)}
+                  disabled={!kmFin || parseFloat(kmFin) <= (ruta.km_inicio || 0) || subiendoFoto}
                   onClick={async () => {
                     try {
-                      console.log('KM a guardar (final):', kmFin);
+                      setSubiendoFoto(true);
+                      let publicUrlFin = '';
+                      
+                      if (fotoKmFin) {
+                        const blob = await (await fetch(fotoKmFin)).blob();
+                        const fileName = `${profile?.id_usuario}_end_${Date.now()}.jpg`;
+                        const { error: uploadError } = await supabase.storage
+                          .from('combustible_fotos')
+                          .upload(`kilometraje/${fileName}`, blob);
+                        
+                        if (!uploadError) {
+                          const { data } = supabase.storage.from('combustible_fotos').getPublicUrl(`kilometraje/${fileName}`);
+                          publicUrlFin = data.publicUrl;
+                        }
+                      }
+
                       const { error } = await supabase
                         .from('rutas')
-                        .update({ km_fin: parseFloat(kmFin) })
+                        .update({ 
+                          km_fin: parseFloat(kmFin),
+                          foto_km_fin: publicUrlFin
+                        })
                         .eq('id_ruta', ruta.id_ruta);
-                      
-                      console.log('Respuesta Supabase (KM Final):', error);
                       
                       if (error) throw error;
                       setRuta({ ...ruta, km_fin: parseFloat(kmFin) });
@@ -2319,10 +2393,12 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       showToast('success', 'Kilometraje final registrado correctamente');
                     } catch (err: any) {
                       showToast('error', 'Error al guardar kilometraje: ' + err.message);
+                    } finally {
+                      setSubiendoFoto(false);
                     }
                   }}
                 >
-                  FINALIZAR Y REGISTRAR
+                  {subiendoFoto ? 'PROCESANDO...' : 'FINALIZAR Y REGISTRAR'}
                 </Button>
               </div>
             </CardContent>
