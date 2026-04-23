@@ -283,7 +283,7 @@ export default function AnalisisRutas() {
         // 1. Check for manual record
         const manualRecord = asistencia.find(a => a.id_chofer === choferId && a.fecha === dateStr);
         
-        if (manualRecord && manualRecord.estado) {
+        if (manualRecord && manualRecord.estado && (manualRecord.estado === 'trabajo' || manualRecord.estado === 'descanso' || manualRecord.estado === 'falta' || manualRecord.estado === 'permiso')) {
           stats[manualRecord.estado]++;
           if (manualRecord.estado !== 'descanso' && manualRecord.estado !== 'permiso') {
             stats.esperados++;
@@ -368,7 +368,7 @@ export default function AnalisisRutas() {
 
     const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
 
-    const totalFaltas = rendimientoChoferes.reduce((sum, c) => sum + c.asistenciaStats.falta, 0);
+    const totalFaltas = rendimientoChoferes.reduce((sum, c) => sum + (c.asistenciaStats?.falta || 0), 0);
     const totalEsperados = rendimientoChoferes.reduce((sum, c) => sum + c.diasEsperados, 0);
     const asistenciaGlobal = totalEsperados > 0 ? ((totalEsperados - totalFaltas) / totalEsperados) * 100 : 100;
     const totalKm = rendimientoChoferes.reduce((sum, c) => sum + c.kmTotal, 0);
@@ -971,8 +971,8 @@ export default function AnalisisRutas() {
                     <Tooltip content="Número total de inasistencias detectadas en el período." />
                   </p>
                   <div className="flex flex-col items-center">
-                    <p className={`text-xl font-black ${stats.asistenciaStats.falta > 0 ? 'text-red-400' : 'text-text-muted'}`}>
-                      {stats.asistenciaStats.falta}
+                    <p className={`text-xl font-black ${stats.asistenciaStats?.falta > 0 ? 'text-red-400' : 'text-text-muted'}`}>
+                      {stats.asistenciaStats?.falta}
                     </p>
                   </div>
                 </div>
@@ -1352,8 +1352,8 @@ export default function AnalisisRutas() {
                         </td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex flex-col items-center">
-                            <span className={`font-bold ${c.asistenciaStats.falta > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                              {c.asistenciaStats.falta}
+                            <span className={`font-bold ${c.asistenciaStats?.falta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                              {c.asistenciaStats?.falta}
                             </span>
                             <span className="text-[10px] text-text-muted capitalize">
                               {c.diasDescanso.length > 0 ? `${c.diasDescanso.join(', ')}` : 'Sin descanso'}
