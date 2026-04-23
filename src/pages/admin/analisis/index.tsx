@@ -342,6 +342,46 @@ export default function AnalisisRutas() {
     };
   }, [rutas, choferFilter, rendimientoChoferes]);
 
+  const comparacionDiaEquivalente = useMemo(() => {
+    // Calculamos el "hoy" basado en fechaFin (que por defecto es format(new Date(), 'yyyy-MM-dd'))
+    const hoyStr = fechaFin;
+    const end = parseISO(fechaFin);
+    const hace7DiasStr = format(subDays(end, 7), 'yyyy-MM-dd');
+    
+    const rutasHoy = rutas.filter(r => r.fecha === hoyStr);
+    const rutasPasado = rutas.filter(r => r.fecha === hace7DiasStr);
+    
+    const calcularKm = (arr: RutaData[]) => arr.reduce((sum, r) => {
+      if (r.km_inicio != null && r.km_fin != null && r.km_fin >= r.km_inicio) {
+        return sum + (r.km_fin - r.km_inicio);
+      }
+      return sum;
+    }, 0);
+    
+    const kmHoy = calcularKm(rutasHoy);
+    const kmPasado = calcularKm(rutasPasado);
+    
+    const tiempoHoy = rutasHoy.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
+    const tiempoPasado = rutasPasado.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
+    
+    const paradasHoy = rutasHoy.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
+    const paradasPasado = rutasPasado.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
+    
+    return {
+      hoyStr,
+      hace7DiasStr,
+      diaNombre: diasSemana[end.getDay()],
+      hoy: { km: kmHoy, tiempo: tiempoHoy, paradas: paradasHoy },
+      pasado: { km: kmPasado, tiempo: tiempoPasado, paradas: paradasPasado },
+      hayDatosPasados: rutasPasado.length > 0,
+      diff: {
+        km: kmPasado > 0 ? ((kmHoy - kmPasado) / kmPasado) * 100 : 0,
+        tiempo: tiempoPasado > 0 ? ((tiempoHoy - tiempoPasado) / tiempoPasado) * 100 : 0,
+        paradas: paradasPasado > 0 ? ((paradasHoy - paradasPasado) / paradasPasado) * 100 : 0
+      }
+    };
+  }, [rutas, fechaFin]);
+
   const comparacionSemanal = useMemo((): DiaStats[] => {
     // 0: Domingo, 1: Lunes, ...
     const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -421,7 +461,7 @@ export default function AnalisisRutas() {
 
   useEffect(() => {
     generateInsights();
-  }, [semanaStats, stats, comparacionSemanal, rendimientoChoferes]);
+  }, [semanaStats, stats, comparacionSemanal, rendimientoChoferes, comparacionDiaEquivalente]);
 
   const generateInsights = () => {
     const newInsights: Insight[] = [];
@@ -786,6 +826,63 @@ export default function AnalisisRutas() {
         </div>
       </div>
 
+
+      {/* Comparación Día Equivalente */}
+      {comparacionDiaEquivalente.hayDatosPasados && (
+        <Card className="bg-surface border border-surface-light overflow-hidden">
+          <CardContent className="p-5">
+            <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <Calendar className="text-primary" size={18} />
+              Comparación Día Equivalente: {comparacionDiaEquivalente.diaNombre}
+              <Tooltip content={`Comparando los datos de ${comparacionDiaEquivalente.hoyStr} vs el mismo día de la semana pasada (${comparacionDiaEquivalente.hace7DiasStr}).`} />
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* KM */}
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-[10px] uppercase font-bold mb-1">Kilómetros Recorridos</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-white">{comparacionDiaEquivalente.hoy.km.toFixed(1)} km</span>
+                  <span className={`text-xs font-bold ${comparacionDiaEquivalente.diff.km < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {comparacionDiaEquivalente.diff.km > 0 ? '↑' : '↓'} {Math.abs(comparacionDiaEquivalente.diff.km).toFixed(1)}%
+                  </span>
+                </div>
+                <p className="text-text-muted text-[10px] mt-1">
+                  vs {comparacionDiaEquivalente.pasado.km.toFixed(1)} km (sem. pasada)
+                </p>
+              </div>
+
+              {/* Tiempo */}
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-[10px] uppercase font-bold mb-1">Tiempo de Ruta</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-white">{comparacionDiaEquivalente.hoy.tiempo.toFixed(1)}h</span>
+                  <span className={`text-xs font-bold ${comparacionDiaEquivalente.diff.tiempo < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {comparacionDiaEquivalente.diff.tiempo > 0 ? '↑' : '↓'} {Math.abs(comparacionDiaEquivalente.diff.tiempo).toFixed(1)}%
+                  </span>
+                </div>
+                <p className="text-text-muted text-[10px] mt-1">
+                  vs {comparacionDiaEquivalente.pasado.tiempo.toFixed(1)}h (sem. pasada)
+                </p>
+              </div>
+
+              {/* Paradas */}
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-[10px] uppercase font-bold mb-1">Visitas / Paradas</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-white">{comparacionDiaEquivalente.hoy.paradas}</span>
+                  <span className={`text-xs font-bold ${comparacionDiaEquivalente.diff.paradas > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {comparacionDiaEquivalente.diff.paradas > 0 ? '↑' : '↓'} {Math.abs(comparacionDiaEquivalente.diff.paradas).toFixed(1)}%
+                  </span>
+                </div>
+                <p className="text-text-muted text-[10px] mt-1">
+                  vs {comparacionDiaEquivalente.pasado.paradas} paradas (sem. pasada)
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards del Período Seleccionado */}
       <div className="flex flex-col gap-2">
