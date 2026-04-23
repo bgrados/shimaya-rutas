@@ -409,8 +409,9 @@ export default function AdminDashboard() {
           totalChoferes: choferesConDatos
         });
       }
-    } catch (err) {
-      setError('Error al cargar los datos. Intenta de nuevo.');
+    } catch (err: any) {
+      console.error('ERROR DASHBOARD:', err);
+      setError('Error al cargar los datos. Intenta de nuevo. ' + (err?.message || ''));
     } finally {
       setLoading(false);
     }
