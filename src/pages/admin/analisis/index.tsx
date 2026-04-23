@@ -283,7 +283,7 @@ export default function AnalisisRutas() {
         // 1. Check for manual record
         const manualRecord = asistencia.find(a => a.id_chofer === choferId && a.fecha === dateStr);
         
-        if (manualRecord) {
+        if (manualRecord && manualRecord.estado) {
           stats[manualRecord.estado]++;
           if (manualRecord.estado !== 'descanso' && manualRecord.estado !== 'permiso') {
             stats.esperados++;
@@ -1453,7 +1453,7 @@ export default function AnalisisRutas() {
                           f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
                           'bg-purple-500/20 text-purple-400'
                         }`}>
-                          {f.estado}
+                          {f.estado || 'falta'}
                         </span>
                       </td>
                       <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
