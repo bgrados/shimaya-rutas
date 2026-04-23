@@ -38,7 +38,7 @@ export function calcularAsistenciaMensual({
     };
   }
 
-  // FECHAS SEGURAS (SIN TIMEZONE) - usar formato YYYY-MM-DD
+  // FECHAS SEGURAS - formato YYYY-MM-DD
   const inicioStr = String(chofer.fecha_ingreso).split('T')[0];
   const inicio = new Date(inicioStr + 'T00:00:00');
 
@@ -49,8 +49,8 @@ export function calcularAsistenciaMensual({
   if (esMesActual) {
     fin = new Date(hoy.toISOString().slice(0, 10) + 'T00:00:00');
   } else {
-    fin = new Date(year, month - 1, 0);
-    fin = new Date(fin.toISOString().slice(0, 10) + 'T00:00:00');
+    const ultimoDia = new Date(year, month - 1, 0);
+    fin = new Date(ultimoDia.toISOString().slice(0, 10) + 'T00:00:00');
   }
 
   let trabajados = 0;
@@ -62,7 +62,7 @@ export function calcularAsistenciaMensual({
     r => r.id_chofer === chofer.id_usuario && r.fecha
   );
 
-  // SET DE DIAS TRABAJADOS - extraer solo la fecha YYYY-MM-DD
+  // SET DE DIAS TRABAJADOS
   const diasTrabajadosSet = new Set<string>();
   rutasChofer.forEach(r => {
     if (r.fecha) {
@@ -79,11 +79,11 @@ export function calcularAsistenciaMensual({
     const dia = fecha.getDay();
     const diaDescanso = chofer.dia_descanso ?? 0;
 
-    // DESCANSO - día de la semana coincides con dia_descanso
+    // DESCANSO
     if (dia === diaDescanso) {
       descansos++;
     } else {
-      // TRABAJO o FALTA
+      // TRABAJO
       if (diasTrabajadosSet.has(fechaStr)) {
         trabajados++;
       }
@@ -93,12 +93,11 @@ export function calcularAsistenciaMensual({
   }
 
   const programados = totalDias - descansos;
-
   let faltan = programados - trabajados;
   
-  // EVITAR NaN y valores negativos
-  if (isNaN(faltas)) faltan = 0;
-  if (faltas < 0) faltan = 0;
+  // EVITAR NaN y negativos
+  if (isNaN(faltan)) faltan = 0;
+  if (faltan < 0) faltan = 0;
 
   const porcentaje = programados > 0
     ? Math.round((trabajados / programados) * 100)
