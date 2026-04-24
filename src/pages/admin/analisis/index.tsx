@@ -1259,7 +1259,7 @@ const comparacionDiaEquivalente = useMemo(() => {
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
                         Asistencia
-                        <Tooltip content="Días trabajados vs días esperados (excluyendo sus días de descanso)." />
+                        <Tooltip content="Días con rutas registradas / Total días laborables (sin contar días de descanso) desde tu fecha de ingreso." />
                       </span>
                     </th>
                     <th className="text-center py-2 px-3">
@@ -1316,8 +1316,8 @@ const comparacionDiaEquivalente = useMemo(() => {
                         </td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex flex-col items-center">
-                            <span className={`font-bold ${c.asistenciaStats?.falta > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                              {c.asistenciaStats?.falta}
+                            <span className={`font-bold ${c.asistenciaStats?.falta > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                              {c.diasTrabajados}/{c.diasEsperados}
                             </span>
                             <span className="text-[10px] text-text-muted capitalize">
                               {c.diasDescanso.length > 0 ? `${c.diasDescanso.join(', ')}` : 'Sin descanso'}
