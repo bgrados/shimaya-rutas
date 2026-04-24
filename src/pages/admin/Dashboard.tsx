@@ -695,27 +695,42 @@ export default function AdminDashboard() {
       {/* Asistencia Mensual por Chofer */}
       <Card className="bg-blue-600/20 border-blue-500/50">
         <CardContent className="p-4">
-          <p className="text-blue-300 text-xs flex items-center gap-1 mb-3">
+          <p className="text-blue-300 text-xs flex items-center gap-1 mb-4">
             Asistencia Mensual
             <Tooltip content="Calculado desde fecha de ingreso y excluyendo día de descanso" />
           </p>
           {asistenciaPorChofer.length === 0 ? (
             <p className="text-white">Sin datos</p>
           ) : (
-            asistenciaPorChofer.map((c, i) => (
-              <div key={i} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
-                <div>
-                  <span className="text-white font-medium">{c.nombre}</span>
-                  <span className="text-blue-300/70 text-xs ml-2">({getDiaDescansoLabel(c.diaDescanso)})</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-blue-400 font-bold text-lg">{c.porcentaje}%</span>
-                  <div className="text-xs text-blue-300/70">
-                    ✓{c.trabajados} ○{c.descansos} {c.faltan > 0 && <span className="text-red-400">✗{c.faltan}</span>}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {asistenciaPorChofer.map((c, i) => (
+                <div key={i} className="bg-surface-light/30 rounded-xl p-4 border border-white/10">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-white font-bold text-base">{c.nombre}</h3>
+                      <p className="text-blue-300/70 text-xs">Descanso: {getDiaDescansoLabel(c.diaDescanso)}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-blue-400 font-black text-2xl">{c.porcentaje}%</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-green-500/10 rounded-lg p-2">
+                      <p className="text-green-400 font-bold text-lg">{c.trabajados}</p>
+                      <p className="text-green-300/70 text-[10px]">Trabajados</p>
+                    </div>
+                    <div className="bg-blue-500/10 rounded-lg p-2">
+                      <p className="text-blue-400 font-bold text-lg">{c.descansos}</p>
+                      <p className="text-blue-300/70 text-[10px]">Descansos</p>
+                    </div>
+                    <div className={`rounded-lg p-2 ${c.faltan > 0 ? 'bg-red-500/10' : 'bg-surface-light/20'}`}>
+                      <p className={`font-bold text-lg ${c.faltan > 0 ? 'text-red-400' : 'text-text-muted'}`}>{c.faltan}</p>
+                      <p className={`text-[10px] ${c.faltan > 0 ? 'text-red-300/70' : 'text-text-muted/70'}`}>Faltas</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
