@@ -1090,8 +1090,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           nombre: template?.nombre,
           fecha: format(nowPeru(), 'yyyy-MM-dd'),
           estado: 'pendiente',
-          km_inicio: parseFloat(kmInicio) || 0,
-          foto_km_inicio: publicUrlInicio
+          km_inicio: parseFloat(kmInicio) || 0
         })
         .select()
         .single();
@@ -2440,8 +2439,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       const { error } = await supabase
                         .from('rutas')
                         .update({ 
-                          km_fin: parseFloat(kmFin),
-                          foto_km_fin: publicUrlFin
+                          km_fin: parseFloat(kmFin)
                         })
                         .eq('id_ruta', ruta.id_ruta);
                       

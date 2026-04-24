@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '../lib/supabase';
-import { X, Upload, FileText, Loader2, CheckCircle, Trash2 } from 'lucide-react';
+import { X, Upload, Loader2, CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import type { LocalRuta, GuiaRemision } from '../types';
 
@@ -15,14 +15,14 @@ export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [guias, setGuias] = useState<GuiaRemision[]>(local.guias || []);
 
-  const loadGuias = async () => {
+  const loadGuias = useCallback(async () => {
     const { data } = await supabase
       .from('guias_remision')
       .select('*')
       .eq('id_local_ruta', local.id_local_ruta)
       .order('created_at', { ascending: true });
     if (data) setGuias(data);
-  };
+  }, [local.id_local_ruta]);
 
   React.useEffect(() => {
     loadGuias();
@@ -40,7 +40,7 @@ export function SubirGuiasModal({ local, onClose }: SubirGuiasModalProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [local.id_local_ruta]);
+  }, [local.id_local_ruta, loadGuias]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
