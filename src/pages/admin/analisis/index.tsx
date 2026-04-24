@@ -370,11 +370,13 @@ export default function AnalisisRutas() {
       : null;
 
     const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
-
-    const totalFaltas = rendimientoChoferes.reduce((sum, c) => sum + (c.asistenciaStats?.falta || 0), 0);
-    const totalEsperados = rendimientoChoferes.reduce((sum, c) => sum + c.diasEsperados, 0);
-    const asistenciaGlobal = totalEsperados > 0 ? ((totalEsperados - totalFaltas) / totalEsperados) * 100 : 100;
-    const totalKm = rendimientoChoferes.reduce((sum, c) => sum + c.kmTotal, 0);
+    
+    const totalKm = filtered.reduce((sum, r) => {
+      if (r.km_inicio != null && r.km_fin != null && r.km_fin >= r.km_inicio) {
+        return sum + (r.km_fin - r.km_inicio);
+      }
+      return sum;
+    }, 0);
 
     return {
       totalReal,
@@ -385,20 +387,19 @@ export default function AnalisisRutas() {
       rutasCompletadas,
       totalRutas: filtered.length,
       totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60,
-      totalFaltas,
-      asistenciaGlobal,
       totalKm
     };
-  }, [rutas, choferFilter, rendimientoChoferes]);
+  }, [rutas, choferFilter]);
 
-  const comparacionDiaEquivalente = useMemo(() => {
-    // Calculamos el "hoy" basado en fechaFin (que por defecto es format(new Date(), 'yyyy-MM-dd'))
+const comparacionDiaEquivalente = useMemo(() => {
     const hoyStr = fechaFin;
     const end = parseISO(fechaFin);
     const hace7DiasStr = format(subDays(end, 7), 'yyyy-MM-dd');
     
-    const rutasHoy = rutas.filter(r => r.fecha === hoyStr);
-    const rutasPasado = rutas.filter(r => r.fecha === hace7DiasStr);
+    const filtrarRutas = (arr: RutaData[]) => choferFilter === 'todos' ? arr : arr.filter(r => r.id_chofer === choferFilter);
+    
+    const rutasHoy = filtrarRutas(rutas.filter(r => r.fecha === hoyStr));
+    const rutasPasado = filtrarRutas(rutas.filter(r => r.fecha === hace7DiasStr));
     
     const calcularKm = (arr: RutaData[]) => arr.reduce((sum, r) => {
       if (r.km_inicio != null && r.km_fin != null && r.km_fin >= r.km_inicio) {
@@ -426,10 +427,10 @@ export default function AnalisisRutas() {
       diff: {
         km: kmPasado > 0 ? ((kmHoy - kmPasado) / kmPasado) * 100 : 0,
         tiempo: tiempoPasado > 0 ? ((tiempoHoy - tiempoPasado) / tiempoPasado) * 100 : 0,
-        paradas: paradasPasado > 0 ? ((paradasHoy - paradasPasado) / paradasPasado) * 100 : 0
+        paradas: kmPasado > 0 ? ((paradasHoy - paradasPasado) / kmPasado) * 100 : 0
       }
     };
-  }, [rutas, fechaFin]);
+  }, [rutas, fechaFin, choferFilter]);
 
   const comparacionSemanal = useMemo((): DiaStats[] => {
     // 0: Domingo, 1: Lunes, ...
