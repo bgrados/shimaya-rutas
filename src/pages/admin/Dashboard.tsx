@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
-import { calcularAsistenciaMensual } from '../../lib/asistencia';
+import { calcularAsistenciaMensual, getDiaDescansoLabel } from '../../lib/asistencia';
 import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta } from '../../components/ui/Alertas';
 import type { Alerta } from '../../components/ui/Alertas';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route } from 'lucide-react';
@@ -87,6 +87,7 @@ export default function AdminDashboard() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
   const [asistenciaStats, setAsistenciaStats] = useState({ porcentaje: 0, trabajados: 0, descansos: 0, faltas: 0, programados: 0, totalChoferes: 0 });
+  const [asistenciaPorChofer, setAsistenciaPorChofer] = useState<{nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -121,7 +122,7 @@ export default function AdminDashboard() {
         supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr),
         supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr),
-        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true)
+        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer')
       ]);
       
       const rutaIdsDelDia = rutasDelDiaRes.data?.map(r => r.id_ruta) || [];
@@ -140,7 +141,7 @@ export default function AdminDashboard() {
         supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
         supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
         supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr),
-        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true)
+        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer')
       ]);
 
       clearTimeout(timeoutId);
@@ -354,60 +355,64 @@ export default function AdminDashboard() {
           .slice(0, 5);
         
         setTopChoferes([...topCombustible, ...topOtros]);
+      }
+      
+      // Calcular asistencia mensual (SIEMPRE, aunque no haya gastos)
+      const choferesConInfo = (choferesConInfoRes.data as any[]) || [];
+      const rutasDelMes = (rutasDelMesRes.data as any[]) || [];
+      const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
+      
+      let totalTrabajados = 0;
+      let totalDescansos = 0;
+      let totalFaltas = 0;
+      let totalProgramados = 0;
+      let choferesConDatos = 0;
+      const asistenciaPorChoferList: {nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[] = [];
+      
+      choferesConInfo.forEach(chofer => {
+        const result = calcularAsistenciaMensual({
+          chofer: chofer as any,
+          rutasDelMes: rutasDelMes as any,
+        });
         
-        // Detectar inconsistencias globales
+        totalTrabajados += result.trabajados;
+        totalDescansos += result.descansos;
+        totalFaltas += result.faltan ?? 0;
+        totalProgramados += result.programados;
+        
+        asistenciaPorChoferList.push({
+          nombre: chofer.nombre,
+          porcentaje: result.porcentaje,
+          trabajados: result.trabajados,
+          descansos: result.descansos,
+          faltan: result.faltan ?? 0,
+          diaDescanso: chofer.dia_descanso ?? 0
+        });
+        
+        choferesConDatos++;
+      });
+      setAsistenciaPorChofer(asistenciaPorChoferList);
+      
+      const asistenciaPorcentaje = totalProgramados > 0 ? Math.round((totalTrabajados / totalProgramados) * 100) : 0;
+      setAsistenciaStats({
+        porcentaje: asistenciaPorcentaje,
+        trabajados: totalTrabajados,
+        descansos: totalDescansos,
+        faltas: totalFaltas,
+        programados: totalProgramados,
+        totalChoferes: choferesConDatos
+      });
+      
+      // Detectar inconsistencias globales (si hay gastos)
+      if (gastosChofer) {
         const inconsistencias = detectarInconsistenciasGlobales(
           rutas,
-          choferesActivosEnCurso.size, // Solo choferes con rutas en curso
+          choferesActivosEnCurso.size,
           totalChoferesRegistrados,
           (combustibleSemanaRes.data || []).map(g => ({ fecha: g.created_at, monto: g.monto || 0 })),
-          5 // Días laborables de la semana
+          5
         );
         setAlertas(inconsistencias);
-        
-        // Calcular asistencia mensual
-        const choferesConInfo = (choferesConInfoRes.data as any[]) || [];
-        const rutasDelMes = (rutasDelMesRes.data as any[]) || [];
-        const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
-        
-        console.log('>>> DATOS ASISTENCIA:', { choferes: choferesConInfo.length, rutas: rutasDelMes.length, manual: asistenciaManual.length });
-        
-        let totalTrabajados = 0;
-        let totalDescansos = 0;
-        let totalFaltas = 0;
-        let totalProgramados = 0;
-        let choferesConDatos = 0;
-        
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
-        
-        choferesConInfo.forEach(chofer => {
-          console.log('>>> CHOFER:', chofer?.nombre, 'ingreso:', chofer?.fecha_ingreso, 'descanso:', chofer?.dia_descanso);
-          const result = calcularAsistenciaMensual({
-            chofer: chofer as any,
-            year,
-            month,
-            rutasDelMes: rutasDelMes as any,
-            asistenciaManual: asistenciaManual as any
-          });
-          console.log('>>> RESULTADO:', result);
-          
-          totalTrabajados += result.trabajados;
-          totalDescansos += result.descansos;
-          totalFaltas += result.faltas;
-          totalProgramados += result.programados;
-          choferesConDatos++;
-        });
-        
-        const asistenciaPorcentaje = totalProgramados > 0 ? Math.round((totalTrabajados / totalProgramados) * 100) : 0;
-        setAsistenciaStats({
-          porcentaje: asistenciaPorcentaje,
-          trabajados: totalTrabajados,
-          descansos: totalDescansos,
-          faltas: totalFaltas,
-          programados: totalProgramados,
-          totalChoferes: choferesConDatos
-        });
       }
     } catch (err: any) {
       console.error('ERROR DASHBOARD:', err);
@@ -687,23 +692,31 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Asistencia Mensual */}
+      {/* Asistencia Mensual por Chofer */}
       <Card className="bg-blue-600/20 border-blue-500/50">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-300 text-xs flex items-center gap-1">
-                Asistencia Mensual
-                <Tooltip content="Calculado desde fecha de ingreso y excluyendo día de descanso semanal" />
-              </p>
-              <p className="text-3xl font-bold text-blue-400">{asistenciaStats.porcentaje}%</p>
-            </div>
-            <div className="text-right text-xs text-blue-300/70">
-              <p>✓ {asistenciaStats.trabajados} trabajados</p>
-              <p>○ {asistenciaStats.descansos} descansos</p>
-              <p className={asistenciaStats.faltas > 0 ? 'text-red-400' : ''}>✗ {asistenciaStats.faltas} faltas</p>
-            </div>
-          </div>
+          <p className="text-blue-300 text-xs flex items-center gap-1 mb-3">
+            Asistencia Mensual
+            <Tooltip content="Calculado desde fecha de ingreso y excluyendo día de descanso" />
+          </p>
+          {asistenciaPorChofer.length === 0 ? (
+            <p className="text-white">Sin datos</p>
+          ) : (
+            asistenciaPorChofer.map((c, i) => (
+              <div key={i} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
+                <div>
+                  <span className="text-white font-medium">{c.nombre}</span>
+                  <span className="text-blue-300/70 text-xs ml-2">({getDiaDescansoLabel(c.diaDescanso)})</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-blue-400 font-bold text-lg">{c.porcentaje}%</span>
+                  <div className="text-xs text-blue-300/70">
+                    ✓{c.trabajados} ○{c.descansos} {c.faltan > 0 && <span className="text-red-400">✗{c.faltan}</span>}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 
