@@ -142,7 +142,7 @@ export default function AnalisisRutas() {
   const [fechaInicio, setFechaInicio] = useState<string>(() => format(subDays(new Date(), 20), 'yyyy-MM-dd'));
   const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [choferFilter, setChoferFilter] = useState<string>('todos');
-  const [choferes, setChoferes] = useState<{id_usuario: string; nombre: string; dias_descanso: string[]}[]>([]);
+  const [choferes, setChoferes] = useState<{id_usuario: string; nombre: string; dias_descanso: string[]; fecha_ingreso: string | null}[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaChofer[]>([]);
   const [showAsistenciaModal, setShowAsistenciaModal] = useState(false);
   const [nuevaAsistencia, setNuevaAsistencia] = useState<Partial<AsistenciaChofer>>({
@@ -223,6 +223,7 @@ export default function AnalisisRutas() {
       tiempoTotal: number; eficienciaSuma: number; rutasConEff: number;
       fechasTrabajadas: Set<string>;
       diasDescanso: string[];
+      fechaIngreso: string | null;
       kmTotal: number;
     }>();
 
@@ -235,6 +236,7 @@ export default function AnalisisRutas() {
         tiempoTotal: 0, eficienciaSuma: 0, rutasConEff: 0,
         fechasTrabajadas: new Set<string>(),
         diasDescanso: c.dias_descanso || [],
+        fechaIngreso: c.fecha_ingreso || null,
         kmTotal: 0,
       });
     });
@@ -317,7 +319,8 @@ export default function AnalisisRutas() {
 
     return Array.from(choferMap.values())
       .map(c => {
-        const asist = calcAsistencia(fechaInicio, fechaFin, c.id, c.diasDescanso, c.fechasTrabajadas);
+        const inicioChofer = c.fechaIngreso || fechaInicio;
+        const asist = calcAsistencia(inicioChofer, fechaFin, c.id, c.diasDescanso, c.fechasTrabajadas);
         return {
           id: c.id,
           nombre: c.nombre,
@@ -570,7 +573,7 @@ export default function AnalisisRutas() {
 
   const loadChoferes = async () => {
     const { data } = await supabase.from('usuarios')
-      .select('id_usuario, nombre, dias_descanso')
+      .select('id_usuario, nombre, dias_descanso, fecha_ingreso')
       .eq('rol', 'chofer')
       .eq('activo', true);
     if (data) setChoferes(data as any);
@@ -937,48 +940,8 @@ export default function AnalisisRutas() {
             Según filtros de fecha
           </span>
         </h3>
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-          <Card className="bg-surface border border-surface-light overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Calendar className="text-green-400" size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
-                    Asistencia
-                    <Tooltip content="Porcentaje de días trabajados sobre el total de días laborables esperados (excluyendo descansos)." />
-                  </p>
-                  <div className="flex items-baseline gap-1">
-                    <p className={`text-xl font-black ${stats.asistenciaGlobal >= 95 ? 'text-green-400' : 'text-yellow-400'}`}>
-                      {stats.asistenciaGlobal.toFixed(0)}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
 
-          <Card className="bg-surface border border-surface-light overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-500/20 rounded-lg">
-                  <AlertCircle className="text-red-400" size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
-                    Faltas
-                    <Tooltip content="Número total de inasistencias detectadas en el período." />
-                  </p>
-                  <div className="flex flex-col items-center">
-                    <p className={`text-xl font-black ${stats.asistenciaStats?.falta > 0 ? 'text-red-400' : 'text-text-muted'}`}>
-                      {stats.asistenciaStats?.falta}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
           <Card className="bg-surface border border-surface-light overflow-hidden">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
