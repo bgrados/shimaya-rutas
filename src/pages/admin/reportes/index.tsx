@@ -118,6 +118,8 @@ export default function Reportes() {
   // Estado para editar hora de llegada
   const [editandoLlegada, setEditandoLlegada] = useState<string | null>(null);
   const [horaLlegadaEdit, setHoraLlegadaEdit] = useState('');
+  const [editandoSalida, setEditandoSalida] = useState<string | null>(null);
+  const [horaSalidaEdit, setHoraSalidaEdit] = useState('');
   const [activeTab, setActiveTab] = useState<'ventas' | 'gastos' | 'peajes'>('ventas');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
@@ -186,6 +188,40 @@ export default function Reportes() {
     } catch (err: any) {
       console.error('Error eliminando gasto:', err);
       alert('Error al eliminar: ' + (err.message || 'Verifica los permisos en Supabase'));
+    }
+  };
+
+  // Funciones para editar hora de salida manualmente
+  const iniciarEdicionSalida = (ruta: RutaConBitacora) => {
+    if (ruta.hora_salida_planta) {
+      const fecha = new Date(ruta.hora_salida_planta);
+      setHoraSalidaEdit(`${fecha.getHours().toString().padStart(2, '0')}:${fecha.getMinutes().toString().padStart(2, '0')}`);
+    } else {
+      setHoraSalidaEdit('');
+    }
+    setEditandoSalida(ruta.id_ruta);
+  };
+
+  const guardarEdicionSalida = async (ruta: RutaConBitacora) => {
+    if (!horaSalidaEdit) return;
+    
+    const fechaBase = ruta.fecha ? new Date(ruta.fecha + 'T12:00:00') : new Date();
+    const [h, m] = horaSalidaEdit.split(':').map(Number);
+    fechaBase.setHours(h, m, 0, 0);
+    
+    const nuevaHora = fechaBase.toISOString();
+    
+    try {
+      const { error } = await supabase
+        .from('rutas')
+        .update({ hora_salida_planta: nuevaHora })
+        .eq('id_ruta', ruta.id_ruta);
+      
+      if (error) throw error;
+      loadRutas();
+      setEditandoSalida(null);
+    } catch (err: any) {
+      alert('Error: ' + (err.message || 'No se pudo guardar'));
     }
   };
 
@@ -1241,13 +1277,35 @@ const win = window.open('', '_blank');
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        {ruta.hora_salida_planta && (
-                          <span className="text-xs text-text-muted">
-                            🕐 {formatHoraSimple(ruta.hora_salida_planta)}
-                            {ruta.horaLlegadaReal && ` → ${formatHoraSimple(ruta.horaLlegadaReal)}`}
-                            {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
-                            {ruta.distanciaGpsKm && ` · 🧭 ~${ruta.distanciaGpsKm.toFixed(1)} km`}
-                          </span>
+                        {editandoSalida === ruta.id_ruta ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={horaSalidaEdit}
+                              onChange={(e) => setHoraSalidaEdit(e.target.value)}
+                              className="bg-surface-light text-white text-xs px-2 py-1 rounded border border-blue-500"
+                            />
+                            <button
+                              onClick={() => guardarEdicionSalida(ruta)}
+                              className="p-1 bg-green-600 hover:bg-green-700 rounded text-white"
+                              title="Guardar"
+                            ><Check size={14} /></button>
+                            <button
+                              onClick={() => setEditandoSalida(null)}
+                              className="p-1 bg-gray-600 hover:bg-gray-700 rounded text-white"
+                              title="Cancelar"
+                            ><X size={14} /></button>
+                          </div>
+                        ) : (
+                          <>
+                            {ruta.hora_salida_planta && (
+                              <span className="text-xs text-text-muted flex items-center gap-1">
+                                🕐 <span className="cursor-pointer hover:text-white" onClick={() => iniciarEdicionSalida(ruta)}>
+                                  {formatHoraSimple(ruta.hora_salida_planta)}
+                                </span>
+                              </span>
+                            )}
+                          </>
                         )}
                         {editandoLlegada === ruta.id_ruta ? (
                           <div className="flex items-center gap-2">
@@ -1272,7 +1330,7 @@ const win = window.open('', '_blank');
                               <X size={14} />
                             </button>
                           </div>
-                        ) : (
+                        ) : !editandoSalida && (
                           <button
                             onClick={() => iniciarEdicionLlegada(ruta)}
                             className="p-1 hover:bg-surface-light rounded text-text-muted hover:text-primary transition-colors"
