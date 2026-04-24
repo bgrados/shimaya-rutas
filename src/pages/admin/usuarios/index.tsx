@@ -35,10 +35,17 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
   // ✅ EXTRAER solo la parte de fecha YYYY-MM-DD sin timezone
   const getFechaSolo = (f: string | null): string => {
     if (!f) return '';
-    return f.split('T')[0];
+    return String(f).split('T')[0];
   };
   
-  const [fechaIngreso, setFechaIngreso] = useState(getFechaSolo(user.fecha_ingreso));
+  const getFechaInput = (f: string | null): string => {
+    if (!f) return '';
+    if (f.includes('T')) return f.split('T')[0];
+    if (f.includes(' ')) return f.split(' ')[0];
+    return f;
+  };
+  
+  const [fechaIngreso, setFechaIngreso] = useState(user.fecha_ingreso || '');
   const [diaDescanso, setDiaDescanso] = useState(user.dia_descanso ?? 0);
   
   const diasSemana = [
@@ -334,7 +341,19 @@ export default function Usuarios() {
     setDeletingId(null);
   };
 
-  const getRoleIcon = (rol: string) => {
+  const getDiaDescansoLabel = (dia: number | undefined): string => {
+  const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  return DIAS_SEMANA[dia ?? 0] || 'Domingo';
+};
+
+const getDiaNumeroALabel = (diaStr: string | number | undefined): string => {
+  if (!diaStr) return '';
+  const num = typeof diaStr === 'string' ? parseInt(diaStr) : diaStr;
+  if (isNaN(num)) return String(diaStr);
+  return getDiaDescansoLabel(num);
+};
+
+const getRoleIcon = (rol: string) => {
     switch (rol) {
       case 'administrador': return <Shield size={14} />;
       case 'chofer': return <Truck size={14} />;
@@ -414,18 +433,30 @@ export default function Usuarios() {
                       }`}>
                         {getRoleIcon(user.rol)} {user.rol}
                       </div>
-                      {user.rol === 'chofer' && (user as any).dias_descanso && (user as any).dias_descanso.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {(user as any).dias_descanso.map((dia: string) => {
-                            const diasSemanaMap: Record<string, string> = {
-                              lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J', viernes: 'V', sabado: 'S', domingo: 'D'
-                            };
-                            return (
-                              <span key={dia} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
-                                {diasSemanaMap[dia] || dia}
+                      {user.rol === 'chofer' && (
+                        <div className="mt-2">
+                          {(user as any).dias_descanso && (user as any).dias_descanso.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              <span className="text-blue-300/50 text-[9px] uppercase font-bold mr-1">Descanso:</span>
+                              {(user as any).dias_descanso.map((dia: string) => {
+                                const diasSemanaMap: Record<string, string> = {
+                                  lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo'
+                                };
+                                return (
+                                  <span key={dia} className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
+                                    {diasSemanaMap[dia] || dia}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (user as any).dia_descanso !== undefined ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-blue-300/50 text-[9px] uppercase font-bold">Descanso:</span>
+                              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
+                                {getDiaNumeroALabel((user as any).dia_descanso)}
                               </span>
-                            );
-                          })}
+                            </div>
+                          ) : null}
                         </div>
                       )}
                     </td>
