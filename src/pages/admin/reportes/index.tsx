@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru, calcularDuracionMinutos } from '../../../lib/timezone';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
 
@@ -330,9 +330,7 @@ export default function Reportes() {
           }
           
           // Calcular duración
-          const duracionMins = (r.hora_salida_planta && horaLlegadaReal)
-            ? differenceInMinutes(new Date(horaLlegadaReal), new Date(r.hora_salida_planta))
-            : null;
+          const duracionMins = calcularDuracionMinutos(r.hora_salida_planta, horaLlegadaReal);
 
           // Calcular distancia GPS total recorrida
           let distanciaGpsKm = 0;
@@ -638,10 +636,10 @@ async function loadCombustible() {
       const estadoBadge = r.estado === 'finalizada' ? '#22c55e' : r.estado === 'en_progreso' ? '#3b82f6' : '#eab308';
       const paradas = bits.map((b: any, i: number) => {
         const transito = b.hora_salida && b.hora_llegada
-          ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
+          ? calcularDuracionMinutos(b.hora_salida, b.hora_llegada) : null;
         const nextBit = bits[i + 1];
         const permanencia = b.hora_llegada && nextBit?.hora_salida
-          ? differenceInMinutes(new Date(nextBit.hora_salida), new Date(b.hora_llegada)) : null;
+          ? calcularDuracionMinutos(b.hora_llegada, nextBit.hora_salida) : null;
         return `<tr>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
@@ -1300,7 +1298,7 @@ const win = window.open('', '_blank');
                           </thead>
                           <tbody>
                             {bits.map((b: any, i: number) => {
-                              const dur = b.hora_salida && b.hora_llegada ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
+                              const dur = b.hora_salida && b.hora_llegada ? calcularDuracionMinutos(b.hora_salida, b.hora_llegada) : null;
                               return (
                                 <tr key={b.id_bitacora} className="border-b border-white/5 hover:bg-white/5">
                                   <td className="px-4 py-2 text-primary font-black">{i + 1}</td>

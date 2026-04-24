@@ -79,15 +79,13 @@ export function formatHoraPeru(isoString: string | null | undefined): string {
 }
 
 /**
- * Calcula la duración entre dos fechas ISO en minutos/horas
+ * Calcula la duración en minutos entre dos horas (maneja HH:mm, ISO, etc.)
  */
-export function formatDuration(start: string | null | undefined, end: string | null | undefined): string {
-  if (!start || !end) return '-';
+export function calcularDuracionMinutos(start: string | null | undefined, end: string | null | undefined): number {
+  if (!start || !end) return 0;
   try {
-    // Si son solo horas (formato HH:mm o T+HORA), calcular directamente
     const soloHora = (h: string) => {
       if (h.includes('T') && h.length <= 16) {
-        // Es ISO sin segundos: "2024-04-24T03:30"
         const parts = h.split('T');
         const timePart = parts[1]?.substring(0, 5) || h;
         const [ho, mi] = timePart.split(':').map(Number);
@@ -111,15 +109,20 @@ export function formatDuration(start: string | null | undefined, end: string | n
     let diff = minsFin - minsInicio;
     if (diff < 0) diff += 24 * 60;
     
-    if (diff <= 0 || diff >= 24 * 60) return '-';
-    
-    const totalMinutes = diff;
-    if (totalMinutes < 60) return `${totalMinutes} min`;
-    
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    return diff > 0 && diff < 24 * 60 ? diff : 0;
   } catch {
-    return '-';
+    return 0;
   }
+}
+
+/**
+ * Calcula la duración entre dos fechas ISO en minutos/horas
+ */
+export function formatDuration(start: string | null | undefined, end: string | null | undefined): string {
+  const mins = calcularDuracionMinutos(start, end);
+  if (mins <= 0) return '-';
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
