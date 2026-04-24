@@ -341,16 +341,12 @@ export default function Usuarios() {
     setDeletingId(null);
   };
 
-  const getDiaDescansoLabel = (dia: number | undefined): string => {
+  const getDiaNumeroALabel = (dia: any): string => {
   const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  return DIAS_SEMANA[dia ?? 0] || 'Domingo';
-};
-
-const getDiaNumeroALabel = (diaStr: string | number | undefined): string => {
-  if (!diaStr) return '';
-  const num = typeof diaStr === 'string' ? parseInt(diaStr) : diaStr;
-  if (isNaN(num)) return String(diaStr);
-  return getDiaDescansoLabel(num);
+  if (dia === null || dia === undefined || dia === '') return '-';
+  const num = parseInt(String(dia), 10);
+  if (isNaN(num)) return String(dia);
+  return DIAS_SEMANA[num] || String(dia);
 };
 
 const getRoleIcon = (rol: string) => {
