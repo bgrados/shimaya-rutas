@@ -1,4 +1,4 @@
-import type { Usuario, AsistenciaChofer, Ruta } from '../types';
+import type { Usuario, Ruta } from '../types';
 
 export interface AsistenciaMensualResult {
   porcentaje: number;
@@ -11,106 +11,75 @@ export interface AsistenciaMensualResult {
   fin: string;
 }
 
+const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+export const getDiaDescansoLabel = (dia: number | undefined): string => {
+  return DIAS_SEMANA[dia ?? 0] || 'Domingo';
+};
+
 export function calcularAsistenciaMensual({
   chofer,
-  year,
-  month,
   rutasDelMes,
-  asistenciaManual = []
 }: {
   chofer: Usuario;
-  year: number;
-  month: number;
+  year?: number;
+  month?: number;
   rutasDelMes: Ruta[];
-  asistenciaManual?: AsistenciaChofer[];
 }): AsistenciaMensualResult {
-  // VALIDACIÓN
-  if (!chofer?.fecha_ingreso) {
-    return {
-      porcentaje: 0,
-      trabajados: 0,
-      descansos: 0,
-      faltan: 0,
-      programados: 0,
-      diasMes: 0,
-      inicio: '',
-      fin: ''
-    };
+  const fechaIngreso = chofer?.fecha_ingreso;
+  if (!fechaIngreso) {
+    return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
   }
 
-  // FECHAS SEGURAS - formato YYYY-MM-DD
-  const inicioStr = String(chofer.fecha_ingreso).split('T')[0];
-  const inicio = new Date(inicioStr + 'T00:00:00');
+  const inicioStr = String(fechaIngreso).split('T')[0].split(' ')[0];
+  if (!inicioStr || inicioStr === '') {
+    return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
+  }
 
-  const hoy = new Date();
-  const esMesActual = year === hoy.getFullYear() && month === hoy.getMonth() + 1;
+  const now = new Date();
+  const hoyStr = now.toISOString().split('T')[0];
   
-  let fin: Date;
-  if (esMesActual) {
-    fin = new Date(hoy.toISOString().slice(0, 10) + 'T00:00:00');
-  } else {
-    const ultimoDia = new Date(year, month - 1, 0);
-    fin = new Date(ultimoDia.toISOString().slice(0, 10) + 'T00:00:00');
+  const inicio = new Date(inicioStr + 'T00:00:00');
+  const fin = new Date(hoyStr + 'T00:00:00');
+
+  if (inicio > fin) {
+    return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: inicioStr, fin: inicioStr };
   }
 
-  let trabajados = 0;
-  let descansos = 0;
-  let totalDias = 0;
-
-  // FILTRAR RUTAS SOLO DE ESTE CHOFER
-  const rutasChofer = (rutasDelMes || []).filter(
-    r => r.id_chofer === chofer.id_usuario && r.fecha
-  );
-
-  // SET DE DIAS TRABAJADOS
-  const diasTrabajadosSet = new Set<string>();
-  rutasChofer.forEach(r => {
-    if (r.fecha) {
-      const f = String(r.fecha).split('T')[0];
-      diasTrabajadosSet.add(f);
+  const diasConRutas = new Set<string>();
+  (rutasDelMes || []).forEach(r => {
+    if (r.id_chofer === chofer.id_usuario && r.fecha) {
+      diasConRutas.add(String(r.fecha).split('T')[0].split(' ')[0]);
     }
   });
 
-  let fecha = new Date(inicio);
-  while (fecha <= fin) {
+  let totalDias = 0;
+  let diasDescanso = 0;
+  const diaDescanso = chofer.dia_descanso ?? 0;
+
+  const iter = new Date(inicioStr + 'T00:00:00');
+  while (iter <= fin) {
     totalDias++;
-
-    const fechaStr = fecha.toISOString().slice(0, 10);
-    const dia = fecha.getDay();
-    const diaDescanso = chofer.dia_descanso ?? 0;
-
-    // DESCANSO
-    if (dia === diaDescanso) {
-      descansos++;
-    } else {
-      // TRABAJO
-      if (diasTrabajadosSet.has(fechaStr)) {
-        trabajados++;
-      }
+    if (iter.getDay() === diaDescanso) {
+      diasDescanso++;
     }
-
-    fecha.setDate(fecha.getDate() + 1);
+    iter.setDate(iter.getDate() + 1);
   }
 
-  const programados = totalDias - descansos;
-  let faltan = programados - trabajados;
-  
-  // EVITAR NaN y negativos
-  if (isNaN(faltan)) faltan = 0;
-  if (faltan < 0) faltan = 0;
-
-  const porcentaje = programados > 0
-    ? Math.round((trabajados / programados) * 100)
-    : 0;
+  const trabajados = diasConRutas.size;
+  const programados = totalDias - diasDescanso;
+  const descansos = diasDescanso;
+  const faltan = programados - trabajados;
+  const porcentaje = programados > 0 ? Math.min(100, Math.round((trabajados / programados) * 100)) : 0;
 
   return {
     porcentaje,
     trabajados,
     descansos,
-    faltan,
+    faltan: Math.max(0, faltan),
     programados,
     diasMes: totalDias,
     inicio: inicioStr,
-    fin: fin.toISOString().slice(0, 10)
+    fin: hoyStr
   };
 }
