@@ -23,6 +23,32 @@ export function formatFriendlyDate(fechaStr: string | null | undefined): string 
   }
 }
 
+/**
+ * Formatea una hora (ISO, HH:mm, etc) a HH:mm
+ */
+export function formatHoraSimple(horaStr: string | null | undefined): string {
+  if (!horaStr) return '-';
+  try {
+    if (horaStr.includes('T') && horaStr.length <= 16) {
+      // Es ISO sin segundos: "2024-04-24T03:30"
+      return horaStr.split('T')[1]?.substring(0, 5) || horaStr;
+    } else if (horaStr.includes('T')) {
+      const d = new Date(horaStr);
+      if (isNaN(d.getTime())) return horaStr;
+      return format(d, 'HH:mm', { locale: es });
+    } else if (horaStr.includes(':')) {
+      // Es solo hora "03:30" o "03:30:00"
+      return horaStr.substring(0, 5);
+    }
+    return horaStr;
+  } catch {
+    return horaStr;
+  }
+}
+
+/**
+ * Formatea una fecha ISO a un formato específico en hora Perú
+ */
 export function formatPeru(dateStr: string | null | undefined, fmt: string): string {
   if (!dateStr) return '-';
   try {

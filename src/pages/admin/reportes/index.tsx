@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru, calcularDuracionMinutos } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru, calcularDuracionMinutos, formatHoraSimple } from '../../../lib/timezone';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
 
@@ -643,8 +643,8 @@ async function loadCombustible() {
         return `<tr>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : '⏳'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? formatHoraSimple(b.hora_salida) : '-'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? formatHoraSimple(b.hora_llegada) : '⏳'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
         </tr>`;
@@ -662,8 +662,8 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
           </div>
         </div>
         <div style="padding:8px 16px;background:#f8fafc;font-size:12px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;">
-          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatPeru(r.hora_salida_planta, 'HH:mm')}</strong></span>` : ''}
-          ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${formatPeru(r.horaLlegadaReal, 'HH:mm')}</strong></span>` : ''}
+          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatHoraSimple(r.hora_salida_planta)}</strong></span>` : ''}
+          ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${formatHoraSimple(r.horaLlegadaReal)}</strong></span>` : ''}
           ${r.duracionMins ? `<span>⏱ Duración total: <strong>${formatMins(r.duracionMins)}</strong></span>` : ''}
         </div>
         ${bits.length > 0 ? `
@@ -1243,8 +1243,8 @@ const win = window.open('', '_blank');
                       <div className="flex items-center gap-3">
                         {ruta.hora_salida_planta && (
                           <span className="text-xs text-text-muted">
-                            🕐 {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
-                            {ruta.horaLlegadaReal && ` → ${formatPeru(ruta.horaLlegadaReal, 'HH:mm')}`}
+                            🕐 {formatHoraSimple(ruta.hora_salida_planta)}
+                            {ruta.horaLlegadaReal && ` → ${formatHoraSimple(ruta.horaLlegadaReal)}`}
                             {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
                             {ruta.distanciaGpsKm && ` · 🧭 ~${ruta.distanciaGpsKm.toFixed(1)} km`}
                           </span>
@@ -1303,8 +1303,8 @@ const win = window.open('', '_blank');
                                 <tr key={b.id_bitacora} className="border-b border-white/5 hover:bg-white/5">
                                   <td className="px-4 py-2 text-primary font-black">{i + 1}</td>
                                   <td className="px-4 py-2 text-white font-bold italic">{b.origen_nombre} <span className="text-primary">→</span> {b.destino_nombre}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? formatHoraSimple(b.hora_salida) : '-'}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? formatHoraSimple(b.hora_llegada) : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
                                   <td className="px-4 py-2 font-bold text-primary">{formatMins(dur)}</td>
                                 </tr>
                               );
