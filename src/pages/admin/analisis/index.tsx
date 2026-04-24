@@ -117,10 +117,36 @@ function formatDurationHuman(mins: number): string {
 function calcularTiempoMinutos(horaInicio: string | null, horaFin: string | null): number {
   if (!horaInicio || !horaFin) return 0;
   try {
-    const s = new Date(horaInicio);
-    const e = new Date(horaFin);
-    const diff = e.getTime() - s.getTime();
-    return diff > 0 ? Math.floor(diff / (1000 * 60)) : 0;
+    // Si son solo horas (formato HH:mm sin fecha completa), extraer solo la parte de tiempo
+    const soloHora = (h: string) => {
+      if (h.includes('T') && h.length <= 16) {
+        // Es ISO pero sin segundos: "2024-04-24T03:30"
+        const parts = h.split('T');
+        const timePart = parts[1]?.substring(0, 5) || h;
+        const [ho, mi] = timePart.split(':').map(Number);
+        return { hora: ho || 0, min: mi || 0 };
+      } else if (h.includes('T')) {
+        // Es ISO completo
+        const d = new Date(h);
+        return { hora: d.getHours(), min: d.getMinutes() };
+      } else if (h.includes(':')) {
+        // Es solo hora "03:30"
+        const [ho, mi] = h.split(':').map(Number);
+        return { hora: ho || 0, min: mi || 0 };
+      }
+      return { hora: 0, min: 0 };
+    };
+    
+    const inicio = soloHora(horaInicio);
+    const fin = soloHora(horaFin);
+    
+    const minsInicio = inicio.hora * 60 + inicio.min;
+    const minsFin = fin.hora * 60 + fin.min;
+    
+    let diff = minsFin - minsInicio;
+    if (diff < 0) diff += 24 * 60; // Si cruzó medianoche
+    
+    return diff > 0 && diff < 24 * 60 ? diff : 0;
   } catch {
     return 0;
   }

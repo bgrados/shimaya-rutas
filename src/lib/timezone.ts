@@ -84,12 +84,36 @@ export function formatHoraPeru(isoString: string | null | undefined): string {
 export function formatDuration(start: string | null | undefined, end: string | null | undefined): string {
   if (!start || !end) return '-';
   try {
-    const s = new Date(start);
-    const e = new Date(end);
-    const diffMs = e.getTime() - s.getTime();
-    if (isNaN(diffMs) || diffMs < 0) return '-';
+    // Si son solo horas (formato HH:mm o T+HORA), calcular directamente
+    const soloHora = (h: string) => {
+      if (h.includes('T') && h.length <= 16) {
+        // Es ISO sin segundos: "2024-04-24T03:30"
+        const parts = h.split('T');
+        const timePart = parts[1]?.substring(0, 5) || h;
+        const [ho, mi] = timePart.split(':').map(Number);
+        return { hora: ho || 0, min: mi || 0 };
+      } else if (h.includes('T')) {
+        const d = new Date(h);
+        return { hora: d.getHours(), min: d.getMinutes() };
+      } else if (h.includes(':')) {
+        const [ho, mi] = h.split(':').map(Number);
+        return { hora: ho || 0, min: mi || 0 };
+      }
+      return { hora: 0, min: 0 };
+    };
     
-    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const inicio = soloHora(start);
+    const fin = soloHora(end);
+    
+    const minsInicio = inicio.hora * 60 + inicio.min;
+    const minsFin = fin.hora * 60 + fin.min;
+    
+    let diff = minsFin - minsInicio;
+    if (diff < 0) diff += 24 * 60;
+    
+    if (diff <= 0 || diff >= 24 * 60) return '-';
+    
+    const totalMinutes = diff;
     if (totalMinutes < 60) return `${totalMinutes} min`;
     
     const h = Math.floor(totalMinutes / 60);
