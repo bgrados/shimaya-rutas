@@ -100,6 +100,8 @@ export default function DriverViaje() {
   const [editHoraLlegada, setEditHoraLlegada] = useState('');
   const [isEditingKmInicio, setIsEditingKmInicio] = useState(false);
   const [tempKmInicio, setTempKmInicio] = useState('');
+  const [isEditingKmFin, setIsEditingKmFin] = useState(false);
+  const [tempKmFin, setTempKmFin] = useState('');
 
   // Estado para volver a local anterior
   const [mostrarLocalesVisitados, setMostrarLocalesVisitados] = useState(false);
@@ -1498,7 +1500,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             <h1 className="text-2xl font-bold text-white uppercase italic tracking-tighter">Mi Bitácora</h1>
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-text-muted text-sm italic font-medium">{ruta.nombre} • <span className="text-primary font-black uppercase">{ruta.placa || 'Sin Placa'}</span></p>
-              {ruta.km_inicio ? (
+              {ruta.km_inicio !== null && ruta.km_inicio !== undefined ? (
                 <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded border border-primary/20 flex items-center gap-1">
                   KM: {ruta.km_inicio}
                   <button onClick={() => { setTempKmInicio(ruta.km_inicio?.toString() || ''); setIsEditingKmInicio(true); }} className="ml-1 text-primary hover:text-white">
@@ -1512,6 +1514,19 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 >
                   <PlusCircle size={10} /> ASIGNAR KM INICIAL
                 </button>
+              )}
+              {ruta.km_fin !== null && ruta.km_fin !== undefined && (
+                <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-2 py-0.5 rounded border border-green-500/20 flex items-center gap-1">
+                  KM: {ruta.km_fin}
+                  <button onClick={() => { setTempKmFin(ruta.km_fin?.toString() || ''); setIsEditingKmFin(true); }} className="ml-1 text-green-400 hover:text-green-300">
+                    <Edit2 size={10} />
+                  </button>
+                </span>
+              )}
+              {ruta.km_inicio !== null && ruta.km_inicio !== undefined && ruta.km_fin !== null && ruta.km_fin !== undefined && (
+                <span className="bg-blue-500/10 text-blue-400 text-[10px] font-black px-2 py-0.5 rounded border border-blue-500/20">
+                  Total: {ruta.km_fin - ruta.km_inicio} km
+                </span>
               )}
               {ruta.nombre_asistente && (
                 <span className="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded text-[10px] font-black border border-purple-500/30">
@@ -1941,11 +1956,69 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 <div className="flex justify-center gap-3 mt-2">
                   <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
                     <p className="text-[10px] text-text-muted uppercase font-bold">Km Inicial</p>
-                    <p className="text-white font-black italic">{ruta.km_inicio || 0}</p>
+                    {isEditingKmInicio ? (
+                      <div className="mt-1">
+                        <input
+                          type="number"
+                          value={tempKmInicio}
+                          onChange={e => setTempKmInicio(e.target.value)}
+                          className="w-full bg-surface border border-primary/30 rounded px-2 py-1 text-white text-sm font-black"
+                          autoFocus
+                        />
+                        <div className="flex gap-1 mt-1">
+                          <button onClick={() => setIsEditingKmInicio(false)} className="flex-1 text-[10px] text-text-muted hover:text-white">Cancelar</button>
+                          <button onClick={async () => {
+                            const km = parseFloat(tempKmInicio);
+                            if (isNaN(km) || km < 0) return;
+                            const { error } = await supabase.from('rutas').update({ km_inicio: km }).eq('id_ruta', ruta.id_ruta);
+                            if (!error) {
+                              setRuta(prev => prev ? { ...prev, km_inicio: km } : null);
+                              setIsEditingKmInicio(false);
+                            }
+                          }} className="flex-1 text-[10px] text-green-400 hover:text-green-300">Guardar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <p className="text-white font-black italic">{ruta.km_inicio || 0}</p>
+                        <button onClick={() => { setTempKmInicio(ruta.km_inicio?.toString() || ''); setIsEditingKmInicio(true); }} className="text-primary hover:text-white">
+                          <Edit2 size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
                     <p className="text-[10px] text-text-muted uppercase font-bold">Km Final</p>
-                    <p className="text-white font-black italic">{ruta.km_fin || '?'}</p>
+                    {isEditingKmFin ? (
+                      <div className="mt-1">
+                        <input
+                          type="number"
+                          value={tempKmFin}
+                          onChange={e => setTempKmFin(e.target.value)}
+                          className="w-full bg-surface border border-primary/30 rounded px-2 py-1 text-white text-sm font-black"
+                          autoFocus
+                        />
+                        <div className="flex gap-1 mt-1">
+                          <button onClick={() => setIsEditingKmFin(false)} className="flex-1 text-[10px] text-text-muted hover:text-white">Cancelar</button>
+                          <button onClick={async () => {
+                            const km = parseFloat(tempKmFin);
+                            if (isNaN(km) || km < 0) return;
+                            const { error } = await supabase.from('rutas').update({ km_fin: km }).eq('id_ruta', ruta.id_ruta);
+                            if (!error) {
+                              setRuta(prev => prev ? { ...prev, km_fin: km } : null);
+                              setIsEditingKmFin(false);
+                            }
+                          }} className="flex-1 text-[10px] text-green-400 hover:text-green-300">Guardar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <p className="text-white font-black italic">{ruta.km_fin || '?'}</p>
+                        <button onClick={() => { setTempKmFin(ruta.km_fin?.toString() || ''); setIsEditingKmFin(true); }} className="text-primary hover:text-white">
+                          <Edit2 size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
