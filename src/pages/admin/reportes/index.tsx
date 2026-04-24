@@ -205,11 +205,10 @@ export default function Reportes() {
   const guardarEdicionSalida = async (ruta: RutaConBitacora) => {
     if (!horaSalidaEdit) return;
     
-    const fechaBase = ruta.fecha ? new Date(ruta.fecha + 'T12:00:00') : new Date();
     const [h, m] = horaSalidaEdit.split(':').map(Number);
-    fechaBase.setHours(h, m, 0, 0);
-    
-    const nuevaHora = fechaBase.toISOString();
+    // Crear timestamp en formato ISO con la fecha de la ruta y hora Perú
+    const fechaStr = ruta.fecha || format(new Date(), 'yyyy-MM-dd');
+    const nuevaHora = `${fechaStr}T${horaSalidaEdit}:00`;
     
     try {
       const { error } = await supabase
@@ -241,12 +240,8 @@ export default function Reportes() {
   const guardarEdicionLlegada = async (ruta: RutaConBitacora) => {
     if (!horaLlegadaEdit) return;
     
-    // Crear la fecha con la hora editada
-    const fechaBase = ruta.fecha ? new Date(ruta.fecha + 'T12:00:00') : new Date();
-    const [h, m] = horaLlegadaEdit.split(':').map(Number);
-    fechaBase.setHours(h, m, 0, 0);
-    
-    const nuevaHora = fechaBase.toISOString();
+    const fechaStr = ruta.fecha || format(new Date(), 'yyyy-MM-dd');
+    const nuevaHora = `${fechaStr}T${horaLlegadaEdit}:00`;
     
     try {
       // Actualizar hora_llegada_planta en la ruta
