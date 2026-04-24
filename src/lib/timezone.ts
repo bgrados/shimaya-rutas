@@ -29,16 +29,21 @@ export function formatFriendlyDate(fechaStr: string | null | undefined): string 
 export function formatHoraSimple(horaStr: string | null | undefined): string {
   if (!horaStr) return '-';
   try {
-    if (horaStr.includes('T') && horaStr.length <= 16) {
-      // Es ISO sin segundos: "2024-04-24T03:30"
-      return horaStr.split('T')[1]?.substring(0, 5) || horaStr;
-    } else if (horaStr.includes('T')) {
-      const d = new Date(horaStr);
-      if (isNaN(d.getTime())) return horaStr;
-      return format(d, 'HH:mm', { locale: es });
-    } else if (horaStr.includes(':')) {
-      // Es solo hora "03:30" o "03:30:00"
+    // Caso 1: "03:30" o "03:30:00" - solo hora
+    if (!horaStr.includes('T') && horaStr.includes(':')) {
       return horaStr.substring(0, 5);
+    }
+    // Caso 2: "2024-04-24T03:30" - ISO sin segundos
+    if (horaStr.includes('T') && horaStr.length <= 16) {
+      return horaStr.split('T')[1]?.substring(0, 5) || horaStr;
+    }
+    // Caso 3: "2024-04-24T03:30:00.000Z" - ISO completo
+    if (horaStr.includes('T')) {
+      const timePart = horaStr.split('T')[1];
+      if (timePart) {
+        const [h, m] = timePart.split(':');
+        return `${h}:${m}`;
+      }
     }
     return horaStr;
   } catch {
