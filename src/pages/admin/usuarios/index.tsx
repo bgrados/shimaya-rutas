@@ -445,14 +445,14 @@ const getRoleIcon = (rol: string) => {
                                 );
                               })}
                             </div>
-                          ) : (
+                          ) : (user as any).dia_descanso !== undefined && (user as any).dia_descanso !== null && (user as any).dia_descanso !== '' ? (
                             <div className="flex items-center gap-1">
                               <span className="text-blue-300/50 text-[9px] uppercase font-bold">Descanso:</span>
                               <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
                                 {getDiaNumeroALabel((user as any).dia_descanso)}
                               </span>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       )}
                     </td>
