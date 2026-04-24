@@ -435,12 +435,17 @@ const getRoleIcon = (rol: string) => {
                             <div className="flex flex-wrap gap-1">
                               <span className="text-blue-300/50 text-[9px] uppercase font-bold mr-1">Descanso:</span>
                               {(user as any).dias_descanso.map((dia: string) => {
+                                const DIAS_NUM = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
                                 const diasSemanaMap: Record<string, string> = {
                                   lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo'
                                 };
+                                const numKey = parseInt(dia, 10);
+                                const label = !isNaN(numKey) && numKey >= 0 && numKey <= 6 
+                                  ? DIAS_NUM[numKey]
+                                  : diasSemanaMap[dia.toLowerCase()] || dia;
                                 return (
                                   <span key={dia} className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
-                                    {diasSemanaMap[dia] || dia}
+                                    {label}
                                   </span>
                                 );
                               })}
