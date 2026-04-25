@@ -134,11 +134,16 @@ export default function AdminDashboard() {
       const mesStr = format(primerDiaMes, 'yyyy-MM-dd');
 
 
+      let asistenciaQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
+      if (choferSeleccionado) {
+        asistenciaQ = asistenciaQ.eq('id_chofer', choferSeleccionado);
+      }
+
       const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr),
-        supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr),
+        asistenciaQ,
         supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer')
       ]);
       
@@ -161,6 +166,11 @@ export default function AdminDashboard() {
         otrosSemanaQ = otrosSemanaQ.eq('id_chofer', choferSeleccionado);
       }
 
+      let asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
+      if (choferSeleccionado) {
+        asistenciaDelMesQ = asistenciaDelMesQ.eq('id_chofer', choferSeleccionado);
+      }
+
       const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
@@ -169,7 +179,7 @@ export default function AdminDashboard() {
         otrosDiaQ,
         otrosSemanaQ,
         supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
-        supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr),
+        asistenciaDelMesQ,
         supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer')
       ]);
 
