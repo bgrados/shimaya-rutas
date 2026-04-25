@@ -139,12 +139,17 @@ export default function AdminDashboard() {
         asistenciaQ = asistenciaQ.eq('id_chofer', choferSeleccionado);
       }
 
+      let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer');
+      if (choferSeleccionado) {
+        usuariosQ = usuariosQ.eq('id_usuario', choferSeleccionado);
+      }
+
       const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr),
         asistenciaQ,
-        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer')
+        usuariosQ
       ]);
       
       const rutaIdsDelDia = rutasDelDiaRes.data?.map(r => r.id_ruta) || [];
@@ -171,6 +176,11 @@ export default function AdminDashboard() {
         asistenciaDelMesQ = asistenciaDelMesQ.eq('id_chofer', choferSeleccionado);
       }
 
+      let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer');
+      if (choferSeleccionado) {
+        usuariosQ = usuariosQ.eq('id_usuario', choferSeleccionado);
+      }
+
       const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
@@ -180,7 +190,7 @@ export default function AdminDashboard() {
         otrosSemanaQ,
         supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
         asistenciaDelMesQ,
-        supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer')
+        usuariosQ
       ]);
 
       clearTimeout(timeoutId);
