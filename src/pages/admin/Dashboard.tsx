@@ -5,11 +5,12 @@ import { Tooltip } from '../../components/ui/Tooltip';
 import { calcularAsistenciaMensual, getDiaDescansoLabel } from '../../lib/asistencia';
 import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta } from '../../components/ui/Alertas';
 import type { Alerta } from '../../components/ui/Alertas';
-import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route } from 'lucide-react';
+import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatPeru, formatHoraPeru } from '../../lib/timezone';
 import { Link } from 'react-router-dom';
 import type { DashboardStats, Usuario, Ruta } from '../../types';
+import { useMemo } from 'react';
 
 interface Stats {
   rutasActivas: number;
@@ -58,6 +59,9 @@ interface TopChofer {
 
 export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
+  const [choferSeleccionado, setChoferSeleccionado] = useState<string | null>(null);
+  const [listaChoferes, setListaChoferes] = useState<{id_usuario: string; nombre: string}[]>([]);
+  const [mostrarSelectorChofer, setMostrarSelectorChofer] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     rutasActivas: 0,
     rutasPendientes: 0,
@@ -90,8 +94,21 @@ export default function AdminDashboard() {
   const [asistenciaPorChofer, setAsistenciaPorChofer] = useState<{nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[]>([]);
 
   useEffect(() => {
+    loadChoferesList();
     loadDashboardData();
-  }, []);
+  }, [choferSeleccionado]);
+
+  const loadChoferesList = async () => {
+    const { data } = await supabase
+      .from('usuarios')
+      .select('id_usuario, nombre')
+      .eq('rol', 'chofer')
+      .eq('activo', true)
+      .order('nombre');
+    if (data) {
+      setListaChoferes(data);
+    }
+  };
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -168,7 +185,9 @@ export default function AdminDashboard() {
       const numDisponibles = (choferesRes.count || 0) - numDescanso;
       
       const rutas = rutasRes.data || [];
-      const rutasDeHoy = rutas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
+      // APLICAR FILTRO POR CHOFER SI ESTÁ SELECCIONADO
+      const rutasFiltradas = choferSeleccionado ? rutas.filter(r => r.id_chofer === choferSeleccionado) : rutas;
+      const rutasDeHoy = rutasFiltradas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
       const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
       const rutasEnCurso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
       const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
@@ -212,9 +231,9 @@ export default function AdminDashboard() {
       const gastosHoy = cargasCombustibleHoy + cobrosOtrosHoy;
       
       // Calcular peajes automáticos
-      const rutasFinalizadasDeHoy = rutas.filter(r => r.estado === 'finalizada' && (r.fecha || '').split('T')[0] === hoyStr);
-      const rutasFinalizadasDeSemana = rutas.filter(r => r.estado === 'finalizada' && r.fecha >= semanaStr);
-      const rutasFinalizadasDelMes = rutas.filter(r => r.estado === 'finalizada' && r.fecha >= mesStr);
+      const rutasFinalizadasDeHoy = rutasFiltradas.filter(r => r.estado === 'finalizada' && (r.fecha || '').split('T')[0] === hoyStr);
+      const rutasFinalizadasDeSemana = rutasFiltradas.filter(r => r.estado === 'finalizada' && r.fecha >= semanaStr);
+      const rutasFinalizadasDelMes = rutasFiltradas.filter(r => r.estado === 'finalizada' && r.fecha >= mesStr);
       
       // Obtener datos de rutas_base para cada ruta (incluyendo del mes)
       const rutasBaseIds = [...new Set([...rutasFinalizadasDeHoy, ...rutasFinalizadasDeSemana, ...rutasFinalizadasDelMes].map(r => r.id_ruta_base).filter(Boolean))];
@@ -454,15 +473,43 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
         <h1 className="text-2xl font-bold text-white">Panel General</h1>
-        <button 
-          onClick={loadDashboardData}
-          className="text-text-muted hover:text-white text-sm flex items-center gap-1"
-        >
-          <Clock size={14} />
-          Actualizar
-        </button>
+        
+        {/* Filtro por Chofer */}
+        <div className="relative">
+          <button
+            onClick={() => setMostrarSelectorChofer(!mostrarSelectorChofer)}
+            className="ml-4 px-3 py-1.5 bg-surface-light/30 border border-surface-light rounded-lg text-sm text-white flex items-center gap-2 hover:bg-surface-light/50"
+          >
+            {choferSeleccionado 
+              ? listaChoferes.find(c => c.id_usuario === choferSeleccionado)?.nombre || 'Todos los choferes'
+              : 'Todos los choferes'}
+            <ChevronDown size={14} className={`transition-transform ${mostrarSelectorChofer ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {mostrarSelectorChofer && (
+            <div className="absolute top-full mt-1 left-0 w-48 bg-surface border border-surface-light rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+              <button
+                onClick={() => { setChoferSeleccionado(null); setMostrarSelectorChofer(false); }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-surface-light/30 flex items-center justify-between"
+              >
+                <span>Todos los choferes</span>
+                {choferSeleccionado === null && <span className="text-primary">✓</span>}
+              </button>
+              {listaChoferes.map(chofer => (
+                <button
+                  key={chofer.id_usuario}
+                  onClick={() => { setChoferSeleccionado(chofer.id_usuario); setMostrarSelectorChofer(false); }}
+                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-surface-light/30 flex items-center justify-between"
+                >
+                  <span>{chofer.nombre}</span>
+                  {choferSeleccionado === chofer.id_usuario && <span className="text-primary">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Alertas de inconsistencias */}
