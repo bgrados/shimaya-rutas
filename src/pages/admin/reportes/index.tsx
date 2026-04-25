@@ -191,37 +191,18 @@ export default function Reportes() {
     }
   };
 
-  // Funciones para editar hora de salida manualmente
+// Funciones para editar hora de salida manualmente
   const iniciarEdicionSalida = (ruta: RutaConBitacora) => {
     if (ruta.hora_salida_planta) {
-      const fecha = new Date(ruta.hora_salida_planta);
-      setHoraSalidaEdit(`${fecha.getHours().toString().padStart(2, '0')}:${fecha.getMinutes().toString().padStart(2, '0')}`);
+      // Extraer solo HH:mm del timestamp
+      const horaStr = ruta.hora_salida_planta.includes('T') 
+        ? ruta.hora_salida_planta.split('T')[1]?.substring(0, 5) || ruta.hora_salida_planta
+        : ruta.hora_salida_planta.substring(0, 5);
+      setHoraSalidaEdit(horaStr);
     } else {
       setHoraSalidaEdit('');
     }
     setEditandoSalida(ruta.id_ruta);
-  };
-
-  const guardarEdicionSalida = async (ruta: RutaConBitacora) => {
-    if (!horaSalidaEdit) return;
-    
-    const [h, m] = horaSalidaEdit.split(':').map(Number);
-    // Crear timestamp en formato ISO con la fecha de la ruta y hora Perú
-    const fechaStr = ruta.fecha || format(new Date(), 'yyyy-MM-dd');
-    const nuevaHora = `${fechaStr}T${horaSalidaEdit}:00`;
-    
-    try {
-      const { error } = await supabase
-        .from('rutas')
-        .update({ hora_salida_planta: nuevaHora })
-        .eq('id_ruta', ruta.id_ruta);
-      
-      if (error) throw error;
-      loadRutas();
-      setEditandoSalida(null);
-    } catch (err: any) {
-      alert('Error: ' + (err.message || 'No se pudo guardar'));
-    }
   };
 
   // Funciones para editar hora de llegada manualmente
