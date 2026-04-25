@@ -1326,6 +1326,12 @@ const win = window.open('', '_blank');
                             <Edit2 size={14} />
                           </button>
                         )}
+                        {ruta.estado === 'finalizada' && ruta.hora_salida_planta && ruta.horaLlegadaReal && (
+                          <span className="text-xs text-text-muted ml-2">
+                            🕐 {formatHoraLocal(ruta.hora_salida_planta)} → {formatHoraLocal(ruta.horaLlegadaReal)}
+                            {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
+                          </span>
+                        )}
                         <span className={`text-xs font-black uppercase px-2 py-1 rounded-full border ${estadoColor}`}>
                           {ruta.estado?.replace('_', ' ')}
                         </span>
