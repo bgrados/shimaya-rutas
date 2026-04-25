@@ -139,7 +139,7 @@ export default function AdminDashboard() {
         asistenciaQ = asistenciaQ.eq('id_chofer', choferSeleccionado);
       }
 
-      let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer');
+let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer');
       if (choferSeleccionado) {
         usuariosQ = usuariosQ.eq('id_usuario', choferSeleccionado);
       }
@@ -176,17 +176,16 @@ export default function AdminDashboard() {
         otrosSemanaQ = otrosSemanaQ.eq('id_chofer', choferSeleccionado);
       }
 
-      let asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
+let asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
       if (choferSeleccionado) {
         asistenciaDelMesQ = asistenciaDelMesQ.eq('id_chofer', choferSeleccionado);
       }
 
-      let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer');
-      if (choferSeleccionado) {
-        usuariosQ = usuariosQ.eq('id_usuario', choferSeleccionado);
-      }
+      const usuariosQAsistencia = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').order('nombre');
 
-      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes] = await Promise.all([
+      const rutasDelMesQAsistencia = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
+
+      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes, rutasDelMesAsistenciaRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
         combustibleDiaQ,
@@ -195,7 +194,8 @@ export default function AdminDashboard() {
         otrosSemanaQ,
         supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
         asistenciaDelMesQ,
-        usuariosQ
+        usuariosQAsistencia,
+        rutasDelMesQAsistencia
       ]);
 
       clearTimeout(timeoutId);
@@ -415,7 +415,7 @@ export default function AdminDashboard() {
       
       // Calcular asistencia mensual (SIEMPRE, aunque no haya gastos)
       const choferesConInfo = (choferesConInfoRes.data as any[]) || [];
-      const rutasDelMes = (rutasDelMesRes.data as any[]) || [];
+      const rutasDelMes = (rutasDelMesAsistenciaRes.data as any[]) || [];
       const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
       
       let totalTrabajados = 0;
