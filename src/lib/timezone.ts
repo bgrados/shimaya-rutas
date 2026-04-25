@@ -157,3 +157,20 @@ export function formatDuration(start: string | null | undefined, end: string | n
   const m = mins % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
+
+/**
+ * Formatea una hora simple (HH:mm) - NO usa Date parsing
+ */
+export function formatTimeOnly(timeStr: string | null | undefined): string {
+  if (!timeStr) return '-';
+  // Solo extraer HH:mm sin importar el formato
+  if (timeStr.includes('T')) {
+    const parts = timeStr.split('T');
+    const timePart = parts[1]?.substring(0, 5) || '';
+    return timePart || timeStr.substring(0, 5);
+  }
+  if (timeStr.includes(':')) {
+    return timeStr.substring(0, 5);
+  }
+  return timeStr;
+}
