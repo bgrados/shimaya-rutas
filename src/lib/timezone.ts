@@ -174,3 +174,22 @@ export function formatTimeOnly(timeStr: string | null | undefined): string {
   }
   return timeStr;
 }
+
+/**
+ * Convierte timestamp UTC a hora local Perú (HH:mm) - CORRECTO
+ */
+export function formatHoraLocal(isoString: string | null | undefined): string {
+  if (!isoString) return '-';
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return formatTimeOnly(isoString);
+    return new Intl.DateTimeFormat('es-PE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'America/Lima'
+    }).format(date);
+  } catch {
+    return formatTimeOnly(isoString);
+  }
+}
