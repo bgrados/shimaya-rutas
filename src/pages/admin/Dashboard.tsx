@@ -144,10 +144,15 @@ export default function AdminDashboard() {
         usuariosQ = usuariosQ.eq('id_usuario', choferSeleccionado);
       }
 
+      let rutasDelMesQ = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
+      if (choferSeleccionado) {
+        rutasDelMesQ = rutasDelMesQ.eq('id_chofer', choferSeleccionado);
+      }
+
       const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
-        supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr),
+        rutasDelMesQ,
         asistenciaQ,
         usuariosQ
       ]);
