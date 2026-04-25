@@ -144,10 +144,7 @@ let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingr
         usuariosQ = usuariosQ.eq('id_usuario', choferSeleccionado);
       }
 
-      let rutasDelMesQ = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
-      if (choferSeleccionado) {
-        rutasDelMesQ = rutasDelMesQ.eq('id_chofer', choferSeleccionado);
-      }
+      const rutasDelMesQ = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
 
       const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
@@ -176,10 +173,7 @@ let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingr
         otrosSemanaQ = otrosSemanaQ.eq('id_chofer', choferSeleccionado);
       }
 
-let asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
-      if (choferSeleccionado) {
-        asistenciaDelMesQ = asistenciaDelMesQ.eq('id_chofer', choferSeleccionado);
-      }
+const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
 
       const usuariosQAsistencia = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').order('nombre');
 
