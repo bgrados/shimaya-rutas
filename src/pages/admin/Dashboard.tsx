@@ -149,13 +149,25 @@ export default function AdminDashboard() {
       const filterDia = rutaIdsDelDia.length > 0 ? rutaIdsDelDia : emptyFilter;
       const filterSemana = rutaIdsSemana.length > 0 ? rutaIdsSemana : emptyFilter;
 
+      let combustibleDiaQ = supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterDia);
+      let combustibleSemanaQ = supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterSemana);
+      let otrosDiaQ = supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterDia);
+      let otrosSemanaQ = supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana);
+
+      if (choferSeleccionado) {
+        combustibleDiaQ = combustibleDiaQ.eq('id_chofer', choferSeleccionado);
+        combustibleSemanaQ = combustibleSemanaQ.eq('id_chofer', choferSeleccionado);
+        otrosDiaQ = otrosDiaQ.eq('id_chofer', choferSeleccionado);
+        otrosSemanaQ = otrosSemanaQ.eq('id_chofer', choferSeleccionado);
+      }
+
       const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
-        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterDia),
-        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
-        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterDia),
-        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
+        combustibleDiaQ,
+        combustibleSemanaQ,
+        otrosDiaQ,
+        otrosSemanaQ,
         supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
         supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr),
         supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer')
