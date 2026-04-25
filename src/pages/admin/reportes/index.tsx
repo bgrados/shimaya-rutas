@@ -346,22 +346,14 @@ export default function Reportes() {
             new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
           );
           
-          // Buscar la última hora de llegada registrada en bitácora (cualquier destino)
-          let horaLlegadaReal: string | null = null;
-          for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
-            if (bitsOrdenados[i].hora_llegada) {
-              horaLlegadaReal = bitsOrdenados[i].hora_llegada;
-              break;
-            }
-          }
+          // Usar directamente las horas de la ruta (sin buscar en bitácora)
+          const horaSalidaReal = r.hora_salida_planta;
+          const horaLlegadaReal = r.hora_llegada_planta;
           
-          // Si no hay hora en bitácora, usar hora_llegada_planta
-          if (!horaLlegadaReal) {
-            horaLlegadaReal = r.hora_llegada_planta;
-          }
-          
-          // Calcular duración
-          const duracionMins = calcularDuracionMinutos(r.hora_salida_planta, horaLlegadaReal);
+          // Calcular duración solo si ambas horas existen
+          const duracionMins = (horaSalidaReal && horaLlegadaReal) 
+            ? calcularDuracionMinutos(horaSalidaReal, horaLlegadaReal) 
+            : null;
 
           // Calcular distancia GPS total recorrida
           let distanciaGpsKm = 0;
