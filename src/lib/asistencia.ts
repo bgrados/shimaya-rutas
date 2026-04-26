@@ -27,12 +27,21 @@ export function calcularAsistenciaMensual({
   rutasDelMes: Ruta[];
 }): AsistenciaMensualResult {
   const fechaIngreso = chofer?.fecha_ingreso;
+  
+  // Si no tiene fecha_ingreso, usar la fecha más antigua de sus rutas
+  let fechaInicioCalculada: string | null = null;
+  
   if (!fechaIngreso) {
-    return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
+    const rutasDelChofer = (rutasDelMes || []).filter(r => r.id_chofer === chofer.id_usuario);
+    if (rutasDelChofer.length > 0) {
+      rutasDelChofer.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+      fechaInicioCalculada = String(rutasDelChofer[0].fecha).split('T')[0];
+    }
   }
-
-  const inicioStr = String(fechaIngreso).split('T')[0].split(' ')[0];
-  if (!inicioStr || inicioStr === '') {
+  
+  const inicioStr = fechaInicioCalculada || (fechaIngreso ? String(fechaIngreso).split('T')[0].split(' ')[0] : null);
+  
+  if (!inicioStr) {
     return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
   }
 
