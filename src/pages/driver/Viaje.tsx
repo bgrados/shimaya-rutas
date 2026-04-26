@@ -1047,8 +1047,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       .maybeSingle();
       
     const idChoferReal = freshProfile?.id_usuario || profile?.id_usuario;
-    console.log('[VIAJE] freshProfile.id_usuario:', freshProfile?.id_usuario, freshProfile?.nombre, 'vs profile:', profile?.id_usuario, profile?.nombre);
-    console.log('[VIAJE] Profile antes de crear:', freshProfile?.id_usuario || profile?.id_usuario, freshProfile?.nombre || profile?.nombre, 'loading:', loading);
     if (!nuevaPlaca.trim() && !tienePlacaAsignada) {
       setCreateError('Por favor ingresa la placa del vehículo.');
       return;
@@ -1094,7 +1092,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         }
       }
 
-      console.log('[VIAJE] Creando ruta con id_chofer:', idChoferReal, 'nombre chofer:', freshProfile?.nombre || profile?.nombre);
       const { data: newRuta, error: rError } = await supabase
         .from('rutas')
         .insert({

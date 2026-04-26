@@ -50,7 +50,6 @@ export function calcularAsistenciaMensual({
   (rutasDelMes || []).forEach(r => {
     const rutaFecha = String(r.fecha).split('T')[0].split(' ')[0];
     const match = r.id_chofer === chofer.id_usuario && r.fecha;
-    console.log(`[DEBUG ASISTENCIA] Chofer: ${chofer.nombre}, ruta.id_chofer: ${r.id_chofer}, chofer.id_usuario: ${chofer.id_usuario}, match: ${match}, fecha: ${rutaFecha}`);
     if (match) {
       diasConRutas.add(rutaFecha);
     }
