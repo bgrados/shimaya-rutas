@@ -1095,8 +1095,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       }
 
       console.log('[VIAJE] Creando ruta con id_chofer:', idChoferReal, 'nombre chofer:', freshProfile?.nombre || profile?.nombre);
-      const idChoferReal = freshProfile?.id_usuario || profile?.id_usuario;
-      console.log('[VIAJE] profile.id_usuario:', profile?.id_usuario, '-> asignando a ruta');
       const { data: newRuta, error: rError } = await supabase
         .from('rutas')
         .insert({
