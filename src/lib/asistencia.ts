@@ -79,7 +79,7 @@ export function calcularAsistenciaMensual({
 
   const trabajados = diasConRutas.size;
   const programados = totalDias - diasDescanso;
-  const descansos = diasDescanso;
+  const descansos = totalDias <= 1 ? 0 : diasDescanso; // Si solo hay 1 día, no contar descanso
   const faltan = programados - trabajados;
   const porcentaje = programados > 0 ? Math.min(100, Math.round((trabajados / programados) * 100)) : 0;
 
