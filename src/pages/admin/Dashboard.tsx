@@ -139,10 +139,7 @@ export default function AdminDashboard() {
         asistenciaQ = asistenciaQ.eq('id_chofer', choferSeleccionado);
       }
 
-let usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer');
-      if (choferSeleccionado) {
-        usuariosQ = usuariosQ.eq('id_usuario', choferSeleccionado);
-      }
+const usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').order('nombre');
 
       const rutasDelMesQ = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
 
