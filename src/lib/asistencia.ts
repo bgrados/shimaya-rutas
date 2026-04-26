@@ -48,8 +48,11 @@ export function calcularAsistenciaMensual({
 
   const diasConRutas = new Set<string>();
   (rutasDelMes || []).forEach(r => {
-    if (r.id_chofer === chofer.id_usuario && r.fecha) {
-      diasConRutas.add(String(r.fecha).split('T')[0].split(' ')[0]);
+    const rutaFecha = String(r.fecha).split('T')[0].split(' ')[0];
+    const match = r.id_chofer === chofer.id_usuario && r.fecha;
+    console.log(`[DEBUG ASISTENCIA] Chofer: ${chofer.nombre}, ruta.id_chofer: ${r.id_chofer}, chofer.id_usuario: ${chofer.id_usuario}, match: ${match}, fecha: ${rutaFecha}`);
+    if (match) {
+      diasConRutas.add(rutaFecha);
     }
   });
 
