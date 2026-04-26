@@ -104,6 +104,7 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
     setSaving(true);
     try {
       const photoUrl = await uploadPhoto();
+      console.log('[USUARIOS] Guardando fecha_ingreso:', fechaIngreso, 'dia_descanso:', diaDescanso);
       await onSave(user.id_usuario, {
         nombre: nombre.trim(),
         rol,
