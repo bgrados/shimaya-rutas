@@ -184,6 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rol: (profileFound.rol || '').trim().toLowerCase() as Usuario['rol'],
         email: (profileFound.email || '').trim().toLowerCase(),
       }
+      console.log('[Auth] Profile loaded:', p.nombre, 'id:', p.id_usuario, 'email:', p.email);
       setProfile(p)
       localStorage.setItem('user_profile', JSON.stringify(p))
     } else {
