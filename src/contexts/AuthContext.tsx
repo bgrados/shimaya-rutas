@@ -184,7 +184,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rol: (profileFound.rol || '').trim().toLowerCase() as Usuario['rol'],
         email: (profileFound.email || '').trim().toLowerCase(),
       }
-      console.log('[Auth] Profile loaded:', p.nombre, 'id:', p.id_usuario, 'email:', p.email);
       setProfile(p)
       localStorage.setItem('user_profile', JSON.stringify(p))
     } else {
@@ -198,12 +197,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     localStorage.removeItem('user_profile')
     const emailClean = email.toLowerCase().trim()
-    console.log('[Auth] Intentando login con:', emailClean);
     const { error, data } = await supabase.auth.signInWithPassword({ 
       email: emailClean, 
       password 
     })
-    console.log('[Auth] Resultado login:', error ? error.message : 'OK', 'user:', data.user?.email);
     if (error) {
       throw error
     }
