@@ -275,7 +275,9 @@ export default function Usuarios() {
         placa_camion: payload.placa_camion,
         password: payload.password || undefined,
         dias_descanso: payload.dias_descanso || [],
-        foto_url: payload.foto_url || null
+        foto_url: payload.foto_url || null,
+        fecha_ingreso: payload.fecha_ingreso || null,
+        dia_descanso: payload.dia_descanso ?? 0
       })
       .eq('id_usuario', id);
 
