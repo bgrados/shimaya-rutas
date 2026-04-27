@@ -1,4 +1,5 @@
 import type { Usuario, Ruta } from '../types';
+// DEBUG V2 - forzar cache refresh
 import { format } from 'date-fns';
 
 export interface AsistenciaMensualResult {
@@ -14,7 +15,7 @@ export interface AsistenciaMensualResult {
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-export const getDiaDescansoLabel = (dia: number | undefined): string => {
+//DEBUG V2 - forzar cache refresh
   return DIAS_SEMANA[dia ?? 0] || 'Domingo';
 };
 
