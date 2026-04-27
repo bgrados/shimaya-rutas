@@ -33,7 +33,6 @@ export function calcularAsistenciaMensual({
 }): AsistenciaMensualResult {
   const fechaIngreso = chofer?.fecha_ingreso;
   
-  // Si no tiene fecha_ingreso, usar la fecha más antigua de sus rutas
   let fechaInicioCalculada: string | null = null;
   
   if (!fechaIngreso) {
@@ -52,7 +51,6 @@ export function calcularAsistenciaMensual({
     return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
   }
 
-  // Usar fechaFin proporcionada o por defecto "hoy"
   const now = new Date();
   const finStr = fechaFin || now.toISOString().split('T')[0];
   
@@ -63,6 +61,8 @@ export function calcularAsistenciaMensual({
     return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: inicioStr, fin: inicioStr };
   }
 
+  console.log(`>>>> ASISTENCIA START: ${chofer.nombre}, fechaIngreso=${fechaIngreso}, inicio=${inicioStr}, fin=${finStr}, dia_descanso=${chofer.dia_descanso}`);
+  
   const diasConRutas = new Set<string>();
   (rutasDelMes || []).forEach(r => {
     const rutaFecha = String(r.fecha).split('T')[0].split(' ')[0];
@@ -71,17 +71,20 @@ export function calcularAsistenciaMensual({
       diasConRutas.add(rutaFecha);
     }
   });
-
+  
+  console.log(`     RUTAS: ${Array.from(diasConRutas).join(', ')}`);
+  
   let totalDias = 0;
   let diasDescanso = 0;
-  let diasTrabajadosEnDescanso = 0;
-  const diaDescanso = chofer.dia_descanso ?? -1;
+  let trabajadosEnDescanso = 0;
+  let descansosReales = 0;
+  
+  //dia_descanso: -1 = sin descanso, 0=domingo, 1=lunes, 2=martes, etc.
+  const diaDescanso = chofer.dia_descanso != null ? chofer.dia_descanso : -1;
+  
+  console.log(`     diaDescanso (calculado): ${diaDescanso}`);
   
   const iter = new Date(inicioStr + 'T00:00:00');
-  let diasConRutaDebug = 0;
-  let diasSinRutaDebug = 0;
-  const fechasDebug: string[] = [];
-  
   while (iter <= fin) {
     totalDias++;
     const fechaStr = format(iter, 'yyyy-MM-dd');
@@ -90,17 +93,19 @@ export function calcularAsistenciaMensual({
     
     if (esDiaDescanso) {
       if (hayRuta) {
-        diasConRutaDebug++; // Trabajó en su día de descanso
+        trabajadosEnDescanso++;
+        console.log(`     ${fechaStr} [${DIAS_SEMANA[iter.getDay()]}] = TRABAJÓ (descanso)`);
       } else {
-        diasSinRutaDebug++; // No trabajó = descanso real
+        descansosReales++;
         diasDescanso++;
+        console.log(`     ${fechaStr} [${DIAS_SEMANA[iter.getDay()]}] = DESCANSO REAL`);
       }
     }
     
     iter.setDate(iter.getDate() + 1);
   }
   
-  console.log(`[ASISTENCIA] ${chofer.nombre}: dia_descanso=${chofer.dia_descanso}, diasDescanso=${diasDescanso}, trabajadosEnDescanso=${diasConRutaDebug}, descansosReales=${diasSinRutaDebug}`);
+  console.log(`[RESULTADO] ${chofer.nombre}: trabajados=${diasConRutas.size}, diasDescanso=${diasDescanso}, trabajadosEnDescanso=${trabajadosEnDescanso}, descansosReales=${descansosReales}`);
 
   const trabajados = diasConRutas.size;
   const programados = totalDias - diasDescanso;
