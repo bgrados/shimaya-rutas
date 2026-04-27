@@ -433,7 +433,7 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
           trabajados: result.trabajados,
           descansos: result.descansos,
           faltan: result.faltan ?? 0,
-          diaDescanso: chofer.dia_descanso ?? 0
+          diaDescanso: chofer.dia_descanso ?? -1
         });
         
         choferesConDatos++;

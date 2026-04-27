@@ -4,11 +4,12 @@ import { supabase } from '../../lib/supabase';
 import type { Ruta } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car, Wallet, Receipt, Phone, Coffee } from 'lucide-react';
+import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car, Wallet, Receipt, Phone, Coffee, AlertTriangle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatFriendlyDate } from '../../lib/timezone';
 import { ImageModal } from '../../components/ui/ImageModal';
 import { format } from 'date-fns';
+import { getDescansoConfirmado, setDescansoConfirmado } from '../../hooks/useDescansoConfirmado';
 
 interface RutaHistorica {
   id_ruta: string;
@@ -47,7 +48,12 @@ export default function DriverDashboard() {
   // Verificar día de descanso
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const diaHoy = diasSemana[new Date().getDay()];
-  const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
+  const tieneDescansoConfigurado = profile?.dias_descanso && profile.dias_descanso.length > 0;
+  const esDiaDescanso = tieneDescansoConfigurado && profile.dias_descanso.includes(diaHoy);
+  const yaConfirmoDescansoHoy = getDescansoConfirmado();
+  
+  // State para modal de confirmación
+  const [showConfirmDescansoModal, setShowConfirmDescansoModal] = useState(false);
 
   const loadRutas = async () => {
     if (!profile) {
@@ -440,34 +446,32 @@ const loadGastosDelDia = async () => {
                 )}
               </div>
               
-              {/* DÍA DE DESCANSO - Mostrar cuando sea día de descanso */}
-              {esDiaDescanso && (
-                <div className="bg-yellow-500/10 border-2 border-yellow-500/30 rounded-xl p-6 text-center">
-                  <Coffee size={48} className="mx-auto text-yellow-400 mb-3" />
-                  <h3 className="text-xl font-black text-yellow-400 mb-2">🛌 Hoy es tu día de descanso</h3>
-                  <p className="text-text-muted text-sm mb-4">Disfruta tu día libre. No tienes rutas asignadas para hoy.</p>
-                  <a 
-                    href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-lg transition-colors"
+              {/* DÍA DE DESCANSO - ADVERTENCIA (no bloqueo) */}
+              {esDiaDescanso && !yaConfirmoDescansoHoy && (
+                <div className="bg-yellow-500/10 border-2 border-yellow-500/30 rounded-xl p-4 text-center">
+                  <AlertTriangle size={32} className="mx-auto text-yellow-400 mb-2" />
+                  <h3 className="text-lg font-black text-yellow-400 mb-1">⚠️ Hoy es tu día de descanso</h3>
+                  <p className="text-text-muted text-xs mb-3">Puedes trabajar si lo deseas.</p>
+                  <Button 
+                    size="sm"
+                    className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                    onClick={() => setShowConfirmDescansoModal(true)}
                   >
-                    <Phone size={18} />
-                    Contactar Administrador
-                  </a>
+                    Trabajar hoy
+                  </Button>
                 </div>
               )}
               
-              <Link to={esDiaDescanso ? "#" : "/driver/viaje"}>
+              {/* Si ya confirmó, mostrar badge informativo */}
+              {esDiaDescanso && yaConfirmoDescansoHoy && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center">
+                  <p className="text-green-400 text-xs font-bold">✓ Trabajando hoy (día de descanso)</p>
+                </div>
+              )}
+              
+              <Link to="/driver/viaje">
                 <Button 
-                  className={`font-black px-6 ${esDiaDescanso ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-white text-primary hover:bg-white/90'}`}
-                  disabled={esDiaDescanso}
-                  onClick={(e) => {
-                    if (esDiaDescanso) {
-                      e.preventDefault();
-                      return;
-                    }
-                  }}
+                  className="font-black px-6 bg-white text-primary hover:bg-white/90"
                 >
                   IR A MI VIAJE
                 </Button>
@@ -578,6 +582,46 @@ const loadGastosDelDia = async () => {
         <p className="text-text-muted text-[10px] mt-1">Shimaya Rutas S.A.C.</p>
       </div>
     </div>
+
+    {/* Modal de confirmación para trabajar en día de descanso */}
+    {showConfirmDescansoModal && (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-surface border border-yellow-500/30 rounded-2xl p-6 max-w-sm w-full">
+          <div className="text-center">
+            <AlertTriangle size={48} className="mx-auto text-yellow-400 mb-4" />
+            <h2 className="text-xl font-black text-white mb-2">⚠️ Día de Descanso</h2>
+            <p className="text-text-muted mb-4">
+              Hoy es tu día de descanso. ¿Deseas trabajar de todos modos?
+            </p>
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-4 text-left">
+              <p className="text-yellow-400 text-xs font-bold mb-1">📋 Importante:</p>
+              <ul className="text-text-muted text-xs list-disc list-inside space-y-1">
+                <li>Se registrará como "trabajo en descanso"</li>
+                <li>Se incluirá en tu asistencia mensual</li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <Button 
+                variant="ghost" 
+                className="flex-1"
+                onClick={() => setShowConfirmDescansoModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                onClick={() => {
+                  setDescansoConfirmado();
+                  setShowConfirmDescansoModal(false);
+                }}
+              >
+                Sí, trabajar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
 

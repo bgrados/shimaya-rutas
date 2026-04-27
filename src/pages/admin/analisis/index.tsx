@@ -340,13 +340,28 @@ export default function AnalisisRutas() {
         curr.setDate(curr.getDate() + 1);
       }
       
+      // Nota: La función calcAsistencia local fue reemplazada por calcularAsistenciaMensual
+      // para unificar la lógica de asistencia en todos los módulos.
+      // Se mantiene aquí solo para compatibilidad con el cálculo de asistencia manual (opcional).
+      
       return { ...stats, trabajados: stats.trabajo };
     };
 
     return Array.from(choferMap.values())
       .map(c => {
-        const inicioChofer = c.fechaIngreso || fechaInicio;
-        const asist = calcAsistencia(inicioChofer, fechaFin, c.id, c.diasDescanso, c.fechasTrabajadas);
+        // Usar la función centralizada de asistencia para mantener consistencia
+        const choferObj = {
+          id_usuario: c.id,
+          nombre: c.nombre,
+          fecha_ingreso: c.fechaIngreso,
+          dia_descanso: c.diasDescanso?.[0] ? parseInt(c.diasDescanso[0], 10) : undefined
+        };
+        
+        const asist = calcularAsistenciaMensual({
+          chofer: choferObj as any,
+          rutasDelMes: rutas
+        });
+        
         return {
           id: c.id,
           nombre: c.nombre,
@@ -357,13 +372,13 @@ export default function AnalisisRutas() {
           eficienciaPromedio: c.rutasConEff > 0 ? c.eficienciaSuma / c.rutasConEff : 0,
           tieneEficiencia: c.rutasConEff > 0,
           diasTrabajados: asist.trabajados,
-          diasEsperados: asist.esperados,
+          diasEsperados: asist.programados,
           diasDescanso: c.diasDescanso,
           asistenciaStats: {
-            trabajo: asist.trabajo,
-            descanso: asist.descanso,
-            falta: asist.falta,
-            permiso: asist.permiso
+            trabajo: asist.trabajados,
+            descanso: asist.descansos,
+            falta: asist.faltan,
+            permiso: 0
           },
           kmTotal: c.kmTotal
         };
@@ -459,19 +474,18 @@ const comparacionDiaEquivalente = useMemo(() => {
   }, [rutas, fechaFin, choferFilter]);
 
   const comparacionSemanal = useMemo((): DiaStats[] => {
-    // 0: Domingo, 1: Lunes, ...
+    const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
     const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const result: DiaStats[] = [];
     
-    // Mostramos los últimos 7 días terminando en 'hoy' (fechaFin)
     const end = parseISO(fechaFin);
     
     for (let i = 6; i >= 0; i--) {
       const fechaActual = subDays(end, i);
       const fechaAnterior = subDays(fechaActual, 7);
       
-      const rutasActual = rutas.filter(r => r.fecha === format(fechaActual, 'yyyy-MM-dd'));
-      const rutasAnterior = rutas.filter(r => r.fecha === format(fechaAnterior, 'yyyy-MM-dd'));
+      const rutasActual = rutas.filter(r => filtrarChofer(r) && r.fecha === format(fechaActual, 'yyyy-MM-dd'));
+      const rutasAnterior = rutas.filter(r => filtrarChofer(r) && r.fecha === format(fechaAnterior, 'yyyy-MM-dd'));
       
       const tiempoActual = rutasActual.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
       const tiempoAnterior = rutasAnterior.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60;
@@ -496,9 +510,10 @@ const comparacionDiaEquivalente = useMemo(() => {
       } as any);
     }
     return result;
-  }, [rutas, fechaFin]);
+  }, [rutas, fechaFin, choferFilter]);
 
   const eficienciaDiaria = useMemo(() => {
+    const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
     const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const result: {
       dia: string; fecha: string;
@@ -511,7 +526,7 @@ const comparacionDiaEquivalente = useMemo(() => {
     for (let i = 13; i >= 0; i--) {
       const fecha = subDays(new Date(), i);
       const fechaStr = format(fecha, 'yyyy-MM-dd');
-      const rutasDia = rutas.filter(r => r.fecha === fechaStr);
+      const rutasDia = rutas.filter(r => filtrarChofer(r) && r.fecha === fechaStr);
       
       if (rutasDia.length > 0) {
         const diaSemana = fecha.getDay();
@@ -533,7 +548,7 @@ const comparacionDiaEquivalente = useMemo(() => {
       }
     }
     return result;
-  }, [rutas, mejorTiempoPorDia]);
+  }, [rutas, mejorTiempoPorDia, choferFilter]);
 
   useEffect(() => {
     generateInsights();

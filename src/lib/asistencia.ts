@@ -1,4 +1,5 @@
 import type { Usuario, Ruta } from '../types';
+import { format } from 'date-fns';
 
 export interface AsistenciaMensualResult {
   porcentaje: number;
@@ -66,22 +67,38 @@ export function calcularAsistenciaMensual({
 
   let totalDias = 0;
   let diasDescanso = 0;
-  const diaDescanso = chofer.dia_descanso ?? 0;
+  let diasTrabajadosEnDescanso = 0;
+  // Si dia_descanso es undefined o null, no hay día de descanso configurado
+  const diaDescanso = chofer.dia_descanso ?? -1; // -1 indica "sin descanso"
 
   const iter = new Date(inicioStr + 'T00:00:00');
   while (iter <= fin) {
     totalDias++;
-    if (iter.getDay() === diaDescanso) {
+    const fechaStr = format(iter, 'yyyy-MM-dd');
+    // Solo es día de descanso si está configurado (diaDescanso >= 0)
+    const esDiaDescanso = diaDescanso >= 0 && iter.getDay() === diaDescanso;
+    
+    // Si hay rutas registradas ese día, contar como trabajado
+    // (prioriza actividad real sobre día de descanso)
+    if (diasConRutas.has(fechaStr)) {
+      if (esDiaDescanso) {
+        diasTrabajadosEnDescanso++; // Trabajó en su día de descanso
+      }
+      // Ya contabilizado en trabajados (diasConRutas.size)
+    } else if (esDiaDescanso) {
+      // No trabajó y es día de descanso
       diasDescanso++;
     }
+    
     iter.setDate(iter.getDate() + 1);
   }
 
   const trabajados = diasConRutas.size;
+  // Días programados = total días - días de descanso (donde no trabajó)
   const programados = totalDias - diasDescanso;
-  const descansos = trabajados <= 1 ? 0 : diasDescanso; // Si solo hay 1 día, no contar descanso
-  console.log('[ASISTENCIA] chofer:', chofer.nombre, 'totalDias:', totalDias, 'diasDescanso:', diasDescanso, 'trabajados:', trabajados, 'inicioStr:', inicioStr, 'hoyStr:', hoyStr);
-  const faltan = programados - trabajados;
+  // Descansos reales = días de descanso donde no trabajó
+  const descansos = diasDescanso;
+  const faltan = Math.max(0, programados - trabajados);
   const porcentaje = programados > 0 ? Math.min(100, Math.round((trabajados / programados) * 100)) : 0;
 
   return {

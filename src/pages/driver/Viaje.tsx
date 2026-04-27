@@ -16,7 +16,8 @@ import { RutaSelector } from './viaje/components/RutaSelector';
 import { BitacoraList } from './viaje/components/BitacoraList';
 import { LocalList } from './viaje/components/LocalList';
 import { formatPeru, nowPeru } from '../../lib/timezone';
-import { RefreshCw, MapPinOff, Wifi, WifiOff, Coffee, Phone } from 'lucide-react';
+import { getDescansoConfirmado, setDescansoConfirmado } from '../../hooks/useDescansoConfirmado';
+import { RefreshCw, MapPinOff, Wifi, WifiOff, Coffee, Phone, AlertTriangle } from 'lucide-react';
 import { 
   MapPin, 
   CheckCircle2, 
@@ -115,11 +116,17 @@ export default function DriverViaje() {
   const [gpsDebugLogs, setGpsDebugLogs] = useState<string[]>([]);
   const watchIdRef = useRef<number | null>(null);
   
-  // Verificar día de descanso al inicio
+  // Verificar día de descanso
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const diaHoy = diasSemana[new Date().getDay()];
-  const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
-  const [diaDescansoBloqueado, setDiaDescansoBloqueado] = useState(false);
+  const tieneDescansoConfigurado = profile?.dias_descanso && profile.dias_descanso.length > 0;
+  const esDiaDescanso = tieneDescansoConfigurado && profile.dias_descanso.includes(diaHoy);
+  const yaConfirmoDescansoHoy = getDescansoConfirmado();
+  const puedeTrabajarEnDescanso = !esDiaDescanso || yaConfirmoDescansoHoy;
+
+  // State para modal de confirmación de trabajo en descanso
+  const [showConfirmDescansoModal, setShowConfirmDescansoModal] = useState(false);
+  const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
   // Constantes de configuración GPS - Sistema robusto MEJORADO v2
   const RADIO_BASE = 150; // Radio base de detección (aumentado de 100)
@@ -616,11 +623,10 @@ export default function DriverViaje() {
     agregarLogDebug('🛑 GPS detenido');
   };
 
-// useEffect para verificar día de descanso al montar
+// useEffect para mostrar advertencia de día de descanso (no bloqueo)
   useEffect(() => {
-    if (esDiaDescanso) {
-      setDiaDescansoBloqueado(true);
-      showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'warning');
+    if (esDiaDescanso && !yaConfirmoDescansoHoy) {
+      showToast('⚠️ Hoy es tu día de descanso. Puedes trabajar si lo deseas.', 'warning');
     }
   }, []);
 
@@ -1033,12 +1039,22 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   }, [ruta?.id_ruta, ruta?.estado]);
 
   const handleCreateViaje = async () => {
-    if (esDiaDescanso) {
-      showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'error');
+    if (esDiaDescanso && !yaConfirmoDescansoHoy) {
+      const confirmar = () => {
+        setDescansoConfirmado();
+        setShowConfirmDescansoModal(false);
+        proceedCreateViaje();
+      };
+      setAccionPendiente(() => confirmar);
+      setShowConfirmDescansoModal(true);
       return;
     }
     if (!selectedRutaBase || !profile) return;
+    
+    await proceedCreateViaje();
+  };
 
+  const proceedCreateViaje = async () => {
     // FORZAR REFRESCAR PERFIL DESDE BASE DE DATOS
     const { data: freshProfile } = await supabase
       .from('usuarios')
@@ -1162,10 +1178,18 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   const [searchTermGuias, setSearchTermGuias] = useState('');
 
   const handleRegistrarSalida = async () => {
-    if (esDiaDescanso) {
-      showToast('Hoy es tu día de descanso.', 'error');
+    if (esDiaDescanso && !yaConfirmoDescansoHoy) {
+      const confirmar = () => {
+        setDescansoConfirmado();
+        setShowConfirmDescansoModal(false);
+        proceedRegistrarSalida();
+      };
+      setAccionPendiente(() => confirmar);
+      setShowConfirmDescansoModal(true);
       return;
     }
+    await proceedRegistrarSalida();
+  };
     if (!ruta || !nuevoDestino || actionLoading) return;
     if (esHistorial) {
       alert('No puedes modificar un viaje histórico');
@@ -1229,19 +1253,27 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   };
 
   const handleRegistrarLlegada = async (idBitacora: string, modoManual = false) => {
-    if (esDiaDescanso) {
-      showToast('Hoy es tu día de descanso.', 'error');
+    if (esDiaDescanso && !yaConfirmoDescansoHoy) {
+      const confirmar = () => {
+        setDescansoConfirmado();
+        setShowConfirmDescansoModal(false);
+        proceedRegistrarLlegada(idBitacora, modoManual);
+      };
+      setAccionPendiente(() => confirmar);
+      setShowConfirmDescansoModal(true);
       return;
     }
-    if (actionLoading) return; 
+    await proceedRegistrarLlegada(idBitacora, modoManual);
+  };
+
+  const proceedRegistrarLlegada = async (idBitacora: string, modoManual: boolean) => {
+    if (actionLoading) return;
     if (esHistorial) {
       alert('No puedes modificar un viaje histórico');
       return;
     }
     
-    setActionLoading(true);
-    try {
-      let lat = null, lng = null;
+    let lat = null, lng = null;
       let tipoRegistro = 'automatico';
       
       if (modoManual) {
@@ -1332,9 +1364,18 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   // Función para registrar salida automáticamente
   const handleRegistrarSalidaAutomatica = async (idBitacora: string) => {
-    if (esDiaDescanso) return;
-    if (actionLoading) return;
-    if (esHistorial) return;
+    if (esDiaDescanso && !yaConfirmoDescansoHoy) {
+      const confirmar = () => {
+        setDescansoConfirmado();
+        setShowConfirmDescansoModal(false);
+        handleRegistrarSalidaAutomatica(idBitacora);
+      };
+      setAccionPendiente(() => confirmar);
+      setShowConfirmDescansoModal(true);
+      return;
+    }
+    
+    if (actionLoading || esHistorial) return;
     
     setActionLoading(true);
     let lat = null, lng = null;
@@ -1460,37 +1501,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   let proximoOrigen = 'Planta';
   if (bitacora.length > 0) {
     proximoOrigen = bitacora[bitacora.length - 1].destino_nombre || 'Planta';
-  }
-
-  // Pantalla de bloqueo por día de descanso
-  if (diaDescansoBloqueado) {
-    return (
-      <div className="p-4 space-y-6 max-w-lg mx-auto pb-24 min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Coffee size={64} className="mx-auto text-yellow-400 mb-4" />
-          <h1 className="text-2xl font-black text-yellow-400 mb-2">🛌 Día de Descanso</h1>
-          <p className="text-text-muted mb-6">Hoy es tu día de descanso. No puedes iniciar rutas.</p>
-          <a 
-            href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg"
-          >
-            <Phone size={20} />
-            Contactar Administrador
-          </a>
-          <div className="mt-8">
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/driver')}
-              className="text-text-muted"
-            >
-              ← Volver al inicio
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -2544,5 +2554,49 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       )}
     </div>
+
+    {/* Modal de confirmación para trabajar en día de descanso */}
+    {showConfirmDescansoModal && (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-surface border border-yellow-500/30 rounded-2xl p-6 max-w-sm w-full">
+          <div className="text-center">
+            <AlertTriangle size={48} className="mx-auto text-yellow-400 mb-4" />
+            <h2 className="text-xl font-black text-white mb-2">⚠️ Día de Descanso</h2>
+            <p className="text-text-muted mb-4">
+              Hoy es tu día de descanso. ¿Deseas trabajar de todos modos?
+            </p>
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-4 text-left">
+              <p className="text-yellow-400 text-xs font-bold mb-1">📋 Importante:</p>
+              <ul className="text-text-muted text-xs list-disc list-inside space-y-1">
+                <li>Se registrará como "trabajo en descanso"</li>
+                <li>Se incluirá en tu asistencia mensual</li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <Button 
+                variant="ghost" 
+                className="flex-1"
+                onClick={() => {
+                  setShowConfirmDescansoModal(false);
+                  setAccionPendiente(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                onClick={() => {
+                  if (accionPendiente) {
+                    accionPendiente();
+                  }
+                }}
+              >
+                Sí, trabajar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
