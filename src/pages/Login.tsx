@@ -61,6 +61,51 @@ export default function Login() {
     }
   };
 
+  if (user && profile && !loading && showRoleSelect) {
+    return (
+      <div className="w-full max-w-md bg-surface p-10 rounded-2xl shadow-2xl border border-primary/50 text-center animate-in zoom-in-95 duration-500">
+        <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <UserCog className="text-primary" size={48} />
+        </div>
+        <h2 className="text-2xl font-black text-white mb-2 uppercase italic">Seleccionar Acceso</h2>
+        <p className="text-text-muted mb-2">Hola, <span className="text-white font-bold">{profile.nombre}</span></p>
+        <p className="text-text-muted text-sm mb-8">¿Cómo deseas ingresar hoy?</p>
+        
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => handleSelectRole('admin')}
+            className="w-full p-4 bg-primary/20 border border-primary/30 rounded-xl hover:bg-primary/30 hover:border-primary/50 transition-all group flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <Shield className="text-primary" size={24} />
+              <div className="text-left">
+                <p className="text-white font-bold text-left">Administrador</p>
+                <p className="text-text-muted text-xs text-left">Panel de gestión y análisis</p>
+              </div>
+            </div>
+            <MoveRight className="text-primary group-hover:translate-x-1 transition-transform" size={20} />
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => handleSelectRole('driver')}
+            className="w-full p-4 bg-surface-light/30 border border-surface-light rounded-xl hover:bg-surface-light/50 hover:border-surface-light transition-all group flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <TruckIcon className="text-text-muted" size={24} />
+              <div className="text-left">
+                <p className="text-white font-bold text-left">Conductor</p>
+                <p className="text-text-muted text-xs text-left">Mis rutas y seguimiento</p>
+              </div>
+            </div>
+            <MoveRight className="text-text-muted group-hover:translate-x-1 transition-transform" size={20} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (user && profile && !loading) {
     return (
       <div className="w-full max-w-md bg-surface p-10 rounded-2xl shadow-2xl border border-primary/50 text-center animate-in zoom-in-95 duration-500">
