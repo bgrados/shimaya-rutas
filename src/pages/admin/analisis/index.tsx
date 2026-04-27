@@ -358,6 +358,7 @@ export default function AnalisisRutas() {
         };
         
         // Usar el rango de fechas del filtro del módulo de análisis
+        console.log(`[ANALISIS] ${c.nombre}: fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}, dia_descanso=${choferObj.dia_descanso}`);
         const asist = calcularAsistenciaMensual({
           chofer: choferObj as any,
           rutasDelMes: rutas,
