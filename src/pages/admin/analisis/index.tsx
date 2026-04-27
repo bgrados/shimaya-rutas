@@ -351,9 +351,11 @@ export default function AnalisisRutas() {
       .map(c => {
         // Mapear nombre de día a número
         const diasMap: Record<string, number> = { 'domingo': 0, 'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6 };
-        const diaDescansoNum = c.diasDescanso?.[0] ? diasMap[c.diasDescanso[0].toLowerCase()] : undefined;
+        const primerDia = c.diasDescanso?.[0]?.toLowerCase() || '';
+        const diaDescansoNum = diasMap[primerDia];
         
-        // Usar la función centralizada de asistencia para mantener consistencia
+        console.log(`[ANALISIS] ${c.nombre}: diasDescanso=${JSON.stringify(c.diasDescanso)}, primerDia="${primerDia}", diaDescansoNum=${diaDescansoNum}, fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}`);
+        
         const choferObj = {
           id_usuario: c.id,
           nombre: c.nombre,
@@ -361,10 +363,6 @@ export default function AnalisisRutas() {
           dia_descanso: diaDescansoNum
         };
         
-        // Debug: ver qué tiene diasDescanso
-        console.log(`[ANALISIS] ${c.nombre}: diasDescanso=${JSON.stringify(c.diasDescanso)}, diaDescansoNum=${diaDescansoNum}, fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}`);
-        
-        console.log(`[ANALISIS] ${c.nombre}: fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}, dia_descanso=${diaDescansoNum}`);
         const asist = calcularAsistenciaMensual({
           chofer: choferObj as any,
           rutasDelMes: rutas,
