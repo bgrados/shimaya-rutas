@@ -37,9 +37,12 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   const diasConRuta = new Set<string>();
   (rutas || []).forEach(r => {
     if (r.id_chofer === chofer.id_usuario && r.fecha) {
-      diasConRuta.add(String(r.fecha).split('T')[0]);
+      const f = String(r.fecha).split('T')[0];
+      diasConRuta.add(f);
     }
   });
+  
+  console.log(`     RUTAS CONTADAS: ${diasConRuta.size}, FECHAS: ${Array.from(diasConRuta).join(', ')}`);
   
   let total = 0, descan = 0, trabajEnDes = 0, realDes = 0;
   
