@@ -74,21 +74,17 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     it.setDate(it.getDate() + 1);
   }
   
-  const trabajados = diasConRuta.size;
+const trabajados = diasConRuta.size;
   const descansos = diasDescansoReal;
   
-  // Días trabajados en laborables (sin contar los días de descanso trabajados)
-  const diasTrabajadosEnLaborables = Array.from(diasConRuta).filter(f => {
-    const d = new Date(f + 'T00:00:00');
-    return diaDesc < 0 || d.getDay() !== diaDesc;
-  }).length;
-  
-  const programados = diasLaborables;
-  const faltantes = Math.max(0, programados - diasTrabajadosEnLaborables);
-  const pct = programados > 0 ? Math.round((diasTrabajadosEnLaborables / programados) * 100) : 0;
+  // Días programados = total días - días de descanso reales (sin ruta)
+  // Si trabajó su descanso, ese día cuenta como trabajado
+  const programados = totalDias - diasDescansoReal;
+  const faltantes = Math.max(0, programados - trabajados);
+  const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
   console.log(`[ASISTENCIA] ${chofer.nombre}: inicio=${inicio}, fin=${fechaFin}, diaDesc=${diaDesc}`);
-  console.log(`     totalDias=${totalDias}, diasDescanso=${diasDescansoReal}, programados=${programados}, trabajados=${trabajados}, trabajadosEnLaborables=${diasTrabajadosEnLaborables}, faltantes=${faltantes}`);
+  console.log(`     totalDias=${totalDias}, diasDescanso=${diasDescansoReal}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
   console.log(`     FECHAS RUTAS: ${Array.from(diasConRuta).sort().join(', ')}`);
   
   return {
