@@ -112,7 +112,7 @@ export function calcularAsistenciaMensual({
   const porcentaje = programados > 0 ? Math.min(100, Math.round((trabajados / programados) * 100)) : 0;
   
   // Debug
-  console.log(`[ASISTENCIA] chofer: ${chofer.nombre}, dia_descanso: ${diaDescanso}, inicio: ${inicioStr}, fin: ${finStr}, totalDias: ${totalDias}, diasDescanso: ${diasDescanso}, trabajados: ${trabajados}, programados: ${programados}, faltan: ${faltan}`);
+  console.log(`[ASISTENCIA] chofer: ${chofer.nombre}, diaDescansoConfig: ${diaDescanso}, diaSemanaDescanso: ${diaDescanso >= 0 ? ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][diaDescanso] : 'N/A'}, inicio: ${inicioStr}, fin: ${finStr}, totalDias: ${totalDias}, diasDescansoReales: ${diasDescanso}, trabajados: ${trabajados}, programados: ${programados}, faltan: ${faltan}`);
 
   return {
     porcentaje,
