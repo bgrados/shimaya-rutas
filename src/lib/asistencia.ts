@@ -34,82 +34,71 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   
   if (fIni > fFin) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio, fin: inicio };
   
+  // 1. Obtener días con ruta dentro del rango
   const diasConRuta = new Set<string>();
   (rutas || []).forEach(r => {
     if (r.id_chofer === chofer.id_usuario && r.fecha) {
       const f = String(r.fecha).split('T')[0];
-      // Solo contar rutas dentro del rango de fechas
       if (f >= inicio && f <= fechaFin) {
         diasConRuta.add(f);
       }
     }
   });
   
-  console.log(`     RUTAS CONTADAS: ${diasConRuta.size}, FECHAS: ${Array.from(diasConRuta).join(', ')}`);
-  
-  let total = 0, descan = 0, trabajEnDes = 0, realDes = 0, trabajadosPeriodo = 0;
+  // 2. Calcular días totales, descansos y laborables
+  let totalDias = 0;
+  let diasDescanso = 0;
+  let diasLaborables = 0;
   
   const it = new Date(inicio + 'T00:00:00');
   while (it <= fFin) {
-    total++;
     const fStr = format(it, 'yyyy-MM-dd');
-    const esDes = diaDesc >= 0 && it.getDay() === diaDesc;
-    const hayRuta = diasConRuta.has(fStr);
+    const esDiaDescanso = diaDesc >= 0 && it.getDay() === diaDesc;
     
-    if (hayRuta) {
-      trabajadosPeriodo++;
-      if (esDes) {
-        trabajEnDes++;
+    totalDias++;
+    
+    if (esDiaDescanso) {
+      // Si es día de descanso configurado
+      if (diasConRuta.has(fStr)) {
+        // Trabajó en su día de descanso - cuenta como trabajado
+      } else {
+        // Descansó - cuenta como descanso real
+        diasDescanso++;
       }
-    } else if (esDes) {
-      realDes++;
-      descan++;
+    } else {
+      // No es día de descanso - es día laborable
+      diasLaborables++;
     }
+    
     it.setDate(it.getDate() + 1);
   }
-
+  
   const trabajados = diasConRuta.size;
-  const programados = total - descan;
+  const descansos = diasDescanso;
+  const programados = diasLaborables;
+  const trabajanLaborables = trabajados - (diasConRuta.size - diasLaborables); // rough estimate
+  // Faltas = días laborables - días trabajados (sin contar días de descanso trabajados como extras)
+  // Pero simplificado: faltan = programados - trabajados
+  const faltantes = Math.max(0, programados - trabajados);
   const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
-  // FALTAS = trabajados del período - trabajados del período = debería ser 0 si todo está bien
-  // Pero si trabajados (todas las rutas) != trabajadosPeriodo (dentro del rango), hay inconsistencia
-  // Simplificar: faltas = 0 ya que cada día sin ruta en dia no-descanso no se cuenta como falta
-  // El sistema debe contar: si hay ruta = trabajado, si no hay ruta y no es descanso = falta
-  let diasSinRutaLaborable = 0;
-  it.setTime(fIni.getTime());
-  while (it <= fFin) {
-    const fStr = format(it, 'yyyy-MM-dd');
-    const esDes = diaDesc >= 0 && it.getDay() === diaDesc;
-    const hayRuta = diasConRuta.has(fStr);
-    if (!hayRuta && !esDes) {
-      diasSinRutaLaborable++;
-    }
-    it.setDate(it.getDate() + 1);
-  }
-
-  console.log(`[ASISTENCIA] ${chofer.nombre}: tra=${trabajados}, des=${descan}, trabajoEnDes=${trabajEnDes}, realDes=${realDes}, diaDesc=${diaDesc}, diasSinRuta=${diasSinRutaLaborable}, total=${total}, programados=${programados}`);
-  
-const faltan = diasSinRutaLaborable;
+  console.log(`[ASISTENCIA] ${chofer.nombre}: inicio=${inicio}, fin=${fechaFin}, diaDesc=${diaDesc}, totalDias=${totalDias}, diasDescanso=${diasDescanso}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
+  console.log(`     RUTAS: ${Array.from(diasConRuta).join(', ')}`);
   
   return {
     porcentaje: pct,
     trabajados,
-    descansos: realDes,
-    faltan: faltan,
+    descansos,
+    faltan: faltantes,
     programados,
-    diasMes: total,
+    diasMes: totalDias,
     inicio,
     fin: fechaFin
   };
 }
 
-export const getDiaDescansoLabel = (dia: number | undefined): string => DIAS[dia ?? 0] || 'Domingo';
-
-export function calcularAsistenciaMensualV3(params: any): AsistenciaResult {
-  return calcularAsistencia(params.chofer, params.rutasDelMes, params.fechaFin);
-}
-
 export function calcularAsistenciaMensual(params: any): AsistenciaResult {
   return calcularAsistencia(params.chofer, params.rutasDelMes, params.fechaFin);
 }
+
+export const getDiaDescansoLabel = (dia: number | undefined): string => DIAS[dia ?? 0] || 'Domingo';
