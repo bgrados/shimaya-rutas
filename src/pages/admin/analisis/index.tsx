@@ -360,10 +360,12 @@ export default function AnalisisRutas() {
         
         console.log(`[ANALISIS] ${c.nombre}: diasDescanso=${JSON.stringify(c.diasDescanso)}, primerDia="${primerDia}", diaDescansoNum=${diaDescansoNum}, fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}`);
         
+        const fechaInicioChofer = c.fechaIngreso || fechaInicio;
+        
         const choferObj = {
           id_usuario: c.id,
           nombre: c.nombre,
-          fecha_ingreso: c.fechaIngreso,
+          fecha_ingreso: fechaInicioChofer,
           dia_descanso: diaDescansoNum
         };
         
@@ -687,11 +689,12 @@ const comparacionDiaEquivalente = useMemo(() => {
       });
       setMejorTiempoPorDia(mejoresValidados);
 
-      // 2. Fetch rutas in the selected range
+      // 2. Fetch rutas in the selected range (desde inicio del mes para asistencia)
+      const inicioMes = format(new Date(), 'yyyy-MM-01');
       const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
-        .gte('fecha', fechaInicio)
+        .gte('fecha', inicioMes)
         .lte('fecha', fechaFin)
         .order('fecha', { ascending: false });
 
@@ -701,7 +704,7 @@ const comparacionDiaEquivalente = useMemo(() => {
       const { data: fData } = await supabase
         .from('asistencia_chofer')
         .select('*, usuarios(nombre)')
-        .gte('fecha', fechaInicio)
+        .gte('fecha', inicioMes)
         .lte('fecha', fechaFin);
       
       if (fData) {
