@@ -77,28 +77,30 @@ export function calcularAsistenciaMensual({
   let diasTrabajadosEnDescanso = 0;
   const diaDescanso = chofer.dia_descanso ?? -1;
   
-  console.log(`[ASISTENCIA] ${chofer.nombre}: dia_descanso=${chofer.dia_descanso}, diasDescanso=${diasDescanso}`);
-
   const iter = new Date(inicioStr + 'T00:00:00');
+  let diasConRutaDebug = 0;
+  let diasSinRutaDebug = 0;
+  const fechasDebug: string[] = [];
+  
   while (iter <= fin) {
     totalDias++;
     const fechaStr = format(iter, 'yyyy-MM-dd');
-    // Solo es día de descanso si está configurado (diaDescanso >= 0)
     const esDiaDescanso = diaDescanso >= 0 && iter.getDay() === diaDescanso;
     const hayRuta = diasConRutas.has(fechaStr);
     
-    // Si hay rutas registradas ese día, contar como trabajo
-    // Si NO hay rutas Y es día de descanso → descanso (real)
-    if (hayRuta) {
-      if (esDiaDescanso) {
-        diasTrabajadosEnDescanso++;
+    if (esDiaDescanso) {
+      if (hayRuta) {
+        diasConRutaDebug++; // Trabajó en su día de descanso
+      } else {
+        diasSinRutaDebug++; // No trabajó = descanso real
+        diasDescanso++;
       }
-    } else if (esDiaDescanso) {
-      diasDescanso++;
     }
     
     iter.setDate(iter.getDate() + 1);
   }
+  
+  console.log(`[ASISTENCIA] ${chofer.nombre}: dia_descanso=${chofer.dia_descanso}, diasDescanso=${diasDescanso}, trabajadosEnDescanso=${diasConRutaDebug}, descansosReales=${diasSinRutaDebug}`);
 
   const trabajados = diasConRutas.size;
   const programados = totalDias - diasDescanso;
