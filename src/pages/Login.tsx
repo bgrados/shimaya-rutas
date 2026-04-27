@@ -32,6 +32,7 @@ export default function Login() {
             window.location.href = '/admin';
           } else {
             window.location.href = '/driver';
+      return;
           }
         }, 1500);
         return () => clearTimeout(timer);
@@ -44,6 +45,7 @@ export default function Login() {
       window.location.href = '/admin';
     } else {
       window.location.href = '/driver';
+      return;
     }
   };
 

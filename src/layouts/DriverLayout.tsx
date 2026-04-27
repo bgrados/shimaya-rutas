@@ -36,7 +36,8 @@ export const DriverLayout: React.FC = () => {
     );
   }
 
-  const rolesPermitidos = ['chofer', 'descansero', 'asistente'];
+  const isAdminDual = user?.email?.toLowerCase()?.includes('manuelm');
+  const rolesPermitidos = isAdminDual ? ['chofer', 'descansero', 'asistente', 'administrador'] : ['chofer', 'descansero', 'asistente'];
   const puedeAccederDriver = user && profile && rolesPermitidos.includes(profile.rol);
   
   if (!puedeAccederDriver) {
