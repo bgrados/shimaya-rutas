@@ -1,7 +1,7 @@
 import type { Usuario, Ruta } from '../types';
 import { format } from 'date-fns';
 
-export interface AsistenciaMensualResult {
+export interface AsistenciaResult {
   porcentaje: number;
   trabajados: number;
   descansos: number;
@@ -12,111 +12,79 @@ export interface AsistenciaMensualResult {
   fin: string;
 }
 
-const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-export const getDiaDescansoLabel = (dia: number | undefined): string => {
-  return DIAS_SEMANA[dia ?? 0] || 'Domingo';
-};
-
-export function calcularAsistenciaMensualV3({
-  chofer,
-  rutasDelMes,
-  fechaInicio,
-  fechaFin,
-}: {
-  chofer: Usuario;
-  year?: number;
-  month?: number;
-  rutasDelMes: Ruta[];
-  fechaInicio?: string;
-  fechaFin?: string;
-}): AsistenciaMensualResult {
-  const fechaIngreso = chofer?.fecha_ingreso;
+export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string): AsistenciaResult {
+  const ingreso = chofer?.fecha_ingreso;
+  const diaDesc = chofer.dia_descanso ?? -1;
   
-  let fechaInicioCalculada: string | null = null;
-  
-  if (!fechaIngreso) {
-    const rutasDelChofer = (rutasDelMes || []).filter(r => r.id_chofer === chofer.id_usuario);
-    if (rutasDelChofer.length > 0) {
-      rutasDelChofer.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-      fechaInicioCalculada = String(rutasDelChofer[0].fecha).split('T')[0];
+  let inicio = ingreso ? String(ingreso).split('T')[0] : null;
+  if (!inicio) {
+    const misRutas = (rutas || []).filter(r => r.id_chofer === chofer.id_usuario);
+    if (misRutas.length > 0) {
+      inicio = String(misRutas[0].fecha).split('T')[0];
     }
   }
   
-  const inicioStr = fechaInicio 
-    || fechaInicioCalculada 
-    || (fechaIngreso ? String(fechaIngreso).split('T')[0].split(' ')[0] : null);
+  if (!inicio) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
   
-  if (!inicioStr) {
-    return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
-  }
-
-  const now = new Date();
-  const finStr = fechaFin || now.toISOString().split('T')[0];
+  const fechaFin = fin || new Date().toISOString().split('T')[0];
+  const fIni = new Date(inicio + 'T00:00:00');
+  const fFin = new Date(fechaFin + 'T00:00:00');
   
-  const inicio = new Date(inicioStr + 'T00:00:00');
-  const fin = new Date(finStr + 'T00:00:00');
-
-  if (inicio > fin) {
-    return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: inicioStr, fin: inicioStr };
-  }
-
-  console.log(`>>>> ASISTENCIA: ${chofer.nombre}, fi=${fechaIngreso}, inicio=${inicioStr}, fin=${finStr}, dia_descanso=${chofer.dia_descanso}`);
+  if (fIni > fFin) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio, fin: inicio };
   
-  const diasConRutas = new Set<string>();
-  (rutasDelMes || []).forEach(r => {
-    const rutaFecha = String(r.fecha).split('T')[0].split(' ')[0];
-    const match = r.id_chofer === chofer.id_usuario && r.fecha;
-    if (match) {
-      diasConRutas.add(rutaFecha);
+  const diasConRuta = new Set<string>();
+  (rutas || []).forEach(r => {
+    if (r.id_chofer === chofer.id_usuario && r.fecha) {
+      diasConRuta.add(String(r.fecha).split('T')[0]);
     }
   });
   
-  console.log(`     RUTAS: ${Array.from(diasConRutas).join(', ')}`);
+  let total = 0, descan = 0, trabajEnDes = 0, realDes = 0;
   
-  let totalDias = 0;
-  let diasDescanso = 0;
-  let trabajadosEnDescanso = 0;
-  let descansosReales = 0;
-  
-  const diaDescanso = chofer.dia_descanso != null ? chofer.dia_descanso : -1;
-  console.log(`     diaDescanso=${diaDescanso}`);
-  
-  const iter = new Date(inicioStr + 'T00:00:00');
-  while (iter <= fin) {
-    totalDias++;
-    const fechaStr = format(iter, 'yyyy-MM-dd');
-    const esDiaDescanso = diaDescanso >= 0 && iter.getDay() === diaDescanso;
-    const hayRuta = diasConRutas.has(fechaStr);
+  const it = new Date(inicio + 'T00:00:00');
+  while (it <= fFin) {
+    total++;
+    const fStr = format(it, 'yyyy-MM-dd');
+    const esDes = diaDesc >= 0 && it.getDay() === diaDesc;
+    const hayRuta = diasConRuta.has(fStr);
     
-    if (esDiaDescanso) {
+    if (esDes) {
       if (hayRuta) {
-        trabajadosEnDescanso++;
+        trabajEnDes++;
       } else {
-        descansosReales++;
-        diasDescanso++;
+        realDes++;
+        descan++;
       }
     }
-    
-    iter.setDate(iter.getDate() + 1);
+    it.setDate(it.getDate() + 1);
   }
   
-  console.log(`[RESULTADO] ${chofer.nombre}: trabajados=${diasConRutas.size}, diasDescanso=${diasDescanso}, trabajadosEnDescanso=${trabajadosEnDescanso}, descansosReales=${descansosReales}`);
-
-  const trabajados = diasConRutas.size;
-  const programados = totalDias - diasDescanso;
-  const descansos = diasDescanso;
-  const faltan = Math.max(0, programados - trabajados);
-  const porcentaje = programados > 0 ? Math.min(100, Math.round((trabajados / programados) * 100)) : 0;
-
+  const trabajados = diasConRuta.size;
+  const programados = total - descan;
+  const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
+  
+  console.log(`[ASISTENCIA] ${chofer.nombre}: tra=${trabajados}, des=${descan}, trabajoEnDes=${trabajEnDes}, realDes=${realDes}, diaDesc=${diaDesc}`);
+  
   return {
-    porcentaje,
+    porcentaje: pct,
     trabajados,
-    descansos,
-    faltan: Math.max(0, faltan),
+    descansos: descan,
+    faltan: Math.max(0, programados - trabajados),
     programados,
-    diasMes: totalDias,
-    inicio: inicioStr,
-    fin: finStr
+    diasMes: total,
+    inicio,
+    fin: fechaFin
   };
+}
+
+export const getDiaDescansoLabel = (dia: number | undefined): string => DIAS[dia ?? 0] || 'Domingo';
+
+export function calcularAsistenciaMensualV3(params: any): AsistenciaResult {
+  return calcularAsistencia(params.chofer, params.rutasDelMes, params.fechaFin);
+}
+
+export function calcularAsistenciaMensual(params: any): AsistenciaResult {
+  return calcularAsistencia(params.chofer, params.rutasDelMes, params.fechaFin);
 }
