@@ -75,10 +75,9 @@ export function calcularAsistenciaMensual({
   let totalDias = 0;
   let diasDescanso = 0;
   let diasTrabajadosEnDescanso = 0;
-  // Si dia_descanso es undefined o null, no hay día de descanso configurado
-  const diaDescanso = chofer.dia_descanso ?? -1; // -1 indica "sin descanso"
+  const diaDescanso = chofer.dia_descanso ?? -1;
   
-  console.log(`[ASISTENCIA DEBUG] chofer: ${chofer.nombre}, dia_descanso del chofer: ${chofer.dia_descanso}, diaDescanso usado: ${diaDescanso}, tipo: ${typeof chofer.dia_descanso}`);
+  console.log(`[ASISTENCIA] ${chofer.nombre}: dia_descanso=${chofer.dia_descanso}, diasDescanso=${diasDescanso}`);
 
   const iter = new Date(inicioStr + 'T00:00:00');
   while (iter <= fin) {
@@ -88,17 +87,13 @@ export function calcularAsistenciaMensual({
     const esDiaDescanso = diaDescanso >= 0 && iter.getDay() === diaDescanso;
     const hayRuta = diasConRutas.has(fechaStr);
     
-    // Debug: console.log(`fecha: ${fechaStr}, esDiaDescanso: ${esDiaDescanso}, hayRuta: ${hayRuta}, diaSemana: ${iter.getDay()}`);
-    
-    // Si hay rutas registradas ese día, contar como trabajado
-    // (prioriza actividad real sobre día de descanso)
+    // Si hay rutas registradas ese día, contar como trabajo
+    // Si NO hay rutas Y es día de descanso → descanso (real)
     if (hayRuta) {
       if (esDiaDescanso) {
-        diasTrabajadosEnDescanso++; // Trabajó en su día de descanso
+        diasTrabajadosEnDescanso++;
       }
-      // Ya contabilizado en trabajados (diasConRutas.size)
     } else if (esDiaDescanso) {
-      // No trabajó y es día de descanso - CONTAR COMO DESCANSO
       diasDescanso++;
     }
     
@@ -106,15 +101,10 @@ export function calcularAsistenciaMensual({
   }
 
   const trabajados = diasConRutas.size;
-  // Días programados = total días - días de descanso (donde no trabajó)
   const programados = totalDias - diasDescanso;
-  // Descansos reales = días de descanso donde no trabajó
   const descansos = diasDescanso;
   const faltan = Math.max(0, programados - trabajados);
   const porcentaje = programados > 0 ? Math.min(100, Math.round((trabajados / programados) * 100)) : 0;
-  
-  // Debug
-  console.log(`[ASISTENCIA] chofer: ${chofer.nombre}, diaDescansoConfig: ${diaDescanso}, diaSemanaDescanso: ${diaDescanso >= 0 ? ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][diaDescanso] : 'N/A'}, inicio: ${inicioStr}, fin: ${finStr}, totalDias: ${totalDias}, diasDescansoReales: ${diasDescanso}, trabajados: ${trabajados}, programados: ${programados}, faltan: ${faltan}`);
 
   return {
     porcentaje,
