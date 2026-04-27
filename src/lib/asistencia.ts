@@ -18,7 +18,7 @@ export const getDiaDescansoLabel = (dia: number | undefined): string => {
   return DIAS_SEMANA[dia ?? 0] || 'Domingo';
 };
 
-export function calcularAsistenciaMensual({
+export function calcularAsistenciaMensualV3({
   chofer,
   rutasDelMes,
   fechaInicio,

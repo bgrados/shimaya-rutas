@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Tooltip } from '../../../components/ui/Tooltip';
-import { calcularAsistenciaMensual } from '../../../lib/asistencia';
+import { calcularAsistenciaMensualV3 } from '../../../lib/asistencia';
 import { 
   BarChart3, TrendingUp, Clock, Target, Truck, 
   Calendar, Filter, ChevronDown, ChevronUp, Info,
@@ -358,7 +358,7 @@ export default function AnalisisRutas() {
         };
         
         // Usar el rango de fechas del filtro del módulo de análisis
-        const asist = calcularAsistenciaMensual({
+        const asist = calcularAsistenciaMensualV3({
           chofer: choferObj as any,
           rutasDelMes: rutas,
           fechaFin: fechaFin

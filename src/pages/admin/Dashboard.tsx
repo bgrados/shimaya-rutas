@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
-import { calcularAsistenciaMensual, getDiaDescansoLabel } from '../../lib/asistencia';
+import { calcularAsistenciaMensualV3, getDiaDescansoLabel } from '../../lib/asistencia';
 import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta } from '../../components/ui/Alertas';
 import type { Alerta } from '../../components/ui/Alertas';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route, ChevronDown } from 'lucide-react';
@@ -417,7 +417,7 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
       const asistenciaPorChoferList: {nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[] = [];
       
       choferesConInfo.forEach(chofer => {
-        const result = calcularAsistenciaMensual({
+        const result = calcularAsistenciaMensualV3({
           chofer: chofer as any,
           rutasDelMes: rutasDelMes as any,
         });
