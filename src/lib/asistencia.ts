@@ -84,16 +84,19 @@ export function calcularAsistenciaMensual({
     const fechaStr = format(iter, 'yyyy-MM-dd');
     // Solo es día de descanso si está configurado (diaDescanso >= 0)
     const esDiaDescanso = diaDescanso >= 0 && iter.getDay() === diaDescanso;
+    const hayRuta = diasConRutas.has(fechaStr);
+    
+    // Debug: console.log(`fecha: ${fechaStr}, esDiaDescanso: ${esDiaDescanso}, hayRuta: ${hayRuta}, diaSemana: ${iter.getDay()}`);
     
     // Si hay rutas registradas ese día, contar como trabajado
     // (prioriza actividad real sobre día de descanso)
-    if (diasConRutas.has(fechaStr)) {
+    if (hayRuta) {
       if (esDiaDescanso) {
         diasTrabajadosEnDescanso++; // Trabajó en su día de descanso
       }
       // Ya contabilizado en trabajados (diasConRutas.size)
     } else if (esDiaDescanso) {
-      // No trabajó y es día de descanso
+      // No trabajó y es día de descanso - CONTAR COMO DESCANSO
       diasDescanso++;
     }
     
@@ -107,6 +110,9 @@ export function calcularAsistenciaMensual({
   const descansos = diasDescanso;
   const faltan = Math.max(0, programados - trabajados);
   const porcentaje = programados > 0 ? Math.min(100, Math.round((trabajados / programados) * 100)) : 0;
+  
+  // Debug
+  console.log(`[ASISTENCIA] chofer: ${chofer.nombre}, dia_descanso: ${diaDescanso}, inicio: ${inicioStr}, fin: ${finStr}, totalDias: ${totalDias}, diasDescanso: ${diasDescanso}, trabajados: ${trabajados}, programados: ${programados}, faltan: ${faltan}`);
 
   return {
     porcentaje,
