@@ -349,16 +349,20 @@ export default function AnalisisRutas() {
 
     return Array.from(choferMap.values())
       .map(c => {
+        // Mapear nombre de día a número
+        const diasMap: Record<string, number> = { 'domingo': 0, 'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6 };
+        const diaDescansoNum = c.diasDescanso?.[0] ? diasMap[c.diasDescanso[0].toLowerCase()] : undefined;
+        
         // Usar la función centralizada de asistencia para mantener consistencia
         const choferObj = {
           id_usuario: c.id,
           nombre: c.nombre,
           fecha_ingreso: c.fechaIngreso,
-          dia_descanso: c.diasDescanso?.[0] ? parseInt(c.diasDescanso[0], 10) : undefined
+          dia_descanso: diaDescansoNum
         };
         
         // Usar el rango de fechas del filtro del módulo de análisis
-        console.log(`[ANALISIS] ${c.nombre}: fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}, dia_descanso=${choferObj.dia_descanso}`);
+        console.log(`[ANALISIS] ${c.nombre}: fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}, dia_descanso=${diaDescansoNum}`);
         const asist = calcularAsistenciaMensual({
           chofer: choferObj as any,
           rutasDelMes: rutas,
