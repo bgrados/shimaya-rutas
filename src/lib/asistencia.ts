@@ -1,5 +1,4 @@
 import type { Usuario, Ruta } from '../types';
-// DEBUG V2 - forzar cache refresh
 import { format } from 'date-fns';
 
 export interface AsistenciaMensualResult {
@@ -15,7 +14,7 @@ export interface AsistenciaMensualResult {
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-//DEBUG V2 - forzar cache refresh
+export const getDiaDescansoLabel = (dia: number | undefined): string => {
   return DIAS_SEMANA[dia ?? 0] || 'Domingo';
 };
 
@@ -62,7 +61,7 @@ export function calcularAsistenciaMensual({
     return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: inicioStr, fin: inicioStr };
   }
 
-  console.log(`>>>> ASISTENCIA START: ${chofer.nombre}, fechaIngreso=${fechaIngreso}, inicio=${inicioStr}, fin=${finStr}, dia_descanso=${chofer.dia_descanso}`);
+  console.log(`>>>> ASISTENCIA: ${chofer.nombre}, fi=${fechaIngreso}, inicio=${inicioStr}, fin=${finStr}, dia_descanso=${chofer.dia_descanso}`);
   
   const diasConRutas = new Set<string>();
   (rutasDelMes || []).forEach(r => {
@@ -80,10 +79,8 @@ export function calcularAsistenciaMensual({
   let trabajadosEnDescanso = 0;
   let descansosReales = 0;
   
-  //dia_descanso: -1 = sin descanso, 0=domingo, 1=lunes, 2=martes, etc.
   const diaDescanso = chofer.dia_descanso != null ? chofer.dia_descanso : -1;
-  
-  console.log(`     diaDescanso (calculado): ${diaDescanso}`);
+  console.log(`     diaDescanso=${diaDescanso}`);
   
   const iter = new Date(inicioStr + 'T00:00:00');
   while (iter <= fin) {
@@ -95,11 +92,9 @@ export function calcularAsistenciaMensual({
     if (esDiaDescanso) {
       if (hayRuta) {
         trabajadosEnDescanso++;
-        console.log(`     ${fechaStr} [${DIAS_SEMANA[iter.getDay()]}] = TRABAJÓ (descanso)`);
       } else {
         descansosReales++;
         diasDescanso++;
-        console.log(`     ${fechaStr} [${DIAS_SEMANA[iter.getDay()]}] = DESCANSO REAL`);
       }
     }
     
