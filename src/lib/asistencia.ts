@@ -76,14 +76,14 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   const trabajados = diasConRuta.size;
   const descansos = diasDescanso;
   const programados = diasLaborables;
-  const trabajanLaborables = trabajados - (diasConRuta.size - diasLaborables); // rough estimate
-  // Faltas = días laborables - días trabajados (sin contar días de descanso trabajados como extras)
-  // Pero simplificado: faltan = programados - trabajados
+  // Faltas = días laborables - días trabajados
+  // Pero si trabajó más que los laborables (trabajó su descanso), no hay faltas
   const faltantes = Math.max(0, programados - trabajados);
   const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
-  console.log(`[ASISTENCIA] ${chofer.nombre}: inicio=${inicio}, fin=${fechaFin}, diaDesc=${diaDesc}, totalDias=${totalDias}, diasDescanso=${diasDescanso}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
-  console.log(`     RUTAS: ${Array.from(diasConRuta).join(', ')}`);
+  console.log(`[ASISTENCIA] ${chofer.nombre}: inicio=${inicio}, fin=${fechaFin}, diaDesc=${diaDesc}`);
+  console.log(`     totalDias=${totalDias}, diasDescanso=${diasDescanso}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
+  console.log(`     FECHAS RUTAS: ${Array.from(diasConRuta).sort().join(', ')}`);
   
   return {
     porcentaje: pct,
