@@ -77,6 +77,8 @@ export function calcularAsistenciaMensual({
   let diasTrabajadosEnDescanso = 0;
   // Si dia_descanso es undefined o null, no hay día de descanso configurado
   const diaDescanso = chofer.dia_descanso ?? -1; // -1 indica "sin descanso"
+  
+  console.log(`[ASISTENCIA DEBUG] chofer: ${chofer.nombre}, dia_descanso del chofer: ${chofer.dia_descanso}, diaDescanso usado: ${diaDescanso}, tipo: ${typeof chofer.dia_descanso}`);
 
   const iter = new Date(inicioStr + 'T00:00:00');
   while (iter <= fin) {
