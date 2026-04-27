@@ -47,23 +47,24 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   
   // 2. Calcular días totales, descansos y laborables
   let totalDias = 0;
-  let diasDescanso = 0;
+  let diasDescansoReal = 0;
   let diasLaborables = 0;
   
   const it = new Date(inicio + 'T00:00:00');
   while (it <= fFin) {
     const fStr = format(it, 'yyyy-MM-dd');
     const esDiaDescanso = diaDesc >= 0 && it.getDay() === diaDesc;
+    const hayRuta = diasConRuta.has(fStr);
     
     totalDias++;
     
     if (esDiaDescanso) {
       // Si es día de descanso configurado
-      if (diasConRuta.has(fStr)) {
-        // Trabajó en su día de descanso - cuenta como trabajado
+      if (hayRuta) {
+        // Trabajó en su día de descanso - NO cuenta como descanso, cuenta como trabajado extra
       } else {
         // Descansó - cuenta como descanso real
-        diasDescanso++;
+        diasDescansoReal++;
       }
     } else {
       // No es día de descanso - es día laborable
@@ -74,15 +75,20 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   }
   
   const trabajados = diasConRuta.size;
-  const descansos = diasDescanso;
+  const descansos = diasDescansoReal;
+  
+  // Días trabajados en laborables (sin contar los días de descanso trabajados)
+  const diasTrabajadosEnLaborables = Array.from(diasConRuta).filter(f => {
+    const d = new Date(f + 'T00:00:00');
+    return diaDesc < 0 || d.getDay() !== diaDesc;
+  }).length;
+  
   const programados = diasLaborables;
-  // Faltas = días laborables - días trabajados
-  // Pero si trabajó más que los laborables (trabajó su descanso), no hay faltas
-  const faltantes = Math.max(0, programados - trabajados);
-  const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
+  const faltantes = Math.max(0, programados - diasTrabajadosEnLaborables);
+  const pct = programados > 0 ? Math.round((diasTrabajadosEnLaborables / programados) * 100) : 0;
   
   console.log(`[ASISTENCIA] ${chofer.nombre}: inicio=${inicio}, fin=${fechaFin}, diaDesc=${diaDesc}`);
-  console.log(`     totalDias=${totalDias}, diasDescanso=${diasDescanso}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
+  console.log(`     totalDias=${totalDias}, diasDescanso=${diasDescansoReal}, programados=${programados}, trabajados=${trabajados}, trabajadosEnLaborables=${diasTrabajadosEnLaborables}, faltantes=${faltantes}`);
   console.log(`     FECHAS RUTAS: ${Array.from(diasConRuta).sort().join(', ')}`);
   
   return {
