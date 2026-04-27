@@ -1375,7 +1375,7 @@ const comparacionDiaEquivalente = useMemo(() => {
                               {c.diasTrabajados}/{c.diasEsperados}
                             </span>
                             <span className="text-[10px] text-text-muted capitalize">
-                              {c.diasDescanso.length > 0 ? `${c.diasDescanso.join(', ').replace('0','domingo').replace('1','lunes').replace('2','martes').replace('3','miércoles').replace('4','jueves').replace('5','viernes').replace('6','sábado')}` : 'Sin descanso'}
+                              {c.diasDescanso.length > 0 ? c.diasDescanso.map(d => ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][parseInt(d)] || d).join(', ') : 'Sin descanso'}
                             </span>
                           </div>
                         </td>
