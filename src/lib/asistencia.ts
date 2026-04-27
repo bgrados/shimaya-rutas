@@ -21,11 +21,15 @@ export const getDiaDescansoLabel = (dia: number | undefined): string => {
 export function calcularAsistenciaMensual({
   chofer,
   rutasDelMes,
+  fechaInicio,
+  fechaFin,
 }: {
   chofer: Usuario;
   year?: number;
   month?: number;
   rutasDelMes: Ruta[];
+  fechaInicio?: string;
+  fechaFin?: string;
 }): AsistenciaMensualResult {
   const fechaIngreso = chofer?.fecha_ingreso;
   
@@ -40,17 +44,20 @@ export function calcularAsistenciaMensual({
     }
   }
   
-  const inicioStr = fechaInicioCalculada || (fechaIngreso ? String(fechaIngreso).split('T')[0].split(' ')[0] : null);
+  const inicioStr = fechaInicio 
+    || fechaInicioCalculada 
+    || (fechaIngreso ? String(fechaIngreso).split('T')[0].split(' ')[0] : null);
   
   if (!inicioStr) {
     return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
   }
 
+  // Usar fechaFin proporcionada o por defecto "hoy"
   const now = new Date();
-  const hoyStr = now.toISOString().split('T')[0];
+  const finStr = fechaFin || now.toISOString().split('T')[0];
   
   const inicio = new Date(inicioStr + 'T00:00:00');
-  const fin = new Date(hoyStr + 'T00:00:00');
+  const fin = new Date(finStr + 'T00:00:00');
 
   if (inicio > fin) {
     return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: inicioStr, fin: inicioStr };
@@ -109,6 +116,6 @@ export function calcularAsistenciaMensual({
     programados,
     diasMes: totalDias,
     inicio: inicioStr,
-    fin: hoyStr
+    fin: finStr
   };
 }

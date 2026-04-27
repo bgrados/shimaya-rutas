@@ -357,9 +357,11 @@ export default function AnalisisRutas() {
           dia_descanso: c.diasDescanso?.[0] ? parseInt(c.diasDescanso[0], 10) : undefined
         };
         
+        // Usar el rango de fechas del filtro del módulo de análisis
         const asist = calcularAsistenciaMensual({
           chofer: choferObj as any,
-          rutasDelMes: rutas
+          rutasDelMes: rutas,
+          fechaFin: fechaFin
         });
         
         return {
