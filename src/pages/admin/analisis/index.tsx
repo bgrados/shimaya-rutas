@@ -349,10 +349,14 @@ export default function AnalisisRutas() {
 
     return Array.from(choferMap.values())
       .map(c => {
-        // Mapear nombre de día a número
-        const diasMap: Record<string, number> = { 'domingo': 0, 'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6 };
+        // Mapear nombre de día o número a número
+        const diasMap: Record<string, number> = { 
+          'domingo': 0, 'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3, 
+          'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6,
+          '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
+        };
         const primerDia = c.diasDescanso?.[0]?.toLowerCase() || '';
-        const diaDescansoNum = diasMap[primerDia];
+        const diaDescansoNum = primerDia ? diasMap[primerDia] : undefined;
         
         console.log(`[ANALISIS] ${c.nombre}: diasDescanso=${JSON.stringify(c.diasDescanso)}, primerDia="${primerDia}", diaDescansoNum=${diaDescansoNum}, fechaIngreso=${c.fechaIngreso}, fechaFin=${fechaFin}`);
         
