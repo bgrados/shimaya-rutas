@@ -19,8 +19,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   const cleanEmail = email.trim().replace('@shimaya.com', '');
-  const isDualRoleUser = profile?.nombre?.toLowerCase()?.includes('manuel');
-  console.log('DEBUG Login:', profile?.nombre, DUAL_ROLE_USER, isDualRoleUser);
+  const isDualRoleUser = user?.email?.toLowerCase()?.includes('manuelm') || profile?.nombre?.toLowerCase() === 'manuelm';
 
   useEffect(() => {
     if (user && profile && !loading && !showRoleSelect) {
