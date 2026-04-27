@@ -38,13 +38,16 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   (rutas || []).forEach(r => {
     if (r.id_chofer === chofer.id_usuario && r.fecha) {
       const f = String(r.fecha).split('T')[0];
-      diasConRuta.add(f);
+      // Solo contar rutas dentro del rango de fechas
+      if (f >= inicio && f <= fechaFin) {
+        diasConRuta.add(f);
+      }
     }
   });
   
   console.log(`     RUTAS CONTADAS: ${diasConRuta.size}, FECHAS: ${Array.from(diasConRuta).join(', ')}`);
   
-  let total = 0, descan = 0, trabajEnDes = 0, realDes = 0;
+  let total = 0, descan = 0, trabajEnDes = 0, realDes = 0, trabajadosPeriodo = 0;
   
   const it = new Date(inicio + 'T00:00:00');
   while (it <= fFin) {
@@ -53,28 +56,47 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     const esDes = diaDesc >= 0 && it.getDay() === diaDesc;
     const hayRuta = diasConRuta.has(fStr);
     
-    if (esDes) {
-      if (hayRuta) {
+    if (hayRuta) {
+      trabajadosPeriodo++;
+      if (esDes) {
         trabajEnDes++;
-      } else {
-        realDes++;
-        descan++;
       }
+    } else if (esDes) {
+      realDes++;
+      descan++;
     }
     it.setDate(it.getDate() + 1);
   }
-  
+
   const trabajados = diasConRuta.size;
   const programados = total - descan;
   const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
-  console.log(`[ASISTENCIA] ${chofer.nombre}: tra=${trabajados}, des=${descan}, trabajoEnDes=${trabajEnDes}, realDes=${realDes}, diaDesc=${diaDesc}`);
+  // FALTAS = trabajados del período - trabajados del período = debería ser 0 si todo está bien
+  // Pero si trabajados (todas las rutas) != trabajadosPeriodo (dentro del rango), hay inconsistencia
+  // Simplificar: faltas = 0 ya que cada día sin ruta en dia no-descanso no se cuenta como falta
+  // El sistema debe contar: si hay ruta = trabajado, si no hay ruta y no es descanso = falta
+  let diasSinRutaLaborable = 0;
+  it.setTime(fIni.getTime());
+  while (it <= fFin) {
+    const fStr = format(it, 'yyyy-MM-dd');
+    const esDes = diaDesc >= 0 && it.getDay() === diaDesc;
+    const hayRuta = diasConRuta.has(fStr);
+    if (!hayRuta && !esDes) {
+      diasSinRutaLaborable++;
+    }
+    it.setDate(it.getDate() + 1);
+  }
+
+  console.log(`[ASISTENCIA] ${chofer.nombre}: tra=${trabajados}, des=${descan}, trabajoEnDes=${trabajEnDes}, realDes=${realDes}, diaDesc=${diaDesc}, diasSinRuta=${diasSinRutaLaborable}, total=${total}, programados=${programados}`);
+  
+const faltan = diasSinRutaLaborable;
   
   return {
     porcentaje: pct,
     trabajados,
-    descansos: descan,
-    faltan: Math.max(0, programados - trabajados),
+    descansos: realDes,
+    faltan: faltan,
     programados,
     diasMes: total,
     inicio,
