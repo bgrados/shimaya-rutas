@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
+import { AlertTriangle, Clock, MapPin, Fuel, CheckCircle2, Info, XCircle, Truck, RefreshCw } from 'lucide-react';
 import type { Ruta, LocalRuta, ViajeBitacora } from '../../types';
 
 export interface Alerta {
@@ -9,8 +9,6 @@ export interface Alerta {
   severidad: 'alta' | 'media' | 'baja';
   origen: 'ruta' | 'tiempo' | 'gps' | 'gasto' | 'visita';
 }
-
-export { Alerta };
 
 interface AlertaCardProps {
   alerta: Alerta;

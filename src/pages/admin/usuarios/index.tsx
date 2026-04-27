@@ -31,41 +31,21 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   
-  // Nuevos campos para asistencia
-  // ✅ EXTRAER solo la parte de fecha YYYY-MM-DD sin timezone
-  const getFechaSolo = (f: string | null): string => {
-    if (!f) return '';
-    return String(f).split('T')[0];
-  };
-  
-  const getFechaInput = (f: string | null): string => {
-    if (!f) return '';
-    if (f.includes('T')) return f.split('T')[0];
-    if (f.includes(' ')) return f.split(' ')[0];
-    return f;
-  };
-  
-  const [fechaIngreso, setFechaIngreso] = useState(user.fecha_ingreso || '');
-  const [diaDescanso, setDiaDescanso] = useState(user.dia_descanso ?? 0);
-  
   const diasSemana = [
-    { key: 0, label: 'Domingo' },
-    { key: 1, label: 'Lunes' },
-    { key: 2, label: 'Martes' },
-    { key: 3, label: 'Miércoles' },
-    { key: 4, label: 'Jueves' },
-    { key: 5, label: 'Viernes' },
-    { key: 6, label: 'Sábado' },
+    { key: 'lunes', label: 'Lun' },
+    { key: 'martes', label: 'Mar' },
+    { key: 'miercoles', label: 'Mié' },
+    { key: 'jueves', label: 'Jue' },
+    { key: 'viernes', label: 'Vie' },
+    { key: 'sabado', label: 'Sáb' },
+    { key: 'domingo', label: 'Dom' },
   ];
   const [diasDescanso, setDiasDescanso] = useState<string[]>(user.dias_descanso || []);
 
-  const handleDiaDescansoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === '') {
-      setDiasDescanso([]);
-    } else {
-      setDiasDescanso([val]);
-    }
+  const toggleDiaDescanso = (dia: string) => {
+    setDiasDescanso(prev => 
+      prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]
+    );
   };
   
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -104,7 +84,6 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
     setSaving(true);
     try {
       const photoUrl = await uploadPhoto();
-      console.log('[USUARIOS] Guardando fecha_ingreso:', fechaIngreso, 'dia_descanso:', diaDescanso);
       await onSave(user.id_usuario, {
         nombre: nombre.trim(),
         rol,
@@ -113,9 +92,7 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
         foto_url: photoUrl,
         activo,
         password: password.trim() || undefined,
-        dias_descanso: [diasSemana.find(d => d.key === diaDescanso)?.key?.toString() || 'domingo'],
-        fecha_ingreso: fechaIngreso || null,
-        dia_descanso: diaDescanso
+        dias_descanso: diasDescanso
       });
     } finally {
       setSaving(false);
@@ -147,29 +124,35 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
           <>
             <Input label="Placa del Camión (Solo para choferes)" value={placa} onChange={e => setPlaca(e.target.value)} placeholder="Ej. ABC-123" />
             
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-tighter">Día de Descanso</label>
-                <select
-                  className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none transition-colors text-sm"
-                  value={diaDescanso}
-                  onChange={e => setDiaDescanso(Number(e.target.value))}
-                >
-                  {diasSemana.map(dia => (
-                    <option key={dia.key} value={dia.key}>
-                      {dia.label}
-                    </option>
-                  ))}
-                </select>
+            <div>
+              <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-tighter flex items-center gap-1">
+                <Coffee size={12} />
+                Días de Descanso
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {diasSemana.map(dia => (
+                  <button
+                    key={dia.key}
+                    type="button"
+                    onClick={() => toggleDiaDescanso(dia.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      diasDescanso.includes(dia.key)
+                        ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
+                        : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
+                    }`}
+                  >
+                    {dia.label}
+                  </button>
+                ))}
               </div>
-              <div>
-                <Input 
-                  label="Fecha de Ingreso" 
-                  type="date"
-                  value={fechaIngreso} 
-                  onChange={e => setFechaIngreso(e.target.value)} 
-                />
-              </div>
+              {diasDescanso.length > 0 && (
+                <p className="text-[10px] text-blue-400 mt-1">
+                  Descansa: {diasDescanso.map(d => {
+                    const dia = diasSemana.find(dd => dd.key === d);
+                    return dia?.label;
+                  }).join(', ')}
+                </p>
+              )}
             </div>
           </>
         )}
@@ -276,9 +259,7 @@ export default function Usuarios() {
         placa_camion: payload.placa_camion,
         password: payload.password || undefined,
         dias_descanso: payload.dias_descanso || [],
-        foto_url: payload.foto_url || null,
-        fecha_ingreso: payload.fecha_ingreso || null,
-        dia_descanso: payload.dia_descanso ?? 0
+        foto_url: payload.foto_url || null
       })
       .eq('id_usuario', id);
 
@@ -344,15 +325,7 @@ export default function Usuarios() {
     setDeletingId(null);
   };
 
-  const getDiaNumeroALabel = (dia: any): string => {
-  const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  if (dia === null || dia === undefined || dia === '') return '-';
-  const num = parseInt(String(dia), 10);
-  if (isNaN(num)) return String(dia);
-  return DIAS_SEMANA[num] || String(dia);
-};
-
-const getRoleIcon = (rol: string) => {
+  const getRoleIcon = (rol: string) => {
     switch (rol) {
       case 'administrador': return <Shield size={14} />;
       case 'chofer': return <Truck size={14} />;
@@ -432,35 +405,18 @@ const getRoleIcon = (rol: string) => {
                       }`}>
                         {getRoleIcon(user.rol)} {user.rol}
                       </div>
-                      {user.rol === 'chofer' && (
-                        <div className="mt-2">
-                          {(user as any).dias_descanso && (user as any).dias_descanso.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              <span className="text-blue-300/50 text-[9px] uppercase font-bold mr-1">Descanso:</span>
-                              {(user as any).dias_descanso.map((dia: string) => {
-                                const DIAS_NUM = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                                const diasSemanaMap: Record<string, string> = {
-                                  lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo'
-                                };
-                                const numKey = parseInt(dia, 10);
-                                const label = !isNaN(numKey) && numKey >= 0 && numKey <= 6 
-                                  ? DIAS_NUM[numKey]
-                                  : diasSemanaMap[dia.toLowerCase()] || dia;
-                                return (
-                                  <span key={dia} className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
-                                    {label}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          ) : (user as any).dia_descanso !== undefined && (user as any).dia_descanso !== null && (user as any).dia_descanso !== '' ? (
-                            <div className="flex items-center gap-1">
-                              <span className="text-blue-300/50 text-[9px] uppercase font-bold">Descanso:</span>
-                              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
-                                {getDiaNumeroALabel((user as any).dia_descanso)}
+                      {user.rol === 'chofer' && (user as any).dias_descanso && (user as any).dias_descanso.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {(user as any).dias_descanso.map((dia: string) => {
+                            const diasSemanaMap: Record<string, string> = {
+                              lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J', viernes: 'V', sabado: 'S', domingo: 'D'
+                            };
+                            return (
+                              <span key={dia} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
+                                {diasSemanaMap[dia] || dia}
                               </span>
-                            </div>
-                          ) : null}
+                            );
+                          })}
                         </div>
                       )}
                     </td>

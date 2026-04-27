@@ -2,15 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
-import { calcularAsistenciaMensual, getDiaDescansoLabel } from '../../lib/asistencia';
-import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta } from '../../components/ui/Alertas';
-import type { Alerta } from '../../components/ui/Alertas';
-import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route, ChevronDown } from 'lucide-react';
+import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta, Alerta } from '../../components/ui/Alertas';
+import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatPeru, formatHoraPeru } from '../../lib/timezone';
 import { Link } from 'react-router-dom';
 import type { DashboardStats, Usuario, Ruta } from '../../types';
-import { useMemo } from 'react';
 
 interface Stats {
   rutasActivas: number;
@@ -33,9 +30,6 @@ interface Stats {
   peajeDia: number;
   peajeSemana: number;
   peajeMes: number;
-  kmDia: number;
-  kmSemana: number;
-  kmMes: number;
 }
 
 interface RutaEnProgreso {
@@ -59,9 +53,6 @@ interface TopChofer {
 
 export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
-  const [choferSeleccionado, setChoferSeleccionado] = useState<string | null>(null);
-  const [listaChoferes, setListaChoferes] = useState<{id_usuario: string; nombre: string}[]>([]);
-  const [mostrarSelectorChofer, setMostrarSelectorChofer] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     rutasActivas: 0,
     rutasPendientes: 0,
@@ -81,34 +72,16 @@ export default function AdminDashboard() {
     choferesSinRuta: 0,
     peajeDia: 0,
     peajeSemana: 0,
-    peajeMes: 0,
-    kmDia: 0,
-    kmSemana: 0,
-    kmMes: 0
+    peajeMes: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
-  const [asistenciaStats, setAsistenciaStats] = useState({ porcentaje: 0, trabajados: 0, descansos: 0, faltas: 0, programados: 0, totalChoferes: 0 });
-  const [asistenciaPorChofer, setAsistenciaPorChofer] = useState<{nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[]>([]);
 
   useEffect(() => {
-    loadChoferesList();
     loadDashboardData();
-  }, [choferSeleccionado]);
-
-  const loadChoferesList = async () => {
-    const { data } = await supabase
-      .from('usuarios')
-      .select('id_usuario, nombre')
-      .eq('rol', 'chofer')
-      .eq('activo', true)
-      .order('nombre');
-    if (data) {
-      setListaChoferes(data);
-    }
-  };
+  }, []);
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -134,21 +107,10 @@ export default function AdminDashboard() {
       const mesStr = format(primerDiaMes, 'yyyy-MM-dd');
 
 
-      let asistenciaQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
-      if (choferSeleccionado) {
-        asistenciaQ = asistenciaQ.eq('id_chofer', choferSeleccionado);
-      }
-
-const usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').order('nombre');
-
-      const rutasDelMesQ = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
-
-      const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
+      const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes] = await Promise.all([
         supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
         supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
-        rutasDelMesQ,
-        asistenciaQ,
-        usuariosQ
+        supabase.from('rutas').select('id_ruta, fecha').gte('fecha', mesStr).lte('fecha', hoyStr)
       ]);
       
       const rutaIdsDelDia = rutasDelDiaRes.data?.map(r => r.id_ruta) || [];
@@ -158,35 +120,14 @@ const usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_in
       const filterDia = rutaIdsDelDia.length > 0 ? rutaIdsDelDia : emptyFilter;
       const filterSemana = rutaIdsSemana.length > 0 ? rutaIdsSemana : emptyFilter;
 
-      let combustibleDiaQ = supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterDia);
-      let combustibleSemanaQ = supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterSemana);
-      let otrosDiaQ = supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterDia);
-      let otrosSemanaQ = supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana);
-
-      if (choferSeleccionado) {
-        combustibleDiaQ = combustibleDiaQ.eq('id_chofer', choferSeleccionado);
-        combustibleSemanaQ = combustibleSemanaQ.eq('id_chofer', choferSeleccionado);
-        otrosDiaQ = otrosDiaQ.eq('id_chofer', choferSeleccionado);
-        otrosSemanaQ = otrosSemanaQ.eq('id_chofer', choferSeleccionado);
-      }
-
-const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
-
-      const usuariosQAsistencia = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').order('nombre');
-
-      const rutasDelMesQAsistencia = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
-
-      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes, rutasDelMesAsistenciaRes] = await Promise.all([
+      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes] = await Promise.all([
         supabase.from('rutas').select('*'),
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
-        combustibleDiaQ,
-        combustibleSemanaQ,
-        otrosDiaQ,
-        otrosSemanaQ,
-        supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
-        asistenciaDelMesQ,
-        usuariosQAsistencia,
-        rutasDelMesQAsistencia
+        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterDia),
+        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
+        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterDia),
+        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
+        supabase.from('usuarios').select('id_usuario, dias_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
 
       clearTimeout(timeoutId);
@@ -213,9 +154,7 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
       const numDisponibles = (choferesRes.count || 0) - numDescanso;
       
       const rutas = rutasRes.data || [];
-      // APLICAR FILTRO POR CHOFER SI ESTÁ SELECCIONADO
-      const rutasFiltradas = choferSeleccionado ? rutas.filter(r => r.id_chofer === choferSeleccionado) : rutas;
-      const rutasDeHoy = rutasFiltradas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
+      const rutasDeHoy = rutas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
       const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
       const rutasEnCurso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
       const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
@@ -259,9 +198,9 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
       const gastosHoy = cargasCombustibleHoy + cobrosOtrosHoy;
       
       // Calcular peajes automáticos
-      const rutasFinalizadasDeHoy = rutasFiltradas.filter(r => r.estado === 'finalizada' && (r.fecha || '').split('T')[0] === hoyStr);
-      const rutasFinalizadasDeSemana = rutasFiltradas.filter(r => r.estado === 'finalizada' && r.fecha >= semanaStr);
-      const rutasFinalizadasDelMes = rutasFiltradas.filter(r => r.estado === 'finalizada' && r.fecha >= mesStr);
+      const rutasFinalizadasDeHoy = rutas.filter(r => r.estado === 'finalizada' && (r.fecha || '').split('T')[0] === hoyStr);
+      const rutasFinalizadasDeSemana = rutas.filter(r => r.estado === 'finalizada' && r.fecha >= semanaStr);
+      const rutasFinalizadasDelMes = rutas.filter(r => r.estado === 'finalizada' && r.fecha >= mesStr);
       
       // Obtener datos de rutas_base para cada ruta (incluyendo del mes)
       const rutasBaseIds = [...new Set([...rutasFinalizadasDeHoy, ...rutasFinalizadasDeSemana, ...rutasFinalizadasDelMes].map(r => r.id_ruta_base).filter(Boolean))];
@@ -289,17 +228,6 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
       const peajeSemana = rutasFinalizadasDeSemana.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
       const peajeMes = rutasFinalizadasDelMes.reduce((sum, r) => sum + calcularPeajeRuta(r), 0);
       
-      const calcularKmRuta = (ruta: any) => {
-        if (ruta.km_inicio != null && ruta.km_fin != null && ruta.km_fin >= ruta.km_inicio) {
-          return ruta.km_fin - ruta.km_inicio;
-        }
-        return 0;
-      };
-
-      const kmDia = rutasFinalizadasDeHoy.reduce((sum, r) => sum + calcularKmRuta(r), 0);
-      const kmSemana = rutasFinalizadasDeSemana.reduce((sum, r) => sum + calcularKmRuta(r), 0);
-      const kmMes = rutasFinalizadasDelMes.reduce((sum, r) => sum + calcularKmRuta(r), 0);
-      
       setStats({
         rutasActivas: rutasEnCurso.length,
         rutasPendientes: rutasEnCurso.length,
@@ -320,10 +248,7 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
         gastosHoy,
         peajeDia,
         peajeSemana,
-        peajeMes,
-        kmDia,
-        kmSemana,
-        kmMes
+        peajeMes
       });
 
       const { data: rutasProgreso } = await supabase
@@ -402,68 +327,19 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
           .slice(0, 5);
         
         setTopChoferes([...topCombustible, ...topOtros]);
-      }
-      
-      // Calcular asistencia mensual (SIEMPRE, aunque no haya gastos)
-      const choferesConInfo = (choferesConInfoRes.data as any[]) || [];
-      const rutasDelMes = (rutasDelMesAsistenciaRes.data as any[]) || [];
-      const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
-      
-      let totalTrabajados = 0;
-      let totalDescansos = 0;
-      let totalFaltas = 0;
-      let totalProgramados = 0;
-      let choferesConDatos = 0;
-      const asistenciaPorChoferList: {nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[] = [];
-      
-      choferesConInfo.forEach(chofer => {
-        const result = calcularAsistenciaMensual({
-          chofer: chofer as any,
-          rutasDelMes: rutasDelMes as any,
-        });
         
-        totalTrabajados += result.trabajados;
-        totalDescansos += result.descansos;
-        totalFaltas += result.faltan ?? 0;
-        totalProgramados += result.programados;
-        
-        asistenciaPorChoferList.push({
-          nombre: chofer.nombre,
-          porcentaje: result.porcentaje,
-          trabajados: result.trabajados,
-          descansos: result.descansos,
-          faltan: result.faltan ?? 0,
-          diaDescanso: chofer.dia_descanso ?? -1
-        });
-        
-        choferesConDatos++;
-      });
-      setAsistenciaPorChofer(asistenciaPorChoferList);
-      
-      const asistenciaPorcentaje = totalProgramados > 0 ? Math.round((totalTrabajados / totalProgramados) * 100) : 0;
-      setAsistenciaStats({
-        porcentaje: asistenciaPorcentaje,
-        trabajados: totalTrabajados,
-        descansos: totalDescansos,
-        faltas: totalFaltas,
-        programados: totalProgramados,
-        totalChoferes: choferesConDatos
-      });
-      
-      // Detectar inconsistencias globales (si hay gastos)
-      if (gastosChofer) {
+        // Detectar inconsistencias globales
         const inconsistencias = detectarInconsistenciasGlobales(
           rutas,
-          choferesActivosEnCurso.size,
+          choferesActivosEnCurso.size, // Solo choferes con rutas en curso
           totalChoferesRegistrados,
           (combustibleSemanaRes.data || []).map(g => ({ fecha: g.created_at, monto: g.monto || 0 })),
-          5
+          5 // Días laborables de la semana
         );
         setAlertas(inconsistencias);
       }
-    } catch (err: any) {
-      console.error('ERROR DASHBOARD:', err);
-      setError('Error al cargar los datos. Intenta de nuevo. ' + (err?.message || ''));
+    } catch (err) {
+      setError('Error al cargar los datos. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -501,43 +377,15 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Panel General</h1>
-        
-        {/* Filtro por Chofer */}
-        <div className="relative">
-          <button
-            onClick={() => setMostrarSelectorChofer(!mostrarSelectorChofer)}
-            className="ml-4 px-3 py-1.5 bg-surface-light/30 border border-surface-light rounded-lg text-sm text-white flex items-center gap-2 hover:bg-surface-light/50"
-          >
-            {choferSeleccionado 
-              ? listaChoferes.find(c => c.id_usuario === choferSeleccionado)?.nombre || 'Todos los choferes'
-              : 'Todos los choferes'}
-            <ChevronDown size={14} className={`transition-transform ${mostrarSelectorChofer ? 'rotate-180' : ''}`} />
-          </button>
-          
-          {mostrarSelectorChofer && (
-            <div className="absolute top-full mt-1 left-0 w-48 bg-surface border border-surface-light rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
-              <button
-                onClick={() => { setChoferSeleccionado(null); setMostrarSelectorChofer(false); }}
-                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-surface-light/30 flex items-center justify-between"
-              >
-                <span>Todos los choferes</span>
-                {choferSeleccionado === null && <span className="text-primary">✓</span>}
-              </button>
-              {listaChoferes.map(chofer => (
-                <button
-                  key={chofer.id_usuario}
-                  onClick={() => { setChoferSeleccionado(chofer.id_usuario); setMostrarSelectorChofer(false); }}
-                  className="w-full px-3 py-2 text-left text-sm text-white hover:bg-surface-light/30 flex items-center justify-between"
-                >
-                  <span>{chofer.nombre}</span>
-                  {choferSeleccionado === chofer.id_usuario && <span className="text-primary">✓</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <button 
+          onClick={loadDashboardData}
+          className="text-text-muted hover:text-white text-sm flex items-center gap-1"
+        >
+          <Clock size={14} />
+          Actualizar
+        </button>
       </div>
 
       {/* Alertas de inconsistencias */}
@@ -735,81 +583,6 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
           </CardContent>
         </Card>
       </div>
-
-      {/* Métricas de Kilometraje */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card className="bg-emerald-500/10 border-emerald-500/30">
-          <CardContent className="p-3 text-center">
-            <p className="text-emerald-300 text-xs flex items-center justify-center gap-1">
-              KM Hoy
-              <Tooltip content="Kilometraje total recorrido en rutas finalizadas hoy." />
-            </p>
-            <p className="text-xl font-bold text-emerald-400">{stats.kmDia} km</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-emerald-500/10 border-emerald-500/30">
-          <CardContent className="p-3 text-center">
-            <p className="text-emerald-300 text-xs flex items-center justify-center gap-1">
-              KM Semana
-              <Tooltip content="Kilometraje total recorrido en la semana actual." />
-            </p>
-            <p className="text-xl font-bold text-emerald-400">{stats.kmSemana} km</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-emerald-600/20 border-emerald-500/50">
-          <CardContent className="p-3 text-center">
-            <p className="text-emerald-300 text-xs flex items-center justify-center gap-1">
-              KM Mes
-              <Tooltip content="Kilometraje total recorrido desde el inicio del mes." />
-            </p>
-            <p className="text-xl font-bold text-emerald-300">{stats.kmMes} km</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Asistencia Mensual por Chofer */}
-      <Card className="bg-blue-600/20 border-blue-500/50">
-        <CardContent className="p-4">
-          <p className="text-blue-300 text-xs flex items-center gap-1 mb-4">
-            Asistencia Mensual
-            <Tooltip content="Calculado desde fecha de ingreso y excluyendo día de descanso" />
-          </p>
-          {asistenciaPorChofer.length === 0 ? (
-            <p className="text-white">Sin datos</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {asistenciaPorChofer.map((c, i) => (
-                <div key={i} className="bg-surface-light/30 rounded-xl p-4 border border-white/10">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-white font-bold text-base">{c.nombre}</h3>
-                      <p className="text-blue-300/70 text-xs">Descanso: {getDiaDescansoLabel(c.diaDescanso)}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-blue-400 font-black text-2xl">{c.porcentaje}%</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-green-500/10 rounded-lg p-2">
-                      <p className="text-green-400 font-bold text-lg">{c.trabajados}</p>
-                      <p className="text-green-300/70 text-[10px]">Trabajados</p>
-                    </div>
-                    <div className="bg-blue-500/10 rounded-lg p-2">
-                      <p className="text-blue-400 font-bold text-lg">{c.descansos}</p>
-                      <p className="text-blue-300/70 text-[10px]">Descansos</p>
-                      <p className="text-[8px] text-text-muted">dia_descanso: {c.diaDescanso}</p>
-                    </div>
-                    <div className={`rounded-lg p-2 ${c.faltan > 0 ? 'bg-red-500/10' : 'bg-surface-light/20'}`}>
-                      <p className={`font-bold text-lg ${c.faltan > 0 ? 'text-red-400' : 'text-text-muted'}`}>{c.faltan}</p>
-                      <p className={`text-[10px] ${c.faltan > 0 ? 'text-red-300/70' : 'text-text-muted/70'}`}>Faltas</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Rutas en Progreso - Agrupadas por Chofer */}
       <Card>

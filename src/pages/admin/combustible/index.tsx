@@ -423,7 +423,7 @@ export default function GastosCombustible() {
     
     const html = `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><title>Reporte Combustible y Otros - ${periodoLabel}</title>
+<head><meta charset="UTF-8"><title>Reporte Combustible - ${periodoLabel}</title>
 <style>
   @media print { @page { margin: 18mm 15mm; } button { display: none !important; } }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: white; }
@@ -445,7 +445,7 @@ export default function GastosCombustible() {
   <div style="display:flex;align-items:center;gap:16px;">
     <div>
       <p class="header-title">⛽ SHIMAYA RUTAS & LOGÍSTICA</p>
-      <p class="header-sub">📋 Reporte de Combustible y Otros · ${periodoLabel}</p>
+      <p class="header-sub">📋 Reporte de Combustible · ${periodoLabel}</p>
     </div>
   </div>
   <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(new Date(), "dd/MM/yyyy HH:mm")}</div>
@@ -600,7 +600,7 @@ export default function GastosCombustible() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Fuel className="text-primary" />
-          Combustible y Otros Gastos
+          Gastos Combustible
         </h1>
         
         <div className="flex gap-2">

@@ -197,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     localStorage.removeItem('user_profile')
     const emailClean = email.toLowerCase().trim()
-    const { error, data } = await supabase.auth.signInWithPassword({ 
+    const { error } = await supabase.auth.signInWithPassword({ 
       email: emailClean, 
       password 
     })

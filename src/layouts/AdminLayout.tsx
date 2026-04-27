@@ -45,7 +45,7 @@ export const AdminLayout: React.FC = () => {
     { name: 'Locales Base', href: '/admin/locales', icon: MapPin },
     { name: 'Reportes', href: '/admin/reportes', icon: BarChart3 },
     { name: 'Análisis de Rutas', href: '/admin/analisis', icon: BarChart3 },
-    { name: 'Combustible y Otros', href: '/admin/combustible', icon: Fuel },
+    { name: 'Gastos Combustible', href: '/admin/combustible', icon: Fuel },
     { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   ];
 

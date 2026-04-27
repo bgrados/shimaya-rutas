@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru, calcularDuracionMinutos, formatTimeOnly, formatHoraLocal } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru } from '../../../lib/timezone';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
 
@@ -118,8 +118,6 @@ export default function Reportes() {
   // Estado para editar hora de llegada
   const [editandoLlegada, setEditandoLlegada] = useState<string | null>(null);
   const [horaLlegadaEdit, setHoraLlegadaEdit] = useState('');
-  const [editandoSalida, setEditandoSalida] = useState<string | null>(null);
-  const [horaSalidaEdit, setHoraSalidaEdit] = useState('');
   const [activeTab, setActiveTab] = useState<'ventas' | 'gastos' | 'peajes'>('ventas');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
@@ -191,20 +189,6 @@ export default function Reportes() {
     }
   };
 
-// Funciones para editar hora de salida manualmente
-  const iniciarEdicionSalida = (ruta: RutaConBitacora) => {
-    if (ruta.hora_salida_planta) {
-      // Extraer solo HH:mm del timestamp
-      const horaStr = ruta.hora_salida_planta.includes('T') 
-        ? ruta.hora_salida_planta.split('T')[1]?.substring(0, 5) || ruta.hora_salida_planta
-        : ruta.hora_salida_planta.substring(0, 5);
-      setHoraSalidaEdit(horaStr);
-    } else {
-      setHoraSalidaEdit('');
-    }
-    setEditandoSalida(ruta.id_ruta);
-  };
-
   // Funciones para editar hora de llegada manualmente
   const iniciarEdicionLlegada = (ruta: RutaConBitacora) => {
     // Si ya tiene horaLlegadaReal, usarla; si no, usar hora_llegada_planta
@@ -221,8 +205,12 @@ export default function Reportes() {
   const guardarEdicionLlegada = async (ruta: RutaConBitacora) => {
     if (!horaLlegadaEdit) return;
     
-    const fechaStr = ruta.fecha || format(new Date(), 'yyyy-MM-dd');
-    const nuevaHora = `${fechaStr}T${horaLlegadaEdit}:00`;
+    // Crear la fecha con la hora editada
+    const fechaBase = ruta.fecha ? new Date(ruta.fecha + 'T12:00:00') : new Date();
+    const [h, m] = horaLlegadaEdit.split(':').map(Number);
+    fechaBase.setHours(h, m, 0, 0);
+    
+    const nuevaHora = fechaBase.toISOString();
     
     try {
       // Actualizar hora_llegada_planta en la ruta
@@ -287,79 +275,81 @@ export default function Reportes() {
 
   async function loadData() {
     setLoading(true);
-    try {
-      const { from, to } = getRange(period, selectedDate);
-      const { data: rutasData } = await supabase
-        .from('rutas')
-        .select('*')
-        .gte('fecha', from)
-        .lte('fecha', to)
-        .order('fecha', { ascending: false })
-        .order('created_at', { ascending: false });
+    const { from, to } = getRange(period, selectedDate);
+    const { data: rutasData } = await supabase
+      .from('rutas')
+      .select('*')
+      .gte('fecha', from)
+      .lte('fecha', to)
+      .order('fecha', { ascending: false })
+      .order('created_at', { ascending: false });
 
-      if (rutasData && rutasData.length > 0) {
-        const ids = rutasData.map(r => r.id_ruta);
-        const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
+    if (rutasData && rutasData.length > 0) {
+      const ids = rutasData.map(r => r.id_ruta);
+      const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
+      
+      // Cargar locales_ruta para cada ruta
+      const { data: localesData } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
+      
+      // Cargar fotos de evidencia por local
+      const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
+      let fotosMap: Record<string, FotoVisita[]> = {};
+      if (localRutaIds.length > 0) {
+        const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
+        if (fotosData) {
+          (fotosData as FotoVisita[]).forEach(f => {
+            if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
+            fotosMap[f.id_local_ruta].push(f as FotoVisita);
+          });
+        }
+      }
+      setFotosPorLocal(fotosMap);
+
+      const enriched = (rutasData as Ruta[]).map(r => {
+        const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
+        const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
         
-        // Cargar locales_ruta para cada ruta
-        const { data: localesData } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
+        // Ordenar bitácora por hora de creación
+        const bitsOrdenados = [...bits].sort((a, b) => 
+          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+        );
         
-        // Cargar fotos de evidencia por local
-        const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
-        let fotosMap: Record<string, FotoVisita[]> = {};
-        if (localRutaIds.length > 0) {
-          const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
-          if (fotosData) {
-            (fotosData as FotoVisita[]).forEach(f => {
-              if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
-              fotosMap[f.id_local_ruta].push(f as FotoVisita);
-            });
+        // Buscar la última hora de llegada registrada en bitácora (cualquier destino)
+        let horaLlegadaReal: string | null = null;
+        for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
+          if (bitsOrdenados[i].hora_llegada) {
+            horaLlegadaReal = bitsOrdenados[i].hora_llegada;
+            break;
           }
         }
-        setFotosPorLocal(fotosMap);
-
-        const enriched = (rutasData as Ruta[]).map(r => {
-          const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
-          const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
-          
-          // Ordenar bitácora por hora de creación
-          const bitsOrdenados = [...bits].sort((a, b) => 
-            new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+        
+        // Si no hay hora en bitácora, usar hora_llegada_planta
+        if (!horaLlegadaReal) {
+          horaLlegadaReal = r.hora_llegada_planta;
+        }
+        
+        // Calcular distancia GPS total recorrida
+        let distanciaGpsKm = 0;
+        const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
+        
+        // Asumiendo que el viaje empieza en Planta (podríamos usar coordenadas de planta si existieran)
+        // Por ahora calculamos entre puntos de bitácora consecutivos
+        for (let i = 0; i < bitsValidos.length - 1; i++) {
+          const p1 = bitsValidos[i];
+          const p2 = bitsValidos[i+1];
+          distanciaGpsKm += calcularDistanciaHaversine(
+            p1.gps_llegada_lat!, p1.gps_llegada_lng!,
+            p2.gps_llegada_lat!, p2.gps_llegada_lng!
           );
-          
-          // Usar directamente las horas de la ruta (sin buscar en bitácora)
-          const horaSalidaReal = r.hora_salida_planta;
-          const horaLlegadaReal = r.hora_llegada_planta;
-          
-          // Calcular duración solo si ambas horas existen
-          const duracionMins = (horaSalidaReal && horaLlegadaReal) 
-            ? calcularDuracionMinutos(horaSalidaReal, horaLlegadaReal) 
-            : null;
+        }
 
-          // Calcular distancia GPS total recorrida
-          let distanciaGpsKm = 0;
-          const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
-          
-          for (let i = 0; i < bitsValidos.length - 1; i++) {
-            const p1 = bitsValidos[i];
-            const p2 = bitsValidos[i+1];
-            distanciaGpsKm += calcularDistanciaHaversine(
-              p1.gps_llegada_lat!, p1.gps_llegada_lng!,
-              p2.gps_llegada_lat!, p2.gps_llegada_lng!
-            );
-          }
-
-          return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal, distanciaGpsKm };
-        });
-        setAllRutas(enriched as RutaConBitacora[]);
-      } else {
-        setAllRutas([]);
-      }
-    } catch (err) {
-      console.error('[Reportes] Error loading data:', err);
-    } finally {
-      setLoading(false);
+        return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal, distanciaGpsKm };
+      });
+      setAllRutas(enriched as RutaConBitacora[]);
+    } else {
+      setAllRutas([]);
     }
+    setLoading(false);
   }
 
 async function loadCombustible() {
@@ -445,12 +435,7 @@ async function loadCombustible() {
     }
   }
 
-  const gastosCombustible = useMemo(() => {
-    return gastos.filter(g => 
-      g.tipo_combustible && 
-      ['glp', 'gasolina', 'diesel'].includes(g.tipo_combustible.toLowerCase())
-    );
-  }, [gastos]);
+  const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
   const getGastosFiltrados = () => {
@@ -640,15 +625,15 @@ async function loadCombustible() {
       const estadoBadge = r.estado === 'finalizada' ? '#22c55e' : r.estado === 'en_progreso' ? '#3b82f6' : '#eab308';
       const paradas = bits.map((b: any, i: number) => {
         const transito = b.hora_salida && b.hora_llegada
-          ? calcularDuracionMinutos(b.hora_salida, b.hora_llegada) : null;
+          ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
         const nextBit = bits[i + 1];
         const permanencia = b.hora_llegada && nextBit?.hora_salida
-          ? calcularDuracionMinutos(b.hora_llegada, nextBit.hora_salida) : null;
+          ? differenceInMinutes(new Date(nextBit.hora_salida), new Date(b.hora_llegada)) : null;
         return `<tr>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? formatHoraLocal(b.hora_salida) : '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? formatHoraLocal(b.hora_llegada) : '⏳'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : '⏳'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
         </tr>`;
@@ -666,8 +651,8 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
           </div>
         </div>
         <div style="padding:8px 16px;background:#f8fafc;font-size:12px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;">
-          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatHoraLocal(r.hora_salida_planta)}</strong></span>` : ''}
-          ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${formatHoraLocal(r.horaLlegadaReal)}</strong></span>` : ''}
+          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatPeru(r.hora_salida_planta, 'HH:mm')}</strong></span>` : ''}
+          ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${formatPeru(r.horaLlegadaReal, 'HH:mm')}</strong></span>` : ''}
           ${r.duracionMins ? `<span>⏱ Duración total: <strong>${formatMins(r.duracionMins)}</strong></span>` : ''}
         </div>
         ${bits.length > 0 ? `
@@ -1245,35 +1230,13 @@ const win = window.open('', '_blank');
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        {editandoSalida === ruta.id_ruta ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="time"
-                              value={horaSalidaEdit}
-                              onChange={(e) => setHoraSalidaEdit(e.target.value)}
-                              className="bg-surface-light text-white text-xs px-2 py-1 rounded border border-blue-500"
-                            />
-                            <button
-                              onClick={() => guardarEdicionSalida(ruta)}
-                              className="p-1 bg-green-600 hover:bg-green-700 rounded text-white"
-                              title="Guardar"
-                            ><Check size={14} /></button>
-                            <button
-                              onClick={() => setEditandoSalida(null)}
-                              className="p-1 bg-gray-600 hover:bg-gray-700 rounded text-white"
-                              title="Cancelar"
-                            ><X size={14} /></button>
-                          </div>
-                        ) : (
-                          <>
-                            {ruta.hora_salida_planta && (
-                              <span className="text-xs text-text-muted flex items-center gap-1">
-                                🕐 <span className="cursor-pointer hover:text-white" onClick={() => iniciarEdicionSalida(ruta)}>
-                                  {formatHoraLocal(ruta.hora_salida_planta)}
-                                </span>
-                              </span>
-                            )}
-                          </>
+                        {ruta.hora_salida_planta && (
+                          <span className="text-xs text-text-muted">
+                            🕐 {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
+                            {ruta.horaLlegadaReal && ` → ${formatPeru(ruta.horaLlegadaReal, 'HH:mm')}`}
+                            {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
+                            {ruta.distanciaGpsKm && ` · 🧭 ~${ruta.distanciaGpsKm.toFixed(1)} km`}
+                          </span>
                         )}
                         {editandoLlegada === ruta.id_ruta ? (
                           <div className="flex items-center gap-2">
@@ -1298,7 +1261,7 @@ const win = window.open('', '_blank');
                               <X size={14} />
                             </button>
                           </div>
-                        ) : !editandoSalida && (
+                        ) : (
                           <button
                             onClick={() => iniciarEdicionLlegada(ruta)}
                             className="p-1 hover:bg-surface-light rounded text-text-muted hover:text-primary transition-colors"
@@ -1306,12 +1269,6 @@ const win = window.open('', '_blank');
                           >
                             <Edit2 size={14} />
                           </button>
-                        )}
-                        {ruta.estado === 'finalizada' && ruta.hora_salida_planta && ruta.horaLlegadaReal && (
-                          <span className="text-xs text-text-muted ml-2">
-                            🕐 {formatHoraLocal(ruta.hora_salida_planta)} → {formatHoraLocal(ruta.horaLlegadaReal)}
-                            {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
-                          </span>
                         )}
                         <span className={`text-xs font-black uppercase px-2 py-1 rounded-full border ${estadoColor}`}>
                           {ruta.estado?.replace('_', ' ')}
@@ -1330,13 +1287,13 @@ const win = window.open('', '_blank');
                           </thead>
                           <tbody>
                             {bits.map((b: any, i: number) => {
-                              const dur = b.hora_salida && b.hora_llegada ? calcularDuracionMinutos(b.hora_salida, b.hora_llegada) : null;
+                              const dur = b.hora_salida && b.hora_llegada ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
                               return (
                                 <tr key={b.id_bitacora} className="border-b border-white/5 hover:bg-white/5">
                                   <td className="px-4 py-2 text-primary font-black">{i + 1}</td>
                                   <td className="px-4 py-2 text-white font-bold italic">{b.origen_nombre} <span className="text-primary">→</span> {b.destino_nombre}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? formatHoraLocal(b.hora_salida) : '-'}</td>
-                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? formatHoraLocal(b.hora_llegada) : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_salida ? formatPeru(b.hora_salida, 'HH:mm') : '-'}</td>
+                                  <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? formatPeru(b.hora_llegada, 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
                                   <td className="px-4 py-2 font-bold text-primary">{formatMins(dur)}</td>
                                 </tr>
                               );
@@ -1664,7 +1621,7 @@ const win = window.open('', '_blank');
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-bold flex items-center gap-2">
                   📸 Fotos de Comprobantes
-                  <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                  <span className="text-text-muted text-sm font-normal">({[...gastosCombustible, ...gastosOtros].filter(g => fotosCombustible[g.id_gasto]).length})</span>
                 </h3>
                 {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
                   <Button

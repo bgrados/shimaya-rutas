@@ -23,37 +23,6 @@ export function formatFriendlyDate(fechaStr: string | null | undefined): string 
   }
 }
 
-/**
- * Formatea una hora (ISO, HH:mm, etc) a HH:mm
- */
-export function formatHoraSimple(horaStr: string | null | undefined): string {
-  if (!horaStr) return '-';
-  try {
-    // Caso 1: "03:30" o "03:30:00" - solo hora
-    if (!horaStr.includes('T') && horaStr.includes(':')) {
-      return horaStr.substring(0, 5);
-    }
-    // Caso 2: "2024-04-24T03:30" - ISO sin segundos
-    if (horaStr.includes('T') && horaStr.length <= 16) {
-      return horaStr.split('T')[1]?.substring(0, 5) || horaStr;
-    }
-    // Caso 3: "2024-04-24T03:30:00.000Z" - ISO completo
-    if (horaStr.includes('T')) {
-      const timePart = horaStr.split('T')[1];
-      if (timePart) {
-        const [h, m] = timePart.split(':');
-        return `${h}:${m}`;
-      }
-    }
-    return horaStr;
-  } catch {
-    return horaStr;
-  }
-}
-
-/**
- * Formatea una fecha ISO a un formato específico en hora Perú
- */
 export function formatPeru(dateStr: string | null | undefined, fmt: string): string {
   if (!dateStr) return '-';
   try {
@@ -110,86 +79,23 @@ export function formatHoraPeru(isoString: string | null | undefined): string {
 }
 
 /**
- * Calcula la duración en minutos entre dos horas (maneja HH:mm, ISO, etc.)
- */
-export function calcularDuracionMinutos(start: string | null | undefined, end: string | null | undefined): number {
-  if (!start || !end) return 0;
-  try {
-    const soloHora = (h: string) => {
-      if (h.includes('T') && h.length <= 16) {
-        const parts = h.split('T');
-        const timePart = parts[1]?.substring(0, 5) || h;
-        const [ho, mi] = timePart.split(':').map(Number);
-        return { hora: ho || 0, min: mi || 0 };
-      } else if (h.includes('T')) {
-        const d = new Date(h);
-        return { hora: d.getHours(), min: d.getMinutes() };
-      } else if (h.includes(':')) {
-        const [ho, mi] = h.split(':').map(Number);
-        return { hora: ho || 0, min: mi || 0 };
-      }
-      return { hora: 0, min: 0 };
-    };
-    
-    const inicio = soloHora(start);
-    const fin = soloHora(end);
-    
-    const minsInicio = inicio.hora * 60 + inicio.min;
-    const minsFin = fin.hora * 60 + fin.min;
-    
-    let diff = minsFin - minsInicio;
-    if (diff < 0) diff += 24 * 60;
-    
-    return diff > 0 && diff < 24 * 60 ? diff : 0;
-  } catch {
-    return 0;
-  }
-}
-
-/**
  * Calcula la duración entre dos fechas ISO en minutos/horas
  */
 export function formatDuration(start: string | null | undefined, end: string | null | undefined): string {
-  const mins = calcularDuracionMinutos(start, end);
-  if (mins <= 0) return '-';
-  if (mins < 60) return `${mins} min`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-/**
- * Formatea una hora simple (HH:mm) - NO usa Date parsing
- */
-export function formatTimeOnly(timeStr: string | null | undefined): string {
-  if (!timeStr) return '-';
-  // Solo extraer HH:mm sin importar el formato
-  if (timeStr.includes('T')) {
-    const parts = timeStr.split('T');
-    const timePart = parts[1]?.substring(0, 5) || '';
-    return timePart || timeStr.substring(0, 5);
-  }
-  if (timeStr.includes(':')) {
-    return timeStr.substring(0, 5);
-  }
-  return timeStr;
-}
-
-/**
- * Convierte timestamp UTC a hora local Perú (HH:mm) - CORRECTO
- */
-export function formatHoraLocal(isoString: string | null | undefined): string {
-  if (!isoString) return '-';
+  if (!start || !end) return '-';
   try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return formatTimeOnly(isoString);
-    return new Intl.DateTimeFormat('es-PE', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'America/Lima'
-    }).format(date);
+    const s = new Date(start);
+    const e = new Date(end);
+    const diffMs = e.getTime() - s.getTime();
+    if (isNaN(diffMs) || diffMs < 0) return '-';
+    
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    if (totalMinutes < 60) return `${totalMinutes} min`;
+    
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
   } catch {
-    return formatTimeOnly(isoString);
+    return '-';
   }
 }

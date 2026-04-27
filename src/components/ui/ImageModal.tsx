@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, ChevronLeft, ChevronRight, Search, ZoomOut } from 'lucide-react';
 
 interface GalleryImage {
@@ -36,22 +36,6 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
     }
   }, [isOpen, initialIndex]);
 
-  const handleNext = useCallback((e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setIsMagnifierActive(false);
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  }, [images.length]);
-
-  const handlePrev = useCallback((e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setIsMagnifierActive(false);
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  }, [images.length]);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -61,11 +45,27 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, handleNext, handlePrev]);
+  }, [isOpen, currentIndex, images.length]);
 
   if (!isOpen || images.length === 0) return null;
 
   const currentImage = images[currentIndex];
+
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsMagnifierActive(false);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const handlePrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsMagnifierActive(false);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
