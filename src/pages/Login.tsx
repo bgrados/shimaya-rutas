@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Truck, CheckCircle2, MoveRight, Shield } from 'lucide-react';
+import { Truck, CheckCircle2, MoveRight, Shield, UserCog, Truck as TruckIcon } from 'lucide-react';
+import { useNavigate } from 'react-router';
+
+const DUAL_ROLE_USER = 'manuelm';
 
 export default function Login() {
   const { signIn, profile, loading, user } = useAuth();
@@ -12,19 +15,37 @@ export default function Login() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showRoleSelect, setShowRoleSelect] = useState(false);
+  const navigate = useNavigate();
+
+  const cleanEmail = email.trim().replace('@shimaya.com', '');
+  const isDualRoleUser = cleanEmail.toLowerCase() === DUAL_ROLE_USER;
 
   useEffect(() => {
-    if (user && profile && !loading) {
-      const timer = setTimeout(() => {
-        if (['administrador', 'supervisor'].includes(profile.rol)) {
-          window.location.href = '/admin';
-        } else {
-          window.location.href = '/driver';
-        }
-      }, 1500);
-      return () => clearTimeout(timer);
+    if (user && profile && !loading && !showRoleSelect) {
+      if (isDualRoleUser) {
+        setShowRoleSelect(true);
+        setShowSuccess(true);
+      } else {
+        const timer = setTimeout(() => {
+          if (['administrador', 'supervisor'].includes(profile.rol)) {
+            window.location.href = '/admin';
+          } else {
+            window.location.href = '/driver';
+          }
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [user, profile, loading]);
+  }, [user, profile, loading, showRoleSelect]);
+
+  const handleSelectRole = (role: 'admin' | 'driver') => {
+    if (role === 'admin') {
+      window.location.href = '/admin';
+    } else {
+      window.location.href = '/driver';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
