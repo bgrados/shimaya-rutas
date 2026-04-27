@@ -20,6 +20,7 @@ export default function Login() {
 
   const cleanEmail = email.trim().replace('@shimaya.com', '');
   const isDualRoleUser = profile?.nombre?.toLowerCase() === DUAL_ROLE_USER;
+  console.log('DEBUG Login:', profile?.nombre, DUAL_ROLE_USER, isDualRoleUser);
 
   useEffect(() => {
     if (user && profile && !loading && !showRoleSelect) {
