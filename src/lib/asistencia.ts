@@ -18,6 +18,8 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   const ingreso = chofer?.fecha_ingreso;
   const diaDesc = chofer.dia_descanso ?? -1;
   
+  console.log(`[ASISTENCIA DEBUG] chofer=${chofer?.nombre}, ingreso=${ingreso}, diaDesc=${diaDesc}`);
+  
   let inicio = ingreso ? String(ingreso).split('T')[0] : null;
   if (!inicio) {
     const misRutas = (rutas || []).filter(r => r.id_chofer === chofer.id_usuario);
