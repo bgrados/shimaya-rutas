@@ -34,7 +34,6 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   
   if (fIni > fFin) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio, fin: inicio };
   
-  // 1. Obtener días con ruta dentro del rango
   const diasConRuta = new Set<string>();
   (rutas || []).forEach(r => {
     if (r.id_chofer === chofer.id_usuario && r.fecha) {
@@ -45,13 +44,11 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     }
   });
   
-  // 2. Calcular días totales, descansos y laborables
   let totalDias = 0;
-  let diasDescansoReal = 0;
-  let diasLaborables = 0;
-  const diasConRutaArr = Array.from(diasConRuta);
-  
+  let descansos = 0;
+  let trabajados = 0;
   const it = new Date(inicio + 'T00:00:00');
+  
   while (it <= fFin) {
     const fStr = format(it, 'yyyy-MM-dd');
     const esDiaDescanso = diaDesc >= 0 && it.getDay() === diaDesc;
@@ -60,39 +57,35 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     totalDias++;
     
     if (esDiaDescanso) {
-      // Día de descanso configurado
       if (hayRuta) {
-        // Trabajó en su descanso → NO cuenta ni como descanso ni como programado
-        // Es un "extra"
+        trabajados++; // Trabajó en su día de descanso
       } else {
-        // Descansó real
-        diasDescansoReal++;
+        descansos++; // Descansó
       }
     } else {
-      // Día laborable → cuenta como esperado
-      diasLaborables++;
+      if (hayRuta) {
+        trabajados++; // Trabajó en día laborable
+      } else {
+        // Falta - no cuenta aquí, se calcula después
+      }
     }
     
     it.setDate(it.getDate() + 1);
   }
   
-  const trabajados = diasLaborables; // Días laborables trabajado = trabajados
-  const descansos = diasDescansoReal;
-  
-  // Días programados = solo días laborables (sin contar días de descanso)
-  const programados = diasLaborables;
-  const faltantes = Math.max(0, programados - trabajados);
-  const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 100;
+  const programados = totalDias - descansos;
+  const faltantes = programados - trabajados;
+  const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
   console.log(`[ASISTENCIA] ${chofer.nombre}: inicio=${inicio}, fin=${fechaFin}, diaDesc=${diaDesc}`);
-  console.log(`     totalDias=${totalDias}, laborables=${diasLaborables}, descansos=${diasDescansoReal}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
-  console.log(`     FECHAS RUTAS: ${diasConRutaArr.sort().join(', ')}`);
+  console.log(`     totalDias=${totalDias}, descansos=${descansos}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
+  console.log(`     FECHAS RUTAS: ${Array.from(diasConRuta).sort().join(', ')}`);
   
   return {
     porcentaje: pct,
     trabajados,
     descansos,
-    faltan: faltantes,
+    faltan: Math.max(0, faltantes),
     programados,
     diasMes: totalDias,
     inicio,
