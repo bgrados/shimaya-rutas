@@ -40,6 +40,7 @@ export default function Login() {
   }, [user, profile, loading, showRoleSelect]);
 
   const handleSelectRole = (role: 'admin' | 'driver') => {
+    console.log('SELECT ROLE:', role);
     if (role === 'admin') {
       window.location.href = '/admin';
     } else {
