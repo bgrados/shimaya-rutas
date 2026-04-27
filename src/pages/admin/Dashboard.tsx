@@ -797,6 +797,7 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
                     <div className="bg-blue-500/10 rounded-lg p-2">
                       <p className="text-blue-400 font-bold text-lg">{c.descansos}</p>
                       <p className="text-blue-300/70 text-[10px]">Descansos</p>
+                      <p className="text-[8px] text-text-muted">dia_descanso: {c.diaDescanso}</p>
                     </div>
                     <div className={`rounded-lg p-2 ${c.faltan > 0 ? 'bg-red-500/10' : 'bg-surface-light/20'}`}>
                       <p className={`font-bold text-lg ${c.faltan > 0 ? 'text-red-400' : 'text-text-muted'}`}>{c.faltan}</p>
