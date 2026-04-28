@@ -372,35 +372,22 @@ async function loadCombustible() {
         fechaDesde = format(inicioSemana, 'yyyy-MM-dd');
         fechaHasta = format(now, 'yyyy-MM-dd');
       } else if (filtroFecha === 'mes') {
-        fechaDesde = format(now, 'yyyy-MM');
+        const nowMonth = now.getMonth();
+        const startOfMonth = new Date(now.getFullYear(), nowMonth, 1);
+        const endOfMonth = new Date(now.getFullYear(), nowMonth + 1, 0);
+        fechaDesde = format(startOfMonth, 'yyyy-MM-dd');
+        fechaHasta = format(endOfMonth, 'yyyy-MM-dd');
+        console.log('[DEBUG-FECHA] mes: desde', fechaDesde, 'hasta', fechaHasta);
       }
+      
+      console.log('[DEBUG] Ejecutando loadCombustible para filtro:', filtroFecha, { fechaDesde, fechaHasta });
       
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
         .order('created_at', { ascending: false });
       
-      // Si hay filtro de fecha, filtrar por rutas
-      if (fechaDesde) {
-        let rutasQuery = supabase
-          .from('rutas')
-          .select('id_ruta')
-          .gte('fecha', fechaDesde);
-        
-        if (fechaHasta) {
-          rutasQuery = rutasQuery.lte('fecha', fechaHasta);
-        }
-        
-        const { data: rutasData } = await rutasQuery;
-        
-        const rutaIds = rutasData?.map(r => r.id_ruta) || [];
-        if (rutaIds.length > 0) {
-          query = query.in('id_ruta', rutaIds);
-        } else {
-          query = query.in('id_ruta', ['']); // vacío
-        }
-      }
-      
+      // Cargar todos los gastos sin filtro de rutas (el filtro se hace localmente)
       const { data, error } = await query;
 
       if (error) {
@@ -441,13 +428,11 @@ async function loadCombustible() {
   
 // Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso') - ordenados y filtrados
   const peajesManualesOrdenados = useMemo(() => {
-    console.log('[DEBUG PEAJES] filtroFecha:', filtroFecha, 'gastos length:', gastos.length);
+    console.log('[DEBUG PEAJES] filtroFecha:', filtroFecha, 'gastos.length:', gastos.length, 'gastos sample:', gastos.slice(0, 2).map(g => ({ id: g.id_gasto, tipo: g.tipo_combustible, fecha: g.fecha })));
+    
     // Apply date filter first
     let filtered = gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
-    console.log('[DEBUG PEAJES] filtered sin filtro:', filtered.length);
-    if (filtered.length > 0) {
-      console.log('[DEBUG PEAJES] primera fecha:', filtered[0].fecha, 'created_at:', (filtered[0] as any).created_at);
-    }
+    console.log('[DEBUG PEAJES] peajes sin filtrar count:', filtered.length);
     
     const hoy = new Date();
     const hoyStr = format(hoy, 'yyyy-MM-dd');
@@ -460,33 +445,34 @@ async function loadCombustible() {
     inicioSemana.setDate(diff);
     const inicioSemanaStr = format(inicioSemana, 'yyyy-MM-dd');
     
-    console.log('[DEBUG PEAJES FILTRO] hoy:', hoyStr, 'mes:', mesStr, 'semana:', inicioSemanaStr);
-    
     if (filtroFecha === 'dia') {
       filtered = filtered.filter(g => {
-        const fechaGasto = (g.fecha || '').split('T')[0];
+        const fechaRaw = g.fecha || (g as any).created_at || '';
+        const fechaGasto = fechaRaw.toString().split('T')[0];
         return fechaGasto === hoyStr;
       });
     } else if (filtroFecha === 'semana') {
       filtered = filtered.filter(g => {
-        const fechaGasto = (g.fecha || '').split('T')[0];
+        const fechaRaw = g.fecha || (g as any).created_at || '';
+        const fechaGasto = fechaRaw.toString().split('T')[0];
         return fechaGasto >= inicioSemanaStr && fechaGasto <= hoyStr;
       });
     } else if (filtroFecha === 'mes') {
-      console.log('[DEBUG PEAJES FILTRO] aplicando filtro mes, mesStr:', mesStr);
+      console.log('[DEBUG PEAJES] Aplicando filtro mes, mesStr:', mesStr);
       filtered = filtered.filter(g => {
-        const fechaGasto = g.fecha ? (g.fecha as string).split('T')[0] : ((g as any).created_at || '').split('T')[0];
-        console.log('[DEBUG PEAJES FILTRO] fechaGasto:', fechaGasto, 'startsWith:', fechaGasto.startsWith(mesStr));
+        const fechaRaw = g.fecha || (g as any).created_at || '';
+        const fechaGasto = fechaRaw.toString().split('T')[0];
+        const matches = fechaGasto.startsWith(mesStr);
+        console.log('[DEBUG PEAJES] fechaGasto:', fechaGasto, 'mesStr:', mesStr, 'matches:', matches);
         return fechaGasto.startsWith(mesStr);
       });
+      console.log('[DEBUG PEAJES] después de filtro mes, filtered.length:', filtered.length);
     }
-    
-    console.log('[DEBUG PEAJES FILTRO] filtered con filtro:', filtered.length);
     
     // Then sort
     return filtered.sort((a, b) => {
-      const fechaA = a.fecha || a.created_at || '';
-      const fechaB = b.fecha || b.created_at || '';
+      const fechaA = a.fecha || (a as any).created_at || '';
+      const fechaB = b.fecha || (b as any).created_at || '';
       const dateA = new Date(fechaA).getTime();
       const dateB = new Date(fechaB).getTime();
       return ordenPeajes === 'asc' ? dateA - dateB : dateB - dateA;
@@ -1109,7 +1095,10 @@ const win = window.open('', '_blank');
       <input type="checkbox" id="incluirFotos" checked onchange="window.toggleFotos(this.checked)"> 
       Incluir fotos en el reporte
     </label>
-    <button onclick="window.print()" style="background:#16a34a;color:white;border:none;padding:10px 20px;border-radius:6px;font-weight:bold;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+    <div>
+      <button onclick="window.close()" style="background:#ef4444;color:white;border:none;padding:10px 20px;border-radius:6px;font-weight:bold;cursor:pointer;margin-right:10px;">✕ Cerrar</button>
+      <button onclick="window.print()" style="background:#16a34a;color:white;border:none;padding:10px 20px;border-radius:6px;font-weight:bold;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+    </div>
   </div>
   <div class="header">
     <div>
