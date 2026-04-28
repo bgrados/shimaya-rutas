@@ -124,6 +124,7 @@ export default function Reportes() {
   const [incluirFotosEnPDF, setIncluirFotosEnPDF] = useState(true);
   const [descargandoZip, setDescargandoZip] = useState(false);
   const [descargandoZipEvidencia, setDescargandoZipEvidencia] = useState(false);
+  const [ordenPeajes, setOrdenPeajes] = useState<'asc' | 'desc'>('desc');
 
   const handleDeleteEvidenciaFoto = async (fotoId: string, localId: string) => {
     if (!confirm('¿Eliminar esta foto de evidencia?')) return;
@@ -438,10 +439,19 @@ async function loadCombustible() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  // Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso')
-  const peajesManuales = useMemo(() => {
-    return gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
-  }, [gastos]);
+  // Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso') - ordenados
+  const peajesManualesOrdenados = useMemo(() => {
+    const list = gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
+    return list.sort((a, b) => {
+      const fechaA = a.fecha || a.created_at || '';
+      const fechaB = b.fecha || b.created_at || '';
+      const dateA = new Date(fechaA).getTime();
+      const dateB = new Date(fechaB).getTime();
+      return ordenPeajes === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+  }, [gastos, ordenPeajes]);
+  
+  const peajesManuales = peajesManualesOrdenados;
   
   const peajesManualesMonto = peajesManuales
     .filter(g => g.tipo_combustible === 'peaje')
@@ -1976,7 +1986,12 @@ const win = window.open('', '_blank');
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-text-muted border-b border-white/10">
-                          <th className="text-left py-2 px-3">Fecha</th>
+                          <th 
+                              className="text-left py-2 px-3 cursor-pointer hover:text-primary"
+                              onClick={() => setOrdenPeajes(ordenPeajes === 'asc' ? 'desc' : 'asc')}
+                            >
+                              Fecha {ordenPeajes === 'asc' ? '↑' : '↓'}
+                            </th>
                           <th className="text-left py-2 px-3">Foto</th>
                           <th className="text-left py-2 px-3">Chofer</th>
                           <th className="text-left py-2 px-3">Tipo</th>
