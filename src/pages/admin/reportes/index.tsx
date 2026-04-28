@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { Ruta, GastoCombustible, FotoVisita, LocalRuta, ViajeBitacora } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check } from 'lucide-react';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check, Image } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru } from '../../../lib/timezone';
@@ -1925,6 +1925,7 @@ const win = window.open('', '_blank');
                       <thead>
                         <tr className="text-text-muted border-b border-white/10">
                           <th className="text-left py-2 px-3">Fecha</th>
+                          <th className="text-left py-2 px-3">Foto</th>
                           <th className="text-left py-2 px-3">Chofer</th>
                           <th className="text-left py-2 px-3">Tipo</th>
                           <th className="text-right py-2 px-3">Monto</th>
@@ -1936,16 +1937,28 @@ const win = window.open('', '_blank');
                             <td className="py-2 px-3 text-white">
                               {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}
                             </td>
+                            <td className="py-2 px-3">
+                              {gasto.foto_url ? (
+                                <button
+                                  onClick={() => setShowFotoModal(gasto.foto_url)}
+                                  className="text-primary hover:text-primary/80 text-xs flex items-center gap-1"
+                                >
+                                  <Image size={14} /> Ver
+                                </button>
+                              ) : (
+                                <span className="text-text-muted text-xs">-</span>
+                              )}
+                            </td>
                             <td className="py-2 px-3 text-white font-medium">
                               {gasto.chofer_nombre || '-'}
                             </td>
                             <td className="py-2 px-3">
                               <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                gasto.compromiso_pago 
+                                gasto.tipo_combustible === 'peaje_compromiso'
                                   ? 'bg-yellow-500/20 text-yellow-400' 
                                   : 'bg-green-500/20 text-green-400'
                               }`}>
-                                {gasto.compromiso_pago ? 'Compromiso' : 'Pagado'}
+                                {gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : 'Pagado'}
                               </span>
                             </td>
                             <td className="py-2 px-3 text-right text-green-400 font-bold">
