@@ -439,17 +439,54 @@ async function loadCombustible() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  // Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso') - ordenados
+// Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso') - ordenados y filtrados
   const peajesManualesOrdenados = useMemo(() => {
-    const list = gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
-    return list.sort((a, b) => {
+    console.log('[DEBUG PEAJES FILTRO] filtroFecha:', filtroFecha);
+    // Apply date filter first
+    let filtered = gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
+    console.log('[DEBUG PEAJES FILTRO] filtered sin filtro:', filtered.length);
+    
+    const hoy = new Date();
+    const hoyStr = format(hoy, 'yyyy-MM-dd');
+    const mesStr = format(hoy, 'yyyy-MM');
+    
+    // Get start of week (Monday)
+    const day = hoy.getDay();
+    const diff = hoy.getDate() - day + (day === 0 ? -6 : 1);
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(diff);
+    const inicioSemanaStr = format(inicioSemana, 'yyyy-MM-dd');
+    
+    console.log('[DEBUG PEAJES FILTRO] hoy:', hoyStr, 'mes:', mesStr, 'semana:', inicioSemanaStr);
+    
+    if (filtroFecha === 'dia') {
+      filtered = filtered.filter(g => {
+        const fechaGasto = (g.fecha || '').split('T')[0];
+        return fechaGasto === hoyStr;
+      });
+    } else if (filtroFecha === 'semana') {
+      filtered = filtered.filter(g => {
+        const fechaGasto = (g.fecha || '').split('T')[0];
+        return fechaGasto >= inicioSemanaStr && fechaGasto <= hoyStr;
+      });
+    } else if (filtroFecha === 'mes') {
+      filtered = filtered.filter(g => {
+        const fechaGasto = (g.fecha || '').split('T')[0];
+        return fechaGasto.startsWith(mesStr);
+      });
+    }
+    
+    console.log('[DEBUG PEAJES FILTRO] filtered con filtro:', filtered.length);
+    
+    // Then sort
+    return filtered.sort((a, b) => {
       const fechaA = a.fecha || a.created_at || '';
       const fechaB = b.fecha || b.created_at || '';
       const dateA = new Date(fechaA).getTime();
       const dateB = new Date(fechaB).getTime();
       return ordenPeajes === 'asc' ? dateA - dateB : dateB - dateA;
     });
-  }, [gastos, ordenPeajes]);
+  }, [gastos, ordenPeajes, filtroFecha]);
   
   const peajesManuales = peajesManualesOrdenados;
   
