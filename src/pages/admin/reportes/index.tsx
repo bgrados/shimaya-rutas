@@ -441,10 +441,13 @@ async function loadCombustible() {
   
 // Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso') - ordenados y filtrados
   const peajesManualesOrdenados = useMemo(() => {
-    console.log('[DEBUG PEAJES FILTRO] filtroFecha:', filtroFecha);
+    console.log('[DEBUG PEAJES] filtroFecha:', filtroFecha, 'gastos length:', gastos.length);
     // Apply date filter first
     let filtered = gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
-    console.log('[DEBUG PEAJES FILTRO] filtered sin filtro:', filtered.length);
+    console.log('[DEBUG PEAJES] filtered sin filtro:', filtered.length);
+    if (filtered.length > 0) {
+      console.log('[DEBUG PEAJES] primera fecha:', filtered[0].fecha, 'created_at:', (filtered[0] as any).created_at);
+    }
     
     const hoy = new Date();
     const hoyStr = format(hoy, 'yyyy-MM-dd');
@@ -469,9 +472,11 @@ async function loadCombustible() {
         const fechaGasto = (g.fecha || '').split('T')[0];
         return fechaGasto >= inicioSemanaStr && fechaGasto <= hoyStr;
       });
-    } else if (filtroFecha === 'mes') {
+    if (filtroFecha === 'mes') {
+      console.log('[DEBUG PEAJES FILTRO] aplicando filtro mes, mesStr:', mesStr);
       filtered = filtered.filter(g => {
-        const fechaGasto = (g.fecha || '').split('T')[0];
+        const fechaGasto = g.fecha ? (g.fecha as string).split('T')[0] : ((g as any).created_at || '').split('T')[0];
+        console.log('[DEBUG PEAJES FILTRO] fechaGasto:', fechaGasto, 'startsWith:', fechaGasto.startsWith(mesStr));
         return fechaGasto.startsWith(mesStr);
       });
     }
