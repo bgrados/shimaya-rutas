@@ -1058,28 +1058,38 @@ const win = window.open('', '_blank');
   const handleExportarPeajesPDF = () => {
     const periodoLabel = getFiltroLabel();
     const peajesFiltrados = peajesManuales;
+    const incluirFotos = true;
     
     const peajesHTML = peajesFiltrados.map((gasto: any) => {
       const tipoLabel = gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : 'Pagado';
       const fechaMostrar = gasto.fecha ? formatPeru(gasto.fecha, 'dd/MM/yyyy') : '-';
+      const fotoHTML = incluirFotos && gasto.foto_url ? `<br><img src="${gasto.foto_url}" style="max-height:80px;border-radius:4px;margin-top:4px;">` : '';
       
       return `<tr style="border-bottom:1px solid #f1f5f9;">
         <td style="padding:8px;color:#475569;">${fechaMostrar}</td>
         <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
-        <td style="padding:8px;color:#475569;">${tipoLabel}</td>
+        <td style="padding:8px;color:#475569;">${tipoLabel}${fotoHTML}</td>
         <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
       </tr>`;
     }).join('');
 
+    const totalPeajes = peajesFiltrados.reduce((sum, g: any) => sum + (g.monto || 0), 0).toFixed(2);
+    
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><title>Reporte de Peajes - ${periodoLabel}</title>
 <style>
-  @media print { @page { margin: 18mm 15mm; } button { display: none !important; } }
+  @media print { 
+    @page { margin: 15mm; } 
+    button, .no-print { display: none !important; }
+  }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: white; }
   .header { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); color: white; padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; }
   .header-title { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; margin: 0; }
   .header-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+  .controls { padding: 12px 28px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+  .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  .checkbox-label input { width: 16px; height: 16px; cursor: pointer; }
   .badge-row { display: flex; gap: 10px; padding: 16px 28px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
   .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
   .badge-blue { background: #dbeafe; color: #1e40af; }
@@ -1087,12 +1097,20 @@ const win = window.open('', '_blank');
   .badge-red { background: #fee2e2; color: #991b1b; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { background: #f1f5f9; padding: 10px; text-align: left; color: #475569; font-weight: 600; }
+  td { vertical-align: top; }
   .footer { padding: 20px 28px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: right; }
   .total-label { font-size: 14px; color: #475569; }
   .total-value { font-size: 24px; font-weight: 900; color: #16a34a; }
 </style>
 </head>
 <body>
+  <div class="controls no-print">
+    <label class="checkbox-label">
+      <input type="checkbox" id="incluirFotos" checked onchange="window.toggleFotos(this.checked)"> 
+      Incluir fotos en el reporte
+    </label>
+    <button onclick="window.print()" style="background:#16a34a;color:white;border:none;padding:10px 20px;border-radius:6px;font-weight:bold;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+  </div>
   <div class="header">
     <div>
       <h1 class="header-title">💰 REPORTE DE PEAJES</h1>
@@ -1106,7 +1124,7 @@ const win = window.open('', '_blank');
   <div class="badge-row">
     <span class="badge badge-blue">📅 Período: ${periodoLabel}</span>
     <span class="badge badge-green">📊 Registros: ${peajesFiltrados.length}</span>
-    <span class="badge badge-red">💵 Total: S/ ${peajesFiltrados.reduce((sum, g: any) => sum + (g.monto || 0), 0).toFixed(2)}</span>
+    <span class="badge badge-red">💵 Total: S/ ${totalPeajes}</span>
   </div>
 
   <table>
@@ -1114,7 +1132,7 @@ const win = window.open('', '_blank');
       <tr>
         <th>Fecha</th>
         <th>Chofer</th>
-        <th>Tipo</th>
+        <th>Tipo / Evidencia</th>
         <th style="text-align:right;">Monto</th>
       </tr>
     </thead>
@@ -1125,18 +1143,24 @@ const win = window.open('', '_blank');
 
   <div class="footer">
     <span class="total-label">Total Peajes: </span>
-    <span class="total-value">S/ ${peajesFiltrados.reduce((sum, g: any) => sum + (g.monto || 0), 0).toFixed(2)}</span>
+    <span class="total-value">S/ ${totalPeajes}</span>
   </div>
+  
+  <script>
+    function toggleFotos(mostrar) {
+      const fotos = document.querySelectorAll('.foto-row');
+      fotos.forEach(f => f.style.display = mostrar ? '' : 'none');
+    }
+  </script>
 </body>
 </html>`;
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporte_peajes_${format(new Date(), 'yyyy-MM-dd')}.pdf.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
   };
 
   const handleExportarCombustiblePDF = () => {
