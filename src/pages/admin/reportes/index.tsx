@@ -478,6 +478,21 @@ async function loadCombustible() {
     return rb?.nombre || '-';
   };
   
+  // Función auxiliar para eliminar gasto
+  const eliminarGastoPeaje = async (idGasto: string) => {
+    if (!confirm('¿Estás seguro de eliminar este registro de peaje?')) return;
+    
+    const { error } = await supabase.from('gastos_combustible').delete().eq('id_gasto', idGasto);
+    
+    if (error) {
+      alert('Error al eliminar: ' + error.message);
+    } else {
+      // Actualizar la lista local
+      setGastos(prev => prev.filter(g => g.id_gasto !== idGasto));
+      alert('Registro eliminado');
+    }
+  };
+  
   const getGastosFiltrados = () => {
     const now = new Date();
     const day = now.getDay();
@@ -1929,6 +1944,7 @@ const win = window.open('', '_blank');
                           <th className="text-left py-2 px-3">Chofer</th>
                           <th className="text-left py-2 px-3">Tipo</th>
                           <th className="text-right py-2 px-3">Monto</th>
+                          <th className="text-center py-2 px-3">Acciones</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1963,6 +1979,17 @@ const win = window.open('', '_blank');
                             </td>
                             <td className="py-2 px-3 text-right text-green-400 font-bold">
                               S/ {(gasto.monto || 0).toFixed(2)}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              <div className="flex justify-center gap-1">
+                                <button
+                                  onClick={() => eliminarGastoPeaje(gasto.id_gasto)}
+                                  className="text-red-400 hover:text-red-300 p-1"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
