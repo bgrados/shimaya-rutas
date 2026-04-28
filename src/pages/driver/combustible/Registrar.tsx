@@ -450,7 +450,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
             <option value="glp">GLP</option>
             <option value="gasolina">Gasolina</option>
             <option value="diesel">Diesel</option>
-            <option value="otro">Otro (estacionamiento/peaje)</option>
+            <option value="peaje">Peaje (pagado)</option>
+            <option value="peaje_compromiso">Peaje (compromiso/deuda)</option>
+            <option value="estacionamiento">Estacionamiento</option>
+            <option value="otro">Otro</option>
           </select>
         </div>
 

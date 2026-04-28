@@ -438,12 +438,18 @@ async function loadCombustible() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
   
-  // Peajes manuales (gastos con tipo 'peaje')
+  // Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso')
   const peajesManuales = useMemo(() => {
-    return gastos.filter(g => g.tipo_combustible === 'peaje');
+    return gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
   }, [gastos]);
   
-  const peajesManualesMonto = peajesManuales.reduce((sum, g) => sum + (g.monto || 0), 0);
+  const peajesManualesMonto = peajesManuales
+    .filter(g => g.tipo_combustible === 'peaje')
+    .reduce((sum, g) => sum + (g.monto || 0), 0);
+  
+  const peajesCompromisoMonto = peajesManuales
+    .filter(g => g.tipo_combustible === 'peaje_compromiso')
+    .reduce((sum, g) => sum + (g.monto || 0), 0);
   
   // Peajes calculados automáticamente (basado en rutas ejecutadas)
   const peajesCalculados = useMemo(() => {
@@ -1892,14 +1898,21 @@ const win = window.open('', '_blank');
                   <p className="text-2xl font-black text-green-400">
                     S/ {peajesManualesMonto.toFixed(2)}
                   </p>
-                  <p className="text-text-muted text-[10px] mt-1">Con ticket/foto</p>
+                  <p className="text-text-muted text-[10px] mt-1">Con ticket/foto (pagados)</p>
+                </div>
+                <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                  <p className="text-text-muted text-xs uppercase font-bold mb-1">Compromisos Peaje</p>
+                  <p className="text-2xl font-black text-yellow-400">
+                    S/ {peajesCompromisoMonto.toFixed(2)}
+                  </p>
+                  <p className="text-text-muted text-[10px] mt-1">Tickets pendientes por pagar</p>
                 </div>
                 <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
                   <p className="text-text-muted text-xs uppercase font-bold mb-1">Total Peajes</p>
                   <p className="text-2xl font-black text-white">
                     S/ {(peajesCalculados + peajesManualesMonto).toFixed(2)}
                   </p>
-                  <p className="text-text-muted text-[10px] mt-1">{peajesManuales.length} registros</p>
+                  <p className="text-text-muted text-[10px] mt-1">Sin contar compromisos</p>
                 </div>
               </div>
 
