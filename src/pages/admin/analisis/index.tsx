@@ -405,7 +405,7 @@ export default function AnalisisRutas() {
   }, [rutas, choferes, fechaInicio, fechaFin]);
 
   const stats = useMemo(() => {
-    const filtered = rutas.filter(r => {
+    const filtered = rutas.filter(r => r.estado === 'finalizada' && {
       if (choferFilter !== 'todos' && r.id_chofer !== choferFilter) return false;
       return true;
     });
