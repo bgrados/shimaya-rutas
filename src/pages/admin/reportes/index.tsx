@@ -447,8 +447,9 @@ async function loadCombustible() {
   
   // Peajes calculados automáticamente (basado en rutas ejecutadas)
   const peajesCalculados = useMemo(() => {
+    if (!allRutas || allRutas.length === 0) return 0;
     // Cargar rutas_base con datos de peaje para las rutas ejecutadas
-    const rutasFiltradas = rutas.filter(r => r.estado === 'finalizada');
+    const rutasFiltradas = allRutas.filter(r => r.estado === 'finalizada');
     let total = 0;
     
     rutasFiltradas.forEach(ruta => {
@@ -463,7 +464,7 @@ async function loadCombustible() {
     });
     
     return total;
-  }, [rutas, rutasBase]);
+  }, [allRutas, rutasBase]);
   
   // Función auxiliar para obtener nombre de ruta base
   const getRutaBaseNombre = (idRutaBase: string) => {
