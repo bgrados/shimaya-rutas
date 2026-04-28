@@ -439,7 +439,7 @@ export default function AnalisisRutas() {
       tiempoPromedio,
       eficienciaGlobal,
       rutasCompletadas,
-      totalRutas: rutasCompletadas,
+      totalRutas: filtered.filter(r => r.estado === 'finalizada').length,
       totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60,
       totalKm
     };

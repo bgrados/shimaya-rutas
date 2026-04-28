@@ -75,7 +75,7 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     it.setDate(it.getDate() + 1);
   }
   
-  const programados = totalDias - descansos;
+  const programados = totalDias - descansos; /* Días esperados (laborables) */
   const faltantes = programados - trabajados;
   const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
