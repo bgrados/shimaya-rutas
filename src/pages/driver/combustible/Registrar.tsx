@@ -285,7 +285,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         foto_url: fotoUrl,
         notas: notas || null,
         estado: 'confirmado',
-        fecha: fechaGasto + 'T00:00:00'
+        fecha: fechaGasto + 'T12:00:00-05:00'
       });
 
       if (insertError) {

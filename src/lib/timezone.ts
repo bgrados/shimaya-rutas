@@ -26,7 +26,8 @@ export function formatFriendlyDate(fechaStr: string | null | undefined): string 
 export function formatPeru(dateStr: string | null | undefined, fmt: string): string {
   if (!dateStr) return '-';
   try {
-    return format(new Date(dateStr), fmt, { locale: es });
+    const datePart = dateStr.split('T')[0];
+    return format(new Date(datePart + 'T12:00:00'), fmt, { locale: es });
   } catch (e) {
     return '-';
   }

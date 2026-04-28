@@ -501,7 +501,7 @@ async function loadCombustible() {
     
     const { error } = await supabase.from('gastos_combustible').update({
       monto: parseFloat(editandoPeajeDatos.monto),
-      fecha: editandoPeajeDatos.fecha,
+      fecha: editandoPeajeDatos.fecha + 'T12:00:00-05:00',
       tipo_combustible: editandoPeajeDatos.tipo_combustible
     }).eq('id_gasto', editandoPeajeId);
     
