@@ -34,7 +34,7 @@ function formatMins(mins: number | null) {
 }
 
 type Period = 'diario' | 'semanal' | 'mensual';
-type ReportType = 'rutas' | 'combustible' | 'otros';
+type ReportType = 'rutas' | 'combustible' | 'peajes' | 'otros';
 
 interface RutaConBitacora extends Ruta { 
   bitacora?: ViajeBitacora[]; 
@@ -100,7 +100,7 @@ export default function Reportes() {
   const [selectedDate, setSelectedDate] = useState(localToday());
   const [allRutas, setAllRutas] = useState<RutaConBitacora[]>([]);
   const [choferes, setChoferes] = useState<Usuario[]>([]);
-  const [rutasBase, setRutasBase] = useState<{ id_ruta_base: string; nombre: string }[]>([]);
+  const [rutasBase, setRutasBase] = useState<{ id_ruta_base: string; nombre: string; cantidad_peajes?: number; costo_peaje?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [reprocessingPhotos, setReprocessingPhotos] = useState(false);
@@ -270,7 +270,7 @@ export default function Reportes() {
 
   useEffect(() => {
     supabase.from('usuarios').select('id_usuario,nombre').eq('rol', 'chofer').then(r => { if (r.data) setChoferes(r.data); });
-    supabase.from('rutas_base').select('id_ruta_base,nombre').then(r => { if (r.data) setRutasBase(r.data); });
+    supabase.from('rutas_base').select('id_ruta_base,nombre,cantidad_peajes,costo_peaje').then(r => { if (r.data) setRutasBase(r.data); });
   }, []);
 
   async function loadData() {
@@ -437,6 +437,39 @@ async function loadCombustible() {
 
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
+  
+  // Peajes manuales (gastos con tipo 'peaje')
+  const peajesManuales = useMemo(() => {
+    return gastos.filter(g => g.tipo_combustible === 'peaje');
+  }, [gastos]);
+  
+  const peajesManualesMonto = peajesManuales.reduce((sum, g) => sum + (g.monto || 0), 0);
+  
+  // Peajes calculados automáticamente (basado en rutas ejecutadas)
+  const peajesCalculados = useMemo(() => {
+    // Cargar rutas_base con datos de peaje para las rutas ejecutadas
+    const rutasFiltradas = rutas.filter(r => r.estado === 'finalizada');
+    let total = 0;
+    
+    rutasFiltradas.forEach(ruta => {
+      // Obtener información de la ruta base
+      const rutaBase = rutasBase.find(rb => rb.id_ruta_base === ruta.id_ruta_base);
+      if (rutaBase && typeof rutaBase === 'object') {
+        const datos = rutaBase as any;
+        const cantidadPeajes = datos.cantidad_peajes || 0;
+        const costoPeaje = datos.costo_peaje || 0;
+        total += cantidadPeajes * costoPeaje;
+      }
+    });
+    
+    return total;
+  }, [rutas, rutasBase]);
+  
+  // Función auxiliar para obtener nombre de ruta base
+  const getRutaBaseNombre = (idRutaBase: string) => {
+    const rb = rutasBase.find(r => r.id_ruta_base === idRutaBase);
+    return rb?.nombre || '-';
+  };
   
   const getGastosFiltrados = () => {
     const now = new Date();
@@ -1098,6 +1131,13 @@ const win = window.open('', '_blank');
           >
             <Fuel size={16} className="inline mr-2" />
             Combustible
+          </button>
+          <button
+            onClick={() => setReportType('peajes')}
+            className={`px-4 py-2 font-medium transition-colors ${reportType === 'peajes' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
+          >
+            <FileDown size={16} className="inline mr-2" />
+            Peajes
           </button>
           <button
             onClick={() => setReportType('otros')}
@@ -1804,6 +1844,112 @@ const win = window.open('', '_blank');
                     <span className="text-green-400 font-black text-xl">S/ {getGastosFiltrados().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
                   </div>
                 </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {reportType === 'peajes' && (
+          <Card className="border-surface-light">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <FileDown size={24} className="text-blue-500" />
+                  REPORTE DE PEAJES <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full ml-2">NEW</span>
+                </h2>
+              </div>
+              
+              <p className="text-text-muted mb-4">Gestión de peajes: automáticos (calculados) y manuales (con ticket).</p>
+
+              <div className="flex flex-wrap gap-3 items-center mb-4">
+                <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
+                  {[
+                    { key: 'dia', label: 'Hoy' },
+                    { key: 'semana', label: 'Semana' },
+                    { key: 'mes', label: 'Mes' },
+                    { key: 'todo', label: 'Todo' }
+                  ].map(p => (
+                    <button key={p.key} onClick={() => setFiltroFecha(p.key as any)}
+                      className={`px-5 py-2.5 text-sm font-black italic transition-all ${filtroFecha === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Resumen de Peajes */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                  <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Automáticos</p>
+                  <p className="text-2xl font-black text-blue-400">
+                    S/ {peajesCalculados.toFixed(2)}
+                  </p>
+                  <p className="text-text-muted text-[10px] mt-1">Basado en rutas ejecutadas</p>
+                </div>
+                <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                  <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Manuales</p>
+                  <p className="text-2xl font-black text-green-400">
+                    S/ {peajesManualesMonto.toFixed(2)}
+                  </p>
+                  <p className="text-text-muted text-[10px] mt-1">Con ticket/foto</p>
+                </div>
+                <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                  <p className="text-text-muted text-xs uppercase font-bold mb-1">Total Peajes</p>
+                  <p className="text-2xl font-black text-white">
+                    S/ {(peajesCalculados + peajesManualesMonto).toFixed(2)}
+                  </p>
+                  <p className="text-text-muted text-[10px] mt-1">{peajesManuales.length} registros</p>
+                </div>
+              </div>
+
+              {/* Detalle de peajes manuales */}
+              {peajesManuales.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-bold text-white mb-3">Peajes con Ticket/Foto</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-text-muted border-b border-white/10">
+                          <th className="text-left py-2 px-3">Fecha</th>
+                          <th className="text-left py-2 px-3">Chofer</th>
+                          <th className="text-left py-2 px-3">Tipo</th>
+                          <th className="text-right py-2 px-3">Monto</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {peajesManuales.map((gasto: any) => (
+                          <tr key={gasto.id_gasto} className="border-b border-white/5 hover:bg-white/5">
+                            <td className="py-2 px-3 text-white">
+                              {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}
+                            </td>
+                            <td className="py-2 px-3 text-white font-medium">
+                              {gasto.chofer_nombre || '-'}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                gasto.compromiso_pago 
+                                  ? 'bg-yellow-500/20 text-yellow-400' 
+                                  : 'bg-green-500/20 text-green-400'
+                              }`}>
+                                {gasto.compromiso_pago ? 'Compromiso' : 'Pagado'}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-right text-green-400 font-bold">
+                              S/ {(gasto.monto || 0).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {peajesManuales.length === 0 && peajesCalculados === 0 && (
+                <div className="text-center py-8">
+                  <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+                  <p className="text-text-muted">No hay registros de peajes en el período seleccionado</p>
+                </div>
               )}
             </CardContent>
           </Card>

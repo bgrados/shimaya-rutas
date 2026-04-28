@@ -405,15 +405,16 @@ export default function AnalisisRutas() {
   }, [rutas, choferes, fechaInicio, fechaFin]);
 
   const stats = useMemo(() => {
-    const filtered = rutas.filter(r => r.estado === 'finalizada' && {
+    const filtered = rutas.filter(r => {
+      if (r.estado !== 'finalizada') return false;
       if (choferFilter !== 'todos' && r.id_chofer !== choferFilter) return false;
       return true;
     });
     
     // Count unique dates with finalized routes
-    const fechasUnicas = new Set(filtered.filter(r => r.estado === 'finalizada').map(r => r.fecha).filter(Boolean));
+    const fechasUnicas = new Set(filtered.map(r => r.fecha).filter(Boolean));
     const diasTrabajados = fechasUnicas.size;
-    const rutasCompletadas = rutasCompletadas;
+    const totalRutas = diasTrabajados;
 
     const totalReal = filtered.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
     const totalUnicos = filtered.reduce((sum, r) => sum + (r.locales_unicos || 0), 0);
@@ -428,8 +429,6 @@ export default function AnalisisRutas() {
       ? conEficiencia.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEficiencia.length
       : null;
 
-    const totalRutas = rutasCompletadas;
-    
     const totalKm = filtered.reduce((sum, r) => {
       if (r.km_inicio != null && r.km_fin != null && r.km_fin >= r.km_inicio) {
         return sum + (r.km_fin - r.km_inicio);
@@ -443,8 +442,8 @@ export default function AnalisisRutas() {
       totalExtra,
       tiempoPromedio,
       eficienciaGlobal,
-      rutasCompletadas,
-      totalRutas: filtered.filter(r => r.estado === 'finalizada').length,
+      rutasCompletadas: filtered.length,
+      totalRutas: diasTrabajados,
       totalHoras: filtered.reduce((sum, r) => sum + (r.tiempo_real || 0), 0) / 60,
       totalKm
     };
