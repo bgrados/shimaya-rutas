@@ -409,6 +409,11 @@ export default function AnalisisRutas() {
       if (choferFilter !== 'todos' && r.id_chofer !== choferFilter) return false;
       return true;
     });
+    
+    // Count unique dates with finalized routes
+    const fechasUnicas = new Set(filtered.filter(r => r.estado === 'finalizada').map(r => r.fecha).filter(Boolean));
+    const diasTrabajados = fechasUnicas.size;
+    const rutasCompletadas = rutasCompletadas;
 
     const totalReal = filtered.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
     const totalUnicos = filtered.reduce((sum, r) => sum + (r.locales_unicos || 0), 0);
@@ -423,7 +428,7 @@ export default function AnalisisRutas() {
       ? conEficiencia.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEficiencia.length
       : null;
 
-    const rutasCompletadas = filtered.filter(r => r.estado === 'finalizada').length;
+    const totalRutas = rutasCompletadas;
     
     const totalKm = filtered.reduce((sum, r) => {
       if (r.km_inicio != null && r.km_fin != null && r.km_fin >= r.km_inicio) {
