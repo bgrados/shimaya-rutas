@@ -453,22 +453,31 @@ async function loadCombustible() {
   
   // Peajes calculados automáticamente (basado en rutas ejecutadas)
   const peajesCalculados = useMemo(() => {
-    if (!allRutas || allRutas.length === 0) return 0;
+    console.log('[DEBUG PEAJES] allRutas:', allRutas?.length, 'rutasBase:', rutasBase);
+    if (!allRutas || allRutas.length === 0) {
+      console.log('[DEBUG PEAJES] No hay rutas');
+      return 0;
+    }
     // Cargar rutas_base con datos de peaje para las rutas ejecutadas
     const rutasFiltradas = allRutas.filter(r => r.estado === 'finalizada');
+    console.log('[DEBUG PEAJES] rutasFiltradas:', rutasFiltradas.length);
     let total = 0;
     
     rutasFiltradas.forEach(ruta => {
+      console.log('[DEBUG PEAJES] ruta:', ruta.id_ruta_base, ruta.estado);
       // Obtener información de la ruta base
       const rutaBase = rutasBase.find(rb => rb.id_ruta_base === ruta.id_ruta_base);
+      console.log('[DEBUG PEAJES] rutaBase:', rutaBase);
       if (rutaBase && typeof rutaBase === 'object') {
         const datos = rutaBase as any;
         const cantidadPeajes = datos.cantidad_peajes || 0;
         const costoPeaje = datos.costo_peaje || 0;
+        console.log('[DEBUG PEAJES] cantidad:', cantidadPeajes, 'costo:', costoPeaje);
         total += cantidadPeajes * costoPeaje;
       }
     });
     
+    console.log('[DEBUG PEAJES] total calculado:', total);
     return total;
   }, [allRutas, rutasBase]);
   
