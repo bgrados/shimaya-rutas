@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Camera, Fuel, Loader2, X, Check, AlertTriangle, Image, Download } from 'lucide-react';
+import { format } from 'date-fns';
 import Tesseract from 'tesseract.js';
 import { nowPeru } from '../../../lib/timezone';
 
