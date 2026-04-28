@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { Camera, Fuel, Loader2, X, Check, AlertTriangle, Image } from 'lucide-react';
+import { Camera, Fuel, Loader2, X, Check, AlertTriangle, Image, Download } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { nowPeru } from '../../../lib/timezone';
 
@@ -88,6 +88,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   const [manualMonto, setManualMonto] = useState('');
   const [manualKilometraje, setManualKilometraje] = useState('');
   const [notas, setNotas] = useState('');
+  const [fechaGasto, setFechaGasto] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [guardando, setGuardando] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [guardado, setGuardado] = useState(false);
@@ -283,7 +284,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         foto_url: fotoUrl,
         notas: notas || null,
         estado: 'confirmado',
-        fecha: nowPeru()
+        fecha: fechaGasto
       });
 
       if (insertError) {
@@ -330,15 +331,24 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           <CardContent className="p-4 text-center">
             {foto ? (
               <div className="relative">
-                <img src={foto} alt="Comprobante" className="max-h-40 mx-auto rounded-lg" />
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="absolute top-1 right-1 bg-surface/80"
-                  onClick={() => { setFoto(null); setOptimizedFoto(null); setMontoDetectado(null); }}
-                >
-                  <X size={14} />
-                </Button>
+                <div className="flex justify-center">
+                  <img src={foto} alt="Comprobante" className="max-h-48 mx-auto rounded-lg border border-surface-light" />
+                </div>
+                <div className="flex justify-center gap-2 mt-2">
+                  <a 
+                    href={foto} 
+                    download={`comprobante_${Date.now()}.jpg`}
+                    className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                  >
+                    <Download size={14} /> Descargar
+                  </a>
+                  <button 
+                    onClick={() => { setFoto(null); setOptimizedFoto(null); setMontoDetectado(null); }}
+                    className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+                  >
+                    <X size={14} /> Eliminar
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -415,7 +425,16 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           </Card>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-text-muted mb-1">Fecha</label>
+            <input
+              type="date"
+              value={fechaGasto}
+              onChange={(e) => setFechaGasto(e.target.value)}
+              className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-text-muted mb-1">Monto (S/)</label>
             <input
