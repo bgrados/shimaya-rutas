@@ -472,7 +472,7 @@ async function loadCombustible() {
         const fechaGasto = (g.fecha || '').split('T')[0];
         return fechaGasto >= inicioSemanaStr && fechaGasto <= hoyStr;
       });
-    if (filtroFecha === 'mes') {
+    } else if (filtroFecha === 'mes') {
       console.log('[DEBUG PEAJES FILTRO] aplicando filtro mes, mesStr:', mesStr);
       filtered = filtered.filter(g => {
         const fechaGasto = g.fecha ? (g.fecha as string).split('T')[0] : ((g as any).created_at || '').split('T')[0];
