@@ -478,7 +478,36 @@ async function loadCombustible() {
     return rb?.nombre || '-';
   };
   
-  // Función auxiliar para eliminar gasto
+// Función auxiliar para eliminar gasto
+  const [editandoPeajeId, setEditandoPeajeId] = useState<string | null>(null);
+  const [editandoPeajeDatos, setEditandoPeajeDatos] = useState<any>(null);
+  
+  const iniciarEdicionPeaje = (gasto: any) => {
+    setEditandoPeajeId(gasto.id_gasto);
+    setEditandoPeajeDatos({ ...gasto });
+  };
+  
+  const guardarEdicionPeaje = async () => {
+    if (!editandoPeajeId || !editandoPeajeDatos) return;
+    
+    const { error } = await supabase.from('gastos_combustible').update({
+      monto: parseFloat(editandoPeajeDatos.monto),
+      fecha: editandoPeajeDatos.fecha,
+      tipo_combustible: editandoPeajeDatos.tipo_combustible
+    }).eq('id_gasto', editandoPeajeId);
+    
+    if (error) {
+      alert('Error al guardar: ' + error.message);
+    } else {
+      setGastos(prev => prev.map(g => 
+        g.id_gasto === editandoPeajeId ? { ...g, ...editandoPeajeDatos } : g
+      ));
+      setEditandoPeajeId(null);
+      setEditandoPeajeDatos(null);
+      alert('Registro actualizado');
+    }
+  };
+  
   const eliminarGastoPeaje = async (idGasto: string) => {
     if (!confirm('¿Estás seguro de eliminar este registro de peaje?')) return;
     
@@ -487,7 +516,6 @@ async function loadCombustible() {
     if (error) {
       alert('Error al eliminar: ' + error.message);
     } else {
-      // Actualizar la lista local
       setGastos(prev => prev.filter(g => g.id_gasto !== idGasto));
       alert('Registro eliminado');
     }
@@ -1950,8 +1978,19 @@ const win = window.open('', '_blank');
                       <tbody>
                         {peajesManuales.map((gasto: any) => (
                           <tr key={gasto.id_gasto} className="border-b border-white/5 hover:bg-white/5">
-                            <td className="py-2 px-3 text-white">
-                              {gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-'}
+                            <td className="py-2 px-3">
+                              {editandoPeajeId === gasto.id_gasto ? (
+                                <input
+                                  type="date"
+                                  value={editandoPeajeDatos?.fecha || ''}
+                                  onChange={(e) => setEditandoPeajeDatos({...editandoPeajeDatos, fecha: e.target.value})}
+                                  className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs"
+                                />
+                              ) : (
+                                <span className="text-white text-xs">
+                                  {gasto.fecha ? formatPeru(gasto.fecha, 'dd/MM/yyyy') : (gasto.created_at ? formatPeru(gasto.created_at, 'dd/MM/yyyy') : '-')}
+                                </span>
+                              )}
                             </td>
                             <td className="py-2 px-3">
                               {gasto.foto_url ? (
@@ -1965,30 +2004,83 @@ const win = window.open('', '_blank');
                                 <span className="text-text-muted text-xs">-</span>
                               )}
                             </td>
-                            <td className="py-2 px-3 text-white font-medium">
+                            <td className="py-2 px-3 text-white font-medium text-xs">
                               {gasto.chofer_nombre || '-'}
                             </td>
                             <td className="py-2 px-3">
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                gasto.tipo_combustible === 'peaje_compromiso'
-                                  ? 'bg-yellow-500/20 text-yellow-400' 
-                                  : 'bg-green-500/20 text-green-400'
-                              }`}>
-                                {gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : 'Pagado'}
-                              </span>
+                              {editandoPeajeId === gasto.id_gasto ? (
+                                <select
+                                  value={editandoPeajeDatos?.tipo_combustible || 'peaje'}
+                                  onChange={(e) => setEditandoPeajeDatos({...editandoPeajeDatos, tipo_combustible: e.target.value})}
+                                  className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs"
+                                >
+                                  <option value="peaje">Pagado</option>
+                                  <option value="peaje_compromiso">Compromiso</option>
+                                  <option value="estacionamiento">Estacionamiento</option>
+                                  <option value="otro">Otro</option>
+                                </select>
+                              ) : (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                  gasto.tipo_combustible === 'peaje_compromiso'
+                                    ? 'bg-yellow-500/20 text-yellow-400' 
+                                    : 'bg-green-500/20 text-green-400'
+                                }`}>
+                                  {gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : gasto.tipo_combustible === 'peaje' ? 'Pagado' : gasto.tipo_combustible}
+                                </span>
+                              )}
                             </td>
-                            <td className="py-2 px-3 text-right text-green-400 font-bold">
-                              S/ {(gasto.monto || 0).toFixed(2)}
+                            <td className="py-2 px-3">
+                              {editandoPeajeId === gasto.id_gasto ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editandoPeajeDatos?.monto || 0}
+                                  onChange={(e) => setEditandoPeajeDatos({...editandoPeajeDatos, monto: e.target.value})}
+                                  className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs w-20 text-right"
+                                />
+                              ) : (
+                                <span className="text-green-400 font-bold text-xs">
+                                  S/ {(gasto.monto || 0).toFixed(2)}
+                                </span>
+                              )}
                             </td>
                             <td className="py-2 px-3 text-center">
                               <div className="flex justify-center gap-1">
-                                <button
-                                  onClick={() => eliminarGastoPeaje(gasto.id_gasto)}
-                                  className="text-red-400 hover:text-red-300 p-1"
-                                  title="Eliminar"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                {editandoPeajeId === gasto.id_gasto ? (
+                                  <>
+                                    <button
+                                      onClick={guardarEdicionPeaje}
+                                      className="text-green-400 hover:text-green-300 p-1"
+                                      title="Guardar"
+                                    >
+                                      <Check size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => { setEditandoPeajeId(null); setEditandoPeajeDatos(null); }}
+                                      className="text-red-400 hover:text-red-300 p-1"
+                                      title="Cancelar"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => iniciarEdicionPeaje(gasto)}
+                                      className="text-blue-400 hover:text-blue-300 p-1"
+                                      title="Editar"
+                                    >
+                                      <Edit2 size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => eliminarGastoPeaje(gasto.id_gasto)}
+                                      className="text-red-400 hover:text-red-300 p-1"
+                                      title="Eliminar"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>
