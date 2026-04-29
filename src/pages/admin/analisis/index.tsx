@@ -178,12 +178,15 @@ export default function AnalisisRutas() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   
-  // Label dinámico para comparación día vs día equivalent
-  const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-  const hoy = new Date();
-  const diaActual = diasSemana[hoy.getDay()];
-  const diaAnterior = diasSemana[subDays(hoy, 7).getDay()];
-  const comparacionDiaLabel = `${diaActual} vs ${diaAnterior}`;
+  // Label dinámico para comparación acumulada de la semana
+  const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const dow = new Date().getDay();
+  const diasTranscurridos = dow === 0 ? 7 : dow;
+  const diaFin = diasSemana[diasTranscurridos];
+  const diaInicio = diasSemana[1];
+  const comparacionDiaLabel = diasTranscurridos === 1 
+    ? `1 día (${diaFin})` 
+    : `Acumulado ${diaInicio}–${diaFin}`;
 
   // ── Semana auto: lunes–domingo de la semana actual y la anterior ──
   const semanaActualInicio = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
