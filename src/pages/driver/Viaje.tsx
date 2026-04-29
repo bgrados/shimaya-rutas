@@ -1090,7 +1090,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           fecha: format(nowPeru(), 'yyyy-MM-dd'),
           estado: 'pendiente',
           km_inicio: parseFloat(kmInicio) || 0,
-         })
+          foto_km_inicio: publicUrlInicio
+        })
         .select()
         .single();
 
@@ -2428,7 +2429,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                         .from('rutas')
                         .update({ 
                           km_fin: parseFloat(kmFin),
-                         })
+                          foto_km_fin: publicUrlFin
+                        })
                         .eq('id_ruta', ruta.id_ruta);
                       
                       if (error) throw error;
