@@ -901,7 +901,7 @@ const comparacionDiaEquivalente = useMemo(() => {
                 const minAnterior = Math.round(semanaStats.horasAnterior * 60);
                 const diff = minActual - minAnterior;
                 const diffAbs = Math.abs(diff);
-                const diaEq = semanaStats.diaEquivalente || diaAnterior;
+                const diaEq = semanaStats.diaEquivalente || diaFin;
                 const diffText = diffAbs < 1 
                   ? `Sin diferencia vs ${diaEq}`
                   : diff > 0 
