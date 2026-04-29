@@ -124,6 +124,7 @@ export default function DriverViaje() {
   const RADIO_MIN = 100; // Radio mínimo (aumentado de 60)
   const RADIO_MAX = 200; // Radio máximo (aumentado de 150)
   const LECTURAS_PROMEDIAR = 5; // Cantidad de lecturas para promediar
+  const LECTURAS_REQUERIDAS = 3; // Lecturas mínimas para el sistema avanzado
   const TIEMPO_LLEGADA = 12000; // Tiempo requerido dentro del radio (ms) - 12 segundos
   const TIEMPO_SALIDA = 6000; // Tiempo requerido fuera del radio (ms) - 6 segundos
   const COOLDOWN_REGISTRO = 18000; // 18 segundos entre registros
@@ -1089,8 +1090,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           nombre: template?.nombre,
           fecha: format(nowPeru(), 'yyyy-MM-dd'),
           estado: 'pendiente',
-          km_inicio: parseFloat(kmInicio) || 0,
-          foto_km_inicio: publicUrlInicio
+          km_inicio: parseFloat(kmInicio) || 0
         })
         .select()
         .single();
@@ -1160,55 +1160,61 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       alert('No puedes modificar un viaje histórico');
       return;
     }
-    const origen = proximoOrigen;
-    
-    setActionLoading(true);
-    let lat = null, lng = null;
     try {
-      // Máximo 2 segundos al GPS para la salida, si no, avanzamos sin él
-      const pos = await new Promise<any>((res) => {
-        const timeout = setTimeout(() => res(null), 2000);
-        navigator.geolocation.getCurrentPosition(
-          (p) => { clearTimeout(timeout); res(p); },
-          (e) => { clearTimeout(timeout); res(null); },
-          { timeout: 2000, enableHighAccuracy: false }
-        );
-      });
-      if (pos) {
-        lat = pos.coords.latitude;
-        lng = pos.coords.longitude;
+      const origen = proximoOrigen;
+      
+      setActionLoading(true);
+      let lat = null, lng = null;
+      try {
+        // Máximo 2 segundos al GPS para la salida, si no, avanzamos sin él
+        const pos = await new Promise<any>((res) => {
+          const timeout = setTimeout(() => res(null), 2000);
+          navigator.geolocation.getCurrentPosition(
+            (p) => { clearTimeout(timeout); res(p); },
+            (e) => { clearTimeout(timeout); res(null); },
+            { timeout: 2000, enableHighAccuracy: false }
+          );
+        });
+        if (pos) {
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+        }
+      } catch (e) {
+        console.warn('GPS Error:', e);
       }
-    } catch (e) {
-      console.warn('GPS Error:', e);
-    }
 
-    const { data, error } = await supabase
-      .from('viajes_bitacora')
-      .insert([{
-        id_ruta: ruta.id_ruta,
-        id_chofer: profile?.id_usuario,
-        origen_nombre: origen,
-        destino_nombre: nuevoDestino,
-        hora_salida: nowPeru(),
-        gps_salida_lat: lat,
-        gps_salida_lng: lng
-      }])
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('viajes_bitacora')
+        .insert([{
+          id_ruta: ruta.id_ruta,
+          id_chofer: profile?.id_usuario,
+          origen_nombre: origen,
+          destino_nombre: nuevoDestino,
+          hora_salida: nowPeru(),
+          gps_salida_lat: lat,
+          gps_salida_lng: lng
+        }])
+        .select()
+        .single();
 
-    if (!error && data) {
-      setBitacora([...bitacora, data as ViajeBitacora]);
-      if (origen !== 'Planta') {
-        await supabase.from('locales_ruta').update({ hora_salida: data.hora_salida }).eq('id_ruta', ruta.id_ruta).eq('nombre', origen);
+      if (!error && data) {
+        setBitacora([...bitacora, data as ViajeBitacora]);
+        if (origen !== 'Planta') {
+          await supabase.from('locales_ruta').update({ hora_salida: data.hora_salida }).eq('id_ruta', ruta.id_ruta).eq('nombre', origen);
+        }
+        if (bitacora.length === 0) {
+          await supabase.from('rutas').update({ estado: 'en_progreso', hora_salida_planta: data.hora_salida }).eq('id_ruta', ruta.id_ruta);
+        }
+      } else if (error) {
+        console.error('[Viaje] Error registrar salida:', error);
+        showToast('error', 'Error en salida: ' + error.message);
       }
-      if (bitacora.length === 0) {
-        await supabase.from('rutas').update({ estado: 'en_progreso', hora_salida_planta: data.hora_salida }).eq('id_ruta', ruta.id_ruta);
-      }
-    } else if (error) {
-      console.error('[Viaje] Error registrar salida:', error);
-      showToast('error', 'Error en salida: ' + error.message);
+    } catch (err: any) {
+      console.error('[Viaje] Exception in handleRegistrarSalida:', err);
+      showToast('error', 'Error inesperado: ' + err.message);
+    } finally {
+      setActionLoading(false);
     }
-    setActionLoading(false);
   };
 
   const handleRegistrarLlegada = async (idBitacora: string, modoManual = false) => {
@@ -1223,89 +1229,94 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
     
     setActionLoading(true);
-    let lat = null, lng = null;
-    let tipoRegistro = 'automatico';
-    
-    if (modoManual) {
-      tipoRegistro = 'manual';
-    } else {
-      try {
-        // SI ya tenemos una posición reciente y precisa del watchPosition, usarla
-        if (gpsPosicionActual && !signalBaja) {
-          lat = gpsPosicionActual.lat;
-          lng = gpsPosicionActual.lng;
-          tipoRegistro = 'automatico';
-          agregarLogDebug(`✅ Usando GPS validado: ${lat.toFixed(5)},${lng.toFixed(5)}`);
-        } else {
-          // Si no, intentar obtener una nueva
-          agregarLogDebug('📍 Intentando obtener GPS fresco para llegada...');
-          const pos = await iniciarGPSConPermisos();
-          
-          if (pos) {
-            lat = pos.lat;
-            lng = pos.lng;
-            tipoRegistro = 'automatico';
-            agregarLogDebug(`✅ GPS Fresco: ${lat.toFixed(5)},${lng.toFixed(5)} (±${pos.accuracy.toFixed(0)}m)`);
-          } else {
-            tipoRegistro = 'manual';
-            agregarLogDebug('⚠️ Sin GPS - modo manual');
-          }
-        }
-      } catch (e) {
-        console.warn('GPS Error:', e);
+    try {
+      let lat = null, lng = null;
+      let tipoRegistro = 'automatico';
+      
+      if (modoManual) {
         tipoRegistro = 'manual';
-        agregarLogDebug('❌ Error GPS');
+      } else {
+        try {
+          // SI ya tenemos una posición reciente y precisa del watchPosition, usarla
+          if (gpsPosicionActual && !signalBaja) {
+            lat = gpsPosicionActual.lat;
+            lng = gpsPosicionActual.lng;
+            tipoRegistro = 'automatico';
+            agregarLogDebug(`✅ Usando GPS validado: ${lat.toFixed(5)},${lng.toFixed(5)}`);
+          } else {
+            // Si no, intentar obtener una nueva
+            agregarLogDebug('📍 Intentando obtener GPS fresco para llegada...');
+            const pos = await iniciarGPSConPermisos();
+            
+            if (pos) {
+              lat = pos.lat;
+              lng = pos.lng;
+              tipoRegistro = 'automatico';
+              agregarLogDebug(`✅ GPS Fresco: ${lat.toFixed(5)},${lng.toFixed(5)} (±${pos.accuracy.toFixed(0)}m)`);
+            } else {
+              tipoRegistro = 'manual';
+              agregarLogDebug('⚠️ Sin GPS - modo manual');
+            }
+          }
+        } catch (e) {
+          console.warn('GPS Error:', e);
+          tipoRegistro = 'manual';
+          agregarLogDebug('❌ Error GPS');
+        }
       }
+
+      const now = nowPeru();
+      
+      // Construir update completo con logging
+      const updateData: any = { 
+        hora_llegada: now, 
+        gps_llegada_lat: lat, 
+        gps_llegada_lng: lng,
+        tipo_registro: tipoRegistro
+      };
+      
+      const { data, error } = await supabase
+        .from('viajes_bitacora')
+        .update(updateData)
+        .eq('id_bitacora', idBitacora)
+        .select()
+        .single();
+
+      console.log('Respuesta Supabase (Llegada):', data, error);
+
+      if (!error && data) {
+        setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
+        
+        // Solo marcar como visitado si NO era un detour
+        const eraDetour = localesRegistrados.includes(data.destino_nombre || '');
+        
+        if (data.destino_nombre !== 'Planta' && !eraDetour) {
+          await supabase.from('locales_ruta').update({ hora_llegada: now, estado_visita: 'visitado' }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.destino_nombre);
+        }
+        if (data.destino_nombre === 'Planta') {
+           await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
+           if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
+           setShowFinalKmModal(true);
+        }
+        
+        // Actualizar cooldown
+        setUltimoRegistroTime(Date.now());
+        setEstadoGPS('registrado');
+        
+        agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre} | Dist: ${distanciaAlPunto?.toFixed(0) || 'N/A'}m`);
+        showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática registrada' : '✓Llegada manual registrada');
+        setShowModoManual(false);
+      } else if (error) {
+        console.error('[Viaje] Error registrar llegada:', error);
+        agregarLogDebug(`❌ Error DB: ${error.message}`);
+        showToast('error', 'Error en llegada: ' + error.message);
+      }
+    } catch (err: any) {
+      console.error('[Viaje] Exception in handleRegistrarLlegada:', err);
+      showToast('error', 'Error inesperado: ' + err.message);
+    } finally {
+      setActionLoading(false);
     }
-
-    const now = nowPeru();
-    const accuracy = positionPromediada?.accuracy || 0;
-    
-    // Construir update completo con logging
-    const updateData: any = { 
-      hora_llegada: now, 
-      gps_llegada_lat: lat, 
-      gps_llegada_lng: lng,
-      tipo_registro: tipoRegistro
-    };
-    
-    const { data, error } = await supabase
-      .from('viajes_bitacora')
-      .update(updateData)
-      .eq('id_bitacora', idBitacora)
-      .select()
-      .single();
-
-    console.log('Respuesta Supabase (Llegada):', data, error);
-
-    if (!error && data) {
-      setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
-      
-      // Solo marcar como visitado si NO era un detour
-      const eraDetour = localesRegistrados.includes(data.destino_nombre || '');
-      
-      if (data.destino_nombre !== 'Planta' && !eraDetour) {
-        await supabase.from('locales_ruta').update({ hora_llegada: now, estado_visita: 'visitado' }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.destino_nombre);
-      }
-      if (data.destino_nombre === 'Planta') {
-         await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
-         if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
-         setShowFinalKmModal(true);
-      }
-      
-      // Actualizar cooldown
-      setUltimoRegistroTime(Date.now());
-      setEstadoGPS('registrado');
-      
-      agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre} | Dist: ${distanciaAlPunto?.toFixed(0) || 'N/A'}m`);
-      showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática registrada' : '✓Llegada manual registrada');
-      setShowModoManual(false);
-    } else if (error) {
-      console.error('[Viaje] Error registrar llegada:', error);
-      agregarLogDebug(`❌ Error DB: ${error.message}`);
-      showToast('error', 'Error en llegada: ' + error.message);
-    }
-    setActionLoading(false);
   };
 
   // Función para registrar salida automáticamente
@@ -2428,8 +2439,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       const { error } = await supabase
                         .from('rutas')
                         .update({ 
-                          km_fin: parseFloat(kmFin),
-                          foto_km_fin: publicUrlFin
+                          km_fin: parseFloat(kmFin)
                         })
                         .eq('id_ruta', ruta.id_ruta);
                       
