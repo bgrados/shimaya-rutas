@@ -200,6 +200,7 @@ export default function AnalisisRutas() {
     const dowToday = today.getDay() === 0 ? 7 : today.getDay();
     // Días transcurridos en esta semana incluyendo hoy (1 = solo lunes, 2 = lun+mar, ...)
     const diasTranscurridos = dowToday;
+    console.log('[SEMANA-STATS] dowToday:', dowToday, 'diasTranscurridos:', diasTranscurridos, 'choferFilter:', choferFilter);
 
     // Semana actual: desde el lunes de esta semana hasta HOY
     const semActIni = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
