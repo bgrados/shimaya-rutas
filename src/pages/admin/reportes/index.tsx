@@ -38,7 +38,7 @@ type ReportType = 'rutas' | 'combustible' | 'peajes' | 'otros';
 
 interface RutaConBitacora extends Ruta { 
   bitacora?: ViajeBitacora[]; 
-  duracionMins?: number | null; 
+  duracionMin?: number | null; 
   localesRuta?: LocalRuta[]; 
   horaLlegadaReal?: string | null; 
   distanciaGpsKm?: number | null;
@@ -344,7 +344,7 @@ export default function Reportes() {
           );
         }
 
-        return { ...r, bitacora: bits, localesRuta: locales, duracionMins, horaLlegadaReal, distanciaGpsKm };
+        return { ...r, bitacora: bits, localesRuta: locales, duracionMin: duracionMin, horaLlegadaReal, distanciaGpsKm };
       });
       setAllRutas(enriched as RutaConBitacora[]);
     } else {
@@ -738,7 +738,7 @@ async function loadCombustible() {
       `🟡 Pendientes: *${pendientes}*`,
       '',
       ...rutas.filter(r => r.estado === 'finalizada').map(r =>
-        `🚛 ${r.nombre} (${r.placa || '-'}) · ${r.duracionMins ? formatMins(r.duracionMins) : 'sin tiempo'}`
+        `🚛 ${r.nombre} (${r.placa || '-'}) · ${r.duracionMin ? formatMins(r.duracionMin) : 'sin tiempo'}`
       ),
       '',
       `_Generado desde Shimaya Rutas_`,
@@ -783,7 +783,7 @@ return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid 
         <div style="padding:8px 16px;background:#f8fafc;font-size:12px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;">
           ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${formatPeru(r.hora_salida_planta, 'HH:mm')}</strong></span>` : ''}
           ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${formatPeru(r.horaLlegadaReal, 'HH:mm')}</strong></span>` : ''}
-          ${r.duracionMins ? `<span>⏱ Duración total: <strong>${formatMins(r.duracionMins)}</strong></span>` : ''}
+          ${r.duracionMin ? `<span>⏱ Duración total: <strong>${formatMins(r.duracionMin)}</strong></span>` : ''}
         </div>
         ${bits.length > 0 ? `
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -1482,7 +1482,7 @@ const win = window.open('', '_blank');
                           <span className="text-xs text-text-muted">
                             🕐 {formatPeru(ruta.hora_salida_planta, 'HH:mm')}
                             {ruta.horaLlegadaReal && ` → ${formatPeru(ruta.horaLlegadaReal, 'HH:mm')}`}
-                            {ruta.duracionMins && ` (${formatMins(ruta.duracionMins)})`}
+                            {ruta.duracionMin && ` (${formatMins(ruta.duracionMin)})`}
                             {ruta.distanciaGpsKm && ` · 🧭 ~${ruta.distanciaGpsKm.toFixed(1)} km`}
                           </span>
                         )}
