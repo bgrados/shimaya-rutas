@@ -211,8 +211,11 @@ export default function AnalisisRutas() {
     const semAntIni = format(lunesPasado, 'yyyy-MM-dd');
     const semAntFin = format(subDays(lunesPasado, -diasTranscurridos + 1), 'yyyy-MM-dd'); // lunes + (dias-1)
 
+    console.log('[SEMANA-STATS] Fechas: actual', semActIni, 'a', semActFin, 'anterior', semAntIni, 'a', semAntFin);
     const actual   = rutas.filter(r => filtrarChofer(r) && r.fecha >= semActIni && r.fecha <= semActFin);
+    console.log('[SEMANA-STATS] Rutas actual:', actual.length, 'fechas:', actual.map(r => r.fecha));
     const anterior = rutas.filter(r => filtrarChofer(r) && r.fecha >= semAntIni && r.fecha <= semAntFin);
+    console.log('[SEMANA-STATS] Rutas anterior:', anterior.length, 'fechas:', anterior.map(r => r.fecha));
 
     const horasActual   = actual.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
     const horasAnterior = anterior.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
