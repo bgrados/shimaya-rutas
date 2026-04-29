@@ -178,15 +178,12 @@ export default function AnalisisRutas() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   
-  // Label dinámico para comparación acumulada de la semana
+  // Label dinámico para comparación día vs día
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const dow = new Date().getDay();
   const diasTranscurridos = dow === 0 ? 7 : dow;
   const diaFin = diasSemana[diasTranscurridos];
-  const diaInicio = diasSemana[1];
-  const comparacionDiaLabel = diasTranscurridos === 1 
-    ? `1 día (${diaFin})` 
-    : `Acumulado ${diaInicio}–${diaFin}`;
+  const comparacionDiaLabel = `${diaFin} vs ${diaFin}`;
 
   // ── Semana auto: lunes–domingo de la semana actual y la anterior ──
   const semanaActualInicio = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -198,26 +195,13 @@ export default function AnalisisRutas() {
     const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
     const today = new Date();
 
-    // ¿Qué día de la semana es hoy? (1=Lun...7=Dom)
-    // getDay() returns 0=Sun, so we map to 1=Mon...7=Sun
-    const dowToday = today.getDay() === 0 ? 7 : today.getDay();
-    // Días transcurridos en esta semana incluyendo hoy (1 = solo lunes, 2 = lun+mar, ...)
-    const diasTranscurridos = dowToday;
-    console.log('[SEMANA-STATS] dowToday:', dowToday, 'diasTranscurridos:', diasTranscurridos, 'choferFilter:', choferFilter);
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const hace7DiasStr = format(subDays(today, 7), 'yyyy-MM-dd');
 
-    // Semana actual: desde el lunes de esta semana hasta HOY
-    const semActIni = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const semActFin = format(today, 'yyyy-MM-dd');
-
-    // Semana anterior: MISMOS días equivalentes (lunes pasado + diasTranscurridos - 1)
-    const lunesPasado = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
-    const semAntIni = format(lunesPasado, 'yyyy-MM-dd');
-    const semAntFin = format(subDays(lunesPasado, -diasTranscurridos + 1), 'yyyy-MM-dd'); // lunes + (dias-1)
-
-    console.log('[SEMANA-STATS] Fechas: actual', semActIni, 'a', semActFin, 'anterior', semAntIni, 'a', semAntFin);
-    const actual   = rutas.filter(r => filtrarChofer(r) && r.fecha >= semActIni && r.fecha <= semActFin);
+    console.log('[SEMANA-STATS] Fechas: actual', todayStr, 'anterior', hace7DiasStr);
+    const actual   = rutas.filter(r => filtrarChofer(r) && r.fecha === todayStr);
     console.log('[SEMANA-STATS] Rutas actual:', actual.length, 'fechas:', actual.map(r => r.fecha));
-    const anterior = rutas.filter(r => filtrarChofer(r) && r.fecha >= semAntIni && r.fecha <= semAntFin);
+    const anterior = rutas.filter(r => filtrarChofer(r) && r.fecha === hace7DiasStr);
     console.log('[SEMANA-STATS] Rutas anterior:', anterior.length, 'fechas:', anterior.map(r => r.fecha));
 
     const horasActual   = actual.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
