@@ -46,9 +46,10 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     }
   });
   
-  let totalDias = 0;
-  let descansos = 0;
-  let trabajados = 0;
+let totalDias = 0;
+let descansos = 0;
+let trabajados = 0;
+let totalRestDays = 0;
   const it = new Date(inicio + 'T00:00:00');
   
   while (it <= fFin) {
@@ -59,6 +60,7 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     totalDias++;
     
     if (esDiaDescanso) {
+      totalRestDays++;
       if (hayRuta) {
         trabajados++; // Trabajó en su día de descanso
       } else {
@@ -75,7 +77,7 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     it.setDate(it.getDate() + 1);
   }
   
-  const programados = totalDias - descansos; /* Días esperados (laborables) */
+  const programados = totalDias - totalRestDays; /* Días esperados (laborables, excluye todos los días de descanso) */
   const faltantes = programados - trabajados;
   const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
