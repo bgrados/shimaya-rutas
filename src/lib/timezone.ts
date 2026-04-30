@@ -1,23 +1,33 @@
-import { format } from 'date-fns';
+import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
+
+const TIMEZONE = 'America/Lima';
 
 export function formatGroupDate(fechaStr: string): string {
   if (!fechaStr || fechaStr === 'sin fecha') return '-';
-  return format(new Date(fechaStr), "EEEE d 'de' MMMM", { locale: es });
+  try {
+    return formatInTimeZone(new Date(fechaStr), TIMEZONE, "EEEE d 'de' MMMM", { locale: es });
+  } catch (e) {
+    return '-';
+  }
 }
 
 export function formatGroupDatePdf(fechaStr: string): string {
   if (!fechaStr || fechaStr === 'sin fecha') return '-';
-  return format(new Date(fechaStr), 'dd MMMM yyyy', { locale: es });
+  try {
+    return formatInTimeZone(new Date(fechaStr), TIMEZONE, 'dd MMMM yyyy', { locale: es });
+  } catch (e) {
+    return '-';
+  }
 }
 
 export function formatFriendlyDate(fechaStr: string | null | undefined): string {
   if (!fechaStr) return '-';
   try {
-    // Extraer solo la parte YYYY-MM-DD para evitar desfases por hora/zona horaria
-    const datePart = fechaStr.split('T')[0];
-    const date = new Date(datePart + 'T12:00:00');
-    return format(date, "d MMM, yyyy", { locale: es });
+    // Si la cadena ya incluye T, la interpretamos directamente como UTC o con su offset original.
+    // Si es solo YYYY-MM-DD, asumimos que representa medianoche en Lima.
+    const dateToFormat = fechaStr.includes('T') ? new Date(fechaStr) : toDate(fechaStr + 'T00:00:00', { timeZone: TIMEZONE });
+    return formatInTimeZone(dateToFormat, TIMEZONE, "d MMM, yyyy", { locale: es });
   } catch (e) {
     return fechaStr;
   }
@@ -26,54 +36,62 @@ export function formatFriendlyDate(fechaStr: string | null | undefined): string 
 export function formatPeru(dateStr: string | null | undefined, fmt: string): string {
   if (!dateStr) return '-';
   try {
-    const datePart = dateStr.split('T')[0];
-    return format(new Date(datePart + 'T12:00:00'), fmt, { locale: es });
+    // Igual que arriba, manejamos YYYY-MM-DD como medianoche en Lima
+    const dateToFormat = dateStr.includes('T') ? new Date(dateStr) : toDate(dateStr + 'T00:00:00', { timeZone: TIMEZONE });
+    return formatInTimeZone(dateToFormat, TIMEZONE, fmt, { locale: es });
   } catch (e) {
     return '-';
   }
 }
 
 export function nowPeru(): string {
-  return new Date().toISOString();
+  return formatInTimeZone(new Date(), TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+}
+
+export function startOfDayPeru(baseDate: Date = new Date()): string {
+  return formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd'T'00:00:00.000xxx");
+}
+
+export function endOfDayPeru(baseDate: Date = new Date()): string {
+  return formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd'T'23:59:59.999xxx");
+}
+
+export function formatOnlyDatePeru(baseDate: Date = new Date()): string {
+  return formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd");
 }
 
 /**
- * Obtiene el lunes de la semana en formato YYYY-MM-DD
+ * Obtiene el lunes de la semana en formato YYYY-MM-DD (hora Lima)
  */
 export function getStartOfCurrentWeek(baseDate: Date = new Date()): string {
-  const d = new Date(baseDate);
+  // Obtenemos la fecha actual en la zona horaria de Lima
+  const limaStr = formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd'T'00:00:00");
+  const d = new Date(limaStr);
   const day = d.getDay(); // 0: Domingo, 1: Lunes, ...
   const diff = d.getDate() - (day === 0 ? 6 : day - 1);
   const monday = new Date(d.setDate(diff));
-  return format(monday, 'yyyy-MM-dd');
+  return formatInTimeZone(monday, TIMEZONE, 'yyyy-MM-dd');
 }
 
 /**
- * Obtiene el domingo de la semana en formato YYYY-MM-DD
+ * Obtiene el domingo de la semana en formato YYYY-MM-DD (hora Lima)
  */
 export function getEndOfCurrentWeek(baseDate: Date = new Date()): string {
-  const d = new Date(baseDate);
+  const limaStr = formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd'T'00:00:00");
+  const d = new Date(limaStr);
   const day = d.getDay();
   const diff = d.getDate() + (day === 0 ? 0 : 7 - day);
   const sunday = new Date(d.setDate(diff));
-  return format(sunday, 'yyyy-MM-dd');
+  return formatInTimeZone(sunday, TIMEZONE, 'yyyy-MM-dd');
 }
 
 /**
- * Convierte una fecha ISO (UTC) a HH:mm en hora de Perú (UTC-5)
+ * Convierte una fecha ISO a HH:mm en hora de Perú (UTC-5)
  */
 export function formatHoraPeru(isoString: string | null | undefined): string {
   if (!isoString) return '-';
   try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return isoString;
-    
-    return new Intl.DateTimeFormat('es-PE', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'America/Lima'
-    }).format(date);
+    return formatInTimeZone(new Date(isoString), TIMEZONE, 'HH:mm');
   } catch (e) {
     return '-';
   }

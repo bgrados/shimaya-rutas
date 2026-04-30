@@ -14,7 +14,7 @@ import {
   differenceInMinutes, parseISO, isValid, parse 
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatFriendlyDate } from '../../../lib/timezone';
+import { formatFriendlyDate, nowPeru, formatOnlyDatePeru } from '../../../lib/timezone';
 import type { AsistenciaChofer, TipoAsistencia } from '../../../types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -127,7 +127,7 @@ function calcularTiempoMinutos(horaInicio: string | null, horaFin: string | null
         return { hora: ho || 0, min: mi || 0 };
       } else if (h.includes('T')) {
         // Es ISO completo
-        const d = new Date(h);
+        const d = parseISO(h);
         return { hora: d.getHours(), min: d.getMinutes() };
       } else if (h.includes(':')) {
         // Es solo hora "03:30"
@@ -154,7 +154,7 @@ function calcularTiempoMinutos(horaInicio: string | null, horaFin: string | null
 
 function getDiaSemana(fecha: string): string {
   const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  return dias[new Date(fecha).getDay()];
+  return dias[parseISO(fecha).getDay()];
 }
 
 // Datos reales desde Supabase
@@ -165,22 +165,26 @@ export default function AnalisisRutas() {
   // mejorTiempoPorDia: key = día ISO (0=Dom,1=Lun...), value = mejor tiempo en minutos
   const [mejorTiempoPorDia, setMejorTiempoPorDia] = useState<Record<number, number>>({});
   // Por defecto cargamos 14 días para tener semana actual + anterior
-  const [fechaInicio, setFechaInicio] = useState<string>(() => format(subDays(new Date(), 20), 'yyyy-MM-dd'));
-  const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
+  const [fechaInicio, setFechaInicio] = useState<string>(() => {
+    const d = nowPeru();
+    d.setDate(d.getDate() - 20);
+    return format(d, 'yyyy-MM-dd');
+  });
+  const [fechaFin, setFechaFin] = useState<string>(() => formatOnlyDatePeru());
   const [choferFilter, setChoferFilter] = useState<string>('todos');
   const [choferes, setChoferes] = useState<{id_usuario: string; nombre: string; dias_descanso: string[]; fecha_ingreso: string | null}[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaChofer[]>([]);
   const [showAsistenciaModal, setShowAsistenciaModal] = useState(false);
   const [nuevaAsistencia, setNuevaAsistencia] = useState<Partial<AsistenciaChofer>>({
     estado: 'falta',
-    fecha: format(new Date(), 'yyyy-MM-dd')
+    fecha: formatOnlyDatePeru()
   });
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   
   // Label dinámico para comparación acumulada de la semana
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  const dow = new Date().getDay();
+  const dow = nowPeru().getDay();
   const diasTranscurridos = dow === 0 ? 7 : dow;
   const diaFin = diasSemana[diasTranscurridos];
   const diaInicio = diasSemana[1];
@@ -189,14 +193,15 @@ export default function AnalisisRutas() {
     : `Acumulado ${diaInicio}–${diaFin}`;
 
   // ── Semana auto: lunes–domingo de la semana actual y la anterior ──
-  const semanaActualInicio = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const semanaActualFin   = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const semanaAnteriorInicio = format(startOfWeek(subDays(new Date(), 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const semanaAnteriorFin   = format(endOfWeek(subDays(new Date(), 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const now = nowPeru();
+  const semanaActualInicio = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const semanaActualFin   = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const semanaAnteriorInicio = format(startOfWeek(subDays(now, 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const semanaAnteriorFin   = format(endOfWeek(subDays(now, 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
   const semanaStats = useMemo(() => {
     const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
-    const today = new Date();
+    const today = nowPeru();
 
     // ¿Qué día de la semana es hoy? (1=Lun...7=Dom)
     // getDay() returns 0=Sun, so we map to 1=Mon...7=Sun
@@ -309,7 +314,7 @@ export default function AnalisisRutas() {
       };
       const restIndices = descansos.map(d => diasSemanaMap[d.toLowerCase()]).filter(v => v !== undefined);
       
-      const curr = new Date(start);
+      const curr = parseISO(inicio);
       while (curr <= end) {
         const dateStr = format(curr, 'yyyy-MM-dd');
         const diaSemana = curr.getDay();
@@ -548,7 +553,7 @@ const comparacionDiaEquivalente = useMemo(() => {
     }[] = [];
     
     for (let i = 13; i >= 0; i--) {
-      const fecha = subDays(new Date(), i);
+      const fecha = subDays(nowPeru(), i);
       const fechaStr = format(fecha, 'yyyy-MM-dd');
       const rutasDia = rutas.filter(r => filtrarChofer(r) && r.fecha === fechaStr);
       
@@ -668,7 +673,7 @@ const comparacionDiaEquivalente = useMemo(() => {
       alert('Error: ' + error.message);
     } else {
       setShowAsistenciaModal(false);
-      setNuevaAsistencia({ estado: 'falta', fecha: format(new Date(), 'yyyy-MM-dd') });
+      setNuevaAsistencia({ estado: 'falta', fecha: formatOnlyDatePeru() });
       loadData();
     }
   };
@@ -688,7 +693,8 @@ const comparacionDiaEquivalente = useMemo(() => {
       (allRutas || []).forEach(r => {
         const t = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
         if (t <= 0) return;
-        const dia = new Date(r.fecha + 'T12:00:00').getDay(); // local day
+        const dia = parseISO(r.fecha).getDay(); 
+
         conteo[dia] = (conteo[dia] || 0) + 1;
         // Only store best if we have at least 1 data point; we validate later with conteo
         if (!mejores[dia] || t < mejores[dia]) mejores[dia] = t;
@@ -701,7 +707,7 @@ const comparacionDiaEquivalente = useMemo(() => {
       setMejorTiempoPorDia(mejoresValidados);
 
       // 2. Fetch rutas in the selected range (desde inicio del mes para asistencia)
-      const inicioMes = format(new Date(), 'yyyy-MM-01');
+      const inicioMes = format(nowPeru(), 'yyyy-MM-01');
       const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
@@ -736,7 +742,7 @@ const comparacionDiaEquivalente = useMemo(() => {
       if (rutasData && rutasData.length > 0) {
         const processed = rutasData.map(r => {
           const tReal = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
-          const diaSemana = new Date(r.fecha + 'T12:00:00').getDay();
+          const diaSemana = parseISO(r.fecha).getDay();
           const tEstimado = mejoresValidados[diaSemana] || 0;
           
           // Filtro de paradas reales (idéntico a Viajes.tsx)

@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Fuel, Truck, Calendar, Download, FileText, FileSpreadsheet, Check, X, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { formatPeru } from '../../../lib/timezone';
+import { formatPeru, nowPeru, formatOnlyDatePeru } from '../../../lib/timezone';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -91,12 +91,11 @@ export default function GastosCombustible() {
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [choferes, setChoferes] = useState<Usuario[]>([]);
   const getFechaActual = () => {
-    const now = new Date();
-    return format(now, 'yyyy-MM-dd');
+    return formatOnlyDatePeru();
   };
   
   const getInicioSemana = () => {
-    const now = new Date();
+    const now = nowPeru();
     const day = now.getDay();
     const inicioSemana = new Date(now);
     inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
@@ -158,8 +157,7 @@ export default function GastosCombustible() {
     let hasta = filtroFechaHasta;
     
     if (!desde || !hasta) {
-      const now = new Date();
-      const hoy = format(now, 'yyyy-MM-dd');
+      const hoy = formatOnlyDatePeru();
       desde = hoy;
       hasta = hoy;
     } else {
@@ -448,7 +446,7 @@ export default function GastosCombustible() {
       <p class="header-sub">📋 Reporte de Combustible · ${periodoLabel}</p>
     </div>
   </div>
-  <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(new Date(), "dd/MM/yyyy HH:mm")}</div>
+  <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(nowPeru(), "dd/MM/yyyy HH:mm")}</div>
 </div>
 <button class="close-btn" onclick="if(window.opener){window.close();}else{history.back();}">✕ Cerrar</button>
 
@@ -467,7 +465,7 @@ export default function GastosCombustible() {
   ${gruposHTML.join('')}
   ${fotosHTML}
 </div>
-<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
+<div class="footer">Shimaya Rutas © ${nowPeru().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
@@ -480,14 +478,14 @@ export default function GastosCombustible() {
   };
 
   const generarExcel = () => {
-    const fechaActual = format(new Date(), 'yyyy-MM-dd');
+    const fechaActual = formatOnlyDatePeru();
     const wb = XLSX.utils.book_new();
     
     const wsResumen = XLSX.utils.aoa_to_sheet([
       ['Reporte de Gastos de Combustible'],
       ['Período:', getPeriodoLabel()],
       ['Estado:', activeTab === 'todos' ? 'Todos' : activeTab === 'pendientes' ? 'Pendientes' : 'Confirmados'],
-      ['Generado:', format(new Date(), 'dd/MM/yyyy HH:mm')],
+      ['Generado:', format(nowPeru(), 'dd/MM/yyyy HH:mm')],
       [],
       ['Resumen por Tipo'],
       ['Tipo', 'Total (S/)'],

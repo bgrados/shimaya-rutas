@@ -6,8 +6,8 @@ import { calcularAsistenciaMensual, getDiaDescansoLabel } from '../../lib/asiste
 import { ListaAlertas, detectarInconsistenciasGlobales, detectarInconsistenciasRuta } from '../../components/ui/Alertas';
 import type { Alerta } from '../../components/ui/Alertas';
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, Car, Route, ChevronDown } from 'lucide-react';
-import { format } from 'date-fns';
-import { formatPeru, formatHoraPeru } from '../../lib/timezone';
+import { format, startOfMonth } from 'date-fns';
+import { formatPeru, formatHoraPeru, nowPeru, formatOnlyDatePeru, getStartOfCurrentWeek } from '../../lib/timezone';
 import { Link } from 'react-router-dom';
 import type { DashboardStats, Usuario, Ruta } from '../../types';
 import { useMemo } from 'react';
@@ -121,38 +121,36 @@ export default function AdminDashboard() {
     }, 15000);
     
     try {
-      const now = new Date();
-      const day = now.getDay();
-      const hoyStr = format(now, 'yyyy-MM-dd');
-      
-      const inicioSemana = new Date(now);
-      inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
-      const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
+      const now = new Date(nowPeru());
+      const hoyStr = formatOnlyDatePeru();
+      const semanaStr = getStartOfCurrentWeek();
       
       // Primer día del mes
-      const primerDiaMes = new Date(now.getFullYear(), now.getMonth(), 1);
+      const primerDiaMes = startOfMonth(now);
       const mesStr = format(primerDiaMes, 'yyyy-MM-dd');
 
 
-      let asistenciaQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
-      if (choferSeleccionado) {
-        asistenciaQ = asistenciaQ.eq('id_chofer', choferSeleccionado);
-      }
+      const rutasDelMesQ = supabase.from('rutas').select('*, usuarios(nombre)').gte('fecha', mesStr).lte('fecha', hoyStr);
+      const asistenciaQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
+      const usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso, dias_descanso').eq('rol', 'chofer').order('nombre');
 
-const usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').order('nombre');
-
-      const rutasDelMesQ = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
-
-      const [rutasDelDiaRes, rutasDeSemanaRes, rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
-        supabase.from('rutas').select('id_ruta').eq('fecha', hoyStr),
-        supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
+      const [rutasDelMesRes, asistenciaRes, choferesDataRes] = await Promise.all([
         rutasDelMesQ,
         asistenciaQ,
         usuariosQ
       ]);
       
-      const rutaIdsDelDia = rutasDelDiaRes.data?.map(r => r.id_ruta) || [];
-      const rutaIdsSemana = rutasDeSemanaRes.data?.map(r => r.id_ruta) || [];
+      const rutasDelMes = (rutasDelMesRes.data as (Ruta & { usuarios: { nombre: string } })[]) || [];
+      const asistenciaDelMes = (asistenciaRes.data as any[]) || [];
+      const todosChoferes = (choferesDataRes.data as Usuario[]) || [];
+      
+      // Filtrar por chofer si aplica
+      const rutasFiltradas = choferSeleccionado 
+        ? rutasDelMes.filter(r => r.id_chofer === choferSeleccionado) 
+        : rutasDelMes;
+      
+      const rutaIdsSemana = rutasFiltradas.filter(r => r.fecha >= semanaStr).map(r => r.id_ruta);
+      const rutaIdsDelDia = rutasFiltradas.filter(r => r.fecha === hoyStr).map(r => r.id_ruta);
       
       const emptyFilter = [''];
       const filterDia = rutaIdsDelDia.length > 0 ? rutaIdsDelDia : emptyFilter;
@@ -170,23 +168,12 @@ const usuariosQ = supabase.from('usuarios').select('id_usuario, nombre, fecha_in
         otrosSemanaQ = otrosSemanaQ.eq('id_chofer', choferSeleccionado);
       }
 
-const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fecha', mesStr).lte('fecha', hoyStr);
-
-      const usuariosQAsistencia = supabase.from('usuarios').select('id_usuario, nombre, fecha_ingreso, dia_descanso').eq('rol', 'chofer').order('nombre');
-
-      const rutasDelMesQAsistencia = supabase.from('rutas').select('id_ruta, fecha, id_chofer').gte('fecha', mesStr).lte('fecha', hoyStr);
-
-      const [rutasRes, choferesRes, combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, todosChoferesRes, asistenciaDelMesRes, choferesConInfoRes, rutasDelMesAsistenciaRes] = await Promise.all([
-        supabase.from('rutas').select('*'),
-        supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
+      const [combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes, choferesRes] = await Promise.all([
         combustibleDiaQ,
         combustibleSemanaQ,
         otrosDiaQ,
         otrosSemanaQ,
-        supabase.from('usuarios').select('id_usuario, dias_descanso, fecha_ingreso, dia_descanso').eq('rol', 'chofer').eq('activo', true),
-        asistenciaDelMesQ,
-        usuariosQAsistencia,
-        rutasDelMesQAsistencia
+        supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true)
       ]);
 
       clearTimeout(timeoutId);
@@ -200,11 +187,9 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
         }
       }
 
-      // Calcular día de descanso
       const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
       const diaHoy = diasSemana[now.getDay()];
       
-      const todosChoferes = (todosChoferesRes.data as Usuario[]) || [];
       const choferesEnDescanso = todosChoferes.filter(c => {
         const diasDescanso = c.dias_descanso || [];
         return diasDescanso.includes(diaHoy);
@@ -212,10 +197,7 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
       const numDescanso = choferesEnDescanso.length;
       const numDisponibles = (choferesRes.count || 0) - numDescanso;
       
-      const rutas = rutasRes.data || [];
-      // APLICAR FILTRO POR CHOFER SI ESTÁ SELECCIONADO
-      const rutasFiltradas = choferSeleccionado ? rutas.filter(r => r.id_chofer === choferSeleccionado) : rutas;
-      const rutasDeHoy = rutasFiltradas.filter(r => (r.fecha || '').split('T')[0] === hoyStr);
+      const rutasDeHoy = rutasFiltradas.filter(r => r.fecha === hoyStr);
       const rutasFinalizadas = rutasDeHoy.filter(r => r.estado === 'finalizada');
       const rutasEnCurso = rutasDeHoy.filter(r => r.estado === 'en_progreso');
       const rutasFinalizadasIds = rutasFinalizadas.map(r => r.id_ruta);
@@ -259,7 +241,7 @@ const asistenciaDelMesQ = supabase.from('asistencia_chofer').select('*').gte('fe
       const gastosHoy = cargasCombustibleHoy + cobrosOtrosHoy;
       
       // Calcular peajes automáticos
-      const rutasFinalizadasDeHoy = rutasFiltradas.filter(r => r.estado === 'finalizada' && (r.fecha || '').split('T')[0] === hoyStr);
+      const rutasFinalizadasDeHoy = rutasFiltradas.filter(r => r.estado === 'finalizada' && r.fecha === hoyStr);
       const rutasFinalizadasDeSemana = rutasFiltradas.filter(r => r.estado === 'finalizada' && r.fecha >= semanaStr);
       const rutasFinalizadasDelMes = rutasFiltradas.filter(r => r.estado === 'finalizada' && r.fecha >= mesStr);
       

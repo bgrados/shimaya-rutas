@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { nowPeru, formatOnlyDatePeru } from '../../../lib/timezone';
 
 
 interface Chofer {
@@ -140,12 +141,12 @@ export default function GastosPeaje() {
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
+    doc.text(`Generado: ${format(nowPeru(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
     doc.text(`Filtros: ${filtroFechaInicio || 'Sin inicio'} - ${filtroFechaFin || 'Sin fin'}`, 14, 34);
     
     // Tabla de peajes calculados
     const tableData = peajesFiltrados.map(p => [
-      p.fecha ? format(new Date(p.fecha), 'dd/MM/yyyy') : '-',
+      p.fecha ? format(parseISO(p.fecha), 'dd/MM/yyyy') : '-',
       p.ruta_base_nombre || '-',
       p.chofer_nombre || '-',
       p.cantidad_peajes || 0,
@@ -173,7 +174,7 @@ export default function GastosPeaje() {
       doc.text(`Monto manual: S/ ${totalManuales.toFixed(2)}`, 14, finalY + 36);
     }
 
-    doc.save(`reporte_peajes_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    doc.save(`reporte_peajes_${formatOnlyDatePeru()}.pdf`);
   };
 
   const exportarExcel = () => {
@@ -190,7 +191,7 @@ export default function GastosPeaje() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Peajes');
-    XLSX.writeFile(wb, `peajes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    XLSX.writeFile(wb, `peajes_${formatOnlyDatePeru()}.xlsx`);
   };
 
   if (loading) {
@@ -410,7 +411,7 @@ export default function GastosPeaje() {
                     return (
                       <tr key={idx} className="hover:bg-white/5">
                         <td className="px-4 py-3 text-white">
-                          {peaje.fecha ? format(new Date(peaje.fecha), 'dd/MM/yyyy') : '-'}
+                          {peaje.fecha ? format(parseISO(peaje.fecha), 'dd/MM/yyyy') : '-'}
                         </td>
                         <td className="px-4 py-3 text-white font-medium">{peaje.ruta_base_nombre || '-'}</td>
                         <td className="px-4 py-3 text-text-muted text-xs">{peaje.ruta_nombre || '-'}</td>
@@ -461,7 +462,7 @@ export default function GastosPeaje() {
                   {peajesManualesFiltrados.map((peaje, idx) => (
                     <tr key={idx} className="hover:bg-white/5 opacity-70">
                       <td className="px-4 py-3 text-white">
-                        {peaje.fecha ? format(new Date(peaje.fecha), 'dd/MM/yyyy') : '-'}
+                        {peaje.fecha ? format(parseISO(peaje.fecha), 'dd/MM/yyyy') : '-'}
                       </td>
                       <td className="px-4 py-3 text-white">{peaje.nombre_peaje || '-'}</td>
                       <td className="px-4 py-3 text-red-400 font-black">S/ {(peaje.monto || 0).toFixed(2)}</td>

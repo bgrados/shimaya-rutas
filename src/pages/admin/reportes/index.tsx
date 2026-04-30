@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check, Image } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru, formatOnlyDatePeru } from '../../../lib/timezone';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
 
@@ -24,7 +24,7 @@ const urlToBase64 = async (url: string): Promise<string | null> => {
   } catch { return null; }
 };
 
-function localToday(): string { return format(new Date(), 'yyyy-MM-dd'); }
+function localToday(): string { return formatOnlyDatePeru(); }
 
 function formatMins(mins: number | null) {
   if (mins === null || mins === undefined || isNaN(mins as number)) return '-';
@@ -38,7 +38,7 @@ type ReportType = 'rutas' | 'combustible' | 'peajes' | 'otros';
 
 interface RutaConBitacora extends Ruta { 
   bitacora?: ViajeBitacora[]; 
-  duracionMin?: number | null; 
+  durationMin?: number | null; 
   localesRuta?: LocalRuta[]; 
   horaLlegadaReal?: string | null; 
   distanciaGpsKm?: number | null;
@@ -276,15 +276,24 @@ export default function Reportes() {
 
   async function loadData() {
     setLoading(true);
-    const { from, to } = getRange(period, selectedDate);
-    const { data: rutasData } = await supabase
-      .from('rutas')
-      .select('*')
-      .gte('fecha', from)
-      .lte('fecha', to)
-      .order('fecha', { ascending: false })
-      .order('created_at', { ascending: false });
-
+    try {
+      const { from, to } = getRange(period, selectedDate);
+      console.log(`[REPORTES-DIAG] Cargando histórico para rango: ${from} a ${to}`);
+      
+      const { data: rutasData, error: rutasError } = await supabase
+        .from('rutas')
+        .select('*')
+        .gte('fecha', from)
+        .lte('fecha', to)
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false });
+      
+      console.log('[REPORTES-DIAG] Query ejecutada:', { 
+        rutasCount: rutasData?.length || 0, 
+        error: rutasError?.message,
+        primerRegistro: rutasData?.[0] ? { id: rutasData[0].id_ruta, fecha: rutasData[0].fecha, estado: rutasData[0].estado } : null
+      });
+    
     if (rutasData && rutasData.length > 0) {
       const ids = rutasData.map(r => r.id_ruta);
       const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
@@ -344,50 +353,60 @@ export default function Reportes() {
           );
         }
 
-        return { ...r, bitacora: bits, localesRuta: locales, duracionMin: duracionMin, horaLlegadaReal, distanciaGpsKm };
+        // Calcular duración total de la ruta (en minutos)
+        let durationMin: number | null = null;
+        const salidas = bitsOrdenados.filter(b => b.hora_salida).map(b => new Date(b.hora_salida!));
+        const llegadas = bitsOrdenados.filter(b => b.hora_llegada).map(b => new Date(b.hora_llegada!));
+        
+        if (salidas.length > 0 && llegadas.length > 0) {
+          const primeraSalida = new Date(Math.min(...salidas.map(d => d.getTime())));
+          const ultimaLlegada = new Date(Math.max(...llegadas.map(d => d.getTime())));
+          durationMin = differenceInMinutes(ultimaLlegada, primeraSalida);
+        }
+
+        return { ...r, bitacora: bits, localesRuta: locales, durationMin, horaLlegadaReal, distanciaGpsKm };
       });
       setAllRutas(enriched as RutaConBitacora[]);
     } else {
       setAllRutas([]);
     }
+  } catch (error) {
+    console.error('[REPORTES] Error cargando datos:', error);
+    setAllRutas([]);
+  } finally {
     setLoading(false);
+  }
   }
 
 async function loadCombustible() {
     setCombustibleLoading(true);
     try {
       // Calcular rango de fechas según filtro
-      const now = new Date();
       let fechaDesde = '';
       let fechaHasta = '';
+      const nowStr = formatOnlyDatePeru();
       
       if (filtroFecha === 'dia') {
-        const hoy = format(now, 'yyyy-MM-dd');
-        fechaDesde = hoy;
-        fechaHasta = hoy;
+        fechaDesde = nowStr;
+        fechaHasta = nowStr;
       } else if (filtroFecha === 'semana') {
-        const day = now.getDay();
-        const inicioSemana = new Date(now);
-        inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
-        fechaDesde = format(inicioSemana, 'yyyy-MM-dd');
-        fechaHasta = format(now, 'yyyy-MM-dd');
+        fechaDesde = getStartOfCurrentWeek();
+        fechaHasta = nowStr;
       } else if (filtroFecha === 'mes') {
-        const nowMonth = now.getMonth();
-        const startOfMonth = new Date(now.getFullYear(), nowMonth, 1);
-        const endOfMonth = new Date(now.getFullYear(), nowMonth + 1, 0);
-        fechaDesde = format(startOfMonth, 'yyyy-MM-dd');
-        fechaHasta = format(endOfMonth, 'yyyy-MM-dd');
-        console.log('[DEBUG-FECHA] mes: desde', fechaDesde, 'hasta', fechaHasta);
+        const d = new Date(nowPeru());
+        fechaDesde = format(startOfMonth(d), 'yyyy-MM-dd');
+        fechaHasta = format(endOfMonth(d), 'yyyy-MM-dd');
       }
-      
-      console.log('[DEBUG] Ejecutando loadCombustible para filtro:', filtroFecha, { fechaDesde, fechaHasta });
       
       let query = supabase
         .from('gastos_combustible')
-        .select('*, usuarios(nombre), rutas(nombre, fecha)')
+        .select('*, usuarios(nombre), rutas!inner(nombre, fecha)')
         .order('created_at', { ascending: false });
+
+      if (filtroFecha !== 'todo') {
+        query = query.gte('rutas.fecha', fechaDesde).lte('rutas.fecha', fechaHasta);
+      }
       
-      // Cargar todos los gastos sin filtro de rutas (el filtro se hace localmente)
       const { data, error } = await query;
 
       if (error) {
@@ -569,42 +588,8 @@ async function loadCombustible() {
   };
   
   const getGastosFiltrados = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const hoyStr = format(now, 'yyyy-MM-dd');
-    
-    if (filtroFecha === 'todo') {
-      return { comb: gastosCombustible, otros: gastosOtros };
-    }
-    
-    if (filtroFecha === 'dia') {
-      const comb = gastosCombustible.filter(g => (g as any).rutas?.fecha === hoyStr);
-      const otros = gastosOtros.filter(g => (g as any).rutas?.fecha === hoyStr);
-      return { comb, otros };
-    }
-    
-    if (filtroFecha === 'mes') {
-      const mesStr = format(now, 'yyyy-MM');
-      const comb = gastosCombustible.filter((g: any) => g.rutas?.fecha?.startsWith(mesStr));
-      const otros = gastosOtros.filter((g: any) => g.rutas?.fecha?.startsWith(mesStr));
-      return { comb, otros };
-    }
-    
-    // semana (default)
-    const inicioSemana = new Date(now);
-    inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
-    const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
-    
-    const comb = gastosCombustible.filter(g => {
-      const f = (g as any).rutas?.fecha;
-      return f >= semanaStr && f <= hoyStr;
-    });
-    const otros = gastosOtros.filter(g => {
-      const f = (g as any).rutas?.fecha;
-      return f >= semanaStr && f <= hoyStr;
-    });
-    
-    return { comb, otros };
+    // Los datos ya están filtrados desde el backend, solo retornamos lo disponible
+    return { comb: gastosCombustible, otros: gastosOtros };
   };
 
   const rutas = useMemo(() => {

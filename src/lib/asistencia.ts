@@ -1,5 +1,6 @@
 import type { Usuario, Ruta } from '../types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { nowPeru, formatOnlyDatePeru } from './timezone';
 
 export interface AsistenciaResult {
   porcentaje: number;
@@ -30,9 +31,9 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   
   if (!inicio) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
   
-  const fechaFin = fin || new Date().toISOString().split('T')[0];
-  const fIni = new Date(inicio + 'T00:00:00');
-  const fFin = new Date(fechaFin + 'T00:00:00');
+  const fechaFin = fin || formatOnlyDatePeru();
+  const fIni = parseISO(inicio);
+  const fFin = parseISO(fechaFin);
   
   if (fIni > fFin) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio, fin: inicio };
   
@@ -50,7 +51,7 @@ let totalDias = 0;
 let descansos = 0;
 let trabajados = 0;
 let totalRestDays = 0;
-  const it = new Date(inicio + 'T00:00:00');
+  const it = parseISO(inicio);
   
   while (it <= fFin) {
     const fStr = format(it, 'yyyy-MM-dd');

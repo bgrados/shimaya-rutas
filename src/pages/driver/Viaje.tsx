@@ -115,7 +115,7 @@ export default function DriverViaje() {
   
   // Verificar día de descanso al inicio
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-  const diaHoy = diasSemana[new Date().getDay()];
+  const diaHoy = diasSemana[new Date(nowPeru()).getDay()];
   const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
   const [diaDescansoBloqueado, setDiaDescansoBloqueado] = useState(false);
 
@@ -871,7 +871,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         await loadRutasBase();
       } else {
         // Si no hay ruta activa, buscar la ruta finalizada de HOY
-        const today = new Date().toISOString().split('T')[0];
+        const today = formatOnlyDatePeru();
         const { data: rutaFinalizada, error: rfError } = await supabase
           .from('rutas')
           .select('*')
@@ -1045,7 +1045,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     
     try {
       const baseRuta = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const today = formatOnlyDatePeru();
       
       const { data: baseLocales, error: lbError } = await supabase
         .from('locales_base')
@@ -1129,15 +1129,19 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   useEffect(() => {
     if (!tramoEnProgreso) {
-      if (localesDisponibles.length > 0) {
-        setNuevoDestino(localesDisponibles[0].nombre || '');
-      } else if (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) {
-        setNuevoDestino('Planta');
-      } else {
-        setNuevoDestino('');
-      }
+      setNuevoDestino(prev => {
+        const isValido = localesDisponibles.some(l => l.nombre === prev) || (prev === 'Planta' && localesDisponibles.length === 0);
+        if (isValido && prev !== '') return prev;
+        
+        if (localesDisponibles.length > 0) {
+          return localesDisponibles[0].nombre || '';
+        } else if (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) {
+          return 'Planta';
+        }
+        return '';
+      });
     }
-  }, [bitacora, locales, localesDisponibles.length]);
+  }, [tramoEnProgreso, localesDisponibles, locales, localesRegistrados, bitacora.length]);
 
   const [actionLoading, setActionLoading] = useState(false);
   const [isEditingDestino, setIsEditingDestino] = useState(false);
@@ -1383,7 +1387,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   const esRutaDeHoy = (r: Ruta | null) => {
     if (!r) return false;
     if (esHistorial) return true; // Si es modo historial, siempre mostrar
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatOnlyDatePeru();
     return r.fecha === today;
   };
 
