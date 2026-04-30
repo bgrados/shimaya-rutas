@@ -236,7 +236,7 @@ export default function Reportes() {
       }
       
       // Recargar los datos
-      loadRutas();
+      loadData();
       setEditandoLlegada(null);
       alert('Hora de llegada actualizada correctamente');
     } catch (err: any) {
@@ -249,21 +249,37 @@ export default function Reportes() {
   const [filterChofer, setFilterChofer] = useState('');
   const [filterRuta, setFilterRuta] = useState('');
 
-  function getRange(p: Period, date: string): { from: string; to: string } {
-    const d = parseISO(date);
-    if (p === 'diario') return { from: date, to: date };
-    if (p === 'semanal') {
+  function getRange(p: Period, date: string): { from: string; to: string; fromIso: string; toIso: string } {
+    // Si date es YYYY-MM-DD, parseISO lo trata como medianoche UTC.
+    // Usamos una fecha base para cálculos.
+    const d = new Date(date + 'T12:00:00'); 
+    
+    let from = '';
+    let to = '';
+    let fromIso = '';
+    let toIso = '';
+
+    if (p === 'diario') {
+      from = date;
+      to = date;
+      fromIso = startOfDayPeru(d);
+      toIso = endOfDayPeru(d);
+    } else if (p === 'semanal') {
       const fromDate = new Date(d);
       fromDate.setDate(d.getDate() - 7);
-      return { 
-        from: format(fromDate, 'yyyy-MM-dd'), 
-        to: date 
-      };
+      from = formatOnlyDatePeru(fromDate);
+      to = date;
+      fromIso = startOfDayPeru(fromDate);
+      toIso = endOfDayPeru(d);
+    } else {
+      const start = startOfMonth(d);
+      const end = endOfMonth(d);
+      from = formatOnlyDatePeru(start);
+      to = formatOnlyDatePeru(end);
+      fromIso = startOfDayPeru(start);
+      toIso = endOfDayPeru(end);
     }
-    return {
-      from: format(startOfMonth(d), 'yyyy-MM-dd'),
-      to: format(endOfMonth(d), 'yyyy-MM-dd'),
-    };
+    return { from, to, fromIso, toIso };
   }
 
   useEffect(() => { loadData(); }, [period, selectedDate, reportType]);
@@ -277,8 +293,8 @@ export default function Reportes() {
   async function loadData() {
     setLoading(true);
     try {
-      const { from, to } = getRange(period, selectedDate);
-      console.log(`[REPORTES-DIAG] Cargando histórico para rango: ${from} a ${to}`);
+      const { from, to, fromIso, toIso } = getRange(period, selectedDate);
+      console.log(`[REPORTES-DIAG] Cargando histórico para rango: ${from} a ${to} (${fromIso} a ${toIso})`);
       
       const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
@@ -288,11 +304,7 @@ export default function Reportes() {
         .order('fecha', { ascending: false })
         .order('created_at', { ascending: false });
       
-      console.log('[REPORTES-DIAG] Query ejecutada:', { 
-        rutasCount: rutasData?.length || 0, 
-        error: rutasError?.message,
-        primerRegistro: rutasData?.[0] ? { id: rutasData[0].id_ruta, fecha: rutasData[0].fecha, estado: rutasData[0].estado } : null
-      });
+      if (rutasError) throw rutasError;
     
     if (rutasData && rutasData.length > 0) {
       const ids = rutasData.map(r => r.id_ruta);
@@ -400,11 +412,14 @@ async function loadCombustible() {
       
       let query = supabase
         .from('gastos_combustible')
-        .select('*, usuarios(nombre), rutas!inner(nombre, fecha)')
+        .select('*, usuarios(nombre), rutas(nombre, fecha)')
         .order('created_at', { ascending: false });
 
       if (filtroFecha !== 'todo') {
-        query = query.gte('rutas.fecha', fechaDesde).lte('rutas.fecha', fechaHasta);
+        // Usar created_at para filtrar gastos si no están vinculados a ruta
+        // Pero el diseño original parece depender de rutas.fecha.
+        // Vamos a usar una combinación o simplemente rutas.fecha si existe.
+        query = query.gte('fecha', fechaDesde).lte('fecha', fechaHasta);
       }
       
       const { data, error } = await query;
@@ -453,16 +468,9 @@ async function loadCombustible() {
     let filtered = gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
     console.log('[DEBUG PEAJES] peajes sin filtrar count:', filtered.length);
     
-    const hoy = new Date();
-    const hoyStr = format(hoy, 'yyyy-MM-dd');
-    const mesStr = format(hoy, 'yyyy-MM');
-    
-    // Get start of week (Monday)
-    const day = hoy.getDay();
-    const diff = hoy.getDate() - day + (day === 0 ? -6 : 1);
-    const inicioSemana = new Date(hoy);
-    inicioSemana.setDate(diff);
-    const inicioSemanaStr = format(inicioSemana, 'yyyy-MM-dd');
+    const hoyStr = formatOnlyDatePeru();
+    const mesStr = hoyStr.substring(0, 7); // yyyy-MM
+    const inicioSemanaStr = getStartOfCurrentWeek();
     
     if (filtroFecha === 'dia') {
       filtered = filtered.filter(g => {
@@ -606,11 +614,7 @@ async function loadCombustible() {
   const enProgreso = rutas.filter(r => r.estado === 'en_progreso').length;
   const pendientes = totalRutas - finalizadas - enProgreso;
 
-  const rangoLabel = {
-    diario: format(parseISO(from), "EEEE d 'de' MMMM yyyy", { locale: es }),
-    semanal: `${format(parseISO(from), "d MMM", { locale: es })} – ${format(parseISO(to), "d MMM yyyy", { locale: es })}`,
-    mensual: format(parseISO(from), "MMMM yyyy", { locale: es }),
-  }[period];
+  const rangoLabel = period === 'diario' ? formatFriendlyDate(from) : `${formatFriendlyDate(from)} al ${formatFriendlyDate(to)}`;
 
   const choferNombre = filterChofer ? choferes.find(c => c.id_usuario === filterChofer)?.nombre || '' : '';
 
@@ -877,7 +881,7 @@ const win = window.open('', '_blank');
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastosCombustible.forEach(gasto => {
-      const fecha = gasto.created_at ? new Date(new Date(gasto.created_at).getTime() + 19*60*60*1000).toISOString().split('T')[0] : 'sin fecha';
+      const fecha = gasto.created_at ? formatOnlyDatePeru(new Date(gasto.created_at)) : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });

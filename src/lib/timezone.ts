@@ -6,7 +6,8 @@ const TIMEZONE = 'America/Lima';
 export function formatGroupDate(fechaStr: string): string {
   if (!fechaStr || fechaStr === 'sin fecha') return '-';
   try {
-    return formatInTimeZone(new Date(fechaStr), TIMEZONE, "EEEE d 'de' MMMM", { locale: es });
+    const dateToFormat = fechaStr.includes('T') ? new Date(fechaStr) : toDate(fechaStr + 'T00:00:00', { timeZone: TIMEZONE });
+    return formatInTimeZone(dateToFormat, TIMEZONE, "EEEE d 'de' MMMM", { locale: es });
   } catch (e) {
     return '-';
   }
@@ -15,7 +16,8 @@ export function formatGroupDate(fechaStr: string): string {
 export function formatGroupDatePdf(fechaStr: string): string {
   if (!fechaStr || fechaStr === 'sin fecha') return '-';
   try {
-    return formatInTimeZone(new Date(fechaStr), TIMEZONE, 'dd MMMM yyyy', { locale: es });
+    const dateToFormat = fechaStr.includes('T') ? new Date(fechaStr) : toDate(fechaStr + 'T00:00:00', { timeZone: TIMEZONE });
+    return formatInTimeZone(dateToFormat, TIMEZONE, 'dd MMMM yyyy', { locale: es });
   } catch (e) {
     return '-';
   }
