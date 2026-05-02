@@ -44,6 +44,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true
     
+    console.log('[Auth] useEffect triggered, mounted:', mounted)
+    
     const loadingTimeout = setTimeout(() => {
       if (mounted) {
         console.warn('[Auth] Timeout alcanzado, forzando loading=false')
@@ -184,9 +186,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rol: (profileFound.rol || '').trim().toLowerCase() as Usuario['rol'],
         email: (profileFound.email || '').trim().toLowerCase(),
       }
+      console.log('[Auth] Profile loaded:', p.id_usuario, 'rol:', p.rol)
       setProfile(p)
       localStorage.setItem('user_profile', JSON.stringify(p))
     } else {
+      console.warn('[Auth] No profile found for userId:', userId, 'email:', emailLower)
       setProfile(null)
       localStorage.removeItem('user_profile')
     }
