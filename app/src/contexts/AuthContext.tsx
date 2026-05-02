@@ -43,13 +43,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true
-
+    
     const loadingTimeout = setTimeout(() => {
       if (mounted) {
         console.warn('[Auth] Timeout alcanzado, forzando loading=false')
         setLoading(false)
       }
-    }, 8000)
+    }, 15000)
 
     // Canal de presencia para usuarios online
     const presenceChannel = supabase.channel('auth_presence')

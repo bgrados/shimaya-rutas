@@ -50,9 +50,11 @@ export default function DriverDashboard() {
 
   const loadRutas = async () => {
     if (!profile) {
+      console.log('[Dashboard] No profile, skipping load');
       setLoading(false);
       return;
     }
+    console.log('[Dashboard] Loading rutas for user:', profile.id_usuario, 'rol:', profile.rol);
     setLoading(true);
     setError(null);
     
@@ -64,10 +66,11 @@ export default function DriverDashboard() {
         .in('estado', ['pendiente', 'en_progreso'])
         .order('fecha', { ascending: false });
         
+      console.log('[Dashboard] Rutas loaded:', data?.length, 'error:', error);
       if (error) throw error;
       setRutas(data as Ruta[]);
     } catch (e) {
-      console.error('Error loading dashboard routes:', e);
+      console.error('[Dashboard] Error loading routes:', e);
       setError('Error al cargar rutas. Verifica tu conexión.');
     } finally {
       setLoading(false);
