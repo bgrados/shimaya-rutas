@@ -556,7 +556,7 @@ const comparacionDiaEquivalente = useMemo(() => {
     }[] = [];
     
     for (let i = 13; i >= 0; i--) {
-      const fecha = subDays(nowPeru(), i);
+      const fecha = subDays(new Date(nowPeru()), i);
       const fechaStr = format(fecha, 'yyyy-MM-dd');
       const rutasDia = rutas.filter(r => filtrarChofer(r) && r.fecha === fechaStr);
       
@@ -710,7 +710,7 @@ const comparacionDiaEquivalente = useMemo(() => {
       setMejorTiempoPorDia(mejoresValidados);
 
       // 2. Fetch rutas in the selected range (desde inicio del mes para asistencia)
-      const inicioMes = format(nowPeru(), 'yyyy-MM-01');
+      const inicioMes = nowPeru().substring(0, 7) + '-01';
       const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')

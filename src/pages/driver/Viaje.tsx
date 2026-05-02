@@ -1088,7 +1088,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           id_ruta_base: selectedRutaBase,
           placa: nuevaPlaca,
           nombre: template?.nombre,
-          fecha: format(nowPeru(), 'yyyy-MM-dd'),
+          fecha: format(new Date(nowPeru()), 'yyyy-MM-dd'),
           estado: 'pendiente',
           km_inicio: parseFloat(kmInicio) || 0
         })

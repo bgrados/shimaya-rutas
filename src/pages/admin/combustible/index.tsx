@@ -95,7 +95,7 @@ export default function GastosCombustible() {
   };
   
   const getInicioSemana = () => {
-    const now = nowPeru();
+    const now = new Date(nowPeru());
     const day = now.getDay();
     const inicioSemana = new Date(now);
     inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
@@ -446,7 +446,7 @@ export default function GastosCombustible() {
       <p class="header-sub">📋 Reporte de Combustible · ${periodoLabel}</p>
     </div>
   </div>
-  <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(nowPeru(), "dd/MM/yyyy HH:mm")}</div>
+  <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(new Date(nowPeru()), "dd/MM/yyyy HH:mm")}</div>
 </div>
 <button class="close-btn" onclick="if(window.opener){window.close();}else{history.back();}">✕ Cerrar</button>
 
@@ -465,7 +465,7 @@ export default function GastosCombustible() {
   ${gruposHTML.join('')}
   ${fotosHTML}
 </div>
-<div class="footer">Shimaya Rutas © ${nowPeru().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
+<div class="footer">Shimaya Rutas © ${new Date(nowPeru()).getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
 <button class="Print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
 </body></html>`;
 
@@ -485,7 +485,7 @@ export default function GastosCombustible() {
       ['Reporte de Gastos de Combustible'],
       ['Período:', getPeriodoLabel()],
       ['Estado:', activeTab === 'todos' ? 'Todos' : activeTab === 'pendientes' ? 'Pendientes' : 'Confirmados'],
-      ['Generado:', format(nowPeru(), 'dd/MM/yyyy HH:mm')],
+      ['Generado:', format(new Date(nowPeru()), 'dd/MM/yyyy HH:mm')],
       [],
       ['Resumen por Tipo'],
       ['Tipo', 'Total (S/)'],

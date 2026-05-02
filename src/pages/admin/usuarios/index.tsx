@@ -7,6 +7,8 @@ import { Input } from '../../../components/ui/Input';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 
+import { nowPeru, formatOnlyDatePeru } from '../../../lib/timezone';
+
 interface UsuarioExtendido extends Usuario {
   connected?: boolean;
   lastSeen?: string;

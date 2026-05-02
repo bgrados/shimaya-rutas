@@ -141,7 +141,7 @@ export default function GastosPeaje() {
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Generado: ${format(nowPeru(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
+    doc.text(`Generado: ${format(new Date(nowPeru()), 'dd/MM/yyyy HH:mm')}`, 14, 28);
     doc.text(`Filtros: ${filtroFechaInicio || 'Sin inicio'} - ${filtroFechaFin || 'Sin fin'}`, 14, 34);
     
     // Tabla de peajes calculados
