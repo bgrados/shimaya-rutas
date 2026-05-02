@@ -387,9 +387,9 @@ export default function AdminDashboard() {
       }
       
       // Calcular asistencia mensual (SIEMPRE, aunque no haya gastos)
-      const choferesConInfo = (choferesConInfoRes.data as any[]) || [];
-      const dataRutasAsistencia = (rutasDelMesAsistenciaRes.data as any[]) || [];
-      const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
+      const choferesConInfo = todosChoferes;
+      const dataRutasAsistencia = rutasDelMes;
+      const asistenciaManual = asistenciaDelMes;
       
       let totalTrabajados = 0;
       let totalDescansos = 0;
