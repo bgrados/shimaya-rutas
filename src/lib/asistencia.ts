@@ -13,14 +13,25 @@ export interface AsistenciaResult {
   fin: string;
 }
 
-const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const DIAS_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const MAP_DIAS_ES: Record<string, number> = {
+  'domingo': 0, 'lunes': 1, 'martes': 2, 'miercoles': 3, 'jueves': 4, 'viernes': 5, 'sabado': 6
+};
 
 export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string): AsistenciaResult {
   const ingreso = chofer?.fecha_ingreso;
-  const diaDesc = chofer.dia_descanso ?? -1;
   
-  console.log(`[ASISTENCIA DEBUG] chofer=${chofer?.nombre}, ingreso=${ingreso}, diaDesc=${diaDesc}`);
+  // Soporte para múltiples días de descanso (array de strings) o uno solo (número)
+  const diasDescansoStr = chofer.dias_descanso || [];
+  const diaDescNum = chofer.dia_descanso ?? -1;
   
+  const setDiasDescanso = new Set<number>();
+  if (diaDescNum >= 0) setDiasDescanso.add(diaDescNum);
+  diasDescansoStr.forEach(d => {
+    const n = MAP_DIAS_ES[d.toLowerCase()];
+    if (n !== undefined) setDiasDescanso.add(n);
+  });
+
   let inicio = ingreso ? String(ingreso).split('T')[0] : null;
   if (!inicio) {
     const misRutas = (rutas || []).filter(r => r.id_chofer === chofer.id_usuario);
@@ -31,7 +42,8 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
   
   if (!inicio) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
   
-  const fechaFin = fin || formatOnlyDatePeru();
+  const hoyPeru = formatOnlyDatePeru();
+  const fechaFin = fin || hoyPeru;
   const fIni = parseISO(inicio);
   const fFin = parseISO(fechaFin);
   
@@ -47,52 +59,49 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string)
     }
   });
   
-let totalDias = 0;
-let descansos = 0;
-let trabajados = 0;
-let totalRestDays = 0;
+  let totalDiasParaProgramados = 0;
+  let trabajados = 0;
+  let descansos = 0;
+
   const it = parseISO(inicio);
-  
   while (it <= fFin) {
     const fStr = format(it, 'yyyy-MM-dd');
-    const esDiaDescanso = diaDesc >= 0 && it.getDay() === diaDesc;
+    const esDiaDescanso = setDiasDescanso.has(it.getDay());
     const hayRuta = diasConRuta.has(fStr);
-    
-    totalDias++;
-    
+    const esHoy = fStr === hoyPeru;
+
     if (esDiaDescanso) {
-      totalRestDays++;
       if (hayRuta) {
         trabajados++; // Trabajó en su día de descanso
       } else {
         descansos++; // Descansó
       }
     } else {
-      if (hayRuta) {
-        trabajados++; // Trabajó en día laborable
+      // Día laborable
+      if (esHoy && !hayRuta) {
+        // No hacer nada todavía (evitar falta falsa)
       } else {
-        // Falta - no cuenta aquí, se calcula después
+        totalDiasParaProgramados++;
+        if (hayRuta) {
+          trabajados++;
+        }
       }
     }
     
     it.setDate(it.getDate() + 1);
   }
   
-  const programados = totalDias - totalRestDays; /* Días esperados (laborables, excluye todos los días de descanso) */
+  const programados = totalDiasParaProgramados; 
   const faltantes = programados - trabajados;
   const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : 0;
   
-  console.log(`[ASISTENCIA] ${chofer.nombre}: inicio=${inicio}, fin=${fechaFin}, diaDesc=${diaDesc}`);
-  console.log(`     totalDias=${totalDias}, descansos=${descansos}, programados=${programados}, trabajados=${trabajados}, faltantes=${faltantes}`);
-  console.log(`     FECHAS RUTAS: ${Array.from(diasConRuta).sort().join(', ')}`);
-  
   return {
-    porcentaje: pct,
+    porcentaje: Math.min(100, pct),
     trabajados,
     descansos,
     faltan: Math.max(0, faltantes),
     programados,
-    diasMes: totalDias,
+    diasMes: Math.floor((fFin.getTime() - fIni.getTime()) / (1000 * 60 * 60 * 24)) + 1,
     inicio,
     fin: fechaFin
   };
@@ -102,4 +111,12 @@ export function calcularAsistenciaMensual(params: any): AsistenciaResult {
   return calcularAsistencia(params.chofer, params.rutasDelMes, params.fechaFin);
 }
 
-export const getDiaDescansoLabel = (dia: number | undefined): string => DIAS[dia ?? 0] || 'Domingo';
+export const getDiaDescansoLabel = (chofer: any): string => {
+  const dias = chofer?.dias_descanso || [];
+  if (dias.length > 0) {
+    return dias.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1)).join(', ');
+  }
+  const diaNum = chofer?.dia_descanso;
+  if (diaNum !== undefined && diaNum >= 0) return DIAS_LABELS[diaNum];
+  return 'No asignado';
+};

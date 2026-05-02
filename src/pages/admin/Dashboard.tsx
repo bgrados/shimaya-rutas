@@ -396,7 +396,7 @@ export default function AdminDashboard() {
       let totalFaltas = 0;
       let totalProgramados = 0;
       let choferesConDatos = 0;
-      const asistenciaPorChoferList: {nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[] = [];
+      const asistenciaPorChoferList: {nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescansoLabel: string}[] = [];
       
       choferesConInfo.forEach(chofer => {
         const result = calcularAsistenciaMensual({
@@ -415,7 +415,7 @@ export default function AdminDashboard() {
           trabajados: result.trabajados,
           descansos: result.descansos,
           faltan: result.faltan ?? 0,
-          diaDescanso: chofer.dia_descanso ?? -1
+          diaDescansoLabel: getDiaDescansoLabel(chofer)
         });
         
         choferesConDatos++;
@@ -765,7 +765,7 @@ export default function AdminDashboard() {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="text-white font-bold text-base">{c.nombre}</h3>
-                      <p className="text-blue-300/70 text-xs">Descanso: {getDiaDescansoLabel(c.diaDescanso)}</p>
+                      <p className="text-blue-300/70 text-xs">Descanso: {c.diaDescansoLabel}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-blue-400 font-black text-2xl">{c.porcentaje}%</span>
@@ -779,7 +779,6 @@ export default function AdminDashboard() {
                     <div className="bg-blue-500/10 rounded-lg p-2">
                       <p className="text-blue-400 font-bold text-lg">{c.descansos}</p>
                       <p className="text-blue-300/70 text-[10px]">Descansos</p>
-                      <p className="text-[8px] text-text-muted">dia_descanso: {c.diaDescanso}</p>
                     </div>
                     <div className={`rounded-lg p-2 ${c.faltan > 0 ? 'bg-red-500/10' : 'bg-surface-light/20'}`}>
                       <p className={`font-bold text-lg ${c.faltan > 0 ? 'text-red-400' : 'text-text-muted'}`}>{c.faltan}</p>
