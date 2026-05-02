@@ -44,7 +44,8 @@ export default function DriverDashboard() {
 
   // Verificar día de descanso
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-  const diaHoy = diasSemana[new Date().getDay()];
+  const nowObj = new Date(nowPeru());
+  const diaHoy = diasSemana[nowObj.getDay()];
   const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
 
   const loadRutas = async () => {

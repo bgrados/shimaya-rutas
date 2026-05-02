@@ -166,7 +166,8 @@ export default function AnalisisRutas() {
   const [mejorTiempoPorDia, setMejorTiempoPorDia] = useState<Record<number, number>>({});
   // Por defecto cargamos 14 días para tener semana actual + anterior
   const [fechaInicio, setFechaInicio] = useState<string>(() => {
-    const d = nowPeru();
+    // nowPeru() retorna string ISO, debemos convertir a Date para manipular
+    const d = new Date(nowPeru());
     d.setDate(d.getDate() - 20);
     return format(d, 'yyyy-MM-dd');
   });
@@ -184,16 +185,17 @@ export default function AnalisisRutas() {
   
   // Label dinámico para comparación acumulada de la semana
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  const dow = nowPeru().getDay();
-  const diasTranscurridos = dow === 0 ? 7 : dow;
-  const diaFin = diasSemana[diasTranscurridos];
+  const nowObj = new Date(nowPeru());
+  const dow = nowObj.getDay();
+  const diasTranscurridosLabel = dow === 0 ? 7 : dow;
+  const diaFin = diasSemana[dow];
   const diaInicio = diasSemana[1];
-  const comparacionDiaLabel = diasTranscurridos === 1 
+  const comparacionDiaLabel = diasTranscurridosLabel === 1 
     ? `1 día (${diaFin})` 
     : `Acumulado ${diaInicio}–${diaFin}`;
 
   // ── Semana auto: lunes–domingo de la semana actual y la anterior ──
-  const now = nowPeru();
+  const now = new Date(nowPeru());
   const semanaActualInicio = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   const semanaActualFin   = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   const semanaAnteriorInicio = format(startOfWeek(subDays(now, 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -201,7 +203,7 @@ export default function AnalisisRutas() {
 
   const semanaStats = useMemo(() => {
     const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
-    const today = nowPeru();
+    const today = new Date(nowPeru());
 
     // ¿Qué día de la semana es hoy? (1=Lun...7=Dom)
     // getDay() returns 0=Sun, so we map to 1=Mon...7=Sun

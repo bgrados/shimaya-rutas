@@ -60,11 +60,15 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
   if (fIni > fFin) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio, fin: inicio };
   
   const diasConRuta = new Set<string>();
+  const diasActividadEmpresa = new Set<string>(); // Dias donde alguien hizo ruta
   (rutas || []).forEach(r => {
-    if (r.id_chofer === chofer.id_usuario && r.fecha) {
+    if (r.fecha) {
       const f = String(r.fecha).split('T')[0];
-      if (f >= inicio && f <= fechaFin) {
-        diasConRuta.add(f);
+      diasActividadEmpresa.add(f);
+      if (r.id_chofer === chofer.id_usuario) {
+        if (f >= inicio && f <= fechaFin) {
+          diasConRuta.add(f);
+        }
       }
     }
   });
@@ -87,6 +91,7 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
     const hayRuta = diasConRuta.has(fStr);
     const estadoManual = mapManual.get(fStr);
     const esHoy = fStr === hoyPeru;
+    const esDiaLaboralEmpresa = diasActividadEmpresa.has(fStr);
 
     // Prioridad: Manual > Ruta > Dia Descanso
     if (estadoManual) {
@@ -110,13 +115,15 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
       }
     } else {
       // Día laborable sin registro manual
-      if (esHoy && !hayRuta) {
-        // No hacer nada (evitar falta falsa)
-      } else {
+      // Solo contamos como programado si la empresa tuvo actividad ese día O si el chofer trabajó
+      const esDiaLaboralEmpresa = diasActividadEmpresa.has(fStr);
+      
+      if (hayRuta) {
+        trabajados++;
+        if (!esDiaDescanso) totalDiasParaProgramados++;
+      } else if (!esDiaDescanso && esDiaLaboralEmpresa && !esHoy) {
+        // Si la empresa trabajó, el chofer no tiene descanso y no hay ruta -> Falta
         totalDiasParaProgramados++;
-        if (hayRuta) {
-          trabajados++;
-        }
       }
     }
     

@@ -19,25 +19,33 @@ export default function EjecucionRuta() {
   useEffect(() => {
     async function fetchRutaDetalle() {
       if (!id) return;
-      const [rutaRes, localesRes] = await Promise.all([
-        supabase.from('rutas').select('*').eq('id_ruta', id).single(),
-        supabase.from('locales_ruta').select('*').eq('id_ruta', id).order('orden', { ascending: true })
-      ]);
+      try {
+        const [rutaRes, localesRes] = await Promise.all([
+          supabase.from('rutas').select('*').eq('id_ruta', id).single(),
+          supabase.from('locales_ruta').select('*').eq('id_ruta', id).order('orden', { ascending: true })
+        ]);
 
-      if (rutaRes.data) {
-        setRuta(rutaRes.data as Ruta);
-        if (rutaRes.data.estado === 'pendiente') {
-          const { data: existingRoute } = await supabase.from('rutas').select('estado').eq('id_ruta', id).single();
-          if (existingRoute?.estado === 'pendiente') {
-            await supabase.from('rutas').update({ estado: 'en_progreso' }).eq('id_ruta', id);
-            setRuta({...rutaRes.data as Ruta, estado: 'en_progreso'});
-          } else {
-            setRuta({...rutaRes.data as Ruta, estado: existingRoute?.estado || rutaRes.data.estado});
+        if (rutaRes.error) throw rutaRes.error;
+        if (localesRes.error) throw localesRes.error;
+
+        if (rutaRes.data) {
+          setRuta(rutaRes.data as Ruta);
+          if (rutaRes.data.estado === 'pendiente') {
+            const { data: existingRoute } = await supabase.from('rutas').select('estado').eq('id_ruta', id).single();
+            if (existingRoute?.estado === 'pendiente') {
+              await supabase.from('rutas').update({ estado: 'en_progreso' }).eq('id_ruta', id);
+              setRuta({...rutaRes.data as Ruta, estado: 'en_progreso'});
+            } else {
+              setRuta({...rutaRes.data as Ruta, estado: existingRoute?.estado || rutaRes.data.estado});
+            }
           }
         }
+        if (localesRes.data) setLocales(localesRes.data as LocalRuta[]);
+      } catch (err) {
+        console.error('Error fetching route detail:', err);
+      } finally {
+        setLoading(false);
       }
-      if (localesRes.data) setLocales(localesRes.data as LocalRuta[]);
-      setLoading(false);
     }
     fetchRutaDetalle();
   }, [id]);
