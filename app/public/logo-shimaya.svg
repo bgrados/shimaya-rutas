@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Fondo circular negro -->
+  <circle cx="100" cy="100" r="98" fill="#111111"/>
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#cc2222" stroke-width="3"/>
+
+  <!-- Camión (cuerpo principal) -->
+  <rect x="28" y="85" width="95" height="52" rx="4" fill="#ffffff"/>
+  <!-- Cabina camión -->
+  <rect x="123" y="95" width="48" height="42" rx="4" fill="#ffffff"/>
+  <!-- Parabrisas cabina -->
+  <rect x="128" y="100" width="36" height="22" rx="2" fill="#cc2222"/>
+  <!-- Puerta cabina -->
+  <rect x="133" y="108" width="16" height="18" rx="2" fill="#ffffff" stroke="#cc2222" stroke-width="1.5"/>
+  <!-- Espejo -->
+  <rect x="170" y="102" width="5" height="8" rx="2" fill="#888888"/>
+
+  <!-- División marca/carga -->
+  <rect x="115" y="85" width="4" height="52" fill="#cc2222"/>
+
+  <!-- Línea roja en el cuerpo -->
+  <rect x="28" y="106" width="95" height="5" fill="#cc2222"/>
+
+  <!-- Ruedas -->
+  <circle cx="55" cy="140" r="14" fill="#333333" stroke="#cc2222" stroke-width="2"/>
+  <circle cx="55" cy="140" r="7" fill="#777777"/>
+  <circle cx="55" cy="140" r="3" fill="#cccccc"/>
+
+  <circle cx="140" cy="140" r="14" fill="#333333" stroke="#cc2222" stroke-width="2"/>
+  <circle cx="140" cy="140" r="7" fill="#777777"/>
+  <circle cx="140" cy="140" r="3" fill="#cccccc"/>
+
+  <!-- Faro delantero -->
+  <rect x="172" y="118" width="6" height="10" rx="2" fill="#ffdd00"/>
+
+  <!-- Ejes -->
+  <rect x="30" y="136" width="83" height="4" rx="2" fill="#555555"/>
+  <rect x="118" y="136" width="44" height="4" rx="2" fill="#555555"/>
+
+  <!-- Texto SHIMAYA -->
+  <text x="100" y="174" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="22" font-weight="900" fill="#cc2222" letter-spacing="1">SHIMAYA</text>
+
+  <!-- Líneas decorativas -->
+  <line x1="28" y1="180" x2="68" y2="180" stroke="#cc2222" stroke-width="1.5"/>
+  <line x1="132" y1="180" x2="172" y2="180" stroke="#cc2222" stroke-width="1.5"/>
+
+  <!-- Texto "rutas" debajo -->
+  <text x="100" y="193" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#888888" letter-spacing="4">RUTAS</text>
+</svg>
