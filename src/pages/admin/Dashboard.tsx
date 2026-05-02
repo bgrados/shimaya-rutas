@@ -435,7 +435,7 @@ export default function AdminDashboard() {
       // Detectar inconsistencias globales (si hay gastos)
       if (gastosChofer) {
         const inconsistencias = detectarInconsistenciasGlobales(
-          rutas,
+          rutasDelMes,
           choferesActivosEnCurso.size,
           totalChoferesRegistrados,
           (combustibleSemanaRes.data || []).map(g => ({ fecha: g.created_at, monto: g.monto || 0 })),
