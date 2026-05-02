@@ -105,29 +105,37 @@ export default function VisitaLocal() {
   const [gps, setGps] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
-    async function fetchLocal() {
+    let cancelled = false;
+    const fetchLocal = async () => {
+      if (cancelled) return;
       if (!vId) return;
       const { data, error } = await supabase.from('locales_ruta').select('*').eq('id_local_ruta', vId).single();
+      if (cancelled) return;
       if (!error && data) {
         setLocal(data as LocalRuta);
         setObservacion(data.observacion || '');
       }
       setLoading(false);
-    }
+    };
     fetchLocal();
+    return () => { cancelled = true; };
   }, [vId]);
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchExistingPhotos() {
+      if (cancelled) return;
       if (!vId) return;
       const { data } = await supabase
         .from('fotos_visita')
         .select('*')
         .eq('id_local_ruta', vId)
         .order('orden', { ascending: true });
+      if (cancelled) return;
       if (data) setExistingPhotos(data as FotoVisita[]);
     }
     fetchExistingPhotos();
+    return () => { cancelled = true; };
   }, [vId]);
 
   const totalPhotos = photos.length + existingPhotos.length;
@@ -196,6 +204,7 @@ export default function VisitaLocal() {
       const { data } = supabase.storage.from('visitas_fotos').getPublicUrl(filePath);
       
       if (photoItem.optimized) {
+        // Optimized handled
       }
       
       return data.publicUrl;

@@ -247,7 +247,7 @@ export default function AdminDashboard() {
       
       // Obtener datos de rutas_base para cada ruta (incluyendo del mes)
       const rutasBaseIds = [...new Set([...rutasFinalizadasDeHoy, ...rutasFinalizadasDeSemana, ...rutasFinalizadasDelMes].map(r => r.id_ruta_base).filter(Boolean))];
-      let rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
+      const rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
       
       if (rutasBaseIds.length > 0) {
         const { data: rutasBaseData } = await supabase.from('rutas_base').select('id_ruta_base, cantidad_peajes, costo_peaje').in('id_ruta_base', rutasBaseIds);
@@ -774,15 +774,15 @@ export default function AdminDashboard() {
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="bg-green-500/10 rounded-lg p-2">
-                      <p className="text-green-400 font-bold text-lg">{c.trabajados}</p>
+                      <p className="text-green-400 font-bold text-lg">{c.trabajados} d</p>
                       <p className="text-green-300/70 text-[10px]">Trabajados</p>
                     </div>
                     <div className="bg-blue-500/10 rounded-lg p-2">
-                      <p className="text-blue-400 font-bold text-lg">{c.descansos}</p>
+                      <p className="text-blue-400 font-bold text-lg">{c.descansos} d</p>
                       <p className="text-blue-300/70 text-[10px]">Descansos</p>
                     </div>
                     <div className={`rounded-lg p-2 ${c.faltan > 0 ? 'bg-red-500/10' : 'bg-surface-light/20'}`}>
-                      <p className={`font-bold text-lg ${c.faltan > 0 ? 'text-red-400' : 'text-text-muted'}`}>{c.faltan}</p>
+                      <p className={`font-bold text-lg ${c.faltan > 0 ? 'text-red-400' : 'text-text-muted'}`}>{c.faltan} d</p>
                       <p className={`text-[10px] ${c.faltan > 0 ? 'text-red-300/70' : 'text-text-muted/70'}`}>Faltas</p>
                     </div>
                   </div>

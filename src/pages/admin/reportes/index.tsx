@@ -320,7 +320,7 @@ export default function Reportes() {
         if (localesError) console.warn('[REPORTES-DIAG] Error locales:', localesError);
         
         const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
-        let fotosMap: Record<string, FotoVisita[]> = {};
+        const fotosMap: Record<string, FotoVisita[]> = {};
         if (localRutaIds.length > 0) {
           const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
           if (fotosData) {
@@ -333,40 +333,45 @@ export default function Reportes() {
         setFotosPorLocal(fotosMap);
 
         const enriched = (rutasData as Ruta[]).map(r => {
-          const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
-          const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
-          
-          const bitsOrdenados = [...bits].sort((a, b) => 
-            new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-          );
-          
-          let horaLlegadaReal = r.hora_llegada_planta;
-          for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
-            if (bitsOrdenados[i].hora_llegada) {
-              horaLlegadaReal = bitsOrdenados[i].hora_llegada;
-              break;
-            }
-          }
-          
-          let distanciaGpsKm = 0;
-          const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
-          for (let i = 0; i < bitsValidos.length - 1; i++) {
-            distanciaGpsKm += calcularDistanciaHaversine(
-              bitsValidos[i].gps_llegada_lat!, bitsValidos[i].gps_llegada_lng!,
-              bitsValidos[i+1].gps_llegada_lat!, bitsValidos[i+1].gps_llegada_lng!
+          try {
+            const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
+            const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
+            
+            const bitsOrdenados = [...bits].sort((a, b) => 
+              new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
             );
-          }
+            
+            let horaLlegadaReal = r.hora_llegada_planta;
+            for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
+              if (bitsOrdenados[i].hora_llegada) {
+                horaLlegadaReal = bitsOrdenados[i].hora_llegada;
+                break;
+              }
+            }
+            
+            let distanciaGpsKm = 0;
+            const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
+            for (let i = 0; i < bitsValidos.length - 1; i++) {
+              distanciaGpsKm += calcularDistanciaHaversine(
+                bitsValidos[i].gps_llegada_lat!, bitsValidos[i].gps_llegada_lng!,
+                bitsValidos[i+1].gps_llegada_lat!, bitsValidos[i+1].gps_llegada_lng!
+              );
+            }
 
-          let durationMin: number | null = null;
-          const salidas = bitsOrdenados.filter(b => b.hora_salida).map(b => new Date(b.hora_salida!));
-          const llegadas = bitsOrdenados.filter(b => b.hora_llegada).map(b => new Date(b.hora_llegada!));
-          if (salidas.length > 0 && llegadas.length > 0) {
-            const primeraSalida = new Date(Math.min(...salidas.map(d => d.getTime())));
-            const ultimaLlegada = new Date(Math.max(...llegadas.map(d => d.getTime())));
-            durationMin = differenceInMinutes(ultimaLlegada, primeraSalida);
-          }
+            let durationMin: number | null = null;
+            const salidas = bitsOrdenados.filter(b => b.hora_salida).map(b => new Date(b.hora_salida!));
+            const llegadas = bitsOrdenados.filter(b => b.hora_llegada).map(b => new Date(b.hora_llegada!));
+            if (salidas.length > 0 && llegadas.length > 0) {
+              const primeraSalida = new Date(Math.min(...salidas.map(d => d.getTime())));
+              const ultimaLlegada = new Date(Math.max(...llegadas.map(d => d.getTime())));
+              durationMin = differenceInMinutes(ultimaLlegada, primeraSalida);
+            }
 
-          return { ...r, bitacora: bits, localesRuta: locales, durationMin, horaLlegadaReal, distanciaGpsKm };
+            return { ...r, bitacora: bits, localesRuta: locales, durationMin, horaLlegadaReal, distanciaGpsKm };
+          } catch (err) {
+            console.warn(`[REPORTES-DIAG] Error enriqueciendo ruta ${r.id_ruta}:`, err);
+            return { ...r, bitacora: [], localesRuta: [], durationMin: null, horaLlegadaReal: r.hora_llegada_planta, distanciaGpsKm: 0 };
+          }
         });
         setAllRutas(enriched as RutaConBitacora[]);
         console.log('[REPORTES-DIAG] Datos cargados y enriquecidos.');
@@ -418,12 +423,13 @@ async function loadCombustible() {
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
         .order('created_at', { ascending: false });
 
-      if (filtroFecha !== 'todo') {
+       if (filtroFecha !== 'todo') {
         if (rutaIds.length > 0) {
           // Filtrar por ID de ruta O por fecha directa si existe
-          query = query.or(`id_ruta.in.(${rutaIds.join(',')}),fecha.gte.${fechaDesde}.and.fecha.lte.${fechaHasta}`);
+          query = query.or(`id_ruta.in.(${rutaIds.join(',')}),fecha.gte.${fechaDesde},fecha.lte.${fechaHasta}`);
         } else {
-          query = query.gte('fecha', fechaDesde).lte('fecha', fechaHasta);
+          // Si no hay rutas, filtrar por created_at para gastos sin ruta
+          query = query.gte('created_at', fechaDesde + 'T00:00:00').lte('created_at', fechaHasta + 'T23:59:59');
         }
       }
       
@@ -450,7 +456,7 @@ async function loadCombustible() {
         });
         
         // Mapear fotos
-        const fotosMap: Record<string, string> = {};
+        const fotosMap: Record<string, string> = {}; // eslint-disable-line prefer-const
         data.forEach((g: any) => {
           if (g.foto_url) fotosMap[g.id_gasto] = g.foto_url;
         });
@@ -463,8 +469,8 @@ async function loadCombustible() {
     }
   }
 
-  const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro'), [gastos]);
-  const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro'), [gastos]);
+  const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro' && g.tipo_combustible !== 'estacionamiento' && g.tipo_combustible !== 'peaje' && g.tipo_combustible !== 'peaje_compromiso'), [gastos]);
+  const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro' || g.tipo_combustible === 'estacionamiento' || g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso'), [gastos]);
   
 // Peajes manuales (gastos con tipo 'peaje' o 'peaje_compromiso') - ordenados y filtrados
   const peajesManualesOrdenados = useMemo(() => {

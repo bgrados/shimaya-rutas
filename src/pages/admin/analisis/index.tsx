@@ -1392,7 +1392,7 @@ const comparacionDiaEquivalente = useMemo(() => {
                         <td className="py-3 px-3 text-center">
                           <div className="flex flex-col items-center">
                             <span className={`font-bold ${c.asistenciaStats?.falta > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
-                              {c.diasTrabajados}/{c.diasEsperados}
+                              {c.diasTrabajados}/{c.diasEsperados} d
                             </span>
                             <span className="text-[10px] text-text-muted capitalize">
                               {c.diasDescanso.length > 0 ? c.diasDescanso.map(d => ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][parseInt(d)] || d).join(', ') : 'Sin descanso'}

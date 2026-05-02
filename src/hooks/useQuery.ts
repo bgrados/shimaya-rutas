@@ -23,7 +23,14 @@ export function useQuery<T>(table: string, select = '*', orderProperty?: string)
   }, [table, select, orderProperty]);
 
   useEffect(() => {
-    fetchData();
+    let cancelled = false;
+    const loadData = async () => {
+      if (cancelled) return;
+      await fetchData();
+    };
+    loadData();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData]);
 
   return { data, loading, error, refetch: fetchData };

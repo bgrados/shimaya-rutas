@@ -24,6 +24,22 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
 
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsMagnifierActive(false);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const handlePrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsMagnifierActive(false);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
   useEffect(() => {
     if (isOpen) {
       setCurrentIndex(initialIndex);
@@ -45,27 +61,11 @@ export function ImageModal({ isOpen, onClose, images, initialIndex = 0 }: ImageM
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentIndex, images.length]);
+  }, [isOpen, currentIndex, images.length, handleNext, handlePrev]);
 
   if (!isOpen || images.length === 0) return null;
 
   const currentImage = images[currentIndex];
-
-  const handleNext = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setIsMagnifierActive(false);
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const handlePrev = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setIsMagnifierActive(false);
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();

@@ -18,17 +18,12 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'icon-192x192.png',
+            src: '/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: 'icon-512x512.png',
+            src: '/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
@@ -36,8 +31,12 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
-        dontCacheBustURLsMatching: /.*/,
+        globPatterns: ['**/*.{js,css,html,svg}'],
+        dontCacheBustURLsMatching: /\.\w{8}$/,
+        cleanupOutdatedCaches: true,
+        modifyURLPrefix: {
+          '': '/'
+        }
       },
       devOptions: {
         enabled: false

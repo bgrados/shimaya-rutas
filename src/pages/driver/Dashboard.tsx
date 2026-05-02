@@ -190,6 +190,7 @@ const loadGastosDelDia = async () => {
   useEffect(() => {
     loadRutas();
     loadRutasHistoricas();
+    loadGastosDelDia();
 
     const channel = supabase
       .channel('driver_dashboard_updates')
@@ -223,12 +224,14 @@ const loadGastosDelDia = async () => {
       supabase.removeChannel(channel);
       window.removeEventListener('online', loadRutas);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id_usuario]);
 
   useEffect(() => {
     if (profile?.id_usuario) {
       loadGastosDelDia();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id_usuario]);
 
   const handleVerViajeHistorico = (ruta: RutaHistorica) => {

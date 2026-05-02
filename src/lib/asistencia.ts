@@ -54,8 +54,8 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
   
   const hoyPeru = formatOnlyDatePeru();
   const fechaFin = fin || hoyPeru;
-  const fIni = parseISO(inicio);
-  const fFin = parseISO(fechaFin);
+  const fIni = new Date(inicio + 'T12:00:00');
+  const fFin = new Date(fechaFin + 'T12:00:00');
   
   if (fIni > fFin) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio, fin: inicio };
   
@@ -84,6 +84,9 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
   let trabajados = 0;
   let descansos = 0;
 
+  // Para evitar contar faltas a futuro si fFin es a final de mes
+  const hoyObj = new Date(hoyPeru + 'T12:00:00');
+
   const it = new Date(fIni);
   while (it <= fFin) {
     const fStr = format(it, 'yyyy-MM-dd');
@@ -91,6 +94,7 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
     const hayRuta = diasConRuta.has(fStr);
     const estadoManual = mapManual.get(fStr);
     const esHoy = fStr === hoyPeru;
+    const esPasado = it < hoyObj;
     const esDiaLaboralEmpresa = diasActividadEmpresa.has(fStr);
 
     // Prioridad: Manual > Ruta > Dia Descanso
@@ -116,13 +120,12 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
     } else {
       // Día laborable sin registro manual
       // Solo contamos como programado si la empresa tuvo actividad ese día O si el chofer trabajó
-      const esDiaLaboralEmpresa = diasActividadEmpresa.has(fStr);
       
       if (hayRuta) {
         trabajados++;
         if (!esDiaDescanso) totalDiasParaProgramados++;
-      } else if (!esDiaDescanso && esDiaLaboralEmpresa && !esHoy) {
-        // Si la empresa trabajó, el chofer no tiene descanso y no hay ruta -> Falta
+      } else if (!esDiaDescanso && esDiaLaboralEmpresa && esPasado) {
+        // Solo contamos como falta si es un día PASADO donde hubo actividad y no trabajó
         totalDiasParaProgramados++;
       }
     }
@@ -155,11 +158,29 @@ export const getDiaDescansoLabel = (chofer: any): string => {
   if (Array.isArray(dias) && dias.length > 0) {
     return dias.map((d: string) => {
       if (!d) return '';
+      // Capitalizar si es string, o mapear si es número
+      if (/^\d+$/.test(d)) return DIAS_LABELS[parseInt(d)] || d;
       return d.charAt(0).toUpperCase() + d.slice(1);
     }).filter(Boolean).join(', ');
   }
   const diaNumRaw = chofer?.dia_descanso;
-  const diaNum = typeof diaNumRaw === 'string' ? parseInt(diaNumRaw) : (typeof diaNumRaw === 'number' ? diaNumRaw : -1);
-  if (diaNum >= 0 && diaNum < DIAS_LABELS.length) return DIAS_LABELS[diaNum];
+  if (diaNumRaw === undefined || diaNumRaw === null) return 'No asignado';
+  
+  if (typeof diaNumRaw === 'string') {
+    if (/^\d+$/.test(diaNumRaw)) {
+      const n = parseInt(diaNumRaw);
+      return DIAS_LABELS[n] || 'No asignado';
+    }
+    // Si es un nombre de día ("lunes")
+    const norm = normalizeDay(diaNumRaw);
+    const n = MAP_DIAS_ES[norm];
+    if (n !== undefined) return DIAS_LABELS[n];
+    return diaNumRaw.charAt(0).toUpperCase() + diaNumRaw.slice(1);
+  }
+  
+  if (typeof diaNumRaw === 'number' && diaNumRaw >= 0 && diaNumRaw < DIAS_LABELS.length) {
+    return DIAS_LABELS[diaNumRaw];
+  }
+  
   return 'No asignado';
 };

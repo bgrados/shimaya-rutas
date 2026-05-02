@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Truck, CheckCircle2, MoveRight, Shield, UserCog, Truck as TruckIcon } from 'lucide-react';
+import { Truck, CheckCircle2, MoveRight, Shield, UserCog } from 'lucide-react';
 import { useNavigate } from 'react-router';
 
 const DUAL_ROLE_USER = 'manuelm';
@@ -32,12 +32,12 @@ export default function Login() {
             window.location.href = '/admin';
           } else {
             window.location.href = '/driver';
-      return;
           }
         }, 1500);
         return () => clearTimeout(timer);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile, loading, showRoleSelect]);
 
   const handleSelectRole = (role: 'admin' | 'driver') => {
@@ -94,7 +94,7 @@ export default function Login() {
             className="w-full p-4 bg-surface-light/30 border border-surface-light rounded-xl hover:bg-surface-light/50 hover:border-surface-light transition-all group flex items-center justify-between"
           >
             <div className="flex items-center gap-3">
-              <TruckIcon className="text-text-muted" size={24} />
+              <Truck className="text-text-muted" size={24} />
               <div className="text-left">
                 <p className="text-white font-bold text-left">Conductor</p>
                 <p className="text-text-muted text-xs text-left">Mis rutas y seguimiento</p>

@@ -355,6 +355,7 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ local, onClose, 
         });
         
         if (optimized) {
+          // Cleanup handled by caller
         }
       }
       

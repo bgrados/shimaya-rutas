@@ -38,4 +38,4 @@ final_install_log.txt
 install_loop.ps1
 
 # Node local embebido
-.local_node/
+.local_node/.local_node/

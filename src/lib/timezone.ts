@@ -26,8 +26,6 @@ export function formatGroupDatePdf(fechaStr: string): string {
 export function formatFriendlyDate(fechaStr: string | null | undefined): string {
   if (!fechaStr) return '-';
   try {
-    // Si la cadena ya incluye T, la interpretamos directamente como UTC o con su offset original.
-    // Si es solo YYYY-MM-DD, asumimos que representa medianoche en Lima.
     const dateToFormat = fechaStr.includes('T') ? new Date(fechaStr) : toDate(fechaStr + 'T00:00:00', { timeZone: TIMEZONE });
     return formatInTimeZone(dateToFormat, TIMEZONE, "d MMM, yyyy", { locale: es });
   } catch (e) {
@@ -38,7 +36,6 @@ export function formatFriendlyDate(fechaStr: string | null | undefined): string 
 export function formatPeru(dateStr: string | null | undefined, fmt: string): string {
   if (!dateStr) return '-';
   try {
-    // Igual que arriba, manejamos YYYY-MM-DD como medianoche en Lima
     const dateToFormat = dateStr.includes('T') ? new Date(dateStr) : toDate(dateStr + 'T00:00:00', { timeZone: TIMEZONE });
     return formatInTimeZone(dateToFormat, TIMEZONE, fmt, { locale: es });
   } catch (e) {
@@ -62,22 +59,15 @@ export function formatOnlyDatePeru(baseDate: Date = new Date()): string {
   return formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd");
 }
 
-/**
- * Obtiene el lunes de la semana en formato YYYY-MM-DD (hora Lima)
- */
 export function getStartOfCurrentWeek(baseDate: Date = new Date()): string {
-  // Obtenemos la fecha actual en la zona horaria de Lima
   const limaStr = formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd'T'00:00:00");
   const d = new Date(limaStr);
-  const day = d.getDay(); // 0: Domingo, 1: Lunes, ...
+  const day = d.getDay();
   const diff = d.getDate() - (day === 0 ? 6 : day - 1);
   const monday = new Date(d.setDate(diff));
   return formatInTimeZone(monday, TIMEZONE, 'yyyy-MM-dd');
 }
 
-/**
- * Obtiene el domingo de la semana en formato YYYY-MM-DD (hora Lima)
- */
 export function getEndOfCurrentWeek(baseDate: Date = new Date()): string {
   const limaStr = formatInTimeZone(baseDate, TIMEZONE, "yyyy-MM-dd'T'00:00:00");
   const d = new Date(limaStr);
@@ -87,9 +77,6 @@ export function getEndOfCurrentWeek(baseDate: Date = new Date()): string {
   return formatInTimeZone(sunday, TIMEZONE, 'yyyy-MM-dd');
 }
 
-/**
- * Convierte una fecha ISO a HH:mm en hora de Perú (UTC-5)
- */
 export function formatHoraPeru(isoString: string | null | undefined): string {
   if (!isoString) return '-';
   try {
@@ -99,9 +86,6 @@ export function formatHoraPeru(isoString: string | null | undefined): string {
   }
 }
 
-/**
- * Calcula la duración entre dos fechas ISO en minutos/horas
- */
 export function formatDuration(start: string | null | undefined, end: string | null | undefined): string {
   if (!start || !end) return '-';
   try {

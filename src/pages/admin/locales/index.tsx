@@ -342,7 +342,7 @@ export default function LocalesBase() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async (id: string, payload: Partial<LocalBase>) => {
     const { data, error } = await supabase

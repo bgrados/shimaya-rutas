@@ -1000,8 +1000,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   };
 
   useEffect(() => {
-    let safetyTimer: NodeJS.Timeout;
-
+    let timerId: NodeJS.Timeout | undefined;
+    
     // Si no hay perfil, o no hay id_usuario, no cargamos nada pero liberamos el loading
     if (!profile?.id_usuario) {
       const timer = setTimeout(() => {
@@ -1015,7 +1015,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
 
     // Safety timeout: si en 6 segundos sigue cargando, forzar liberación
-    safetyTimer = setTimeout(() => {
+    timerId = setTimeout(() => {
       console.warn('[Viaje] useEffect safety timer (6s) - forzando liberación');
       setLoading(false);
       setLoadingRutasBase(false);
@@ -1042,7 +1042,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     window.addEventListener('online', loadCurrentRuta);
 
     return () => {
-      if (safetyTimer) clearTimeout(safetyTimer);
+      if (timerId) clearTimeout(timerId);
       supabase.removeChannel(channel);
       window.removeEventListener('online', loadCurrentRuta);
     };
