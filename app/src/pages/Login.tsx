@@ -36,6 +36,8 @@ export default function Login() {
         }, 1500);
         return () => clearTimeout(timer);
       }
+    } else if (!loading && !user) {
+      console.log('[Login] No user found, showing login form');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile, loading, showRoleSelect]);
