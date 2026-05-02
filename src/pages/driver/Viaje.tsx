@@ -967,7 +967,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       }
     } catch (err) {
       console.error('Error loading rutas base:', err);
+    } finally {
       setLoadingRutasBase(false);
+      setRutasBaseLoaded(true);
+      setLoadedAtLeastOnce(true);
     }
   };
 
@@ -975,6 +978,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     // Si no hay perfil, no cargamos nada
     if (!profile?.id_usuario) {
       setLoading(false);
+      setLoadingRutasBase(false);
       return;
     }
 
