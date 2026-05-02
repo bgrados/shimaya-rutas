@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check, Image } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru, formatOnlyDatePeru } from '../../../lib/timezone';
+import { formatPeru, formatGroupDate, formatGroupDatePdf, getStartOfCurrentWeek, getEndOfCurrentWeek, formatFriendlyDate, nowPeru, formatOnlyDatePeru, startOfDayPeru, endOfDayPeru } from '../../../lib/timezone';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
 

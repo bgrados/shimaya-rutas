@@ -179,8 +179,8 @@ export default function AdminDashboard() {
       clearTimeout(timeoutId);
 
       // Verificar si hay errores de permisos
-      if (rutasRes.error) {
-        if (rutasRes.error.message.includes('permission') || rutasRes.error.code === 'PGRST204') {
+      if (rutasDelMesRes.error) {
+        if (rutasDelMesRes.error.message.includes('permission') || rutasDelMesRes.error.code === 'PGRST204') {
           setError('No tienes permisos para ver los datos del Panel de Control. Contacta al administrador.');
           setLoading(false);
           return;
