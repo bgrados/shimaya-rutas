@@ -74,12 +74,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, newSession: Session | null) => {
+        console.log('[Auth] onAuthStateChange:', _event, 'session:', !!newSession)
         if (!mounted) return
         authEventFired.current = true
         clearTimeout(loadingTimeout)
         setSession(newSession)
         setUser(newSession?.user ?? null)
         if (newSession?.user) {
+          console.log('[Auth] Calling fetchProfile with:', newSession.user.email, newSession.user.id)
           await fetchProfile(newSession.user.email, newSession.user.id)
           // Track presence cuando se loguea - esperar un poco para que el canal esté listo
           setTimeout(async () => {
@@ -90,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             })
           }, 500)
         } else {
+          console.log('[Auth] No session, clearing profile')
           localStorage.removeItem('user_profile')
           setProfile(null)
           setLoading(false)

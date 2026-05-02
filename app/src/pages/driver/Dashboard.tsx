@@ -34,7 +34,8 @@ export default function DriverDashboard() {
   const [rutas, setRutas] = useState<Ruta[]>([]);
   const [rutasHistoricas, setRutasHistoricas] = useState<RutaHistorica[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>('Verificando usuario...');
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [gastosCombustible, setGastosCombustible] = useState<GastoDelDia | null>(null);
@@ -51,12 +52,14 @@ export default function DriverDashboard() {
   const loadRutas = async () => {
     if (!profile) {
       console.log('[Dashboard] No profile, skipping load');
+      setError('No hay perfil de usuario. Reinicia sesión.');
       setLoading(false);
       return;
     }
     console.log('[Dashboard] Loading rutas for user:', profile.id_usuario, 'rol:', profile.rol);
     setLoading(true);
     setError(null);
+    setDebugInfo(`Cargando rutas para ${profile.id_usuario}...`);
     
     try {
       const { data, error } = await supabase
@@ -67,11 +70,21 @@ export default function DriverDashboard() {
         .order('fecha', { ascending: false });
         
       console.log('[Dashboard] Rutas loaded:', data?.length, 'error:', error);
-      if (error) throw error;
+      setDebugInfo(`Rutas: ${data?.length || 0} encontradas, error: ${error?.message || 'ninguno'}`);
+      
+      if (error) {
+        console.error('[Dashboard] Supabase error:', error);
+        setError(`Error Supabase: ${error.message}`);
+        throw error;
+      }
       setRutas(data as Ruta[]);
-    } catch (e) {
+      if (data?.length === 0) {
+        setError('No tienes rutas asignadas para hoy. Contacta al administrador.');
+      }
+    } catch (e: any) {
       console.error('[Dashboard] Error loading routes:', e);
-      setError('Error al cargar rutas. Verifica tu conexión.');
+      setError(`Error: ${e.message || 'Verifica conexión'}`);
+      setDebugInfo(`Error: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -243,14 +256,20 @@ const loadGastosDelDia = async () => {
 
   const activeRoute = rutas[0];
 
-  if (loading) return <div className="p-4 text-white text-center mt-10">Cargando tus rutas...</div>;
+  if (loading) return (
+    <div className="p-4 text-white text-center mt-10">
+      <p>Cargando tus rutas...</p>
+      {debugInfo && <p className="text-xs text-text-muted mt-2">{debugInfo}</p>}
+    </div>
+  );
 
   if (error) {
     return (
       <div className="p-4">
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
           <AlertCircle className="mx-auto mb-2 text-red-500" size={32} />
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-red-400 mb-2">{error}</p>
+          {debugInfo && <p className="text-xs text-text-muted mb-4">{debugInfo}</p>}
           <Button onClick={loadRutas} className="px-4 py-2">
             Reintentar
           </Button>
