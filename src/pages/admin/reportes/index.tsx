@@ -294,140 +294,146 @@ export default function Reportes() {
     setLoading(true);
     try {
       const { from, to, fromIso, toIso } = getRange(period, selectedDate);
-      console.log(`[REPORTES-DIAG] Cargando histórico para rango: ${from} a ${to} (${fromIso} a ${toIso})`);
+      console.log(`[REPORTES-DIAG] Cargando RUTAS. Período: ${period}, Fecha: ${selectedDate}`);
+      console.log(`[REPORTES-DIAG] Rango: ${from} a ${to}`);
       
       const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
         .select('*')
         .gte('fecha', from)
         .lte('fecha', to)
-        .order('fecha', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('fecha', { ascending: false });
       
-      if (rutasError) throw rutasError;
-    
-    if (rutasData && rutasData.length > 0) {
-      const ids = rutasData.map(r => r.id_ruta);
-      const { data: bitData } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
-      
-      // Cargar locales_ruta para cada ruta
-      const { data: localesData } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
-      
-      // Cargar fotos de evidencia por local
-      const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
-      let fotosMap: Record<string, FotoVisita[]> = {};
-      if (localRutaIds.length > 0) {
-        const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
-        if (fotosData) {
-          (fotosData as FotoVisita[]).forEach(f => {
-            if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
-            fotosMap[f.id_local_ruta].push(f as FotoVisita);
-          });
-        }
+      if (rutasError) {
+        console.error('[REPORTES-DIAG] Error Supabase rutas:', rutasError);
+        throw rutasError;
       }
-      setFotosPorLocal(fotosMap);
+      
+      console.log(`[REPORTES-DIAG] Rutas encontradas: ${rutasData?.length || 0}`);
+    
+      if (rutasData && rutasData.length > 0) {
+        const ids = rutasData.map(r => r.id_ruta);
+        const { data: bitData, error: bitError } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
+        if (bitError) console.warn('[REPORTES-DIAG] Error bitácora:', bitError);
 
-      const enriched = (rutasData as Ruta[]).map(r => {
-        const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
-        const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
+        const { data: localesData, error: localesError } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
+        if (localesError) console.warn('[REPORTES-DIAG] Error locales:', localesError);
         
-        // Ordenar bitácora por hora de creación
-        const bitsOrdenados = [...bits].sort((a, b) => 
-          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-        );
-        
-        // Buscar la última hora de llegada registrada en bitácora (cualquier destino)
-        let horaLlegadaReal: string | null = null;
-        for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
-          if (bitsOrdenados[i].hora_llegada) {
-            horaLlegadaReal = bitsOrdenados[i].hora_llegada;
-            break;
+        const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
+        let fotosMap: Record<string, FotoVisita[]> = {};
+        if (localRutaIds.length > 0) {
+          const { data: fotosData } = await supabase.from('fotos_visita').select('*').in('id_local_ruta', localRutaIds).order('orden', { ascending: true });
+          if (fotosData) {
+            (fotosData as FotoVisita[]).forEach(f => {
+              if (!fotosMap[f.id_local_ruta]) fotosMap[f.id_local_ruta] = [];
+              fotosMap[f.id_local_ruta].push(f as FotoVisita);
+            });
           }
         }
-        
-        // Si no hay hora en bitácora, usar hora_llegada_planta
-        if (!horaLlegadaReal) {
-          horaLlegadaReal = r.hora_llegada_planta;
-        }
-        
-        // Calcular distancia GPS total recorrida
-        let distanciaGpsKm = 0;
-        const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
-        
-        // Asumiendo que el viaje empieza en Planta (podríamos usar coordenadas de planta si existieran)
-        // Por ahora calculamos entre puntos de bitácora consecutivos
-        for (let i = 0; i < bitsValidos.length - 1; i++) {
-          const p1 = bitsValidos[i];
-          const p2 = bitsValidos[i+1];
-          distanciaGpsKm += calcularDistanciaHaversine(
-            p1.gps_llegada_lat!, p1.gps_llegada_lng!,
-            p2.gps_llegada_lat!, p2.gps_llegada_lng!
+        setFotosPorLocal(fotosMap);
+
+        const enriched = (rutasData as Ruta[]).map(r => {
+          const bits = (bitData as ViajeBitacora[] || []).filter(b => b.id_ruta === r.id_ruta);
+          const locales = (localesData as LocalRuta[] || []).filter(l => l.id_ruta === r.id_ruta);
+          
+          const bitsOrdenados = [...bits].sort((a, b) => 
+            new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
           );
-        }
+          
+          let horaLlegadaReal = r.hora_llegada_planta;
+          for (let i = bitsOrdenados.length - 1; i >= 0; i--) {
+            if (bitsOrdenados[i].hora_llegada) {
+              horaLlegadaReal = bitsOrdenados[i].hora_llegada;
+              break;
+            }
+          }
+          
+          let distanciaGpsKm = 0;
+          const bitsValidos = bitsOrdenados.filter(b => b.gps_llegada_lat && b.gps_llegada_lng);
+          for (let i = 0; i < bitsValidos.length - 1; i++) {
+            distanciaGpsKm += calcularDistanciaHaversine(
+              bitsValidos[i].gps_llegada_lat!, bitsValidos[i].gps_llegada_lng!,
+              bitsValidos[i+1].gps_llegada_lat!, bitsValidos[i+1].gps_llegada_lng!
+            );
+          }
 
-        // Calcular duración total de la ruta (en minutos)
-        let durationMin: number | null = null;
-        const salidas = bitsOrdenados.filter(b => b.hora_salida).map(b => new Date(b.hora_salida!));
-        const llegadas = bitsOrdenados.filter(b => b.hora_llegada).map(b => new Date(b.hora_llegada!));
-        
-        if (salidas.length > 0 && llegadas.length > 0) {
-          const primeraSalida = new Date(Math.min(...salidas.map(d => d.getTime())));
-          const ultimaLlegada = new Date(Math.max(...llegadas.map(d => d.getTime())));
-          durationMin = differenceInMinutes(ultimaLlegada, primeraSalida);
-        }
+          let durationMin: number | null = null;
+          const salidas = bitsOrdenados.filter(b => b.hora_salida).map(b => new Date(b.hora_salida!));
+          const llegadas = bitsOrdenados.filter(b => b.hora_llegada).map(b => new Date(b.hora_llegada!));
+          if (salidas.length > 0 && llegadas.length > 0) {
+            const primeraSalida = new Date(Math.min(...salidas.map(d => d.getTime())));
+            const ultimaLlegada = new Date(Math.max(...llegadas.map(d => d.getTime())));
+            durationMin = differenceInMinutes(ultimaLlegada, primeraSalida);
+          }
 
-        return { ...r, bitacora: bits, localesRuta: locales, durationMin, horaLlegadaReal, distanciaGpsKm };
-      });
-      setAllRutas(enriched as RutaConBitacora[]);
-    } else {
+          return { ...r, bitacora: bits, localesRuta: locales, durationMin, horaLlegadaReal, distanciaGpsKm };
+        });
+        setAllRutas(enriched as RutaConBitacora[]);
+        console.log('[REPORTES-DIAG] Datos cargados y enriquecidos.');
+      } else {
+        setAllRutas([]);
+      }
+    } catch (error) {
+      console.error('[REPORTES-DIAG] Error en loadData:', error);
       setAllRutas([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('[REPORTES] Error cargando datos:', error);
-    setAllRutas([]);
-  } finally {
-    setLoading(false);
-  }
   }
 
 async function loadCombustible() {
     setCombustibleLoading(true);
     try {
-      // Calcular rango de fechas según filtro
-      let fechaDesde = '';
-      let fechaHasta = '';
       const nowStr = formatOnlyDatePeru();
+      console.log(`[REPORTES-DIAG] Cargando COMBUSTIBLE. Filtro: ${filtroFecha}, Hoy: ${nowStr}`);
       
-      if (filtroFecha === 'dia') {
-        fechaDesde = nowStr;
-        fechaHasta = nowStr;
-      } else if (filtroFecha === 'semana') {
+      let fechaDesde = nowStr;
+      let fechaHasta = nowStr;
+
+      if (filtroFecha === 'semana') {
         fechaDesde = getStartOfCurrentWeek();
-        fechaHasta = nowStr;
       } else if (filtroFecha === 'mes') {
         const d = new Date(nowPeru());
         fechaDesde = format(startOfMonth(d), 'yyyy-MM-dd');
         fechaHasta = format(endOfMonth(d), 'yyyy-MM-dd');
+      } else if (filtroFecha === 'todo') {
+        fechaDesde = '2020-01-01';
+        fechaHasta = '2099-12-31';
       }
+
+      console.log(`[REPORTES-DIAG] Rango combustible: ${fechaDesde} a ${fechaHasta}`);
+
+      // Primero obtener las rutas en ese rango
+      const { data: rutasIdsData } = await supabase
+        .from('rutas')
+        .select('id_ruta')
+        .gte('fecha', fechaDesde)
+        .lte('fecha', fechaHasta);
       
+      const rutaIds = (rutasIdsData || []).map(r => r.id_ruta);
+      console.log(`[REPORTES-DIAG] IDs de rutas en rango: ${rutaIds.length}`);
+
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
         .order('created_at', { ascending: false });
 
       if (filtroFecha !== 'todo') {
-        // Usar created_at para filtrar gastos si no están vinculados a ruta
-        // Pero el diseño original parece depender de rutas.fecha.
-        // Vamos a usar una combinación o simplemente rutas.fecha si existe.
-        query = query.gte('fecha', fechaDesde).lte('fecha', fechaHasta);
+        if (rutaIds.length > 0) {
+          // Filtrar por ID de ruta O por fecha directa si existe
+          query = query.or(`id_ruta.in.(${rutaIds.join(',')}),fecha.gte.${fechaDesde}.and.fecha.lte.${fechaHasta}`);
+        } else {
+          query = query.gte('fecha', fechaDesde).lte('fecha', fechaHasta);
+        }
       }
       
       const { data, error } = await query;
-
       if (error) {
-        console.error('[DEBUG-Gastos] Error en query Supabase:', error);
+        console.error('[REPORTES-DIAG] Error Supabase combustible:', error);
         throw error;
       }
+      
+      console.log(`[REPORTES-DIAG] Gastos encontrados: ${data?.length || 0}`);
 
 
       if (data) {

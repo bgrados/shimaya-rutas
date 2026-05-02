@@ -388,7 +388,7 @@ export default function AdminDashboard() {
       
       // Calcular asistencia mensual (SIEMPRE, aunque no haya gastos)
       const choferesConInfo = (choferesConInfoRes.data as any[]) || [];
-      const rutasDelMes = (rutasDelMesAsistenciaRes.data as any[]) || [];
+      const dataRutasAsistencia = (rutasDelMesAsistenciaRes.data as any[]) || [];
       const asistenciaManual = (asistenciaDelMesRes.data as any[]) || [];
       
       let totalTrabajados = 0;
@@ -401,7 +401,7 @@ export default function AdminDashboard() {
       choferesConInfo.forEach(chofer => {
         const result = calcularAsistenciaMensual({
           chofer: chofer as any,
-          rutasDelMes: rutasDelMes as any,
+          rutasDelMes: dataRutasAsistencia as any,
         });
         
         totalTrabajados += result.trabajados;
