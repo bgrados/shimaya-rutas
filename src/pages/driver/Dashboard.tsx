@@ -6,7 +6,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MapPin, Navigation, Map, RefreshCw, AlertCircle, History, Calendar, Clock, Fuel, Car, Wallet, Receipt, Phone, Coffee } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { formatFriendlyDate } from '../../lib/timezone';
+import { formatFriendlyDate, nowPeru } from '../../lib/timezone';
 import { ImageModal } from '../../components/ui/ImageModal';
 
 interface RutaHistorica {

@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Camera, MapPin, ArrowLeft, CheckCircle2, Navigation, X, Loader2, Image } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatPeru } from '../../../lib/timezone';
+import { formatPeru, nowPeru } from '../../../lib/timezone';
 
 interface PhotoItem {
   preview: string;
