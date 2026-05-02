@@ -1659,15 +1659,19 @@ const win = window.open('', '_blank');
         `}</style>
         
         <div id="combustible-report-content" className="flex flex-wrap gap-4 mb-6">
-          <select
-            value={filtroFecha}
-            onChange={(e) => setFiltroFecha(e.target.value as any)}
-            className="bg-surface border border-surface-light rounded-lg px-4 py-2 text-white"
-          >
-            <option value="semana">Esta semana</option>
-            <option value="mes">Este mes</option>
-            <option value="todo">Todo</option>
-          </select>
+          <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
+            {[
+              { key: 'dia', label: 'Hoy' },
+              { key: 'semana', label: 'Semana' },
+              { key: 'mes', label: 'Mes' },
+              { key: 'todo', label: 'Todo' }
+            ].map(p => (
+              <button key={p.key} onClick={() => setFiltroFecha(p.key as any)}
+                className={`px-5 py-2.5 text-sm font-black italic transition-all ${filtroFecha === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
 
           <div className="flex gap-2">
             <button

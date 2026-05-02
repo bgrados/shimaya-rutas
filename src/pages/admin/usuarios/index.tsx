@@ -405,25 +405,36 @@ export default function Usuarios() {
                       }`}>
                         {getRoleIcon(user.rol)} {user.rol}
                       </div>
-                      {user.rol === 'chofer' && (user as any).dias_descanso && (user as any).dias_descanso.length > 0 && (
+                      {user.rol === 'chofer' && (
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {(user as any).dias_descanso.map((dia: string) => {
+                          {(() => {
+                            const labels = [];
+                            const dias_desc = user.dias_descanso || [];
                             const diasSemanaMap: Record<string, string> = {
                               lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J', viernes: 'V', sabado: 'S', domingo: 'D'
                             };
-                            return (
-                              <span key={dia} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
-                                {diasSemanaMap[dia] || dia}
+                            
+                            if (dias_desc.length > 0) {
+                              dias_desc.forEach(d => labels.push(diasSemanaMap[d.toLowerCase()] || d));
+                            } else if ((user as any).dia_descanso !== undefined && (user as any).dia_descanso >= 0) {
+                              const diasLabelsShort = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+                              labels.push(diasLabelsShort[(user as any).dia_descanso]);
+                            }
+
+                            return labels.map((l, idx) => (
+                              <span key={idx} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
+                                {l}
                               </span>
-                            );
-                          })}
+                            ));
+                          })()}
                         </div>
                       )}
                     </td>
                     <td className="px-6 py-4">
                       {(() => {
                         const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-                        const diaHoy = diasSemana[new Date().getDay()];
+                        const ahoraPeru = new Date(nowPeru());
+                        const diaHoy = diasSemana[ahoraPeru.getDay()];
                         const tieneDescansoHoy = (user as any).dias_descanso?.includes(diaHoy);
                         
                         if (!user.activo) {
@@ -437,7 +448,7 @@ export default function Usuarios() {
                         if (tieneDescansoHoy && (user.rol === 'chofer' || user.rol === 'descansero')) {
                           return (
                             <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-yellow-500/10 text-yellow-500">
-                              DESCANS0
+                              DESCANSO
                             </span>
                           );
                         }

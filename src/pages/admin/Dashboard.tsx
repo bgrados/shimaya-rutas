@@ -91,7 +91,7 @@ export default function AdminDashboard() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
   const [asistenciaStats, setAsistenciaStats] = useState({ porcentaje: 0, trabajados: 0, descansos: 0, faltas: 0, programados: 0, totalChoferes: 0 });
-  const [asistenciaPorChofer, setAsistenciaPorChofer] = useState<{nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescanso: number}[]>([]);
+  const [asistenciaPorChofer, setAsistenciaPorChofer] = useState<{nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescansoLabel: string}[]>([]);
 
   useEffect(() => {
     loadChoferesList();
@@ -402,6 +402,7 @@ export default function AdminDashboard() {
         const result = calcularAsistenciaMensual({
           chofer: chofer as any,
           rutasDelMes: dataRutasAsistencia as any,
+          asistenciaManual: asistenciaDelMes || []
         });
         
         totalTrabajados += result.trabajados;

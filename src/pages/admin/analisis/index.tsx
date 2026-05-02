@@ -384,7 +384,8 @@ export default function AnalisisRutas() {
         const asist = calcularAsistenciaMensual({
           chofer: choferObj as any,
           rutasDelMes: rutas,
-          fechaFin: fechaFin
+          fechaFin: fechaFin,
+          asistenciaManual: asistencia
         });
         
         return {
@@ -414,7 +415,7 @@ export default function AnalisisRutas() {
         if (b.tieneEficiencia) return 1;
         return b.visitasRealizadas - a.visitasRealizadas;
       });
-  }, [rutas, choferes, fechaInicio, fechaFin]);
+  }, [rutas, choferes, asistencia, fechaInicio, fechaFin]);
 
   const stats = useMemo(() => {
     const filtered = rutas.filter(r => {
