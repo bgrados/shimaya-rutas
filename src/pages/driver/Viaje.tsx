@@ -15,7 +15,7 @@ import { TramoBitacora } from './viaje/components/TramoBitacora';
 import { RutaSelector } from './viaje/components/RutaSelector';
 import { BitacoraList } from './viaje/components/BitacoraList';
 import { LocalList } from './viaje/components/LocalList';
-import { formatPeru, nowPeru } from '../../lib/timezone';
+import { formatPeru, nowPeru, formatOnlyDatePeru } from '../../lib/timezone';
 import { RefreshCw, MapPinOff, Wifi, WifiOff, Coffee, Phone } from 'lucide-react';
 import { 
   MapPin, 
@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 
 export default function DriverViaje() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -62,8 +62,29 @@ export default function DriverViaje() {
   const [loadingRutasBase, setLoadingRutasBase] = useState(true); // true inicialmente para evitar flash
   const [rutasBaseLoaded, setRutasBaseLoaded] = useState(false); // Flag para evitar recargas duplicadas
   const [loadedAtLeastOnce, setLoadedAtLeastOnce] = useState(false); // Track si ya intentamos cargar
+
+  // Super failsafe timer for loading states
+  useEffect(() => {
+    if (loadingRutasBase || loading) {
+      const timer = setTimeout(() => {
+        console.warn('[Viaje] Super failsafe timer disparado. Liberando UI.');
+        setLoading(false);
+        setLoadingRutasBase(false);
+        setRutasBaseLoaded(true);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingRutasBase, loading]);
+  
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
   const [nuevaPlaca, setNuevaPlaca] = useState(profile?.placa_camion || '');
+  
+  // Sync placa when profile loads
+  useEffect(() => {
+    if (profile?.placa_camion && !nuevaPlaca) {
+      setNuevaPlaca(profile.placa_camion);
+    }
+  }, [profile?.placa_camion]);
   const [createError, setCreateError] = useState('');
   const [kmInicio, setKmInicio] = useState('');
   const [kmFin, setKmFin] = useState('');
@@ -801,7 +822,11 @@ export default function DriverViaje() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    // Solo mostrar spinner de carga completo en la primera carga
+    // En recargas por realtime, no bloquear la UI
+    if (!loadedAtLeastOnce) {
+      setLoading(true);
+    }
 
     // Verificar si hay un ID de ruta histórico en la URL
     const pathParts = window.location.pathname.split('/historial/');
@@ -916,7 +941,11 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         setLoadError('No se pudo cargar la información. Reintenta.');
       }
     } finally {
+      // SIEMPRE resetear estados de carga aquí
       setLoading(false);
+      setLoadingRutasBase(false);
+      setRutasBaseLoaded(true);
+      setLoadedAtLeastOnce(true);
     }
   };
 
@@ -927,43 +956,39 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
     setLoadingRutasBase(true);
     try {
+      // Query 1: obtener todas las rutas base
       const { data: baseData, error: rbError } = await supabase
         .from('rutas_base')
         .select('*')
         .order('nombre');
         
-        
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
-        setLoadingRutasBase(false);
         return;
       }
 
       if (baseData && baseData.length > 0) {
-        const withCounts = await Promise.all(baseData.map(async (rb) => {
-          try {
-            const { count, error: cError } = await supabase
-              .from('locales_base')
-              .select('id_local_base', { count: 'exact', head: true })
-              .eq('id_ruta_base', rb.id_ruta_base);
-            
-            if (cError) console.error(`Error counting locales for ${rb.nombre}:`, cError);
-            return { ...rb, locales_count: count ?? 0 };
-          } catch (e) {
-            console.error(`Error counting locales for ${rb.nombre}:`, e);
-            return { ...rb, locales_count: 0 };
-          }
+        // Query 2: obtener TODOS los locales_base en UNA sola consulta (evita N+1)
+        const { data: allLocales, error: locError } = await supabase
+          .from('locales_base')
+          .select('id_ruta_base');
+        
+        if (locError) console.error('Error counting locales:', locError);
+        
+        // Construir mapa de conteo
+        const countMap: Record<string, number> = {};
+        (allLocales || []).forEach((l: any) => {
+          countMap[l.id_ruta_base] = (countMap[l.id_ruta_base] || 0) + 1;
+        });
+        
+        const withCounts = baseData.map(rb => ({
+          ...rb,
+          locales_count: countMap[rb.id_ruta_base] || 0
         }));
         
         setRutasBase(withCounts);
-        setRutasBaseLoaded(true);
-        setLoadedAtLeastOnce(true);
-        setLoadingRutasBase(false);
       } else {
         setRutasBase([]);
-        setRutasBaseLoaded(true);
-        setLoadedAtLeastOnce(true);
-        setLoadingRutasBase(false);
       }
     } catch (err) {
       console.error('Error loading rutas base:', err);
@@ -975,14 +1000,30 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   };
 
   useEffect(() => {
-    // Si no hay perfil, no cargamos nada
+    let safetyTimer: NodeJS.Timeout;
+
+    // Si no hay perfil, o no hay id_usuario, no cargamos nada pero liberamos el loading
     if (!profile?.id_usuario) {
-      setLoading(false);
-      setLoadingRutasBase(false);
-      return;
+      const timer = setTimeout(() => {
+        if (!profile?.id_usuario) {
+          setLoading(false);
+          setLoadingRutasBase(false);
+          setRutasBaseLoaded(true);
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
     }
 
-    loadCurrentRuta(); // Esto internamente llama loadRutasBase si necesita
+    // Safety timeout: si en 6 segundos sigue cargando, forzar liberación
+    safetyTimer = setTimeout(() => {
+      console.warn('[Viaje] useEffect safety timer (6s) - forzando liberación');
+      setLoading(false);
+      setLoadingRutasBase(false);
+      setRutasBaseLoaded(true);
+      setLoadedAtLeastOnce(true);
+    }, 6000);
+
+    loadCurrentRuta();
 
     // Suscripción Realtime específica para ESTE chofer
     const channel = supabase
@@ -1001,10 +1042,13 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     window.addEventListener('online', loadCurrentRuta);
 
     return () => {
+      if (safetyTimer) clearTimeout(safetyTimer);
       supabase.removeChannel(channel);
       window.removeEventListener('online', loadCurrentRuta);
     };
   }, [profile?.id_usuario]);
+
+
 
   // Verificar disponibilidad de GPS
   const verificarGps = () => {
@@ -1402,35 +1446,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   // NO mostrar formulario hasta que loading principal termine
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
 
-  // Mientras cargan las plantillas, mostrar spinner (pero NO el formulario)
-  if (!mostrarRuta && (loadingRutasBase || !rutasBaseLoaded)) {
-    return (
-      <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
-        <div className="text-center space-y-2 pt-8">
-           <div className="bg-primary/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-primary">
-              <Truck size={40} />
-           </div>
-           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">Nueva Jornada</h1>
-           <p className="text-text-muted text-sm animate-pulse">Cargando...</p>
-        </div>
-      </div>
-    );
-  }
 
-  // NEW: Si loadingRutasBase aún está trueno mostrar loading en lugar del formulario
-  if (!mostrarRuta && loadingRutasBase) {
-    return (
-      <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
-        <div className="text-center space-y-2 pt-8">
-           <div className="bg-primary/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-primary">
-              <Truck size={40} />
-           </div>
-           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">Nueva Jornada</h1>
-           <p className="text-text-muted text-sm animate-pulse">Cargando plantillas...</p>
-        </div>
-      </div>
-    );
-  }
+
 
   if (!mostrarRuta) {
     return (
