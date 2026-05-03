@@ -58,7 +58,7 @@ interface TopChofer {
 }
 
 export default function AdminDashboard() {
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>('Cargando panel de control...');
   const [choferSeleccionado, setChoferSeleccionado] = useState<string | null>(null);
   const [listaChoferes, setListaChoferes] = useState<{id_usuario: string; nombre: string}[]>([]);
   const [mostrarSelectorChofer, setMostrarSelectorChofer] = useState(false);
@@ -90,6 +90,7 @@ export default function AdminDashboard() {
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [debugInfo, setDebugInfo] = useState<string>('Iniciando carga...');
   const [asistenciaStats, setAsistenciaStats] = useState({ porcentaje: 0, trabajados: 0, descansos: 0, faltas: 0, programados: 0, totalChoferes: 0 });
   const [asistenciaPorChofer, setAsistenciaPorChofer] = useState<{nombre: string; porcentaje: number; trabajados: number; descansos: number; faltan: number; diaDescansoLabel: string}[]>([]);
 
@@ -111,19 +112,24 @@ export default function AdminDashboard() {
   };
 
   const loadDashboardData = async () => {
+    console.log('[AdminDashboard] Loading data...');
     setLoading(true);
     setError(null);
+    setDebugInfo('Cargando datos del panel...');
     
     // Timeout de seguridad
     const timeoutId = setTimeout(() => {
       setLoading(false);
-      setError('La consulta está tardando demasiado. Verifica tu conexión.');
+      setError('La consulta está tardando demasiado. Verifica tu conexión a Supabase.');
+      setDebugInfo('Timeout alcanzado');
     }, 15000);
     
     try {
       const now = new Date(nowPeru());
       const hoyStr = formatOnlyDatePeru();
       const semanaStr = getStartOfCurrentWeek();
+      
+      console.log('[AdminDashboard] Date range:', mesStr, 'to:', hoyStr);
       
       // Primer día del mes
       const primerDiaMes = startOfMonth(now);
