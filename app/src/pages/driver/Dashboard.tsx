@@ -68,28 +68,46 @@ export default function DriverDashboard() {
     setDebugInfo(`Cargando rutas para ${profile.id_usuario}...`);
     
     try {
-      const query = supabase
+      // Simplificar consulta para debug
+      const { data, error, status, count } = await supabase
         .from('rutas')
-        .select('id_ruta, nombre, estado, fecha, placa, id_chofer, id_asistente')
-        .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
+        .select('*', { count: 'exact' })
+        .eq('id_chofer', profile.id_usuario)
         .in('estado', ['pendiente', 'en_progreso'])
-        .order('fecha', { ascending: false });
-      
-      console.log('[Dashboard] Query:', query);
-      const { data, error, status } = await query;
+        .limit(5);
         
-      console.log('[Dashboard] Response - status:', status, 'data:', data?.length, 'error:', error);
-      setDebugInfo(`Status: ${status}, Rutas: ${data?.length || 0}, Error: ${error?.message || 'ninguno'}`);
+      console.log('[Dashboard] Simple query - status:', status, 'data:', data?.length, 'error:', error, 'count:', count);
+      setDebugInfo(`Status: ${status}, Rutas: ${data?.length || 0}/${count || '?'}, Error: ${error?.message || 'ninguno'}`);
       
       if (error) {
         console.error('[Dashboard] Supabase error:', error);
-        setError(`Error Supabase (${status}): ${error.message}. Verifica RLS en Supabase.`);
+        setError(`Error Supabase (${status}): ${error.message}. Verifica RLS en Supabase tabla "rutas".`);
         throw error;
       }
       
       if (!data || data.length === 0) {
-        console.warn('[Dashboard] No routes found for user:', profile.id_usuario);
-        setError(`No tienes rutas asignadas. Verifica en Supabase: tabla "rutas", filtra por id_chofer=${profile.id_usuario}`);
+        // Intentar con asistente
+        console.log('[Dashboard] No routes as chofer, trying asistente...');
+        const { data: data2, error: error2 } = await supabase
+          .from('rutas')
+          .select('*')
+          .eq('id_asistente', profile.id_usuario)
+          .in('estado', ['pendiente', 'en_progreso'])
+          .limit(5);
+          
+        if (error2) {
+          setError(`Error: ${error2.message}`);
+          throw error2;
+        }
+        
+        if (!data2 || data2.length === 0) {
+          setError(`No tienes rutas asignadas. 
+1. Verifica en Supabase: tabla "rutas"
+2. Busca tu id_usuario: ${profile.id_usuario}
+3. Verifica que tengas rutas con estado "pendiente" o "en_progreso"`);
+        } else {
+          setRutas(data2 as Ruta[]);
+        }
       } else {
         setRutas(data as Ruta[]);
       }
