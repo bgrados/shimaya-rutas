@@ -56,30 +56,42 @@ export default function DriverDashboard() {
       setLoading(false);
       return;
     }
+    if (!profile.id_usuario) {
+      console.error('[Dashboard] No id_usuario in profile:', profile);
+      setError(`Perfil incompleto: falta id_usuario. Perfil: ${JSON.stringify(profile).substring(0, 100)}`);
+      setLoading(false);
+      return;
+    }
     console.log('[Dashboard] Loading rutas for user:', profile.id_usuario, 'rol:', profile.rol);
     setLoading(true);
     setError(null);
     setDebugInfo(`Cargando rutas para ${profile.id_usuario}...`);
     
     try {
-      const { data, error } = await supabase
+      const query = supabase
         .from('rutas')
-        .select('*')
+        .select('id_ruta, nombre, estado, fecha, placa, id_chofer, id_asistente')
         .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
         .in('estado', ['pendiente', 'en_progreso'])
         .order('fecha', { ascending: false });
+      
+      console.log('[Dashboard] Query:', query);
+      const { data, error, status } = await query;
         
-      console.log('[Dashboard] Rutas loaded:', data?.length, 'error:', error);
-      setDebugInfo(`Rutas: ${data?.length || 0} encontradas, error: ${error?.message || 'ninguno'}`);
+      console.log('[Dashboard] Response - status:', status, 'data:', data?.length, 'error:', error);
+      setDebugInfo(`Status: ${status}, Rutas: ${data?.length || 0}, Error: ${error?.message || 'ninguno'}`);
       
       if (error) {
         console.error('[Dashboard] Supabase error:', error);
-        setError(`Error Supabase: ${error.message}`);
+        setError(`Error Supabase (${status}): ${error.message}. Verifica RLS en Supabase.`);
         throw error;
       }
-      setRutas(data as Ruta[]);
-      if (data?.length === 0) {
-        setError('No tienes rutas asignadas para hoy. Contacta al administrador.');
+      
+      if (!data || data.length === 0) {
+        console.warn('[Dashboard] No routes found for user:', profile.id_usuario);
+        setError(`No tienes rutas asignadas. Verifica en Supabase: tabla "rutas", filtra por id_chofer=${profile.id_usuario}`);
+      } else {
+        setRutas(data as Ruta[]);
       }
     } catch (e: any) {
       console.error('[Dashboard] Error loading routes:', e);
