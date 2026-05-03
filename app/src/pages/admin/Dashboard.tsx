@@ -960,3 +960,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+console.log('[Admin] Dashboard cargado');
