@@ -17,11 +17,11 @@ import { BitacoraList } from './viaje/components/BitacoraList';
 import { LocalList } from './viaje/components/LocalList';
 import { formatPeru, nowPeru, formatOnlyDatePeru } from '../../lib/timezone';
 import { RefreshCw, MapPinOff, Wifi, WifiOff, Coffee, Phone } from 'lucide-react';
-import {
-  MapPin,
-  CheckCircle2,
-  Clock,
-  Truck,
+import { 
+  MapPin, 
+  CheckCircle2, 
+  Clock, 
+  Truck, 
   PlusCircle,
   ChevronDown,
   Flag,
@@ -53,10 +53,10 @@ export default function DriverViaje() {
   const [ruta, setRuta] = useState<Ruta | null>(null);
   const [locales, setLocales] = useState<LocalRuta[]>([]);
   const [bitacora, setBitacora] = useState<ViajeBitacora[]>([]);
-
+  
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-
+  
   // Selection/Creation state
   const [rutasBase, setRutasBase] = useState<any[]>([]);
   const [loadingRutasBase, setLoadingRutasBase] = useState(true); // true inicialmente para evitar flash
@@ -75,10 +75,10 @@ export default function DriverViaje() {
       return () => clearTimeout(timer);
     }
   }, [loadingRutasBase, loading]);
-
+  
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
   const [nuevaPlaca, setNuevaPlaca] = useState(profile?.placa_camion || '');
-
+  
   // Sync placa when profile loads
   useEffect(() => {
     if (profile?.placa_camion && !nuevaPlaca) {
@@ -107,12 +107,12 @@ export default function DriverViaje() {
   const [nuevoDestino, setNuevoDestino] = useState('');
   const [showCombustible, setShowCombustible] = useState(false);
   const [enviandoWhatsapp, setEnviandoWhatsapp] = useState(false);
-
+  
   // Estado para GPS y modo manual
   const [gpsDisponible, setGpsDisponible] = useState<boolean | null>(null);
   const [gpsVerificando, setGpsVerificando] = useState(false);
   const [showModoManual, setShowModoManual] = useState(false);
-
+  
   // Estado para capturar fotos de evidencia
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
 
@@ -133,7 +133,7 @@ export default function DriverViaje() {
   const [llegadaDetectada, setLlegadaDetectada] = useState(false);
   const [gpsDebugLogs, setGpsDebugLogs] = useState<string[]>([]);
   const watchIdRef = useRef<number | null>(null);
-
+  
   // Verificar día de descanso al inicio
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const diaHoy = diasSemana[new Date(nowPeru()).getDay()];
@@ -167,7 +167,7 @@ export default function DriverViaje() {
   const [intentosLectura, setIntentosLectura] = useState(0);
   const timerPermanenciaRef = useRef<NodeJS.Timeout | null>(null);
   const lecturasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  
   // Nuevos estados para GPS v2 con promediado
   const [lecturasBuffer, setLecturasBuffer] = useState<{ lat: number; lng: number; accuracy: number; timestamp: number }[]>([]);
   const [posicionPromediada, setPosicionPromediada] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -189,24 +189,24 @@ export default function DriverViaje() {
   // Función para promediar lecturas GPS
   const promediarLecturas = (lecturas: { lat: number; lng: number; accuracy: number }[]): { lat: number; lng: number; accuracy: number } | null => {
     if (lecturas.length === 0) return null;
-
+    
     // Filtrar lecturas inconsistentes (más de 50m de diferencia)
     const lats = lecturas.map(l => l.lat);
     const lngs = lecturas.map(l => l.lng);
     const latProm = lats.reduce((a, b) => a + b, 0) / lats.length;
     const lngProm = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-
+    
     // Verificar consistencia
     const consistente = lecturas.every(l => {
       const dist = calcularDistanciaHaversine(latProm, lngProm, l.lat, l.lng);
       return dist < 50;
     });
-
+    
     if (!consistente) {
       agregarLogDebug('⚠️ Lecturas inconsistentes - reiniciando');
       return null;
     }
-
+    
     const accuracyProm = lecturas.reduce((a, b) => a + b.accuracy, 0) / lecturas.length;
     return { lat: latProm, lng: lngProm, accuracy: accuracyProm };
   };
@@ -254,11 +254,11 @@ export default function DriverViaje() {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
-
+            
             lecturas.push({ lat, lng, accuracy, timestamp: Date.now() });
             setIntentosLectura(intento + 1);
             agregarLogDebug(`📍 Lectura ${intento + 1}/${LECTURAS_REQUERIDAS}: ±${accuracy.toFixed(0)}m`);
-
+            
             // Siguiente lectura después de 1 segundo
             setTimeout(() => hacerLectura(intento + 1), 1000);
           },
@@ -313,8 +313,8 @@ export default function DriverViaje() {
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distancia en metros
   };
@@ -329,24 +329,24 @@ export default function DriverViaje() {
   // Función para promediar lecturas GPS con filtro de consistencia
   const promediarLecturasConsistentes = (lecturas: { lat: number; lng: number; accuracy: number }[]): { lat: number; lng: number; accuracy: number } | null => {
     if (lecturas.length < LECTURAS_PROMEDIAR) return null;
-
+    
     // Filtrar lecturas inconsistentes (más de 50m de diferencia entre lecturas)
     const lats = lecturas.map(l => l.lat);
     const lngs = lecturas.map(l => l.lng);
     const latProm = lats.reduce((a, b) => a + b, 0) / lats.length;
     const lngProm = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-
+    
     // Verificar consistencia
     const consistente = lecturas.every(l => {
       const dist = calcularDistanciaHaversine(latProm, lngProm, l.lat, l.lng);
       return dist < STABILIDAD_ACEPTABLE;
     });
-
+    
     if (!consistente) {
       agregarLogDebug('⚠️ Lecturas inconsistentes - ignorando');
       return null;
     }
-
+    
     const accuracyProm = lecturas.reduce((a, b) => a + b.accuracy, 0) / lecturas.length;
     return { lat: latProm, lng: lngProm, accuracy: accuracyProm };
   };
@@ -354,7 +354,7 @@ export default function DriverViaje() {
   // Función para procesar lectura con buffer y promediado
   const procesarLecturaConPromedio = (lat: number, lng: number, accuracy: number): { lat: number; lng: number; accuracy: number } | null => {
     const timestamp = Date.now();
-
+    
     // Agregar al buffer
     const nuevaLectura = { lat, lng, accuracy, timestamp };
     setLecturasBuffer(prev => {
@@ -365,20 +365,20 @@ export default function DriverViaje() {
       }
       return nuevoBuffer;
     });
-
+    
     // Verificar si tenemos suficientes lecturas
     if (lecturasBuffer.length >= LECTURAS_PROMEDIAR - 1) {
       // Usar lecturas actuales del buffer más la nueva
       const bufferActual = [...lecturasBuffer, nuevaLectura].slice(-LECTURAS_PROMEDIAR);
       const promedio = promediarLecturasConsistentes(bufferActual);
-
+      
       if (promedio) {
         agregarLogDebug(`📊 Promedio GPS: ${promedio.lat.toFixed(5)}, ${promedio.lng.toFixed(5)} (±${promedio.accuracy.toFixed(0)}m) [${bufferActual.length}/${LECTURAS_PROMEDIAR}]`);
         setPosicionPromediada(promedio);
         return promedio;
       }
     }
-
+    
     agregarLogDebug(`📡 Lectura ${lecturasBuffer.length + 1}/${LECTURAS_PROMEDIAR}: ${lat.toFixed(5)}, ${lng.toFixed(5)} (±${accuracy.toFixed(0)}m)`);
     return null;
   };
@@ -389,24 +389,24 @@ export default function DriverViaje() {
     if (timerValidacionRef.current) {
       clearInterval(timerValidacionRef.current);
     }
-
+    
     const tiempoTotal = tipo === 'llegada' ? TIEMPO_LLEGADA : TIEMPO_SALIDA;
     setTiempoValidando(0);
     setEstadoDetectar(tipo === 'llegada' ? 'validando_llegada' : 'validando_salida');
     setMensajeGPS(tipo === 'llegada' ? 'Validando llegada...' : 'Validando salida...');
     setMostrarBotonManual(false);
-
+    
     // Timer para mostrar botón manual después de 25s
     if (timerSignalRef.current) clearTimeout(timerSignalRef.current);
     timerSignalRef.current = setTimeout(() => {
       setMostrarBotonManual(true);
       setMensajeGPS('GPS inestable, puedes registrar manualmente');
     }, TIEMPO_BOTON_MANUAL);
-
+    
     timerValidacionRef.current = setInterval(() => {
       setTiempoValidando(prev => {
         const nuevoTiempo = prev + 1000;
-
+        
         if (nuevoTiempo >= tiempoTotal) {
           // Tiempo completado - ejecutar callback
           if (timerValidacionRef.current) {
@@ -417,7 +417,7 @@ export default function DriverViaje() {
           setMensajeGPS('');
           onComplete();
         }
-
+        
         return nuevoTiempo;
       });
     }, 1000);
@@ -476,9 +476,9 @@ export default function DriverViaje() {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         const accuracy = position.coords.accuracy;
-
+        
         setGpsPosicionActual({ lat, lng });
-
+        
         // Detectar señal baja
         if (accuracy > ALERTA_PRECISION) {
           setSignalBaja(true);
@@ -489,12 +489,12 @@ export default function DriverViaje() {
             setMensajeGPS('');
           }
         }
-
+        
         // Obtener local actual
         const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
         const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
         const localActual = localPendiente || (bitacoraActual ? locales.find(l => l.id_local === bitacoraActual?.id_local) : null);
-
+        
         if (!localActual?.latitud || !localActual?.longitud) {
           setDistanciaAlPunto(null);
           setEstadoGPS('buscando');
@@ -502,9 +502,9 @@ export default function DriverViaje() {
           agregarLogDebug(`❓ Sin local pendiente para detectar`);
           return;
         }
-
+        
         const radioBase = getRadioDinamico(accuracy);
-
+        
         // Ignorar lecturas con precisión muy mala (>150m)
         if (accuracy > 150) {
           agregarLogDebug(`⚠️ GPS muy impreciso: ${accuracy.toFixed(0)}m - ignorando`);
@@ -514,34 +514,34 @@ export default function DriverViaje() {
 
         // Procesar lectura con buffer y promediado
         const promedio = procesarLecturaConPromedio(lat, lng, accuracy);
-
+        
         // Usar promedio si existe, si no usar lectura actual
         const latUsar = promedio?.lat || lat;
         const lngUsar = promedio?.lng || lng;
         const accuracyUsar = promedio?.accuracy || accuracy;
-
+        
         // Calcular distancia
         const distancia = calcularDistanciaHaversine(latUsar, lngUsar, localActual.latitud, localActual.longitud);
         setDistanciaAlPunto(distancia);
-
+        
         const dentroDelRadio = distancia <= radioBase;
         const necesitaLlegada = bitacoraActual && !bitacoraActual.hora_llegada;
         const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
-
+        
         // Logging
         if (promedio) {
           agregarLogDebug(`📊 Promediado: ${distancia.toFixed(0)}m (radio: ${radioBase}m) | L:${necesitaLlegada ? 'SI' : 'NO'} S:${necesitaSalida ? 'SI' : 'NO'}`);
         }
-
+        
         // Verificar cooldown
         if (!puedeRegistrar()) {
           setEstadoGPS('buscando');
           agregarLogDebug(`⏳ Cooldown activo - esperando`);
           return;
         }
-
+        
         setEstadoGPS(dentroDelRadio ? 'en_rango' : 'detectado');
-
+        
         // LÓGICA DE DETECCIÓN DE LLEGADA
         if (dentroDelRadio && necesitaLlegada) {
           if (estadoDetectar !== 'validando_llegada') {
@@ -557,7 +557,7 @@ export default function DriverViaje() {
             });
           }
         }
-
+        
         // LÓGICA DE DETECCIÓN DE SALIDA
         else if (!dentroDelRadio && necesitaSalida) {
           if (estadoDetectar !== 'validando_salida') {
@@ -571,7 +571,7 @@ export default function DriverViaje() {
             });
           }
         }
-
+        
         // RESETEAR VALIDACIÓN SI SE SALE DEL RANGO
         else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
           agregarLogDebug(`⚠️ SALISTE DEL RADIO - reiniciando validación de llegada`);
@@ -581,7 +581,7 @@ export default function DriverViaje() {
           agregarLogDebug(`⚠️ REGRESASTE AL RADIO - reiniciando validación de salida`);
           limpiarTemporizadoresValidacion();
         }
-
+        
         // Resetear si cambia el estado de validación
         else if (!necesitaLlegada && !necesitaSalida) {
           if (estadoDetectar !== 'idle') {
@@ -589,14 +589,14 @@ export default function DriverViaje() {
             setLecturasBuffer([]);
           }
         }
-
+        
         // Mostrar estado actual
         if (estadoDetectar === 'validando_llegada') {
           const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_LLEGADA) * 100));
-          agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/12s) - ${distancia.toFixed(0)}m`);
+          agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando/1000)}s/12s) - ${distancia.toFixed(0)}m`);
         } else if (estadoDetectar === 'validando_salida') {
           const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_SALIDA) * 100));
-          agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/6s) - ${distancia.toFixed(0)}m`);
+          agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando/1000)}s/6s) - ${distancia.toFixed(0)}m`);
         }
       },
       (error) => {
@@ -635,7 +635,7 @@ export default function DriverViaje() {
     agregarLogDebug('🛑 GPS detenido');
   };
 
-  // useEffect para verificar día de descanso al montar
+// useEffect para verificar día de descanso al montar
   useEffect(() => {
     if (esDiaDescanso) {
       setDiaDescansoBloqueado(true);
@@ -651,7 +651,7 @@ export default function DriverViaje() {
         setGpsDisponible(false);
         return;
       }
-
+      
       // Intentar obtener posición inicial
       const pos = await iniciarGPSConPermisos();
       if (pos) {
@@ -659,7 +659,7 @@ export default function DriverViaje() {
         setGpsDisponible(true);
       }
     }
-
+    
     verificarAlIniciar();
   }, []);
 
@@ -728,7 +728,7 @@ export default function DriverViaje() {
 
   const guardarEdicionHora = async (tramo: ViajeBitacora) => {
     if (!editHoraSalida) return;
-
+    
     const [hS, mS] = editHoraSalida.split(':').map(Number);
     const fechaBase = new Date(tramo.hora_salida);
     const nuevaSalida = new Date(fechaBase);
@@ -763,11 +763,11 @@ export default function DriverViaje() {
     }
 
     await supabase.from('viajes_bitacora').update(updates).eq('id_bitacora', tramo.id_bitacora);
-
+    
     // Ajustar horas de tramos siguientes si es necesario
-    let bitacoraActualizada = bitacora.map(b =>
-      b.id_bitacora === tramo.id_bitacora
-        ? { ...b, ...updates }
+    let bitacoraActualizada = bitacora.map(b => 
+      b.id_bitacora === tramo.id_bitacora 
+        ? { ...b, ...updates } 
         : b
     );
 
@@ -779,9 +779,9 @@ export default function DriverViaje() {
         // Ajustar salida del siguiente para que sea igual o después de la llegada
         const nuevaSalidaSiguiente = new Date(nuevaLlegada);
         await supabase.from('viajes_bitacora').update({ hora_salida: nuevaSalidaSiguiente.toISOString() }).eq('id_bitacora', siguienteTramo.id_bitacora);
-        bitacoraActualizada = bitacoraActualizada.map(b =>
-          b.id_bitacora === siguienteTramo.id_bitacora
-            ? { ...b, hora_salida: nuevaSalidaSiguiente.toISOString() }
+        bitacoraActualizada = bitacoraActualizada.map(b => 
+          b.id_bitacora === siguienteTramo.id_bitacora 
+            ? { ...b, hora_salida: nuevaSalidaSiguiente.toISOString() } 
             : b
         );
       }
@@ -797,14 +797,14 @@ export default function DriverViaje() {
       .select('*')
       .eq('id_ruta', rutaId)
       .order('orden', { ascending: true });
-
+    
     if (locError) {
       console.error('Error loading locales_ruta:', locError);
       return [];
     }
 
     const localeIds = localesData?.map(l => l.id_local_ruta) || [];
-
+    
     // Fetch attached guides
     const { data: guiasData } = await supabase
       .from('guias_remision')
@@ -830,7 +830,7 @@ export default function DriverViaje() {
 
     // Verificar si hay un ID de ruta histórico en la URL
     const pathParts = window.location.pathname.split('/historial/');
-
+    
     try {
       // Si hay ID en URL, cargar esa ruta específica
       if (pathParts.length > 1) {
@@ -841,13 +841,13 @@ export default function DriverViaje() {
           .eq('id_ruta', rutaIdFromUrl)
           .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
           .maybeSingle();
-
+        
         if (rhError) console.error('Error loading ruta histórica:', rhError);
-
+        
         if (rutaHistorica) {
           setRuta(rutaHistorica as Ruta);
           setEsHistorial(true);
-
+          
           const localesData = await fetchLocalesWithGuias(rutaHistorica.id_ruta);
           setLocales(localesData);
 
@@ -856,10 +856,10 @@ export default function DriverViaje() {
             .select('*')
             .eq('id_ruta', rutaHistorica.id_ruta)
             .order('created_at', { ascending: true });
-
+          
           if (bitError) console.error('Error loading bitacora:', bitError);
           setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
-
+          
           await loadRutasBase();
           setLoading(false);
           return;
@@ -874,12 +874,12 @@ export default function DriverViaje() {
         .in('estado', ['pendiente', 'en_progreso'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
-
+        .maybeSingle(); 
+      
       // Si hay ruta activa, usarla
       if (rutaActiva) {
         setRuta(rutaActiva as Ruta);
-
+        
         const localesData = await fetchLocalesWithGuias(rutaActiva.id_ruta);
         setLocales(localesData);
 
@@ -888,10 +888,10 @@ export default function DriverViaje() {
           .select('*')
           .eq('id_ruta', rutaActiva.id_ruta)
           .order('created_at', { ascending: true });
-
-        if (bitError) console.error('Error loading bitacora:', bitError);
+        
+if (bitError) console.error('Error loading bitacora:', bitError);
         setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
-
+        
         // Cargar rutas base SIEMPRE (para el selector) - aquí fuera del if para ejecutarse siempre
         await loadRutasBase();
       } else {
@@ -908,11 +908,11 @@ export default function DriverViaje() {
           .maybeSingle();
 
         if (rfError) console.error('Error loading ruta finalizada:', rfError);
-
+        
         if (rutaFinalizada) {
           // Mostrar la ruta finalizada para poder agregar fotos
           setRuta(rutaFinalizada as Ruta);
-
+          
           const localesData = await fetchLocalesWithGuias(rutaFinalizada.id_ruta);
           setLocales(localesData);
 
@@ -921,7 +921,7 @@ export default function DriverViaje() {
             .select('*')
             .eq('id_ruta', rutaFinalizada.id_ruta)
             .order('created_at', { ascending: true });
-
+          
           if (bitError) console.error('Error loading bitacora:', bitError);
           setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
         } else {
@@ -929,7 +929,7 @@ export default function DriverViaje() {
           setLocales([]);
           setBitacora([]);
         }
-
+        
         // Cargar rutas base SIEMPRE (para el selector)
         await loadRutasBase();
       }
@@ -961,7 +961,7 @@ export default function DriverViaje() {
         .from('rutas_base')
         .select('*')
         .order('nombre');
-
+        
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
         return;
@@ -972,20 +972,20 @@ export default function DriverViaje() {
         const { data: allLocales, error: locError } = await supabase
           .from('locales_base')
           .select('id_ruta_base');
-
+        
         if (locError) console.error('Error counting locales:', locError);
-
+        
         // Construir mapa de conteo
         const countMap: Record<string, number> = {};
         (allLocales || []).forEach((l: any) => {
           countMap[l.id_ruta_base] = (countMap[l.id_ruta_base] || 0) + 1;
         });
-
+        
         const withCounts = baseData.map(rb => ({
           ...rb,
           locales_count: countMap[rb.id_ruta_base] || 0
         }));
-
+        
         setRutasBase(withCounts);
       } else {
         setRutasBase([]);
@@ -1001,7 +1001,7 @@ export default function DriverViaje() {
 
   useEffect(() => {
     let timerId: NodeJS.Timeout | undefined;
-
+    
     // Si no hay perfil, o no hay id_usuario, no cargamos nada pero liberamos el loading
     if (!profile?.id_usuario) {
       const timer = setTimeout(() => {
@@ -1028,11 +1028,11 @@ export default function DriverViaje() {
     // Suscripción Realtime específica para ESTE chofer
     const channel = supabase
       .channel(`viaje_chofer_${profile.id_usuario}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
         table: 'rutas',
-        filter: `id_chofer=eq.${profile.id_usuario}`
+        filter: `id_chofer=eq.${profile.id_usuario}` 
       }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'viajes_bitacora' }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadCurrentRuta())
@@ -1056,7 +1056,7 @@ export default function DriverViaje() {
       setGpsDisponible(false);
       return;
     }
-
+    
     setGpsVerificando(true);
     navigator.geolocation.getCurrentPosition(
       () => {
@@ -1090,11 +1090,11 @@ export default function DriverViaje() {
     }
     setCreateError('');
     setIsCreating(true);
-
+    
     try {
       const baseRuta = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
       const today = formatOnlyDatePeru();
-
+      
       const { data: baseLocales, error: lbError } = await supabase
         .from('locales_base')
         .select('*')
@@ -1105,7 +1105,7 @@ export default function DriverViaje() {
         setCreateError(`Error al consultar locales base: ${lbError.message}`);
         return;
       }
-
+      
       if (!baseLocales || baseLocales.length === 0) {
         setCreateError('Esta plantilla no tiene locales configurados. Pide al administrador que los agregue.');
         setIsCreating(false);
@@ -1113,7 +1113,7 @@ export default function DriverViaje() {
       }
 
       const template = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
-
+      
       let publicUrlInicio = '';
       if (fotoKmInicio) {
         setSubiendoFoto(true);
@@ -1122,7 +1122,7 @@ export default function DriverViaje() {
         const { error: uploadError } = await supabase.storage
           .from('combustible_fotos')
           .upload(`kilometraje/${fileName}`, blob);
-
+        
         if (!uploadError) {
           const { data } = supabase.storage.from('combustible_fotos').getPublicUrl(`kilometraje/${fileName}`);
           publicUrlInicio = data.publicUrl;
@@ -1170,7 +1170,7 @@ export default function DriverViaje() {
 
   const localesRegistrados = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
   const localesDisponibles = locales.filter(l => !localesRegistrados.includes(l.nombre || ''));
-  const localesVisitados = locales.filter(l =>
+  const localesVisitados = locales.filter(l => 
     localesRegistrados.includes(l.nombre || '') && l.nombre !== 'Planta'
   );
   const tramoEnProgreso = bitacora.find(b => !b.hora_llegada);
@@ -1178,9 +1178,13 @@ export default function DriverViaje() {
   useEffect(() => {
     if (!tramoEnProgreso) {
       setNuevoDestino(prev => {
-        const isValido = localesDisponibles.some(l => l.nombre === prev) || (prev === 'Planta' && localesDisponibles.length === 0);
+        // Válido si está en locales disponibles, en locales visitados (detour) o es Planta
+        const isValido = 
+          localesDisponibles.some(l => l.nombre === prev) || 
+          localesVisitados.some(l => l.nombre === prev) ||
+          (prev === 'Planta' && localesDisponibles.length === 0);
         if (isValido && prev !== '') return prev;
-
+        
         if (localesDisponibles.length > 0) {
           return localesDisponibles[0].nombre || '';
         } else if (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) {
@@ -1195,7 +1199,7 @@ export default function DriverViaje() {
   const [isEditingDestino, setIsEditingDestino] = useState(false);
   const [destinoEditado, setDestinoEditado] = useState('');
   const [isSavingDestino, setIsSavingDestino] = useState(false);
-
+  
   // Guías Viewer State
   const [viewingGuias, setViewingGuias] = useState<GuiaRemision[] | null>(null);
   const [currentGuiaIndex, setCurrentGuiaIndex] = useState(0);
@@ -1214,7 +1218,7 @@ export default function DriverViaje() {
     }
     try {
       const origen = proximoOrigen;
-
+      
       setActionLoading(true);
       let lat = null, lng = null;
       try {
@@ -1274,17 +1278,17 @@ export default function DriverViaje() {
       showToast('Hoy es tu día de descanso.', 'error');
       return;
     }
-    if (actionLoading) return;
+    if (actionLoading) return; 
     if (esHistorial) {
       alert('No puedes modificar un viaje histórico');
       return;
     }
-
+    
     setActionLoading(true);
     try {
       let lat = null, lng = null;
       let tipoRegistro = 'automatico';
-
+      
       if (modoManual) {
         tipoRegistro = 'manual';
       } else {
@@ -1299,7 +1303,7 @@ export default function DriverViaje() {
             // Si no, intentar obtener una nueva
             agregarLogDebug('📍 Intentando obtener GPS fresco para llegada...');
             const pos = await iniciarGPSConPermisos();
-
+            
             if (pos) {
               lat = pos.lat;
               lng = pos.lng;
@@ -1318,15 +1322,15 @@ export default function DriverViaje() {
       }
 
       const now = nowPeru();
-
+      
       // Construir update completo con logging
-      const updateData: any = {
-        hora_llegada: now,
-        gps_llegada_lat: lat,
+      const updateData: any = { 
+        hora_llegada: now, 
+        gps_llegada_lat: lat, 
         gps_llegada_lng: lng,
         tipo_registro: tipoRegistro
       };
-
+      
       const { data, error } = await supabase
         .from('viajes_bitacora')
         .update(updateData)
@@ -1338,36 +1342,36 @@ export default function DriverViaje() {
 
       if (!error && data) {
         setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
-
+        
         // Solo marcar como visitado si NO era un detour
         const normalizar = (s: string) => (s || '').trim().toLowerCase();
         const eraDetour = localesRegistrados.some(r => normalizar(r) === normalizar(data.destino_nombre || ''));
-
+        
         if (data.destino_nombre !== 'Planta' && !eraDetour) {
           // Primera visita: marcar como visitado
-          await supabase.from('locales_ruta').update({
-            hora_llegada: now,
-            estado_visita: 'visitado'
+          await supabase.from('locales_ruta').update({ 
+            hora_llegada: now, 
+            estado_visita: 'visitado' 
           }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.destino_nombre);
         } else if (data.destino_nombre !== 'Planta' && eraDetour) {
           // Segunda visita (detour): actualizar observacion sin pisar el estado
           const localDetour = locales.find(l => normalizar(l.nombre || '') === normalizar(data.destino_nombre || ''));
           if (localDetour) {
-            await supabase.from('locales_ruta').update({
+            await supabase.from('locales_ruta').update({ 
               observacion: (localDetour.observacion ? localDetour.observacion + ' | ' : '') + 'Revisita: ' + now
             }).eq('id_local_ruta', localDetour.id_local_ruta);
           }
         }
         if (data.destino_nombre === 'Planta') {
-          await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
-          if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
-          setShowFinalKmModal(true);
+           await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
+           if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
+           setShowFinalKmModal(true);
         }
-
+        
         // Actualizar cooldown
         setUltimoRegistroTime(Date.now());
         setEstadoGPS('registrado');
-
+        
         agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre} | Dist: ${distanciaAlPunto?.toFixed(0) || 'N/A'}m`);
         showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática registrada' : '✓Llegada manual registrada');
         setShowModoManual(false);
@@ -1389,10 +1393,10 @@ export default function DriverViaje() {
     if (esDiaDescanso) return;
     if (actionLoading) return;
     if (esHistorial) return;
-
+    
     setActionLoading(true);
     let lat = null, lng = null;
-
+    
     try {
       if (gpsPosicionActual && !signalBaja) {
         lat = gpsPosicionActual.lat;
@@ -1410,28 +1414,28 @@ export default function DriverViaje() {
     } catch (e) {
       console.warn('GPS Error:', e);
     }
-
+    
     const now = nowPeru();
-
+    
     const { data, error } = await supabase
       .from('viajes_bitacora')
       .update({ hora_salida: now, gps_salida_lat: lat, gps_salida_lng: lng })
       .eq('id_bitacora', idBitacora)
       .select()
       .single();
-
+    
     if (!error && data) {
       setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
-
+      
       // Actualizar estado del local
       if (data.origen_nombre && data.origen_nombre !== 'Planta') {
         await supabase.from('locales_ruta').update({ hora_salida: now }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.origen_nombre);
       }
-
+      
       setUltimoRegistroTime(Date.now());
       agregarLogDebug(`✅ SALIDA REGISTRADA automáticamente: ${data.destino_nombre}`);
       showToast('success', '✓Salida automática registrada');
-
+      
       // Limpiar buffer y continuar
       setLecturasBuffer([]);
       setPosicionPromediada(null);
@@ -1464,7 +1468,7 @@ export default function DriverViaje() {
 
   if (!mostrarRuta) {
     return (
-      <RutaSelector
+      <RutaSelector 
         loadingRutasBase={loadingRutasBase}
         rutasBase={rutasBase}
         selectedRutaBase={selectedRutaBase}
@@ -1497,9 +1501,9 @@ export default function DriverViaje() {
           <Coffee size={64} className="mx-auto text-yellow-400 mb-4" />
           <h1 className="text-2xl font-black text-yellow-400 mb-2">🛌 Día de Descanso</h1>
           <p className="text-text-muted mb-6">Hoy es tu día de descanso. No puedes iniciar rutas.</p>
-          <a
-            href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta"
-            target="_blank"
+          <a 
+            href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta" 
+            target="_blank" 
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg"
           >
@@ -1507,8 +1511,8 @@ export default function DriverViaje() {
             Contactar Administrador
           </a>
           <div className="mt-8">
-            <Button
-              variant="ghost"
+            <Button 
+              variant="ghost" 
               onClick={() => navigate('/driver')}
               className="text-text-muted"
             >
@@ -1523,9 +1527,9 @@ export default function DriverViaje() {
   return (
     <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
       <div className="flex flex-col gap-4">
-        <Button
-          variant="ghost"
-          size="sm"
+        <Button 
+          variant="ghost" 
+          size="sm" 
           onClick={() => navigate('/driver')}
           className="w-fit text-text-muted hover:text-white -ml-2"
         >
@@ -1544,7 +1548,7 @@ export default function DriverViaje() {
                   </button>
                 </span>
               ) : (
-                <button
+                <button 
                   onClick={() => { setTempKmInicio(''); setIsEditingKmInicio(true); }}
                   className="bg-orange-500/20 text-orange-400 text-[10px] font-black px-2 py-0.5 rounded border border-orange-500/30 flex items-center gap-1 animate-pulse"
                 >
@@ -1559,8 +1563,8 @@ export default function DriverViaje() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
+            <Button 
+              variant="secondary" 
               size="sm"
               onClick={() => navigate(`/driver/ruta/${ruta.id_ruta}`)}
               className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/30"
@@ -1569,7 +1573,7 @@ export default function DriverViaje() {
               Ver Locales
             </Button>
             <div className="bg-surface-light px-3 py-1 rounded-full border border-white/5">
-              <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
+               <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
             </div>
           </div>
         </div>
@@ -1586,7 +1590,7 @@ export default function DriverViaje() {
                 <span className="text-red-300 text-xs font-bold">Señal GPS baja, acércate más al punto</span>
               </div>
             )}
-
+            
             {/* Mensaje de validación */}
             {mensajeGPS && !signalBaja && (
               <div className="mb-3 bg-blue-500/20 border border-blue-500/50 rounded-lg p-2 flex items-center gap-2">
@@ -1595,7 +1599,7 @@ export default function DriverViaje() {
                 <span className="text-blue-300 text-xs font-bold">{mensajeGPS}</span>
               </div>
             )}
-
+            
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${estadoGPS === 'buscando' ? 'bg-yellow-500/20 text-yellow-400 animate-pulse' : signalBaja ? 'bg-red-500/20 text-red-400' : estadoGPS === 'detectado' ? 'bg-blue-500/20 text-blue-400' : estadoGPS === 'en_rango' ? 'bg-green-500/20 text-green-400' : estadoGPS === 'registrado' ? 'bg-green-600/40 text-green-300' : 'bg-gray-500/20 text-gray-400'}`}>
@@ -1605,11 +1609,11 @@ export default function DriverViaje() {
                   <p className="text-xs text-text-muted uppercase font-bold tracking-wider">
                     {estadoGPS === 'buscando' && '🔍 Buscando señal...'}
                     {estadoGPS === 'detectado' && '📍 Ubicación detectada'}
-                    {estadoGPS === 'en_rango' && (estadoDetectar === 'validando_llegada' ? `⏳ Validando LLEGADA (${Math.round(tiempoValidando / 1000)}s/12s)` : estadoDetectar === 'validando_salida' ? `⏳ Validando SALIDA (${Math.round(tiempoValidando / 1000)}s/6s)` : `✅ Dentro del radio`)}
+                    {estadoGPS === 'en_rango' && (estadoDetectar === 'validando_llegada' ? `⏳ Validando LLEGADA (${Math.round(tiempoValidando/1000)}s/12s)` : estadoDetectar === 'validando_salida' ? `⏳ Validando SALIDA (${Math.round(tiempoValidando/1000)}s/6s)` : `✅ Dentro del radio`)}
                     {estadoGPS === 'registrado' && '✅ Registro completado'}
                   </p>
                   <p className={`text-sm font-black ${signalBaja ? 'text-red-400' : estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'text-green-400' : 'text-white'}`}>
-                    {distanciaAlPunto !== null
+                    {distanciaAlPunto !== null 
                       ? `${distanciaAlPunto.toFixed(0)}m ${distanciaAlPunto <= RADIO_BASE ? 'dentro del radio' : 'fuera del radio'}`
                       : gpsError || 'Obteniendo ubicación...'}
                   </p>
@@ -1617,7 +1621,7 @@ export default function DriverViaje() {
                   {(estadoDetectar === 'validando_llegada' || estadoDetectar === 'validando_salida') && (
                     <div className="mt-2">
                       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <div
+                        <div 
                           className={`h-full transition-all duration-1000 ${estadoDetectar === 'validando_llegada' ? 'bg-green-500' : 'bg-orange-500'}`}
                           style={{ width: `${Math.min(100, Math.round((tiempoValidando / (estadoDetectar === 'validando_llegada' ? TIEMPO_LLEGADA : TIEMPO_SALIDA)) * 100))}%` }}
                         />
@@ -1628,14 +1632,14 @@ export default function DriverViaje() {
               </div>
               <div className="text-right">
                 <p className="text-[10px] text-text-muted uppercase">Cooldown</p>
-                <p className="text-xs font-black text-primary">{Math.max(0, Math.ceil((COOLDOWN_REGISTRO - (Date.now() - ultimoRegistroTime)) / 1000))}s</p>
+                <p className="text-xs font-black text-primary">{Math.max(0, Math.ceil((COOLDOWN_REGISTRO - (Date.now() - ultimoRegistroTime))/1000))}s</p>
               </div>
             </div>
-
+            
             {/* Botón manual si GPS inestable */}
             {mostrarBotonManual && (
               <div className="mt-3">
-                <Button
+                <Button 
                   onClick={() => {
                     const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
                     if (bitacoraActual && !bitacoraActual.hora_llegada) {
@@ -1651,7 +1655,7 @@ export default function DriverViaje() {
                 </Button>
               </div>
             )}
-
+            
             {/* Estado del sistema */}
             <div className="mt-3 flex gap-2 text-[10px] flex-wrap">
               <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
@@ -1671,7 +1675,7 @@ export default function DriverViaje() {
                 </span>
               )}
             </div>
-
+            
             {/* Logs de debug (desplegable) */}
             {gpsDebugLogs.length > 0 && (
               <details className="mt-3">
@@ -1718,8 +1722,8 @@ export default function DriverViaje() {
 
               {isEditingDestino ? (
                 <div className="space-y-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
-                  <Input
-                    placeholder="Corregir nombre del destino..."
+                  <Input 
+                    placeholder="Corregir nombre del destino..." 
                     value={destinoEditado}
                     onChange={e => setDestinoEditado(e.target.value)}
                     className="bg-black/40 border-primary/30"
@@ -1736,17 +1740,17 @@ export default function DriverViaje() {
                     <h3 className="text-xl font-black text-white italic leading-tight uppercase">{tramoEnProgreso.destino_nombre}</h3>
                   </div>
                   <div className="flex items-center gap-2 pt-2">
-                    {(function () {
+                    {(function() {
                       const normalizedDest = (tramoEnProgreso.destino_nombre || '').trim().toLowerCase();
                       const localActual = locales.find(l => (l.nombre || '').trim().toLowerCase() === normalizedDest);
-
+                      
                       return (
                         <>
                           {localActual?.latitud && localActual?.longitud && (
                             <>
                               <a href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 bg-blue-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Google Maps">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.375 8.5 15.5 8.5 15.5s8.5-9.125 8.5-15.5C20.5 3.81 16.69 0 12 0zm0 12c-1.93 0-3.5-1.57-3.5-3.5S10.07 5 12 5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z" />
+                                  <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.375 8.5 15.5 8.5 15.5s8.5-9.125 8.5-15.5C20.5 3.81 16.69 0 12 0zm0 12c-1.93 0-3.5-1.57-3.5-3.5S10.07 5 12 5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
                                 </svg>
                               </a>
                               <a href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 bg-yellow-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Waze">
@@ -1805,7 +1809,7 @@ export default function DriverViaje() {
 
                 {/* Botón principal - Registro automático */}
                 {!showModoManual ? (
-                  <Button
+                  <Button 
                     className="w-full h-16 text-lg font-black italic uppercase tracking-widest bg-green-600 hover:bg-green-500 shadow-xl shadow-green-900/40 rounded-2xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all"
                     onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora, false)}
                     disabled={actionLoading}
@@ -1820,14 +1824,14 @@ export default function DriverViaje() {
                       <p className="text-text-muted text-[10px] mt-1">Sin ubicación GPS</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Button
+                      <Button 
                         variant="secondary"
                         className="bg-surface-light/50 text-text-muted"
                         onClick={() => setShowModoManual(false)}
                       >
                         Cancelar
                       </Button>
-                      <Button
+                      <Button 
                         className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold"
                         onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora, true)}
                         disabled={actionLoading}
@@ -1840,7 +1844,7 @@ export default function DriverViaje() {
 
                 {/* Botón para activar modo manual */}
                 {!showModoManual && (
-                  <button
+                  <button 
                     onClick={() => setShowModoManual(true)}
                     className="w-full text-center text-[10px] text-text-muted hover:text-yellow-400 transition-colors py-1"
                   >
@@ -1863,16 +1867,24 @@ export default function DriverViaje() {
                 <div>
                   <p className="text-[9px] text-text-muted uppercase font-black tracking-widest mb-1 ml-1">Próximo Destino</p>
                   <div className="relative">
-                    <select
-                      value={nuevoDestino}
-                      onChange={(e) => setNuevoDestino(e.target.value)}
-                      className="w-full bg-surface-light border border-primary/40 rounded-xl px-3 py-3 text-white font-black italic uppercase appearance-none focus:outline-none focus:ring-1 focus:ring-primary text-sm shadow-inner"
-                    >
-                      {localesDisponibles.map(l => (<option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option>))}
-                      {localesDisponibles.length === 0 && (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) && (
-                        <option value="Planta">REGRESO A PLANTA</option>
-                      )}
-                    </select>
+                    {/* Si el destino es un local visitado (detour), mostrarlo como texto fijo */}
+                    {localesVisitados.some(l => l.nombre === nuevoDestino) ? (
+                      <div className="w-full bg-yellow-500/10 border border-yellow-500/40 rounded-xl px-3 py-3 text-yellow-300 font-black italic uppercase text-sm flex items-center justify-between">
+                        <span>{nuevoDestino}</span>
+                        <span className="text-[10px] text-yellow-500">REVISITA</span>
+                      </div>
+                    ) : (
+                      <select 
+                        value={nuevoDestino}
+                        onChange={(e) => setNuevoDestino(e.target.value)}
+                        className="w-full bg-surface-light border border-primary/40 rounded-xl px-3 py-3 text-white font-black italic uppercase appearance-none focus:outline-none focus:ring-1 focus:ring-primary text-sm shadow-inner"
+                      >
+                        {localesDisponibles.map(l => ( <option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option> ))}
+                        {localesDisponibles.length === 0 && (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) && (
+                          <option value="Planta">REGRESO A PLANTA</option>
+                        )}
+                      </select>
+                    )}
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none" />
                   </div>
                 </div>
@@ -1880,14 +1892,14 @@ export default function DriverViaje() {
 
               {localesVisitados.length > 0 && !mostrarLocalesVisitados && (
                 <button onClick={() => setMostrarLocalesVisitados(true)} className="text-[10px] text-yellow-400 font-bold uppercase underline tracking-tighter w-full text-center py-1">
-                  ¿Regresas a un cliente ya visitado?
+                  ¿Regresas a un local ya visitado?
                 </button>
               )}
 
               {mostrarLocalesVisitados && (
                 <div className="bg-yellow-500/5 p-4 rounded-xl border border-yellow-500/20 space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-yellow-500 uppercase">Clientes Visitados</span>
+                    <span className="text-[10px] font-black text-yellow-500 uppercase">Locales Visitados</span>
                     <button onClick={() => setMostrarLocalesVisitados(false)} className="text-[10px] uppercase font-bold text-white/50">Cerrar</button>
                   </div>
                   <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -1901,14 +1913,14 @@ export default function DriverViaje() {
                 </div>
               )}
 
-              <Button
+              <Button 
                 className="w-full h-16 text-xl font-black italic tracking-widest bg-primary hover:bg-primary-light shadow-xl shadow-primary/30 rounded-2xl border-b-4 border-primary-dark active:border-b-0 active:translate-y-1 transition-all"
                 onClick={handleRegistrarSalida}
                 disabled={actionLoading}
               >
                 {actionLoading ? 'INICIANDO...' : 'INICIAR VIAJE →'}
               </Button>
-
+              
               {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
                 <Button variant="ghost" onClick={() => {
                   const ultimoTramo = bitacora[bitacora.length - 1];
@@ -1932,7 +1944,7 @@ export default function DriverViaje() {
         </Card>
       )}
 
-      <LocalList
+      <LocalList 
         localesDisponibles={localesDisponibles}
         rutaEstado={ruta.estado}
         localesRegistrados={localesRegistrados}
@@ -1941,7 +1953,7 @@ export default function DriverViaje() {
         setCurrentGuiaIndex={setCurrentGuiaIndex}
       />
 
-      <BitacoraList
+      <BitacoraList 
         bitacora={bitacora}
         locales={locales}
         editandoBitacora={editandoBitacora}
@@ -1970,135 +1982,135 @@ export default function DriverViaje() {
       {ruta.estado === 'finalizada' && (
         <>
           <div className="bg-green-500/10 border-2 border-green-500/50 p-8 rounded-3xl text-center animate-in zoom-in-95 duration-700 shadow-2xl shadow-green-500/10">
-            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-black shadow-lg shadow-green-500/20">
-              <CheckCircle2 size={36} />
-            </div>
-            <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
-            <div className="flex flex-col gap-1 my-3">
-              <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
-              <div className="flex justify-center gap-3 mt-2">
-                <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
-                  <p className="text-[10px] text-text-muted uppercase font-bold">Km Inicial</p>
-                  <p className="text-white font-black italic">{ruta.km_inicio || 0}</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
-                  <p className="text-[10px] text-text-muted uppercase font-bold">Km Final</p>
-                  <p className="text-white font-black italic">{ruta.km_fin || '?'}</p>
+              <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-black shadow-lg shadow-green-500/20">
+                <CheckCircle2 size={36} />
+              </div>
+              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
+              <div className="flex flex-col gap-1 my-3">
+                <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
+                <div className="flex justify-center gap-3 mt-2">
+                  <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
+                    <p className="text-[10px] text-text-muted uppercase font-bold">Km Inicial</p>
+                    <p className="text-white font-black italic">{ruta.km_inicio || 0}</p>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
+                    <p className="text-[10px] text-text-muted uppercase font-bold">Km Final</p>
+                    <p className="text-white font-black italic">{ruta.km_fin || '?'}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <button
-              onClick={iniciarNuevoViaje}
-              className="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm"
-            >
-              🚛 Iniciar Nuevo Viaje
-            </button>
+              <button
+                onClick={iniciarNuevoViaje}
+                className="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm"
+              >
+                🚛 Iniciar Nuevo Viaje
+              </button>
+              
+              <button
+                onClick={async () => {
+                  if (enviandoWhatsapp) return;
+                  setEnviandoWhatsapp(true);
+                  
+                  try {
+                    // Obtener locales visitados con fotos
+                    const localesVisitados = locales.filter(l => l.hora_llegada);
+                    
+                    // Obtener gastos de combustible (separado de otros)
+                    const { data: gastos } = await supabase
+                      .from('gastos_combustible')
+                      .select('monto, tipo_combustible')
+                      .eq('id_ruta', ruta.id_ruta);
+                    
+                    const gastoCombustible = gastos?.filter(g => g.tipo_combustible !== 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+                    const gastoOtros = gastos?.filter(g => g.tipo_combustible === 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+                    
+                    // Calcular duración total
+                    let duracion = 'No registrado';
+                    if (ruta.hora_salida_planta && ruta.hora_llegada_planta) {
+                      const salida = new Date(ruta.hora_salida_planta);
+                      const llegada = new Date(ruta.hora_llegada_planta);
+                      const mins = Math.round((llegada.getTime() - salida.getTime()) / 60000);
+                      duracion = mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
+                    }
 
-            <button
-              onClick={async () => {
-                if (enviandoWhatsapp) return;
-                setEnviandoWhatsapp(true);
+                    // Formatear hora
+                    const formatHora = (iso: string | null) => {
+                      if (!iso) return '--:--';
+                      const d = new Date(iso);
+                      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                    };
 
-                try {
-                  // Obtener locales visitados con fotos
-                  const localesVisitados = locales.filter(l => l.hora_llegada);
-
-                  // Obtener gastos de combustible (separado de otros)
-                  const { data: gastos } = await supabase
-                    .from('gastos_combustible')
-                    .select('monto, tipo_combustible')
-                    .eq('id_ruta', ruta.id_ruta);
-
-                  const gastoCombustible = gastos?.filter(g => g.tipo_combustible !== 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
-                  const gastoOtros = gastos?.filter(g => g.tipo_combustible === 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
-
-                  // Calcular duración total
-                  let duracion = 'No registrado';
-                  if (ruta.hora_salida_planta && ruta.hora_llegada_planta) {
-                    const salida = new Date(ruta.hora_salida_planta);
-                    const llegada = new Date(ruta.hora_llegada_planta);
-                    const mins = Math.round((llegada.getTime() - salida.getTime()) / 60000);
-                    duracion = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}min`;
-                  }
-
-                  // Formatear hora
-                  const formatHora = (iso: string | null) => {
-                    if (!iso) return '--:--';
-                    const d = new Date(iso);
-                    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-                  };
-
-                  // Construir mensaje con formato de tabla
-                  const lineas: string[] = [];
-
-                  // ╔══════════════════════════════════════╗
-                  lineas.push('╔══════════════════════════════════════╗');
-                  lineas.push('║     RESUMEN DE RUTA - ' + (ruta.nombre || 'Viaje').padEnd(20) + '║');
-                  lineas.push('╠══════════════════════════════════════╣');
-                  lineas.push('║ 📅 ' + (ruta.fecha || 'Hoy').padEnd(15) + '  🚚 ' + (ruta.placa || 'N/A').padEnd(10) + '║');
-                  lineas.push('║ ⏱️ Duración: ' + duracion.padEnd(18) + '║');
-                  lineas.push('║ 📍 Locales: ' + String(localesVisitados.length).padEnd(3) + '  ⛽ GLP: S/ ' + gastoCombustible.toFixed(2).padStart(7) + '║');
-                  lineas.push('╚══════════════════════════════════════╝');
-                  lineas.push('');
-
-                  // Salida de Planta
-                  if (ruta.hora_salida_planta) {
-                    const primerDestino = bitacora.length > 0 ? bitacora[0].destino_nombre : 'N/A';
-                    lineas.push('🏭 SALIDA PLANTA: ' + formatHora(ruta.hora_salida_planta) + ' → ' + primerDestino);
-                  }
-
-                  // Lista de locales con formato de tabla
-                  if (bitacora.length > 0) {
+                    // Construir mensaje con formato de tabla
+                    const lineas: string[] = [];
+                    
+                    // ╔══════════════════════════════════════╗
+                    lineas.push('╔══════════════════════════════════════╗');
+                    lineas.push('║     RESUMEN DE RUTA - ' + (ruta.nombre || 'Viaje').padEnd(20) + '║');
+                    lineas.push('╠══════════════════════════════════════╣');
+                    lineas.push('║ 📅 ' + (ruta.fecha || 'Hoy').padEnd(15) + '  🚚 ' + (ruta.placa || 'N/A').padEnd(10) + '║');
+                    lineas.push('║ ⏱️ Duración: ' + duracion.padEnd(18) + '║');
+                    lineas.push('║ 📍 Locales: ' + String(localesVisitados.length).padEnd(3) + '  ⛽ GLP: S/ ' + gastoCombustible.toFixed(2).padStart(7) + '║');
+                    lineas.push('╚══════════════════════════════════════╝');
                     lineas.push('');
-                    lineas.push('┌─────────────────────────────────────┐');
-                    lineas.push('│         LOCALES VISITADOS          │');
-                    lineas.push('├────┬────────────────────────────────┤');
-                    lineas.push('│ #  │ Horario (Llegada - Salida)    │');
-                    lineas.push('├────┼────────────────────────────────┤');
 
-                    bitacora.forEach((tramo, idx) => {
-                      if (!tramo.hora_llegada) return;
-                      const llegada = formatHora(tramo.hora_llegada);
-                      const salida = tramo.hora_salida ? formatHora(tramo.hora_salida) : '--:--';
-                      const nombreCorto = tramo.destino_nombre.length > 28 ? tramo.destino_nombre.substring(0, 25) + '...' : tramo.destino_nombre;
-                      const num = String(idx + 1).padStart(2, ' ');
-                      const horas = `${llegada} - ${salida}`.padEnd(14);
-                      lineas.push(`│ ${num} │ ${nombreCorto.padEnd(32)}│`);
-                      lineas.push(`│    │ ${horas.padEnd(32)}│`);
-                      lineas.push(`│    │                                    │`);
-                    });
+                    // Salida de Planta
+                    if (ruta.hora_salida_planta) {
+                      const primerDestino = bitacora.length > 0 ? bitacora[0].destino_nombre : 'N/A';
+                      lineas.push('🏭 SALIDA PLANTA: ' + formatHora(ruta.hora_salida_planta) + ' → ' + primerDestino);
+                    }
 
-                    lineas.push('└─────────────────────────────────────┘');
-                  }
+                    // Lista de locales con formato de tabla
+                    if (bitacora.length > 0) {
+                      lineas.push('');
+                      lineas.push('┌─────────────────────────────────────┐');
+                      lineas.push('│         LOCALES VISITADOS          │');
+                      lineas.push('├────┬────────────────────────────────┤');
+                      lineas.push('│ #  │ Horario (Llegada - Salida)    │');
+                      lineas.push('├────┼────────────────────────────────┤');
+                      
+                      bitacora.forEach((tramo, idx) => {
+                        if (!tramo.hora_llegada) return;
+                        const llegada = formatHora(tramo.hora_llegada);
+                        const salida = tramo.hora_salida ? formatHora(tramo.hora_salida) : '--:--';
+                        const nombreCorto = tramo.destino_nombre.length > 28 ? tramo.destino_nombre.substring(0, 25) + '...' : tramo.destino_nombre;
+                        const num = String(idx + 1).padStart(2, ' ');
+                        const horas = `${llegada} - ${salida}`.padEnd(14);
+                        lineas.push(`│ ${num} │ ${nombreCorto.padEnd(32)}│`);
+                        lineas.push(`│    │ ${horas.padEnd(32)}│`);
+                        lineas.push(`│    │                                    │`);
+                      });
+                      
+                      lineas.push('└─────────────────────────────────────┘');
+                    }
 
-                  // Llegada a Planta
-                  if (ruta.hora_llegada_planta) {
+                    // Llegada a Planta
+                    if (ruta.hora_llegada_planta) {
+                      lineas.push('');
+                      lineas.push('🏭 LLEGADA PLANTA: ' + formatHora(ruta.hora_llegada_planta));
+                    }
+
                     lineas.push('');
-                    lineas.push('🏭 LLEGADA PLANTA: ' + formatHora(ruta.hora_llegada_planta));
+                    lineas.push('_Enviado desde Shimaya Rutas_');
+
+                    const mensaje = encodeURIComponent(lineas.join('\n'));
+                    // Número de admin desde variable de entorno o valor por defecto
+                    const whatsappNumero = import.meta.env.VITE_WHATSAPP_ADMIN || '51948800569';
+                    window.open(`https://wa.me/${whatsappNumero}?text=${mensaje}`, '_blank');
+                    
+                  } catch (err) {
+                    console.error('[WhatsApp] Error:', err);
+                    showToast('error', 'Error al generar resumen');
+                  } finally {
+                    setEnviandoWhatsapp(false);
                   }
-
-                  lineas.push('');
-                  lineas.push('_Enviado desde Shimaya Rutas_');
-
-                  const mensaje = encodeURIComponent(lineas.join('\n'));
-                  // Número de admin desde variable de entorno o valor por defecto
-                  const whatsappNumero = import.meta.env.VITE_WHATSAPP_ADMIN || '51948800569';
-                  window.open(`https://wa.me/${whatsappNumero}?text=${mensaje}`, '_blank');
-
-                } catch (err) {
-                  console.error('[WhatsApp] Error:', err);
-                  showToast('error', 'Error al generar resumen');
-                } finally {
-                  setEnviandoWhatsapp(false);
-                }
-              }}
-              disabled={enviandoWhatsapp}
-              className="mt-4 ml-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
-            >
-              {enviandoWhatsapp ? '⏳ Generando...' : '📤 Enviar Resumen'}
-            </button>
+                }}
+                disabled={enviandoWhatsapp}
+                className="mt-4 ml-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
+              >
+                {enviandoWhatsapp ? '⏳ Generando...' : '📤 Enviar Resumen'}
+              </button>
           </div>
-
+          
           {/* Botón para agregar fotos después del viaje */}
           <div className="mt-6 p-4 bg-surface-light/30 rounded-2xl border border-white/10">
             <p className="text-xs text-text-muted mb-3 uppercase font-bold">Agregar fotos de evidencia (opcional)</p>
@@ -2130,8 +2142,8 @@ export default function DriverViaje() {
       {showCombustible && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-surface rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <RegistrarCombustible
-              idRuta={ruta.id_ruta}
+            <RegistrarCombustible 
+              idRuta={ruta.id_ruta} 
               idChofer={profile?.id_usuario || ''}
               onClose={() => setShowCombustible(false)}
             />
@@ -2148,7 +2160,7 @@ export default function DriverViaje() {
                 <h3 className="text-lg font-black text-white italic uppercase">Kilometraje Inicial</h3>
                 <p className="text-xs text-text-muted">Ingresa el odómetro al salir de planta.</p>
               </div>
-              <Input
+              <Input 
                 type="number"
                 value={tempKmInicio}
                 onChange={e => setTempKmInicio(e.target.value)}
@@ -2225,7 +2237,7 @@ export default function DriverViaje() {
                 {locales.map((local, idx) => {
                   const tramo = bitacora.find(b => b.destino_nombre === local.nombre);
                   const yaVisitado = !!tramo?.hora_llegada;
-
+                  
                   return yaVisitado ? (
                     <div key={local.id_local_ruta} className="bg-green-500/10 border border-green-500/30 p-3 rounded-xl">
                       <div className="flex items-center gap-2">
@@ -2264,7 +2276,7 @@ export default function DriverViaje() {
                   <span className="text-white font-bold">
                     {ruta.hora_salida_planta && ruta.hora_llegada_planta ? (() => {
                       const mins = Math.round((new Date(ruta.hora_llegada_planta).getTime() - new Date(ruta.hora_salida_planta).getTime()) / 60000);
-                      return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}min`;
+                      return mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
                     })() : 'N/A'}
                   </span>
                 </div>
@@ -2293,7 +2305,7 @@ export default function DriverViaje() {
                   <button onClick={() => { setZoomScale(1); }} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg text-white border border-white/5 active:scale-90 transition-all"><Maximize2 size={18} /></button>
                 </div>
               </div>
-              <button
+              <button 
                 className="text-white bg-red-500/20 hover:bg-red-500/40 p-3 rounded-full backdrop-blur-md border border-red-500/30 transition-all active:scale-95"
                 onClick={() => {
                   setViewingGuias(null);
@@ -2304,10 +2316,10 @@ export default function DriverViaje() {
                 <X size={24} />
               </button>
             </div>
-
+            
             <div className="relative group mx-2">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 group-focus-within:text-primary transition-colors" />
-              <input
+              <input 
                 type="text"
                 placeholder="Buscar productos (ej: Salmón, Arroz...)"
                 value={searchTermGuias}
@@ -2316,21 +2328,21 @@ export default function DriverViaje() {
               />
             </div>
           </div>
-
+          
           <div className="flex-1 w-full flex items-center justify-center p-2 pt-40 pb-28 relative overflow-hidden">
             <div className={`w-full h-full flex items-center justify-center transition-transform duration-300 ease-out cursor-move ${zoomScale > 1 ? 'overflow-auto scrollbar-hide' : ''}`}>
-              {viewingGuias[currentGuiaIndex].comentario && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-                  <span className="bg-primary/90 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg backdrop-blur-sm border border-white/20">
-                    {viewingGuias[currentGuiaIndex].comentario}
-                  </span>
-                </div>
-              )}
+               {viewingGuias[currentGuiaIndex].comentario && (
+                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                    <span className="bg-primary/90 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg backdrop-blur-sm border border-white/20">
+                      {viewingGuias[currentGuiaIndex].comentario}
+                    </span>
+                 </div>
+               )}
 
-              <img
-                src={viewingGuias[currentGuiaIndex].archivo_url}
-                alt="Documento de despacho"
-                style={{
+              <img 
+                src={viewingGuias[currentGuiaIndex].archivo_url} 
+                alt="Documento de despacho" 
+                style={{ 
                   transform: `scale(${zoomScale})`,
                   transformOrigin: 'center center',
                   transition: 'transform 0.2s ease-out'
@@ -2338,10 +2350,10 @@ export default function DriverViaje() {
                 className="w-auto h-auto max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
               />
             </div>
-
+            
             {viewingGuias.length > 1 && (
               <>
-                <button
+                <button 
                   onClick={() => {
                     setCurrentGuiaIndex(prev => prev > 0 ? prev - 1 : viewingGuias.length - 1);
                     setZoomScale(1);
@@ -2350,7 +2362,7 @@ export default function DriverViaje() {
                 >
                   <ChevronLeft size={32} />
                 </button>
-                <button
+                <button 
                   onClick={() => {
                     setCurrentGuiaIndex(prev => prev < viewingGuias.length - 1 ? prev + 1 : 0);
                     setZoomScale(1);
@@ -2362,7 +2374,7 @@ export default function DriverViaje() {
               </>
             )}
           </div>
-
+          
           <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto z-10 py-1 scrollbar-hide">
             {viewingGuias.map((g, i) => {
               const matched = searchTermGuias && g.comentario?.toLowerCase().includes(searchTermGuias.toLowerCase());
@@ -2380,7 +2392,7 @@ export default function DriverViaje() {
                   <img src={g.archivo_url} className="w-full h-full object-cover" />
                   {matched && (
                     <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center">
-                      <Check size={20} className="text-yellow-400 drop-shadow-lg" />
+                       <Check size={20} className="text-yellow-400 drop-shadow-lg" />
                     </div>
                   )}
                 </button>
@@ -2406,9 +2418,9 @@ export default function DriverViaje() {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Km Inicial: {ruta.km_inicio || 0}</label>
-                  <Input
+                  <Input 
                     type="number"
-                    placeholder="Kilometraje Final"
+                    placeholder="Kilometraje Final" 
                     className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg tracking-widest"
                     value={kmFin}
                     onChange={e => setKmFin(e.target.value)}
@@ -2419,7 +2431,7 @@ export default function DriverViaje() {
                 <div className="space-y-1">
                   <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Foto del Odómetro (Opcional)</label>
                   {!fotoKmFin ? (
-                    <button
+                    <button 
                       onClick={() => {
                         const input = document.createElement('input');
                         input.type = 'file';
@@ -2443,7 +2455,7 @@ export default function DriverViaje() {
                   ) : (
                     <div className="relative group">
                       <img src={fotoKmFin} className="w-full h-32 object-cover rounded-xl border-2 border-primary/50" />
-                      <button
+                      <button 
                         onClick={() => setFotoKmFin(null)}
                         className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white"
                       >
@@ -2453,21 +2465,21 @@ export default function DriverViaje() {
                   )}
                 </div>
 
-                <Button
+                <Button 
                   className="w-full h-14 text-lg font-black italic bg-primary hover:bg-primary-hover shadow-xl"
                   disabled={!kmFin || parseFloat(kmFin) <= (ruta.km_inicio || 0) || subiendoFoto}
                   onClick={async () => {
                     try {
                       setSubiendoFoto(true);
                       let publicUrlFin = '';
-
+                      
                       if (fotoKmFin) {
                         const blob = await (await fetch(fotoKmFin)).blob();
                         const fileName = `${profile?.id_usuario}_end_${Date.now()}.jpg`;
                         const { error: uploadError } = await supabase.storage
                           .from('combustible_fotos')
                           .upload(`kilometraje/${fileName}`, blob);
-
+                        
                         if (!uploadError) {
                           const { data } = supabase.storage.from('combustible_fotos').getPublicUrl(`kilometraje/${fileName}`);
                           publicUrlFin = data.publicUrl;
@@ -2476,11 +2488,11 @@ export default function DriverViaje() {
 
                       const { error } = await supabase
                         .from('rutas')
-                        .update({
+                        .update({ 
                           km_fin: parseFloat(kmFin)
                         })
                         .eq('id_ruta', ruta.id_ruta);
-
+                      
                       if (error) throw error;
                       setRuta({ ...ruta, km_fin: parseFloat(kmFin) });
                       setShowFinalKmModal(false);
