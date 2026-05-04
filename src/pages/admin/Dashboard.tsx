@@ -139,6 +139,8 @@ export default function AdminDashboard() {
         supabase.from('usuarios').select('id_usuario, nombre, dias_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
 
+      if (todosChoferesRes?.data) setChoferes(todosChoferesRes.data);
+
       clearTimeout(timeoutId);
 
       if (rutasHoyRes.error) {
