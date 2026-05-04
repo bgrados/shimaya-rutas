@@ -1175,30 +1175,51 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   );
   const tramoEnProgreso = bitacora.find(b => !b.hora_llegada);
 
+  // Calcular el siguiente destino según orden predefinido
+  const calcularSiguienteDestino = (): string => {
+    const normalizar = (s: string) => (s || '').trim().toLowerCase();
+    // Obtener el último tramo completado de la bitácora
+    const tramosCompletados = bitacora.filter(b => b.hora_llegada);
+    const ultimoDestino = tramosCompletados.length > 0 
+      ? tramosCompletados[tramosCompletados.length - 1].destino_nombre 
+      : 'Planta';
+    
+    // Encontrar el local actual en la lista ordenada
+    const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+    
+    // Si el último destino fue un local visitado (detour), buscar desde el orden original
+    const localActual = localesOrdenados.find(l => normalizar(l.nombre || '') === normalizar(ultimoDestino || ''));
+    
+    if (localActual) {
+      // Buscar el siguiente local pendiente DESPUÉS del orden actual
+      const siguienteEnOrden = localesOrdenados.find(l => 
+        (l.orden || 0) > (localActual.orden || 0) &&
+        !bitacora.some(b => b.hora_llegada && normalizar(b.destino_nombre || '') === normalizar(l.nombre || '') && 
+          // Solo contar si NO fue un detour (primera visita)
+          bitacora.filter(bb => normalizar(bb.destino_nombre || '') === normalizar(l.nombre || '')).length === 1
+        )
+      );
+      if (siguienteEnOrden) return siguienteEnOrden.nombre || '';
+    }
+    
+    // Si no hay siguiente, buscar cualquier local pendiente en orden
+    const pendiente = localesOrdenados.find(l =>
+      !localesRegistrados.some(r => normalizar(r) === normalizar(l.nombre || ''))
+    );
+    if (pendiente) return pendiente.nombre || '';
+    
+    // Si todos visitados, regresar a Planta
+    if (bitacora.length > 0 && !localesRegistrados.includes('Planta')) return 'Planta';
+    
+    return '';
+  };
+
   useEffect(() => {
     if (!tramoEnProgreso) {
-      setNuevoDestino(prev => {
-        const normalizar = (s: string) => (s || '').trim().toLowerCase();
-        // Solo válido si está en locales DISPONIBLES (no visitados) o es Planta
-        // Los locales visitados (detour) ya se manejaron al registrar la salida
-        const isValido = localesDisponibles.some(l => l.nombre === prev) ||
-          (prev === 'Planta' && localesDisponibles.length === 0);
-        if (isValido && prev !== '') return prev;
-        
-        // Buscar el siguiente local pendiente en orden
-        const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
-        const siguientePendiente = localesOrdenados.find(l =>
-          !localesRegistrados.some(r => normalizar(r) === normalizar(l.nombre || ''))
-        );
-        if (siguientePendiente) {
-          return siguientePendiente.nombre || '';
-        } else if (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) {
-          return 'Planta';
-        }
-        return '';
-      });
+      const siguiente = calcularSiguienteDestino();
+      if (siguiente) setNuevoDestino(siguiente);
     }
-  }, [tramoEnProgreso, localesDisponibles, locales, localesRegistrados, bitacora.length]);
+  }, [tramoEnProgreso, bitacora.length, localesRegistrados.length]);
 
   const [actionLoading, setActionLoading] = useState(false);
   const [isEditingDestino, setIsEditingDestino] = useState(false);
