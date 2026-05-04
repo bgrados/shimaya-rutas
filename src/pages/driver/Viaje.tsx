@@ -1178,15 +1178,20 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   useEffect(() => {
     if (!tramoEnProgreso) {
       setNuevoDestino(prev => {
-        // Válido si está en locales disponibles, en locales visitados (detour) o es Planta
-        const isValido = 
-          localesDisponibles.some(l => l.nombre === prev) || 
-          localesVisitados.some(l => l.nombre === prev) ||
+        const normalizar = (s: string) => (s || '').trim().toLowerCase();
+        // Solo válido si está en locales DISPONIBLES (no visitados) o es Planta
+        // Los locales visitados (detour) ya se manejaron al registrar la salida
+        const isValido = localesDisponibles.some(l => l.nombre === prev) ||
           (prev === 'Planta' && localesDisponibles.length === 0);
         if (isValido && prev !== '') return prev;
         
-        if (localesDisponibles.length > 0) {
-          return localesDisponibles[0].nombre || '';
+        // Buscar el siguiente local pendiente en orden
+        const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+        const siguientePendiente = localesOrdenados.find(l =>
+          !localesRegistrados.some(r => normalizar(r) === normalizar(l.nombre || ''))
+        );
+        if (siguientePendiente) {
+          return siguientePendiente.nombre || '';
         } else if (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) {
           return 'Planta';
         }
@@ -1515,7 +1520,14 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   let proximoOrigen = 'Planta';
   if (bitacora.length > 0) {
-    proximoOrigen = bitacora[bitacora.length - 1].destino_nombre || 'Planta';
+    const ultimoTramo = bitacora[bitacora.length - 1];
+    // Si el último tramo completado fue una revisita, el origen es el local de la revisita
+    // Si está en progreso, el origen es el destino del tramo anterior completado
+    if (ultimoTramo.hora_llegada) {
+      proximoOrigen = ultimoTramo.destino_nombre || 'Planta';
+    } else {
+      proximoOrigen = ultimoTramo.origen_nombre || 'Planta';
+    }
   }
 
   // Pantalla de bloqueo por día de descanso
