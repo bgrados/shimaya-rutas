@@ -6,6 +6,7 @@ import { ListaAlertas, detectarInconsistenciasGlobales, Alerta } from '../../com
 import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Car, Route, DollarSign, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatHoraPeru } from '../../lib/timezone';
+import { toDate } from 'date-fns-tz';
 import { Link } from 'react-router-dom';
 
 interface Stats {
@@ -72,6 +73,8 @@ export default function AdminDashboard() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [rendimiento, setRendimiento] = useState<RendimientoDia | null>(null);
   const [loading, setLoading] = useState(true);
+  const [choferFilter, setChoferFilter] = useState<string>('todos');
+  const [choferes, setChoferes] = useState<{id_usuario: string; nombre: string}[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -80,12 +83,12 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const calcularMinutos = (inicio: string | null, fin: string | null): number => {
+    const calcularMinutos = (inicio: string | null, fin: string | null): number => {
     if (!inicio || !fin) return 0;
     try {
       const toMins = (h: string) => {
         if (h.includes('T')) {
-          const d = new Date(h);
+          const d = toDate(h, { timeZone: 'America/Lima' });
           return d.getHours() * 60 + d.getMinutes();
         }
         const [hh, mm] = h.split(':').map(Number);
@@ -96,34 +99,44 @@ export default function AdminDashboard() {
     } catch { return 0; }
   };
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    setError(null);
-
-    const timeoutId = setTimeout(() => {
-      setLoading(false);
-      setError('La consulta está tardando demasiado. Verifica tu conexión.');
-    }, 15000);
-
-    try {
-      const now = new Date();
-      const day = now.getDay();
-      const hoyStr = format(now, 'yyyy-MM-dd');
-      const inicioSemana = new Date(now);
-      inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
-      const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
-      // Solo últimos 30 días para no sobrecargar
-      const hace30 = new Date(now);
+    const loadDashboardData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      const timeoutId = setTimeout(() => {
+        setLoading(false);
+        setError('La consulta está tardando demasiado. Verifica tu conexión.');
+      }, 15000);
+      
+      try {
+        const nowPeru = toDate(new Date().toISOString(), { timeZone: 'America/Lima' });
+        const day = nowPeru.getDay();
+        const hoyStr = format(nowPeru, 'yyyy-MM-dd');
+        const inicioSemana = new Date(nowPeru);
+        inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+        const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
+        // Solo últimos 30 días para no sobrecargar
+        const hace30 = new Date(nowPeru);
       hace30.setDate(hace30.getDate() - 30);
       const hace30Str = format(hace30, 'yyyy-MM-dd');
 
       // Cargar rutas solo del período relevante
+      const rutasHoyQuery = supabase.from('rutas').select('*').eq('fecha', hoyStr);
+      const rutasSemanaQuery = supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr);
+      const rutasHistQuery = supabase.from('rutas').select('hora_salida_planta, hora_llegada_planta, fecha, id_chofer').eq('estado', 'finalizada').gte('fecha', hace30Str);
+      
+      if (choferFilter !== 'todos') {
+        rutasHoyQuery.eq('id_chofer', choferFilter);
+        rutasSemanaQuery.eq('id_chofer', choferFilter);
+        rutasHistQuery.eq('id_chofer', choferFilter);
+      }
+
       const [rutasHoyRes, rutasSemanaRes, rutasHistRes, choferesRes, todosChoferesRes] = await Promise.all([
-        supabase.from('rutas').select('*').eq('fecha', hoyStr),
-        supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr),
-        supabase.from('rutas').select('hora_salida_planta, hora_llegada_planta, fecha').eq('estado', 'finalizada').gte('fecha', hace30Str),
+        rutasHoyQuery,
+        rutasSemanaQuery,
+        rutasHistQuery,
         supabase.from('usuarios').select('id_usuario', { count: 'exact', head: true }).eq('rol', 'chofer').eq('activo', true),
-        supabase.from('usuarios').select('id_usuario, dias_descanso').eq('rol', 'chofer').eq('activo', true)
+        supabase.from('usuarios').select('id_usuario, nombre, dias_descanso').eq('rol', 'chofer').eq('activo', true)
       ]);
 
       clearTimeout(timeoutId);
@@ -151,7 +164,7 @@ export default function AdminDashboard() {
 
       // Calcular día de descanso
       const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-      const diaHoy = diasSemana[now.getDay()];
+      const diaHoy = diasSemana[nowPeru.getDay()];
       const todosChoferes = todosChoferesRes.data || [];
       const choferesEnDescanso = todosChoferes.filter((c: any) =>
         (c.dias_descanso || []).includes(diaHoy)
@@ -232,9 +245,13 @@ export default function AdminDashboard() {
 
       // Rutas en progreso con visitas
       if (rutasEnCurso.length > 0) {
-        const { data: rutasProgreso } = await supabase
+        let rutasProgresoQuery = supabase
           .from('rutas').select('*, usuarios!rutas_id_chofer_fkey(nombre)')
           .eq('fecha', hoyStr).eq('estado', 'en_progreso');
+        
+        if (choferFilter !== 'todos') rutasProgresoQuery.eq('id_chofer', choferFilter);
+        
+        const { data: rutasProgreso } = await rutasProgresoQuery;
 
         if (rutasProgreso) {
           const conVisitas = await Promise.all(rutasProgreso.map(async (r: any) => {
@@ -261,10 +278,14 @@ export default function AdminDashboard() {
 
       // Top gastos semana
       if (filterSemana[0] !== '00000000-0000-0000-0000-000000000000') {
-        const { data: gastosChofer } = await supabase
+        let gastosQuery = supabase
           .from('gastos_combustible')
           .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
           .in('id_ruta', filterSemana);
+        
+        if (choferFilter !== 'todos') gastosQuery.eq('id_chofer', choferFilter);
+        
+        const { data: gastosChofer } = await gastosQuery;
 
         if (gastosChofer) {
           const grpComb: Record<string, { nombre: string; total: number; cargas: number }> = {};
@@ -291,10 +312,10 @@ export default function AdminDashboard() {
 
       // NUEVA FUNCIONALIDAD: Rendimiento del día vs promedio histórico
       const histData = rutasHistRes.data || [];
-      const diaSemanaHoy = now.getDay();
+      const diaSemanaHoy = nowPeru.getDay();
       const rutasMismoDia = histData.filter(r => {
         if (!r.fecha) return false;
-        return new Date(r.fecha + 'T00:00:00').getDay() === diaSemanaHoy;
+        return toDate(r.fecha + 'T00:00:00', { timeZone: 'America/Lima' }).getDay() === diaSemanaHoy;
       });
 
       const tiemposHistoricos = rutasMismoDia
@@ -362,16 +383,37 @@ export default function AdminDashboard() {
     </div>
   );
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Panel General</h1>
-        <button onClick={loadDashboardData}
-          className="text-text-muted hover:text-white text-sm flex items-center gap-1">
-          <Clock size={14} /> Actualizar
-        </button>
-      </div>
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-white">Panel General</h1>
+            {choferFilter !== 'todos' && (
+              <div className="bg-primary/10 border border-primary/30 px-3 py-1.5 rounded-xl">
+                <p className="text-primary text-sm font-bold">
+                  {choferes.find(c => c.id_usuario === choferFilter)?.nombre || 'Chofer'}
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <select 
+              value={choferFilter} 
+              onChange={e => setChoferFilter(e.target.value)}
+              className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
+            >
+              <option value="todos">Todos los choferes</option>
+              {choferes.map(c => (
+                <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
+              ))}
+            </select>
+            <button onClick={loadDashboardData}
+              className="text-text-muted hover:text-white text-sm flex items-center gap-1">
+              <Clock size={14} /> Actualizar
+            </button>
+          </div>
+        </div>
 
       {/* Alertas */}
       {alertas.length > 0 && (
