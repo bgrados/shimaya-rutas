@@ -15,7 +15,7 @@ const TARGET_QUALITY = 0.7;
 const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; finalSize: number }> => {
   return new Promise((resolve, reject) => {
     const originalSize = file.size;
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -23,31 +23,31 @@ const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; 
         try {
           let width = img.width;
           let height = img.height;
-          
+
           if (width > TARGET_WIDTH) {
             const ratio = TARGET_WIDTH / width;
             width = TARGET_WIDTH;
             height = Math.round(height * ratio);
           }
-          
+
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
-          
+
           const ctx = canvas.getContext('2d');
           if (!ctx) { reject(new Error('No context')); return; }
-          
+
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           let quality = TARGET_QUALITY;
           let blob: Blob | null = null;
           let attempts = 0;
-          
+
           do {
             blob = await new Promise<Blob | null>((res) => {
               canvas.toBlob((b) => res(b), 'image/jpeg', quality);
             });
-            
+
             if (blob) {
               const sizeKB = blob.size / 1024;
               if (sizeKB <= MAX_SIZE_KB || quality <= 0.3) {
@@ -58,7 +58,7 @@ const optimizeImage = (file: File): Promise<{ blob: Blob; originalSize: number; 
             quality -= 0.1;
             attempts++;
           } while (attempts < 5 && blob && blob.size > MAX_SIZE_KB * 1024);
-          
+
           if (blob) resolve({ blob, originalSize, finalSize: blob.size });
           else reject(new Error('Error compress'));
         } catch (err) { reject(err); }
@@ -94,13 +94,13 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processOCR = async (imageData: string) => {
     setProcesando(true);
     setOcrProgress(0);
-    
+
     try {
       const result = await Tesseract.recognize(imageData, 'spa', {
         logger: (m) => {
@@ -155,7 +155,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       setMontoDetectado(montoEncontrado);
       setKilometrajeDetectado(kmEncontrado);
       setTipoDetectado(tipoEncontrado);
-      
+
       if (montoEncontrado) {
         setManualMonto(montoEncontrado.toString());
       }
@@ -178,7 +178,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
+
     const file = files[0];
 
     // Método simple - directo con FileReader
@@ -186,11 +186,11 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       setFoto(dataUrl);
-      
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      
+
       // OCR opcional - no bloquea la preview
       processOCR(dataUrl).catch(console.error);
     };
@@ -207,26 +207,23 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
       setError('Ingresa el monto del combustible');
       return;
     }
-    if (!manualKilometraje || parseInt(manualKilometraje) <= 0) {
-      setError('Ingresa el kilometraje actual');
-      return;
-    }
+    // Kilometraje ya no se pide al cargar combustible
 
     setGuardando(true);
     setError(null);
 
     try {
       let fotoUrl: string | null = null;
-      
-      
+
+
       if (!foto) {
         alert('⚠️ No hay foto para subir. Toma una foto primero.');
         return;
       }
-      
+
       if (foto) {
         setSubiendoFoto(true);
-        
+
         try {
           const fileName = `combustible_${idRuta}_${Date.now()}.jpg`;
           const filePath = `combustible/${fileName}`;
@@ -234,8 +231,8 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
           // Convertir dataURL a blob de forma segura
           const base64Response = await fetch(foto);
           const blobToUpload = await base64Response.blob();
-          
-          
+
+
           // Validar blob
           if (!blobToUpload || blobToUpload.size === 0) {
             alert('Error: imagen vacía');
@@ -244,10 +241,10 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
             return;
           }
 
-          
+
           const uploadResult = await supabase.storage
             .from('combustible')
-            .upload(filePath, blobToUpload, { 
+            .upload(filePath, blobToUpload, {
               contentType: 'image/jpeg'
             });
 
@@ -281,7 +278,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
         id_chofer: idChofer,
         tipo_combustible: tipoDetectado,
         monto: parseFloat(manualMonto),
-        kilometraje: parseInt(manualKilometraje) || null,
+        kilometraje: null, // El kilometraje se registra al inicio y fin de ruta
         foto_url: fotoUrl,
         notas: notas || null,
         estado: 'confirmado',
@@ -336,14 +333,14 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                   <img src={foto} alt="Comprobante" className="max-h-48 mx-auto rounded-lg border border-surface-light" />
                 </div>
                 <div className="flex justify-center gap-2 mt-2">
-                  <a 
-                    href={foto} 
+                  <a
+                    href={foto}
                     download={`comprobante_${Date.now()}.jpg`}
                     className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
                   >
                     <Download size={14} /> Descargar
                   </a>
-                  <button 
+                  <button
                     onClick={() => { setFoto(null); setOptimizedFoto(null); setMontoDetectado(null); }}
                     className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
                   >
@@ -415,18 +412,13 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
                   <Check size={16} />
                   <span>Monto detectado: S/ {montoDetectado.toFixed(2)}</span>
                 </div>
-                {kilometrajeDetectado && (
-                  <div className="flex items-center gap-2 text-blue-400 text-sm font-bold border-t border-white/5 pt-1 mt-1">
-                    <Truck size={16} />
-                    <span>KM detectado: {kilometrajeDetectado} km</span>
-                  </div>
-                )}
+
               </div>
             </CardContent>
           </Card>
         )}
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-text-muted mb-1">Fecha</label>
             <input
@@ -447,16 +439,7 @@ export default function RegistrarCombustible({ idRuta, idChofer, onClose }: Regi
               className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-text-muted mb-1">Kilometraje</label>
-            <input
-              type="number"
-              value={manualKilometraje}
-              onChange={(e) => setManualKilometraje(e.target.value)}
-              placeholder="0"
-              className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary font-bold"
-            />
-          </div>
+
         </div>
 
         <div>
