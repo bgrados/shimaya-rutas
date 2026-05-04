@@ -1261,6 +1261,21 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         if (bitacora.length === 0) {
           await supabase.from('rutas').update({ estado: 'en_progreso', hora_salida_planta: data.hora_salida }).eq('id_ruta', ruta.id_ruta);
         }
+        // Si el destino era una revisita, preparar el siguiente local pendiente en orden
+        const normalizar = (s: string) => (s || '').trim().toLowerCase();
+        const registradosActualizados = [...bitacora, data as any].filter(b => b.hora_llegada).map(b => b.destino_nombre);
+        const eraDetourSalida = bitacora.some(b => b.hora_llegada && normalizar(b.destino_nombre || '') === normalizar(nuevoDestino));
+        if (eraDetourSalida) {
+          const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+          const siguientePendiente = localesOrdenados.find(l =>
+            !registradosActualizados.some(r => normalizar(r) === normalizar(l.nombre || ''))
+          );
+          if (siguientePendiente) {
+            setNuevoDestino(siguientePendiente.nombre || '');
+          } else {
+            setNuevoDestino('Planta');
+          }
+        }
       } else if (error) {
         console.error('[Viaje] Error registrar salida:', error);
         showToast('error', 'Error en salida: ' + error.message);
