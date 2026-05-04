@@ -1361,6 +1361,16 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               observacion: (localDetour.observacion ? localDetour.observacion + ' | ' : '') + 'Revisita: ' + now
             }).eq('id_local_ruta', localDetour.id_local_ruta);
           }
+          // Después del detour, volver al siguiente local pendiente en orden
+          const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+          const siguientePendiente = localesOrdenados.find(l => 
+            !localesRegistrados.some(r => normalizar(r) === normalizar(l.nombre || ''))
+          );
+          if (siguientePendiente) {
+            setNuevoDestino(siguientePendiente.nombre || '');
+          } else if (!localesRegistrados.includes('Planta') && bitacora.length > 0) {
+            setNuevoDestino('Planta');
+          }
         }
         if (data.destino_nombre === 'Planta') {
            await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
