@@ -1,8 +1,9 @@
-import React from 'react';
-import { Truck, PlusCircle, ChevronDown, Play, RefreshCw, Camera, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Truck, PlusCircle, ChevronDown, Play, RefreshCw, Camera, X, Loader2 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { Card, CardContent } from '../../../../components/ui/Card';
 import { Input } from '../../../../components/ui/Input';
+import Tesseract from 'tesseract.js';
 
 interface RutaSelectorProps {
   loadingRutasBase: boolean;
@@ -39,6 +40,50 @@ export function RutaSelector({
   setFotoKmInicio,
   handleCrearRuta
 }: RutaSelectorProps) {
+  const [procesandoOCR, setProcesandoOCR] = useState(false);
+  const [kmDetectado, setKmDetectado] = useState<number | null>(null);
+
+  const procesarOCRKm = async (dataUrl: string) => {
+    setProcesandoOCR(true);
+    setKmDetectado(null);
+    try {
+      const result = await Tesseract.recognize(dataUrl, 'eng', {});
+      const text = result.data.text;
+      // Buscar número de 4-7 dígitos que sea el odómetro
+      const matches = text.match(/\d{4,7}/g);
+      if (matches && matches.length > 0) {
+        // Tomar el número más largo encontrado
+        const km = parseInt(matches.sort((a, b) => b.length - a.length)[0]);
+        setKmDetectado(km);
+        setKmInicio(km.toString());
+      }
+    } catch (err) {
+      console.error('[OCR KM]', err);
+    } finally {
+      setProcesandoOCR(false);
+    }
+  };
+
+  const handleFotoKmInicio = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          const dataUrl = re.target?.result as string;
+          setFotoKmInicio(dataUrl);
+          procesarOCRKm(dataUrl);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
   return (
     <div className="p-4 space-y-8 max-w-lg mx-auto pb-24">
       <div className="text-center space-y-2 pt-8">
@@ -123,35 +168,33 @@ export function RutaSelector({
               <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Foto del Odómetro (Opcional)</label>
               {!fotoKmInicio ? (
                 <button 
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.capture = 'environment';
-                    input.onchange = (e: any) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (re) => setFotoKmInicio(re.target?.result as string);
-                        reader.readAsDataURL(file);
-                      }
-                    };
-                    input.click();
-                  }}
+                  onClick={handleFotoKmInicio}
                   className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 text-text-muted hover:border-primary/50 hover:text-primary transition-all"
                 >
                   <Camera size={24} />
-                  <span className="text-xs font-bold uppercase">Tomar Foto</span>
+                  <span className="text-xs font-bold uppercase">Tomar Foto del Odómetro</span>
+                  <span className="text-[10px] text-text-muted">El número se detecta automáticamente</span>
                 </button>
               ) : (
                 <div className="relative group">
                   <img src={fotoKmInicio} className="w-full h-32 object-cover rounded-xl border-2 border-primary/50" />
                   <button 
-                    onClick={() => setFotoKmInicio(null)}
+                    onClick={() => { setFotoKmInicio(null); setKmDetectado(null); }}
                     className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white"
                   >
                     <X size={14} />
                   </button>
+                  {procesandoOCR && (
+                    <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="text-white animate-spin" size={24} />
+                      <span className="text-white text-xs font-bold">Detectando kilometraje...</span>
+                    </div>
+                  )}
+                  {kmDetectado && !procesandoOCR && (
+                    <div className="absolute bottom-2 left-2 right-2 bg-green-500/90 rounded-lg px-3 py-1 text-center">
+                      <span className="text-white text-xs font-black">✅ KM detectado: {kmDetectado.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

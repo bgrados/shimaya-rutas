@@ -90,6 +90,8 @@ export default function DriverViaje() {
   const [kmFin, setKmFin] = useState('');
   const [fotoKmInicio, setFotoKmInicio] = useState<string | null>(null);
   const [fotoKmFin, setFotoKmFin] = useState<string | null>(null);
+  const [procesandoOCRFin, setProcesandoOCRFin] = useState(false);
+  const [kmFinDetectado, setKmFinDetectado] = useState<number | null>(null);
   const [showFinalKmModal, setShowFinalKmModal] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
@@ -685,6 +687,26 @@ export default function DriverViaje() {
       agregarLogDebug('🔄 Nuevo tramo iniciado, reseteando detección de llegada');
     }
   }, [bitacora.length]);
+
+  const procesarOCRKmFin = async (dataUrl: string) => {
+    setProcesandoOCRFin(true);
+    setKmFinDetectado(null);
+    try {
+      const Tesseract = await import('tesseract.js');
+      const result = await Tesseract.default.recognize(dataUrl, 'eng', {});
+      const text = result.data.text;
+      const matches = text.match(/\d{4,7}/g);
+      if (matches && matches.length > 0) {
+        const km = parseInt(matches.sort((a: string, b: string) => b.length - a.length)[0]);
+        setKmFinDetectado(km);
+        setKmFin(km.toString());
+      }
+    } catch (err) {
+      console.error('[OCR KM FIN]', err);
+    } finally {
+      setProcesandoOCRFin(false);
+    }
+  };
 
   const loadViajeData = async (idRuta: string) => {
     const { data: localesData } = await supabase
@@ -2499,7 +2521,11 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                           const file = e.target.files[0];
                           if (file) {
                             const reader = new FileReader();
-                            reader.onload = (re) => setFotoKmFin(re.target?.result as string);
+                            reader.onload = (re) => {
+                              const dataUrl = re.target?.result as string;
+                              setFotoKmFin(dataUrl);
+                              procesarOCRKmFin(dataUrl);
+                            };
                             reader.readAsDataURL(file);
                           }
                         };
@@ -2508,17 +2534,29 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                       className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 text-text-muted hover:border-primary/50 hover:text-primary transition-all"
                     >
                       <Camera size={24} />
-                      <span className="text-xs font-bold uppercase">Tomar Foto</span>
+                      <span className="text-xs font-bold uppercase">Tomar Foto del Odómetro</span>
+                      <span className="text-[10px] text-text-muted">El número se detecta automáticamente</span>
                     </button>
                   ) : (
                     <div className="relative group">
                       <img src={fotoKmFin} className="w-full h-32 object-cover rounded-xl border-2 border-primary/50" />
                       <button 
-                        onClick={() => setFotoKmFin(null)}
+                        onClick={() => { setFotoKmFin(null); setKmFinDetectado(null); }}
                         className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white"
                       >
                         <X size={14} />
                       </button>
+                      {procesandoOCRFin && (
+                        <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center gap-2">
+                          <Loader2 className="text-white animate-spin" size={24} />
+                          <span className="text-white text-xs font-bold">Detectando kilometraje...</span>
+                        </div>
+                      )}
+                      {kmFinDetectado && !procesandoOCRFin && (
+                        <div className="absolute bottom-2 left-2 right-2 bg-green-500/90 rounded-lg px-3 py-1 text-center">
+                          <span className="text-white text-xs font-black">✅ KM detectado: {kmFinDetectado.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
