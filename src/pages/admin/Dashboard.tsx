@@ -209,7 +209,7 @@ export default function AdminDashboard() {
       // Peajes
       const rutasBaseIds = [...new Set(rutasHoy.map(r => r.id_ruta_base).filter(Boolean))];
       const rutasBaseIdsSemana = [...new Set(rutasSemanaRes.data?.map((_: any) => _.id_ruta_base).filter(Boolean) || [])];
-      let rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
+      const rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
 
       const allRutasBaseIds = [...new Set([...rutasBaseIds, ...rutasBaseIdsSemana])];
       if (allRutasBaseIds.length > 0) {
@@ -247,7 +247,7 @@ export default function AdminDashboard() {
 
       // Rutas en progreso con visitas
       if (rutasEnCurso.length > 0) {
-        let rutasProgresoQuery = supabase
+        const rutasProgresoQuery = supabase
           .from('rutas').select('*, usuarios!rutas_id_chofer_fkey(nombre)')
           .eq('fecha', hoyStr).eq('estado', 'en_progreso');
         
@@ -280,7 +280,7 @@ export default function AdminDashboard() {
 
       // Top gastos semana
       if (filterSemana[0] !== '00000000-0000-0000-0000-000000000000') {
-        let gastosQuery = supabase
+        const gastosQuery = supabase
           .from('gastos_combustible')
           .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
           .in('id_ruta', filterSemana);
