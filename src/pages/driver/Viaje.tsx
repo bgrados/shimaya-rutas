@@ -692,14 +692,80 @@ export default function DriverViaje() {
     setProcesandoOCRFin(true);
     setKmFinDetectado(null);
     try {
-      const Tesseract = await import('tesseract.js');
-      const result = await Tesseract.default.recognize(dataUrl, 'eng', {});
-      const text = result.data.text;
-      const matches = text.match(/\d{4,7}/g);
-      if (matches && matches.length > 0) {
-        const km = parseInt(matches.sort((a: string, b: string) => b.length - a.length)[0]);
-        setKmFinDetectado(km);
-        setKmFin(km.toString());
+      // 1. Preprocess image (like ModalEvidencia.tsx)
+      const img = new Image();
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.src = dataUrl;
+      });
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No canvas context');
+      
+      ctx.drawImage(img, 0, 0);
+      
+      // Improve contrast and convert to grayscale
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        // Increase contrast
+        const contrasted = avg > 128 ? Math.min(255, avg * 1.2) : Math.max(0, avg * 0.8);
+        data[i] = data[i + 1] = data[i + 2] = contrasted;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      
+      const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      
+      // 2. Use Spanish language (like fuel OCR)
+      const TesseractMod = await import('tesseract.js');
+      const result = await TesseractMod.default.recognize(optimizedDataUrl, 'spa', {});
+      const text = result.data.text.toLowerCase();
+      
+      console.log('[OCR KM FIN] Text detected:', text);
+      
+      // 3. Use improved patterns (similar to fuel OCR)
+      const kilometrajePatterns = [
+        /(\d{4,7})\s*km/i,
+        /km[:\s]*(\d{4,7})/i,
+        /kilom[.\s]*(\d{4,7})/i,
+        /odo[.\s]*(\d{4,7})/i,
+        /(\d{5,7})/,  // 5-7 digits (most likely odometer)
+        /(\d{4})/,    // 4 digits as fallback
+      ];
+      
+      let kmEncontrado: number | null = null;
+      for (const pattern of kilometrajePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const km = parseInt(match[1] || match[0]);
+          if (km > 0 && km < 999999) {  // Sanity check
+            kmEncontrado = km;
+            break;
+          }
+        }
+      }
+      
+      // Fallback: look for any 4-7 digit number (original logic)
+      if (!kmEncontrado) {
+        const matches = text.match(/\d{4,7}/g);
+        if (matches && matches.length > 0) {
+          const km = parseInt(matches.sort((a, b) => b.length - a.length)[0]);
+          if (km > 0 && km < 999999) {
+            kmEncontrado = km;
+          }
+        }
+      }
+      
+      if (kmEncontrado) {
+        setKmFinDetectado(kmEncontrado);
+        setKmFin(kmEncontrado.toString());
+        console.log('[OCR KM FIN] Kilometraje detectado:', kmEncontrado);
+      } else {
+        console.warn('[OCR KM FIN] No se detectó kilometraje');
       }
     } catch (err) {
       console.error('[OCR KM FIN]', err);
@@ -1182,6 +1248,16 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       if (insertError) throw insertError;
 
       await loadCurrentRuta();
+      
+      // FORCE Bitácora to show after route creation
+      showToast('success', '¡Ruta creada! Ahora inicia tu viaje.');
+      
+      // Small delay to ensure state updates propagate
+      setTimeout(() => {
+        const siguiente = calcularSiguienteDestino();
+        if (siguiente) setNuevoDestino(siguiente);
+      }, 300);
+      
     } catch (e: any) {
       console.error('[Viaje] Error al crear viaje:', e);
       setCreateError('Error al crear el viaje: ' + (e.message || JSON.stringify(e)));
@@ -1993,13 +2069,20 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 </div>
               )}
 
-              <Button 
-                className="w-full h-16 text-xl font-black italic tracking-widest bg-primary hover:bg-primary-light shadow-xl shadow-primary/30 rounded-2xl border-b-4 border-primary-dark active:border-b-0 active:translate-y-1 transition-all"
-                onClick={handleRegistrarSalida}
-                disabled={actionLoading}
-              >
-                {actionLoading ? 'INICIANDO...' : 'INICIAR VIAJE →'}
-              </Button>
+              <Card className="bg-surface-light/5 border-2 border-primary/30 overflow-hidden shadow-2xl animate-pulse">
+                <div className="bg-green-500/20 border-b border-green-500/30 p-2 text-center">
+                  <span className="text-green-400 text-xs font-bold">✓ RUTA CREADA - LISTA PARA INICIAR</span>
+                </div>
+                <CardContent className="p-6">
+                  <Button 
+                    className="w-full h-16 text-xl font-black italic tracking-widest bg-primary hover:bg-primary-light shadow-xl shadow-primary/30 rounded-2xl border-b-4 border-primary-dark active:border-b-0 active:translate-y-1 transition-all"
+                    onClick={handleRegistrarSalida}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? 'INICIANDO...' : 'INICIAR VIAJE →'}
+                  </Button>
+                </CardContent>
+              </Card>
               
               {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
                 <Button variant="ghost" onClick={() => {
