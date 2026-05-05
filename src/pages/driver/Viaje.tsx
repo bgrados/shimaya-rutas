@@ -1028,6 +1028,7 @@ export default function DriverViaje() {
     }
     setLoadingRutasBase(true);
     try {
+      console.log('[loadRutasBase] Iniciando carga...');
       // Query 1: obtener todas las rutas base
       const { data: baseData, error: rbError } = await supabase
         .from('rutas_base')
@@ -1035,9 +1036,12 @@ export default function DriverViaje() {
         .order('nombre');
         
       if (rbError) {
-        console.error('Error loading rutas base:', rbError);
+        console.error('[loadRutasBase] Error loading rutas base:', rbError);
+        setCreateError(`Error cargando plantillas: ${rbError.message}`);
         return;
       }
+
+      console.log('[loadRutasBase] Datos recibidos:', baseData);
 
       if (baseData && baseData.length > 0) {
         // Query 2: obtener TODOS los locales_base en UNA sola consulta (evita N+1)
@@ -1045,7 +1049,9 @@ export default function DriverViaje() {
           .from('locales_base')
           .select('id_ruta_base');
         
-        if (locError) console.error('Error counting locales:', locError);
+        if (locError) {
+          console.error('[loadRutasBase] Error counting locales:', locError);
+        }
         
         // Construir mapa de conteo
         const countMap: Record<string, number> = {};
@@ -1058,12 +1064,16 @@ export default function DriverViaje() {
           locales_count: countMap[rb.id_ruta_base] || 0
         }));
         
+        console.log('[loadRutasBase] Rutas con conteo:', withCounts);
         setRutasBase(withCounts);
       } else {
+        console.warn('[loadRutasBase] No hay rutas base. ¿Tabla vacía?');
         setRutasBase([]);
+        setCreateError('No hay plantillas configuradas. Contacta al administrador.');
       }
-    } catch (err) {
-      console.error('Error loading rutas base:', err);
+    } catch (err: any) {
+      console.error('[loadRutasBase] Error:', err);
+      setCreateError(`Error: ${err.message}`);
     } finally {
       setLoadingRutasBase(false);
       setRutasBaseLoaded(true);
