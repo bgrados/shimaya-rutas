@@ -17,11 +17,11 @@ import { BitacoraList } from './viaje/components/BitacoraList';
 import { LocalList } from './viaje/components/LocalList';
 import { formatPeru, nowPeru, formatOnlyDatePeru } from '../../lib/timezone';
 import { RefreshCw, MapPinOff, Wifi, WifiOff, Coffee, Phone } from 'lucide-react';
-import { 
-  MapPin, 
-  CheckCircle2, 
-  Clock, 
-  Truck, 
+import {
+  MapPin,
+  CheckCircle2,
+  Clock,
+  Truck,
   PlusCircle,
   ChevronDown,
   Flag,
@@ -45,6 +45,84 @@ import {
   Search
 } from 'lucide-react';
 
+// ============================================================
+// FUNCIONES OCR MEJORADAS (corrección vertical + preprocesamiento)
+// ============================================================
+
+const corregirOrientacionImagenDesdeDataUrl = (dataUrl: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      let rotationAngle = 0;
+
+      if (height > width) {
+        canvas.width = height;
+        canvas.height = width;
+        rotationAngle = -90;
+      } else {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+
+      if (rotationAngle !== 0) {
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(rotationAngle * Math.PI / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      } else {
+        ctx.drawImage(img, 0, 0);
+      }
+
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
+const preprocesarImagenOcr = (dataUrl: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        const value = gray > 128 ? 255 : 0;
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
 export default function DriverViaje() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -53,17 +131,15 @@ export default function DriverViaje() {
   const [ruta, setRuta] = useState<Ruta | null>(null);
   const [locales, setLocales] = useState<LocalRuta[]>([]);
   const [bitacora, setBitacora] = useState<ViajeBitacora[]>([]);
-  
+
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  
-  // Selection/Creation state
-  const [rutasBase, setRutasBase] = useState<any[]>([]);
-  const [loadingRutasBase, setLoadingRutasBase] = useState(true); // true inicialmente para evitar flash
-  const [rutasBaseLoaded, setRutasBaseLoaded] = useState(false); // Flag para evitar recargas duplicadas
-  const [loadedAtLeastOnce, setLoadedAtLeastOnce] = useState(false); // Track si ya intentamos cargar
 
-  // Super failsafe timer for loading states
+  const [rutasBase, setRutasBase] = useState<any[]>([]);
+  const [loadingRutasBase, setLoadingRutasBase] = useState(true);
+  const [rutasBaseLoaded, setRutasBaseLoaded] = useState(false);
+  const [loadedAtLeastOnce, setLoadedAtLeastOnce] = useState(false);
+
   useEffect(() => {
     if (loadingRutasBase || loading) {
       const timer = setTimeout(() => {
@@ -75,16 +151,16 @@ export default function DriverViaje() {
       return () => clearTimeout(timer);
     }
   }, [loadingRutasBase, loading]);
-  
+
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
   const [nuevaPlaca, setNuevaPlaca] = useState(profile?.placa_camion || '');
-  
-  // Sync placa when profile loads
+
   useEffect(() => {
     if (profile?.placa_camion && !nuevaPlaca) {
       setNuevaPlaca(profile.placa_camion);
     }
   }, [profile?.placa_camion]);
+
   const [createError, setCreateError] = useState('');
   const [kmInicio, setKmInicio] = useState('');
   const [kmFin, setKmFin] = useState('');
@@ -95,7 +171,6 @@ export default function DriverViaje() {
   const [showFinalKmModal, setShowFinalKmModal] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
-  // Si el perfil ya tiene placa, usarla por defecto y deshabilitar edición
   const tienePlacaAsignada = !!(profile?.placa_camion);
 
   const handlePlacaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,13 +184,11 @@ export default function DriverViaje() {
   const [nuevoDestino, setNuevoDestino] = useState('');
   const [showCombustible, setShowCombustible] = useState(false);
   const [enviandoWhatsapp, setEnviandoWhatsapp] = useState(false);
-  
-  // Estado para GPS y modo manual
+
   const [gpsDisponible, setGpsDisponible] = useState<boolean | null>(null);
   const [gpsVerificando, setGpsVerificando] = useState(false);
   const [showModoManual, setShowModoManual] = useState(false);
-  
-  // Estado para capturar fotos de evidencia
+
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
 
   const [editandoBitacora, setEditandoBitacora] = useState<string | null>(null);
@@ -124,43 +197,38 @@ export default function DriverViaje() {
   const [isEditingKmInicio, setIsEditingKmInicio] = useState(false);
   const [tempKmInicio, setTempKmInicio] = useState('');
 
-  // Estado para volver a local anterior
   const [mostrarLocalesVisitados, setMostrarLocalesVisitados] = useState(false);
   const [showResumenRuta, setShowResumenRuta] = useState(false);
   const [esHistorial, setEsHistorial] = useState(false);
 
-  // Estados para detección automática de llegada por GPS
   const [gpsPosicionActual, setGpsPosicionActual] = useState<{ lat: number; lng: number } | null>(null);
   const [distanciaAlPunto, setDistanciaAlPunto] = useState<number | null>(null);
   const [llegadaDetectada, setLlegadaDetectada] = useState(false);
   const [gpsDebugLogs, setGpsDebugLogs] = useState<string[]>([]);
   const watchIdRef = useRef<number | null>(null);
-  
-  // Verificar día de descanso al inicio
+
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const diaHoy = diasSemana[new Date(nowPeru()).getDay()];
   const esDiaDescanso = profile?.dias_descanso?.includes(diaHoy);
   const [diaDescansoBloqueado, setDiaDescansoBloqueado] = useState(false);
 
-  // Constantes de configuración GPS - Sistema robusto MEJORADO v2
-  const RADIO_BASE = 150; // Radio base de detección (aumentado de 100)
-  const RADIO_MIN = 100; // Radio mínimo (aumentado de 60)
-  const RADIO_MAX = 200; // Radio máximo (aumentado de 150)
-  const LECTURAS_PROMEDIAR = 5; // Cantidad de lecturas para promediar
-  const LECTURAS_REQUERIDAS = 3; // Lecturas mínimas para el sistema avanzado
-  const TIEMPO_LLEGADA = 12000; // Tiempo requerido dentro del radio (ms) - 12 segundos
-  const TIEMPO_SALIDA = 6000; // Tiempo requerido fuera del radio (ms) - 6 segundos
-  const COOLDOWN_REGISTRO = 18000; // 18 segundos entre registros
-  const STABILIDAD_ACEPTABLE = 50; // metros de variación máxima para considerar estable
-  const ALERTA_PRECISION = 100; // Umbral para mostrar alerta de señal baja
-  const TIEMPO_BOTON_MANUAL = 25000; // Mostrar botón manual después de 25s
+  const RADIO_BASE = 150;
+  const RADIO_MIN = 100;
+  const RADIO_MAX = 200;
+  const LECTURAS_PROMEDIAR = 5;
+  const LECTURAS_REQUERIDAS = 3;
+  const TIEMPO_LLEGADA = 12000;
+  const TIEMPO_SALIDA = 6000;
+  const COOLDOWN_REGISTRO = 18000;
+  const STABILIDAD_ACEPTABLE = 50;
+  const ALERTA_PRECISION = 100;
+  const TIEMPO_BOTON_MANUAL = 25000;
   const GPS_OPTIONS = {
     enableHighAccuracy: true,
     maximumAge: 0,
     timeout: 20000
   };
 
-  // Estado para sistema avanzado de GPS v2
   const [LecturasGPS, setLecturasGPS] = useState<{ lat: number; lng: number; accuracy: number; timestamp: number }[]>([]);
   const [tiempoEnRango, setTiempoEnRango] = useState<number>(0);
   const [ultimoRegistroTime, setUltimoRegistroTime] = useState<number>(0);
@@ -169,8 +237,7 @@ export default function DriverViaje() {
   const [intentosLectura, setIntentosLectura] = useState(0);
   const timerPermanenciaRef = useRef<NodeJS.Timeout | null>(null);
   const lecturasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Nuevos estados para GPS v2 con promediado
+
   const [lecturasBuffer, setLecturasBuffer] = useState<{ lat: number; lng: number; accuracy: number; timestamp: number }[]>([]);
   const [posicionPromediada, setPosicionPromediada] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [estadoDetectar, setEstadoDetectar] = useState<'idle' | 'validando_llegada' | 'validando_salida'>('idle');
@@ -181,39 +248,34 @@ export default function DriverViaje() {
   const timerValidacionRef = useRef<NodeJS.Timeout | null>(null);
   const timerSignalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Función para calcular radio dinámico según precisión
   const getRadioDinamico = (accuracy: number): number => {
     if (accuracy < 30) return RADIO_MIN;
     if (accuracy < 80) return RADIO_BASE;
     return RADIO_MAX;
   };
 
-  // Función para promediar lecturas GPS
   const promediarLecturas = (lecturas: { lat: number; lng: number; accuracy: number }[]): { lat: number; lng: number; accuracy: number } | null => {
     if (lecturas.length === 0) return null;
-    
-    // Filtrar lecturas inconsistentes (más de 50m de diferencia)
+
     const lats = lecturas.map(l => l.lat);
     const lngs = lecturas.map(l => l.lng);
     const latProm = lats.reduce((a, b) => a + b, 0) / lats.length;
     const lngProm = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-    
-    // Verificar consistencia
+
     const consistente = lecturas.every(l => {
       const dist = calcularDistanciaHaversine(latProm, lngProm, l.lat, l.lng);
       return dist < 50;
     });
-    
+
     if (!consistente) {
       agregarLogDebug('⚠️ Lecturas inconsistentes - reiniciando');
       return null;
     }
-    
+
     const accuracyProm = lecturas.reduce((a, b) => a + b.accuracy, 0) / lecturas.length;
     return { lat: latProm, lng: lngProm, accuracy: accuracyProm };
   };
 
-  // Función para iniciar GPS avançado com promedio de lecturas
   const obtenerGPSAvanzado = async (): Promise<{ lat: number; lng: number; accuracy: number } | null> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -256,12 +318,11 @@ export default function DriverViaje() {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
-            
+
             lecturas.push({ lat, lng, accuracy, timestamp: Date.now() });
             setIntentosLectura(intento + 1);
             agregarLogDebug(`📍 Lectura ${intento + 1}/${LECTURAS_REQUERIDAS}: ±${accuracy.toFixed(0)}m`);
-            
-            // Siguiente lectura después de 1 segundo
+
             setTimeout(() => hacerLectura(intento + 1), 1000);
           },
           (error) => {
@@ -276,7 +337,6 @@ export default function DriverViaje() {
     });
   };
 
-  // Función para verificar permisos de geolocalización
   const verificarPermisosGPS = async (): Promise<{ granted: boolean; state: string }> => {
     if (!navigator.geolocation || !navigator.permissions) {
       return { granted: true, state: 'prompt' };
@@ -289,7 +349,6 @@ export default function DriverViaje() {
     }
   };
 
-  // Función para iniciar GPS avanzado (usar sistema promediado)
   const iniciarGPSConPermisos = async (): Promise<{ lat: number; lng: number; accuracy: number } | null> => {
     const result = await obtenerGPSAvanzado();
     if (result) {
@@ -298,7 +357,6 @@ export default function DriverViaje() {
     return result;
   };
 
-  // Función para verificar cooldown de registro
   const puedeRegistrar = (): boolean => {
     const tiempoDesdeUltimo = Date.now() - ultimoRegistroTime;
     if (tiempoDesdeUltimo < COOLDOWN_REGISTRO) {
@@ -309,108 +367,94 @@ export default function DriverViaje() {
     return true;
   };
 
-  // Función para calcular distancia Haversine entre dos puntos
   const calcularDistanciaHaversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371000; // Radio de la Tierra en metros
+    const R = 6371000;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distancia en metros
+    return R * c;
   };
 
-  // Función para agregar logs de debug
   const agregarLogDebug = (mensaje: string) => {
     const timestamp = new Date().toLocaleTimeString();
     const log = `[${timestamp}] ${mensaje}`;
-    setGpsDebugLogs(prev => [...prev.slice(-9), log]); // Mantener últimos 10 logs
+    setGpsDebugLogs(prev => [...prev.slice(-9), log]);
   };
 
-  // Función para promediar lecturas GPS con filtro de consistencia
   const promediarLecturasConsistentes = (lecturas: { lat: number; lng: number; accuracy: number }[]): { lat: number; lng: number; accuracy: number } | null => {
     if (lecturas.length < LECTURAS_PROMEDIAR) return null;
-    
-    // Filtrar lecturas inconsistentes (más de 50m de diferencia entre lecturas)
+
     const lats = lecturas.map(l => l.lat);
     const lngs = lecturas.map(l => l.lng);
     const latProm = lats.reduce((a, b) => a + b, 0) / lats.length;
     const lngProm = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-    
-    // Verificar consistencia
+
     const consistente = lecturas.every(l => {
       const dist = calcularDistanciaHaversine(latProm, lngProm, l.lat, l.lng);
       return dist < STABILIDAD_ACEPTABLE;
     });
-    
+
     if (!consistente) {
       agregarLogDebug('⚠️ Lecturas inconsistentes - ignorando');
       return null;
     }
-    
+
     const accuracyProm = lecturas.reduce((a, b) => a + b.accuracy, 0) / lecturas.length;
     return { lat: latProm, lng: lngProm, accuracy: accuracyProm };
   };
 
-  // Función para procesar lectura con buffer y promediado
   const procesarLecturaConPromedio = (lat: number, lng: number, accuracy: number): { lat: number; lng: number; accuracy: number } | null => {
     const timestamp = Date.now();
-    
-    // Agregar al buffer
+
     const nuevaLectura = { lat, lng, accuracy, timestamp };
     setLecturasBuffer(prev => {
       const nuevoBuffer = [...prev, nuevaLectura];
-      // Mantener solo las últimas 5 lecturas
       if (nuevoBuffer.length > LECTURAS_PROMEDIAR) {
         return nuevoBuffer.slice(-LECTURAS_PROMEDIAR);
       }
       return nuevoBuffer;
     });
-    
-    // Verificar si tenemos suficientes lecturas
+
     if (lecturasBuffer.length >= LECTURAS_PROMEDIAR - 1) {
-      // Usar lecturas actuales del buffer más la nueva
       const bufferActual = [...lecturasBuffer, nuevaLectura].slice(-LECTURAS_PROMEDIAR);
       const promedio = promediarLecturasConsistentes(bufferActual);
-      
+
       if (promedio) {
         agregarLogDebug(`📊 Promedio GPS: ${promedio.lat.toFixed(5)}, ${promedio.lng.toFixed(5)} (±${promedio.accuracy.toFixed(0)}m) [${bufferActual.length}/${LECTURAS_PROMEDIAR}]`);
         setPosicionPromediada(promedio);
         return promedio;
       }
     }
-    
+
     agregarLogDebug(`📡 Lectura ${lecturasBuffer.length + 1}/${LECTURAS_PROMEDIAR}: ${lat.toFixed(5)}, ${lng.toFixed(5)} (±${accuracy.toFixed(0)}m)`);
     return null;
   };
 
-  // Función para iniciar temporizador de validación
   const iniciarTemporizadorValidacion = (tipo: 'llegada' | 'salida', onComplete: () => void) => {
-    // Limpiar timer anterior
     if (timerValidacionRef.current) {
       clearInterval(timerValidacionRef.current);
     }
-    
+
     const tiempoTotal = tipo === 'llegada' ? TIEMPO_LLEGADA : TIEMPO_SALIDA;
     setTiempoValidando(0);
     setEstadoDetectar(tipo === 'llegada' ? 'validando_llegada' : 'validando_salida');
     setMensajeGPS(tipo === 'llegada' ? 'Validando llegada...' : 'Validando salida...');
     setMostrarBotonManual(false);
-    
-    // Timer para mostrar botón manual después de 25s
+
     if (timerSignalRef.current) clearTimeout(timerSignalRef.current);
     timerSignalRef.current = setTimeout(() => {
       setMostrarBotonManual(true);
       setMensajeGPS('GPS inestable, puedes registrar manualmente');
     }, TIEMPO_BOTON_MANUAL);
-    
+
     timerValidacionRef.current = setInterval(() => {
       setTiempoValidando(prev => {
         const nuevoTiempo = prev + 1000;
-        
+
         if (nuevoTiempo >= tiempoTotal) {
-          // Tiempo completado - ejecutar callback
           if (timerValidacionRef.current) {
             clearInterval(timerValidacionRef.current);
             timerValidacionRef.current = null;
@@ -419,13 +463,12 @@ export default function DriverViaje() {
           setMensajeGPS('');
           onComplete();
         }
-        
+
         return nuevoTiempo;
       });
     }, 1000);
   };
 
-  // Función para limpiar timers de validación
   const limpiarTemporizadoresValidacion = () => {
     if (timerValidacionRef.current) {
       clearInterval(timerValidacionRef.current);
@@ -441,7 +484,6 @@ export default function DriverViaje() {
     setMostrarBotonManual(false);
   };
 
-  // Iniciar watchPosition para detección continua de GPS
   const iniciarWatchPosition = async () => {
     if (!navigator.geolocation) {
       agregarLogDebug('❌ Geolocalización no disponible');
@@ -449,7 +491,6 @@ export default function DriverViaje() {
       return;
     }
 
-    // Verificar permisos primero
     const permisos = await verificarPermisosGPS();
     if (!permisos.granted) {
       agregarLogDebug('⚠️ Permisos denegados. Usa registro manual.');
@@ -457,7 +498,6 @@ export default function DriverViaje() {
       return;
     }
 
-    // Detener watch anterior si existe
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
@@ -478,10 +518,9 @@ export default function DriverViaje() {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         const accuracy = position.coords.accuracy;
-        
+
         setGpsPosicionActual({ lat, lng });
-        
-        // Detectar señal baja
+
         if (accuracy > ALERTA_PRECISION) {
           setSignalBaja(true);
           setMensajeGPS(`⚠️ Señal GPS baja (${accuracy.toFixed(0)}m), acércate más al punto`);
@@ -491,12 +530,11 @@ export default function DriverViaje() {
             setMensajeGPS('');
           }
         }
-        
-        // Obtener local actual
+
         const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
         const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
         const localActual = localPendiente || (bitacoraActual ? locales.find(l => l.id_local === bitacoraActual?.id_local) : null);
-        
+
         if (!localActual?.latitud || !localActual?.longitud) {
           setDistanciaAlPunto(null);
           setEstadoGPS('buscando');
@@ -504,47 +542,40 @@ export default function DriverViaje() {
           agregarLogDebug(`❓ Sin local pendiente para detectar`);
           return;
         }
-        
+
         const radioBase = getRadioDinamico(accuracy);
-        
-        // Ignorar lecturas con precisión muy mala (>150m)
+
         if (accuracy > 150) {
           agregarLogDebug(`⚠️ GPS muy impreciso: ${accuracy.toFixed(0)}m - ignorando`);
           setEstadoGPS('buscando');
           return;
         }
 
-        // Procesar lectura con buffer y promediado
         const promedio = procesarLecturaConPromedio(lat, lng, accuracy);
-        
-        // Usar promedio si existe, si no usar lectura actual
+
         const latUsar = promedio?.lat || lat;
         const lngUsar = promedio?.lng || lng;
         const accuracyUsar = promedio?.accuracy || accuracy;
-        
-        // Calcular distancia
+
         const distancia = calcularDistanciaHaversine(latUsar, lngUsar, localActual.latitud, localActual.longitud);
         setDistanciaAlPunto(distancia);
-        
+
         const dentroDelRadio = distancia <= radioBase;
         const necesitaLlegada = bitacoraActual && !bitacoraActual.hora_llegada;
         const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
-        
-        // Logging
+
         if (promedio) {
           agregarLogDebug(`📊 Promediado: ${distancia.toFixed(0)}m (radio: ${radioBase}m) | L:${necesitaLlegada ? 'SI' : 'NO'} S:${necesitaSalida ? 'SI' : 'NO'}`);
         }
-        
-        // Verificar cooldown
+
         if (!puedeRegistrar()) {
           setEstadoGPS('buscando');
           agregarLogDebug(`⏳ Cooldown activo - esperando`);
           return;
         }
-        
+
         setEstadoGPS(dentroDelRadio ? 'en_rango' : 'detectado');
-        
-        // LÓGICA DE DETECCIÓN DE LLEGADA
+
         if (dentroDelRadio && necesitaLlegada) {
           if (estadoDetectar !== 'validando_llegada') {
             agregarLogDebug(`✅ DENTRO DEL RADIO - iniciando validación de LLEGADA (${distancia.toFixed(0)}m)`);
@@ -554,13 +585,10 @@ export default function DriverViaje() {
                 setLlegadaDetectada(true);
                 setUltimoRegistroTime(Date.now());
                 handleRegistrarLlegada(bitacoraActual.id_bitacora);
-                // NO detener watch - mantener activo para detectar salida
               }
             });
           }
         }
-        
-        // LÓGICA DE DETECCIÓN DE SALIDA
         else if (!dentroDelRadio && necesitaSalida) {
           if (estadoDetectar !== 'validando_salida') {
             agregarLogDebug(`⭕ FUERA DEL RADIO - iniciando validación de SALIDA (${distancia.toFixed(0)}m)`);
@@ -573,8 +601,6 @@ export default function DriverViaje() {
             });
           }
         }
-        
-        // RESETEAR VALIDACIÓN SI SE SALE DEL RANGO
         else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
           agregarLogDebug(`⚠️ SALISTE DEL RADIO - reiniciando validación de llegada`);
           limpiarTemporizadoresValidacion();
@@ -583,22 +609,19 @@ export default function DriverViaje() {
           agregarLogDebug(`⚠️ REGRESASTE AL RADIO - reiniciando validación de salida`);
           limpiarTemporizadoresValidacion();
         }
-        
-        // Resetear si cambia el estado de validación
         else if (!necesitaLlegada && !necesitaSalida) {
           if (estadoDetectar !== 'idle') {
             limpiarTemporizadoresValidacion();
             setLecturasBuffer([]);
           }
         }
-        
-        // Mostrar estado actual
+
         if (estadoDetectar === 'validando_llegada') {
           const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_LLEGADA) * 100));
-          agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando/1000)}s/12s) - ${distancia.toFixed(0)}m`);
+          agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/12s) - ${distancia.toFixed(0)}m`);
         } else if (estadoDetectar === 'validando_salida') {
           const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_SALIDA) * 100));
-          agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando/1000)}s/6s) - ${distancia.toFixed(0)}m`);
+          agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/6s) - ${distancia.toFixed(0)}m`);
         }
       },
       (error) => {
@@ -624,7 +647,6 @@ export default function DriverViaje() {
     );
   };
 
-  // Detener watchPosition y limpiar timers
   const detenerWatchPosition = () => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
@@ -637,7 +659,6 @@ export default function DriverViaje() {
     agregarLogDebug('🛑 GPS detenido');
   };
 
-// useEffect para verificar día de descanso al montar
   useEffect(() => {
     if (esDiaDescanso) {
       setDiaDescansoBloqueado(true);
@@ -645,7 +666,6 @@ export default function DriverViaje() {
     }
   }, []);
 
-  // useEffect para verificar permisos GPS al montar
   useEffect(() => {
     async function verificarAlIniciar() {
       if (!navigator.geolocation) {
@@ -653,34 +673,29 @@ export default function DriverViaje() {
         setGpsDisponible(false);
         return;
       }
-      
-      // Intentar obtener posición inicial
+
       const pos = await iniciarGPSConPermisos();
       if (pos) {
         agregarLogDebug('✅ GPS inicializado correctamente');
         setGpsDisponible(true);
       }
     }
-    
+
     verificarAlIniciar();
   }, []);
 
-  // useEffect para iniciar/detener watchPosition según el estado de la ruta
   useEffect(() => {
-    // Solo iniciar watch si hay una ruta en progreso y locales pendientes
     if (ruta && ruta.estado === 'en_progreso' && !esHistorial && !llegadaDetectada && gpsDisponible) {
       iniciarWatchPosition();
     } else {
       detenerWatchPosition();
     }
 
-    // Cleanup al desmontar
     return () => {
       detenerWatchPosition();
     };
   }, [ruta?.id_ruta, ruta?.estado, esHistorial, llegadaDetectada, gpsDisponible]);
 
-  // Reiniciar detección cuando cambia la bitácora (nuevo tramo iniciado)
   useEffect(() => {
     if (bitacora.length > 0) {
       setLlegadaDetectada(false);
@@ -688,21 +703,52 @@ export default function DriverViaje() {
     }
   }, [bitacora.length]);
 
+  // ============================================================
+  // FUNCIÓN OCR MEJORADA PARA KM FINAL
+  // ============================================================
+
   const procesarOCRKmFin = async (dataUrl: string) => {
     setProcesandoOCRFin(true);
     setKmFinDetectado(null);
+
     try {
+      showToast('info', '🔍 Procesando imagen del odómetro...');
+
+      const imgCorregida = await corregirOrientacionImagenDesdeDataUrl(dataUrl);
+      const imgPreprocesada = await preprocesarImagenOcr(imgCorregida);
+
       const Tesseract = await import('tesseract.js');
-      const result = await Tesseract.default.recognize(dataUrl, 'eng', {});
+      const result = await Tesseract.default.recognize(
+        imgPreprocesada,
+        'eng',
+        {
+          logger: (m) => console.log('[OCR]', m),
+          tessedit_char_whitelist: '0123456789',
+          tessedit_pageseg_mode: 7,
+        }
+      );
+
       const text = result.data.text;
-      const matches = text.match(/\d{4,7}/g);
+      console.log('[OCR] Texto detectado:', text);
+
+      const matches = text.match(/\b\d{3,8}\b/g);
+
       if (matches && matches.length > 0) {
-        const km = parseInt(matches.sort((a: string, b: string) => b.length - a.length)[0]);
-        setKmFinDetectado(km);
-        setKmFin(km.toString());
+        const km = parseInt(matches.sort((a, b) => b.length - a.length)[0]);
+
+        if (!isNaN(km) && km > 0) {
+          setKmFinDetectado(km);
+          setKmFin(km.toString());
+          showToast('success', `✅ Kilometraje detectado: ${km.toLocaleString()} km`);
+          return;
+        }
       }
+
+      showToast('warning', '⚠️ No se pudo leer el número. Toma la foto HORIZONTALMENTE y con buena luz.');
+
     } catch (err) {
       console.error('[OCR KM FIN]', err);
+      showToast('error', 'Error al procesar la imagen. Intenta nuevamente.');
     } finally {
       setProcesandoOCRFin(false);
     }
@@ -750,7 +796,7 @@ export default function DriverViaje() {
 
   const guardarEdicionHora = async (tramo: ViajeBitacora) => {
     if (!editHoraSalida) return;
-    
+
     const [hS, mS] = editHoraSalida.split(':').map(Number);
     const fechaBase = new Date(tramo.hora_salida);
     const nuevaSalida = new Date(fechaBase);
@@ -769,7 +815,6 @@ export default function DriverViaje() {
       return;
     }
 
-    // Validar que no sea antes que la llegada del tramo anterior
     const idxActual = bitacora.findIndex(b => b.id_bitacora === tramo.id_bitacora);
     if (idxActual > 0) {
       const tramoAnterior = bitacora[idxActual - 1];
@@ -785,25 +830,22 @@ export default function DriverViaje() {
     }
 
     await supabase.from('viajes_bitacora').update(updates).eq('id_bitacora', tramo.id_bitacora);
-    
-    // Ajustar horas de tramos siguientes si es necesario
-    let bitacoraActualizada = bitacora.map(b => 
-      b.id_bitacora === tramo.id_bitacora 
-        ? { ...b, ...updates } 
+
+    let bitacoraActualizada = bitacora.map(b =>
+      b.id_bitacora === tramo.id_bitacora
+        ? { ...b, ...updates }
         : b
     );
 
-    // Si se editó la llegada, ajustar la salida del siguiente tramo
     if (nuevaLlegada && idxActual < bitacoraActualizada.length - 1) {
       const siguienteTramo = bitacoraActualizada[idxActual + 1];
       const horaSalidaSiguiente = new Date(siguienteTramo.hora_salida);
       if (nuevaLlegada > horaSalidaSiguiente) {
-        // Ajustar salida del siguiente para que sea igual o después de la llegada
         const nuevaSalidaSiguiente = new Date(nuevaLlegada);
         await supabase.from('viajes_bitacora').update({ hora_salida: nuevaSalidaSiguiente.toISOString() }).eq('id_bitacora', siguienteTramo.id_bitacora);
-        bitacoraActualizada = bitacoraActualizada.map(b => 
-          b.id_bitacora === siguienteTramo.id_bitacora 
-            ? { ...b, hora_salida: nuevaSalidaSiguiente.toISOString() } 
+        bitacoraActualizada = bitacoraActualizada.map(b =>
+          b.id_bitacora === siguienteTramo.id_bitacora
+            ? { ...b, hora_salida: nuevaSalidaSiguiente.toISOString() }
             : b
         );
       }
@@ -819,15 +861,14 @@ export default function DriverViaje() {
       .select('*')
       .eq('id_ruta', rutaId)
       .order('orden', { ascending: true });
-    
+
     if (locError) {
       console.error('Error loading locales_ruta:', locError);
       return [];
     }
 
     const localeIds = localesData?.map(l => l.id_local_ruta) || [];
-    
-    // Fetch attached guides
+
     const { data: guiasData } = await supabase
       .from('guias_remision')
       .select('*')
@@ -844,17 +885,13 @@ export default function DriverViaje() {
       setLoading(false);
       return;
     }
-    // Solo mostrar spinner de carga completo en la primera carga
-    // En recargas por realtime, no bloquear la UI
     if (!loadedAtLeastOnce) {
       setLoading(true);
     }
 
-    // Verificar si hay un ID de ruta histórico en la URL
     const pathParts = window.location.pathname.split('/historial/');
-    
+
     try {
-      // Si hay ID en URL, cargar esa ruta específica
       if (pathParts.length > 1) {
         const rutaIdFromUrl = pathParts[1];
         const { data: rutaHistorica, error: rhError } = await supabase
@@ -863,13 +900,13 @@ export default function DriverViaje() {
           .eq('id_ruta', rutaIdFromUrl)
           .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
           .maybeSingle();
-        
+
         if (rhError) console.error('Error loading ruta histórica:', rhError);
-        
+
         if (rutaHistorica) {
           setRuta(rutaHistorica as Ruta);
           setEsHistorial(true);
-          
+
           const localesData = await fetchLocalesWithGuias(rutaHistorica.id_ruta);
           setLocales(localesData);
 
@@ -878,17 +915,16 @@ export default function DriverViaje() {
             .select('*')
             .eq('id_ruta', rutaHistorica.id_ruta)
             .order('created_at', { ascending: true });
-          
+
           if (bitError) console.error('Error loading bitacora:', bitError);
           setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
-          
+
           await loadRutasBase();
           setLoading(false);
           return;
         }
       }
 
-      // Primero buscar ruta activa (pendiente o en_progreso)
       const { data: rutaActiva, error: rError } = await supabase
         .from('rutas')
         .select('*')
@@ -896,12 +932,11 @@ export default function DriverViaje() {
         .in('estado', ['pendiente', 'en_progreso'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle(); 
-      
-      // Si hay ruta activa, usarla
+        .maybeSingle();
+
       if (rutaActiva) {
         setRuta(rutaActiva as Ruta);
-        
+
         const localesData = await fetchLocalesWithGuias(rutaActiva.id_ruta);
         setLocales(localesData);
 
@@ -910,14 +945,12 @@ export default function DriverViaje() {
           .select('*')
           .eq('id_ruta', rutaActiva.id_ruta)
           .order('created_at', { ascending: true });
-        
-if (bitError) console.error('Error loading bitacora:', bitError);
+
+        if (bitError) console.error('Error loading bitacora:', bitError);
         setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
-        
-        // Cargar rutas base SIEMPRE (para el selector) - aquí fuera del if para ejecutarse siempre
+
         await loadRutasBase();
       } else {
-        // Si no hay ruta activa, buscar la ruta finalizada de HOY
         const today = formatOnlyDatePeru();
         const { data: rutaFinalizada, error: rfError } = await supabase
           .from('rutas')
@@ -930,11 +963,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           .maybeSingle();
 
         if (rfError) console.error('Error loading ruta finalizada:', rfError);
-        
+
         if (rutaFinalizada) {
-          // Mostrar la ruta finalizada para poder agregar fotos
           setRuta(rutaFinalizada as Ruta);
-          
+
           const localesData = await fetchLocalesWithGuias(rutaFinalizada.id_ruta);
           setLocales(localesData);
 
@@ -943,7 +975,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             .select('*')
             .eq('id_ruta', rutaFinalizada.id_ruta)
             .order('created_at', { ascending: true });
-          
+
           if (bitError) console.error('Error loading bitacora:', bitError);
           setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
         } else {
@@ -951,8 +983,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           setLocales([]);
           setBitacora([]);
         }
-        
-        // Cargar rutas base SIEMPRE (para el selector)
+
         await loadRutasBase();
       }
     } catch (err: any) {
@@ -963,7 +994,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         setLoadError('No se pudo cargar la información. Reintenta.');
       }
     } finally {
-      // SIEMPRE resetear estados de carga aquí
       setLoading(false);
       setLoadingRutasBase(false);
       setRutasBaseLoaded(true);
@@ -972,42 +1002,38 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   };
 
   const loadRutasBase = async (force = false) => {
-    // Evitar cargas duplicadas si ya se cargó (a menos que force=true)
     if (rutasBaseLoaded && !force && rutasBase.length > 0) {
       return;
     }
     setLoadingRutasBase(true);
     try {
-      // Query 1: obtener todas las rutas base
       const { data: baseData, error: rbError } = await supabase
         .from('rutas_base')
         .select('*')
         .order('nombre');
-        
+
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
         return;
       }
 
       if (baseData && baseData.length > 0) {
-        // Query 2: obtener TODOS los locales_base en UNA sola consulta (evita N+1)
         const { data: allLocales, error: locError } = await supabase
           .from('locales_base')
           .select('id_ruta_base');
-        
+
         if (locError) console.error('Error counting locales:', locError);
-        
-        // Construir mapa de conteo
+
         const countMap: Record<string, number> = {};
         (allLocales || []).forEach((l: any) => {
           countMap[l.id_ruta_base] = (countMap[l.id_ruta_base] || 0) + 1;
         });
-        
+
         const withCounts = baseData.map(rb => ({
           ...rb,
           locales_count: countMap[rb.id_ruta_base] || 0
         }));
-        
+
         setRutasBase(withCounts);
       } else {
         setRutasBase([]);
@@ -1023,8 +1049,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   useEffect(() => {
     let timerId: NodeJS.Timeout | undefined;
-    
-    // Si no hay perfil, o no hay id_usuario, no cargamos nada pero liberamos el loading
+
     if (!profile?.id_usuario) {
       const timer = setTimeout(() => {
         if (!profile?.id_usuario) {
@@ -1036,7 +1061,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       return () => clearTimeout(timer);
     }
 
-    // Safety timeout: si en 6 segundos sigue cargando, forzar liberación
     timerId = setTimeout(() => {
       console.warn('[Viaje] useEffect safety timer (6s) - forzando liberación');
       setLoading(false);
@@ -1047,14 +1071,13 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
     loadCurrentRuta();
 
-    // Suscripción Realtime específica para ESTE chofer
     const channel = supabase
       .channel(`viaje_chofer_${profile.id_usuario}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
         table: 'rutas',
-        filter: `id_chofer=eq.${profile.id_usuario}` 
+        filter: `id_chofer=eq.${profile.id_usuario}`
       }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'viajes_bitacora' }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadCurrentRuta())
@@ -1070,15 +1093,12 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     };
   }, [profile?.id_usuario]);
 
-
-
-  // Verificar disponibilidad de GPS
   const verificarGps = () => {
     if (!navigator.geolocation) {
       setGpsDisponible(false);
       return;
     }
-    
+
     setGpsVerificando(true);
     navigator.geolocation.getCurrentPosition(
       () => {
@@ -1093,7 +1113,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     );
   };
 
-  // Efecto para verificar GPS al cargar
   useEffect(() => {
     if (ruta && ruta.estado !== 'finalizada') {
       verificarGps();
@@ -1112,11 +1131,11 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
     setCreateError('');
     setIsCreating(true);
-    
+
     try {
       const baseRuta = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
       const today = formatOnlyDatePeru();
-      
+
       const { data: baseLocales, error: lbError } = await supabase
         .from('locales_base')
         .select('*')
@@ -1127,7 +1146,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         setCreateError(`Error al consultar locales base: ${lbError.message}`);
         return;
       }
-      
+
       if (!baseLocales || baseLocales.length === 0) {
         setCreateError('Esta plantilla no tiene locales configurados. Pide al administrador que los agregue.');
         setIsCreating(false);
@@ -1135,7 +1154,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       }
 
       const template = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
-      
+
       let publicUrlInicio = '';
       if (fotoKmInicio) {
         setSubiendoFoto(true);
@@ -1144,7 +1163,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         const { error: uploadError } = await supabase.storage
           .from('combustible_fotos')
           .upload(`kilometraje/${fileName}`, blob);
-        
+
         if (!uploadError) {
           const { data } = supabase.storage.from('combustible_fotos').getPublicUrl(`kilometraje/${fileName}`);
           publicUrlInicio = data.publicUrl;
@@ -1192,47 +1211,39 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   const localesRegistrados = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
   const localesDisponibles = locales.filter(l => !localesRegistrados.includes(l.nombre || ''));
-  const localesVisitados = locales.filter(l => 
+  const localesVisitados = locales.filter(l =>
     localesRegistrados.includes(l.nombre || '') && l.nombre !== 'Planta'
   );
   const tramoEnProgreso = bitacora.find(b => !b.hora_llegada);
 
-  // Calcular el siguiente destino según orden predefinido
   const calcularSiguienteDestino = (): string => {
     const normalizar = (s: string) => (s || '').trim().toLowerCase();
-    // Obtener el último tramo completado de la bitácora
     const tramosCompletados = bitacora.filter(b => b.hora_llegada);
-    const ultimoDestino = tramosCompletados.length > 0 
-      ? tramosCompletados[tramosCompletados.length - 1].destino_nombre 
+    const ultimoDestino = tramosCompletados.length > 0
+      ? tramosCompletados[tramosCompletados.length - 1].destino_nombre
       : 'Planta';
-    
-    // Encontrar el local actual en la lista ordenada
+
     const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
-    
-    // Si el último destino fue un local visitado (detour), buscar desde el orden original
+
     const localActual = localesOrdenados.find(l => normalizar(l.nombre || '') === normalizar(ultimoDestino || ''));
-    
+
     if (localActual) {
-      // Buscar el siguiente local pendiente DESPUÉS del orden actual
-      const siguienteEnOrden = localesOrdenados.find(l => 
+      const siguienteEnOrden = localesOrdenados.find(l =>
         (l.orden || 0) > (localActual.orden || 0) &&
-        !bitacora.some(b => b.hora_llegada && normalizar(b.destino_nombre || '') === normalizar(l.nombre || '') && 
-          // Solo contar si NO fue un detour (primera visita)
+        !bitacora.some(b => b.hora_llegada && normalizar(b.destino_nombre || '') === normalizar(l.nombre || '') &&
           bitacora.filter(bb => normalizar(bb.destino_nombre || '') === normalizar(l.nombre || '')).length === 1
         )
       );
       if (siguienteEnOrden) return siguienteEnOrden.nombre || '';
     }
-    
-    // Si no hay siguiente, buscar cualquier local pendiente en orden
+
     const pendiente = localesOrdenados.find(l =>
       !localesRegistrados.some(r => normalizar(r) === normalizar(l.nombre || ''))
     );
     if (pendiente) return pendiente.nombre || '';
-    
-    // Si todos visitados, regresar a Planta
+
     if (bitacora.length > 0 && !localesRegistrados.includes('Planta')) return 'Planta';
-    
+
     return '';
   };
 
@@ -1247,12 +1258,36 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   const [isEditingDestino, setIsEditingDestino] = useState(false);
   const [destinoEditado, setDestinoEditado] = useState('');
   const [isSavingDestino, setIsSavingDestino] = useState(false);
-  
-  // Guías Viewer State
+
   const [viewingGuias, setViewingGuias] = useState<GuiaRemision[] | null>(null);
   const [currentGuiaIndex, setCurrentGuiaIndex] = useState(0);
   const [zoomScale, setZoomScale] = useState(1);
   const [searchTermGuias, setSearchTermGuias] = useState('');
+
+  const handleSaveDestino = async (idBitacora: string) => {
+    if (!destinoEditado.trim()) return;
+    setIsSavingDestino(true);
+    try {
+      const { error } = await supabase
+        .from('viajes_bitacora')
+        .update({ destino_nombre: destinoEditado.trim() })
+        .eq('id_bitacora', idBitacora);
+
+      if (error) throw error;
+
+      setBitacora(bitacora.map(b =>
+        b.id_bitacora === idBitacora
+          ? { ...b, destino_nombre: destinoEditado.trim() }
+          : b
+      ));
+      setIsEditingDestino(false);
+      showToast('success', 'Destino actualizado');
+    } catch (err: any) {
+      showToast('error', err.message);
+    } finally {
+      setIsSavingDestino(false);
+    }
+  };
 
   const handleRegistrarSalida = async () => {
     if (esDiaDescanso) {
@@ -1266,11 +1301,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
     try {
       const origen = proximoOrigen;
-      
+
       setActionLoading(true);
       let lat = null, lng = null;
       try {
-        // Máximo 2 segundos al GPS para la salida, si no, avanzamos sin él
         const pos = await new Promise<any>((res) => {
           const timeout = setTimeout(() => res(null), 2000);
           navigator.geolocation.getCurrentPosition(
@@ -1309,7 +1343,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         if (bitacora.length === 0) {
           await supabase.from('rutas').update({ estado: 'en_progreso', hora_salida_planta: data.hora_salida }).eq('id_ruta', ruta.id_ruta);
         }
-        // Si el destino era una revisita, preparar el siguiente local pendiente en orden
         const normalizar = (s: string) => (s || '').trim().toLowerCase();
         const registradosActualizados = [...bitacora, data as any].filter(b => b.hora_llegada).map(b => b.destino_nombre);
         const eraDetourSalida = bitacora.some(b => b.hora_llegada && normalizar(b.destino_nombre || '') === normalizar(nuevoDestino));
@@ -1341,32 +1374,30 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       showToast('Hoy es tu día de descanso.', 'error');
       return;
     }
-    if (actionLoading) return; 
+    if (actionLoading) return;
     if (esHistorial) {
       alert('No puedes modificar un viaje histórico');
       return;
     }
-    
+
     setActionLoading(true);
     try {
       let lat = null, lng = null;
       let tipoRegistro = 'automatico';
-      
+
       if (modoManual) {
         tipoRegistro = 'manual';
       } else {
         try {
-          // SI ya tenemos una posición reciente y precisa del watchPosition, usarla
           if (gpsPosicionActual && !signalBaja) {
             lat = gpsPosicionActual.lat;
             lng = gpsPosicionActual.lng;
             tipoRegistro = 'automatico';
             agregarLogDebug(`✅ Usando GPS validado: ${lat.toFixed(5)},${lng.toFixed(5)}`);
           } else {
-            // Si no, intentar obtener una nueva
             agregarLogDebug('📍 Intentando obtener GPS fresco para llegada...');
             const pos = await iniciarGPSConPermisos();
-            
+
             if (pos) {
               lat = pos.lat;
               lng = pos.lng;
@@ -1385,15 +1416,14 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       }
 
       const now = nowPeru();
-      
-      // Construir update completo con logging
-      const updateData: any = { 
-        hora_llegada: now, 
-        gps_llegada_lat: lat, 
+
+      const updateData: any = {
+        hora_llegada: now,
+        gps_llegada_lat: lat,
         gps_llegada_lng: lng,
         tipo_registro: tipoRegistro
       };
-      
+
       const { data, error } = await supabase
         .from('viajes_bitacora')
         .update(updateData)
@@ -1405,28 +1435,24 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
       if (!error && data) {
         setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
-        
-        // Solo marcar como visitado si NO era un detour
+
         const normalizar = (s: string) => (s || '').trim().toLowerCase();
         const eraDetour = localesRegistrados.some(r => normalizar(r) === normalizar(data.destino_nombre || ''));
-        
+
         if (data.destino_nombre !== 'Planta' && !eraDetour) {
-          // Primera visita: marcar como visitado
-          await supabase.from('locales_ruta').update({ 
-            hora_llegada: now, 
-            estado_visita: 'visitado' 
+          await supabase.from('locales_ruta').update({
+            hora_llegada: now,
+            estado_visita: 'visitado'
           }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.destino_nombre);
         } else if (data.destino_nombre !== 'Planta' && eraDetour) {
-          // Segunda visita (detour): actualizar observacion sin pisar el estado
           const localDetour = locales.find(l => normalizar(l.nombre || '') === normalizar(data.destino_nombre || ''));
           if (localDetour) {
-            await supabase.from('locales_ruta').update({ 
+            await supabase.from('locales_ruta').update({
               observacion: (localDetour.observacion ? localDetour.observacion + ' | ' : '') + 'Revisita: ' + now
             }).eq('id_local_ruta', localDetour.id_local_ruta);
           }
-          // Después del detour, volver al siguiente local pendiente en orden
           const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
-          const siguientePendiente = localesOrdenados.find(l => 
+          const siguientePendiente = localesOrdenados.find(l =>
             !localesRegistrados.some(r => normalizar(r) === normalizar(l.nombre || ''))
           );
           if (siguientePendiente) {
@@ -1436,15 +1462,14 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           }
         }
         if (data.destino_nombre === 'Planta') {
-           await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
-           if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
-           setShowFinalKmModal(true);
+          await supabase.from('rutas').update({ estado: 'finalizada', hora_llegada_planta: now }).eq('id_ruta', ruta?.id_ruta);
+          if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
+          setShowFinalKmModal(true);
         }
-        
-        // Actualizar cooldown
+
         setUltimoRegistroTime(Date.now());
         setEstadoGPS('registrado');
-        
+
         agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre} | Dist: ${distanciaAlPunto?.toFixed(0) || 'N/A'}m`);
         showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática registrada' : '✓Llegada manual registrada');
         setShowModoManual(false);
@@ -1461,15 +1486,14 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
   };
 
-  // Función para registrar salida automáticamente
   const handleRegistrarSalidaAutomatica = async (idBitacora: string) => {
     if (esDiaDescanso) return;
     if (actionLoading) return;
     if (esHistorial) return;
-    
+
     setActionLoading(true);
     let lat = null, lng = null;
-    
+
     try {
       if (gpsPosicionActual && !signalBaja) {
         lat = gpsPosicionActual.lat;
@@ -1487,29 +1511,27 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     } catch (e) {
       console.warn('GPS Error:', e);
     }
-    
+
     const now = nowPeru();
-    
+
     const { data, error } = await supabase
       .from('viajes_bitacora')
       .update({ hora_salida: now, gps_salida_lat: lat, gps_salida_lng: lng })
       .eq('id_bitacora', idBitacora)
       .select()
       .single();
-    
+
     if (!error && data) {
       setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
-      
-      // Actualizar estado del local
+
       if (data.origen_nombre && data.origen_nombre !== 'Planta') {
         await supabase.from('locales_ruta').update({ hora_salida: now }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.origen_nombre);
       }
-      
+
       setUltimoRegistroTime(Date.now());
       agregarLogDebug(`✅ SALIDA REGISTRADA automáticamente: ${data.destino_nombre}`);
       showToast('success', '✓Salida automática registrada');
-      
-      // Limpiar buffer y continuar
+
       setLecturasBuffer([]);
       setPosicionPromediada(null);
     } else if (error) {
@@ -1521,27 +1543,20 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
 
-  // Helper: verificar si la ruta es de hoy o es historial
   const esRutaDeHoy = (r: Ruta | null) => {
     if (!r) return false;
-    if (esHistorial) return true; // Si es modo historial, siempre mostrar
+    if (esHistorial) return true;
     const today = formatOnlyDatePeru();
     return r.fecha === today;
   };
 
-  // Si no hay ruta O si hay ruta finalizada que NO es de hoy → mostrar formulario crear
-  // Si hay ruta activa O ruta finalizada de hoy O es historial → mostrar la ruta
   const mostrarRuta = ruta && (ruta.estado !== 'finalizada' || esRutaDeHoy(ruta));
 
-  // NO mostrar formulario hasta que loading principal termine
   if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
-
-
-
 
   if (!mostrarRuta) {
     return (
-      <RutaSelector 
+      <RutaSelector
         loadingRutasBase={loadingRutasBase}
         rutasBase={rutasBase}
         selectedRutaBase={selectedRutaBase}
@@ -1564,8 +1579,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   let proximoOrigen = 'Planta';
   if (bitacora.length > 0) {
     const ultimoTramo = bitacora[bitacora.length - 1];
-    // Si el último tramo completado fue una revisita, el origen es el local de la revisita
-    // Si está en progreso, el origen es el destino del tramo anterior completado
     if (ultimoTramo.hora_llegada) {
       proximoOrigen = ultimoTramo.destino_nombre || 'Planta';
     } else {
@@ -1573,7 +1586,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
     }
   }
 
-  // Pantalla de bloqueo por día de descanso
   if (diaDescansoBloqueado) {
     return (
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24 min-h-screen flex items-center justify-center">
@@ -1581,9 +1593,9 @@ if (bitError) console.error('Error loading bitacora:', bitError);
           <Coffee size={64} className="mx-auto text-yellow-400 mb-4" />
           <h1 className="text-2xl font-black text-yellow-400 mb-2">🛌 Día de Descanso</h1>
           <p className="text-text-muted mb-6">Hoy es tu día de descanso. No puedes iniciar rutas.</p>
-          <a 
-            href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta" 
-            target="_blank" 
+          <a
+            href="https://wa.me/51948800569?text=Hola,%20tengo%20una%20consulta"
+            target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg"
           >
@@ -1591,8 +1603,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             Contactar Administrador
           </a>
           <div className="mt-8">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => navigate('/driver')}
               className="text-text-muted"
             >
@@ -1607,9 +1619,9 @@ if (bitError) console.error('Error loading bitacora:', bitError);
   return (
     <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
       <div className="flex flex-col gap-4">
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => navigate('/driver')}
           className="w-fit text-text-muted hover:text-white -ml-2"
         >
@@ -1628,7 +1640,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   </button>
                 </span>
               ) : (
-                <button 
+                <button
                   onClick={() => { setTempKmInicio(''); setIsEditingKmInicio(true); }}
                   className="bg-orange-500/20 text-orange-400 text-[10px] font-black px-2 py-0.5 rounded border border-orange-500/30 flex items-center gap-1 animate-pulse"
                 >
@@ -1643,8 +1655,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               size="sm"
               onClick={() => navigate(`/driver/ruta/${ruta.id_ruta}`)}
               className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/30"
@@ -1653,25 +1665,22 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               Ver Locales
             </Button>
             <div className="bg-surface-light px-3 py-1 rounded-full border border-white/5">
-               <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
+              <span className="text-[10px] font-black text-primary italic uppercase tracking-widest">En Curso</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Indicador de GPS y Distancia - Sistema Avanzado v2 */}
       {ruta?.estado === 'en_progreso' && !esHistorial && (
         <Card className={`border ${signalBaja ? 'bg-red-500/20 border-red-500/50' : estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'bg-green-500/20 border-green-500/50' : estadoGPS === 'buscando' ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-surface-light/50 border-white/10'}`}>
           <CardContent className="p-4">
-            {/* Alerta de señal baja */}
             {signalBaja && (
               <div className="mb-3 bg-red-500/20 border border-red-500/50 rounded-lg p-2 flex items-center gap-2">
                 <span className="text-red-400">⚠️</span>
                 <span className="text-red-300 text-xs font-bold">Señal GPS baja, acércate más al punto</span>
               </div>
             )}
-            
-            {/* Mensaje de validación */}
+
             {mensajeGPS && !signalBaja && (
               <div className="mb-3 bg-blue-500/20 border border-blue-500/50 rounded-lg p-2 flex items-center gap-2">
                 {estadoDetectar === 'validando_llegada' && <span className="text-blue-400">📍</span>}
@@ -1679,7 +1688,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 <span className="text-blue-300 text-xs font-bold">{mensajeGPS}</span>
               </div>
             )}
-            
+
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${estadoGPS === 'buscando' ? 'bg-yellow-500/20 text-yellow-400 animate-pulse' : signalBaja ? 'bg-red-500/20 text-red-400' : estadoGPS === 'detectado' ? 'bg-blue-500/20 text-blue-400' : estadoGPS === 'en_rango' ? 'bg-green-500/20 text-green-400' : estadoGPS === 'registrado' ? 'bg-green-600/40 text-green-300' : 'bg-gray-500/20 text-gray-400'}`}>
@@ -1689,19 +1698,18 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   <p className="text-xs text-text-muted uppercase font-bold tracking-wider">
                     {estadoGPS === 'buscando' && '🔍 Buscando señal...'}
                     {estadoGPS === 'detectado' && '📍 Ubicación detectada'}
-                    {estadoGPS === 'en_rango' && (estadoDetectar === 'validando_llegada' ? `⏳ Validando LLEGADA (${Math.round(tiempoValidando/1000)}s/12s)` : estadoDetectar === 'validando_salida' ? `⏳ Validando SALIDA (${Math.round(tiempoValidando/1000)}s/6s)` : `✅ Dentro del radio`)}
+                    {estadoGPS === 'en_rango' && (estadoDetectar === 'validando_llegada' ? `⏳ Validando LLEGADA (${Math.round(tiempoValidando / 1000)}s/12s)` : estadoDetectar === 'validando_salida' ? `⏳ Validando SALIDA (${Math.round(tiempoValidando / 1000)}s/6s)` : `✅ Dentro del radio`)}
                     {estadoGPS === 'registrado' && '✅ Registro completado'}
                   </p>
                   <p className={`text-sm font-black ${signalBaja ? 'text-red-400' : estadoGPS === 'en_rango' || estadoGPS === 'registrado' ? 'text-green-400' : 'text-white'}`}>
-                    {distanciaAlPunto !== null 
+                    {distanciaAlPunto !== null
                       ? `${distanciaAlPunto.toFixed(0)}m ${distanciaAlPunto <= RADIO_BASE ? 'dentro del radio' : 'fuera del radio'}`
                       : gpsError || 'Obteniendo ubicación...'}
                   </p>
-                  {/* Barra de progreso cuando está validando */}
                   {(estadoDetectar === 'validando_llegada' || estadoDetectar === 'validando_salida') && (
                     <div className="mt-2">
                       <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full transition-all duration-1000 ${estadoDetectar === 'validando_llegada' ? 'bg-green-500' : 'bg-orange-500'}`}
                           style={{ width: `${Math.min(100, Math.round((tiempoValidando / (estadoDetectar === 'validando_llegada' ? TIEMPO_LLEGADA : TIEMPO_SALIDA)) * 100))}%` }}
                         />
@@ -1712,14 +1720,13 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               </div>
               <div className="text-right">
                 <p className="text-[10px] text-text-muted uppercase">Cooldown</p>
-                <p className="text-xs font-black text-primary">{Math.max(0, Math.ceil((COOLDOWN_REGISTRO - (Date.now() - ultimoRegistroTime))/1000))}s</p>
+                <p className="text-xs font-black text-primary">{Math.max(0, Math.ceil((COOLDOWN_REGISTRO - (Date.now() - ultimoRegistroTime)) / 1000))}s</p>
               </div>
             </div>
-            
-            {/* Botón manual si GPS inestable */}
+
             {mostrarBotonManual && (
               <div className="mt-3">
-                <Button 
+                <Button
                   onClick={() => {
                     const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
                     if (bitacoraActual && !bitacoraActual.hora_llegada) {
@@ -1735,8 +1742,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 </Button>
               </div>
             )}
-            
-            {/* Estado del sistema */}
+
             <div className="mt-3 flex gap-2 text-[10px] flex-wrap">
               <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
                 Radio: {RADIO_MIN}-{RADIO_MAX}m
@@ -1755,8 +1761,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 </span>
               )}
             </div>
-            
-            {/* Logs de debug (desplegable) */}
+
             {gpsDebugLogs.length > 0 && (
               <details className="mt-3">
                 <summary className="text-[10px] text-text-muted cursor-pointer hover:text-white">
@@ -1773,7 +1778,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </Card>
       )}
 
-      {/* Card de Proceso Actual */}
       {tramoEnProgreso ? (
         <Card className="bg-surface border-primary/30 border-2 shadow-2xl overflow-hidden animate-in slide-in-from-top-4">
           <CardContent className="p-6">
@@ -1802,8 +1806,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
               {isEditingDestino ? (
                 <div className="space-y-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
-                  <Input 
-                    placeholder="Corregir nombre del destino..." 
+                  <Input
+                    placeholder="Corregir nombre del destino..."
                     value={destinoEditado}
                     onChange={e => setDestinoEditado(e.target.value)}
                     className="bg-black/40 border-primary/30"
@@ -1820,17 +1824,17 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                     <h3 className="text-xl font-black text-white italic leading-tight uppercase">{tramoEnProgreso.destino_nombre}</h3>
                   </div>
                   <div className="flex items-center gap-2 pt-2">
-                    {(function() {
+                    {(function () {
                       const normalizedDest = (tramoEnProgreso.destino_nombre || '').trim().toLowerCase();
                       const localActual = locales.find(l => (l.nombre || '').trim().toLowerCase() === normalizedDest);
-                      
+
                       return (
                         <>
                           {localActual?.latitud && localActual?.longitud && (
                             <>
                               <a href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 bg-blue-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Google Maps">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.375 8.5 15.5 8.5 15.5s8.5-9.125 8.5-15.5C20.5 3.81 16.69 0 12 0zm0 12c-1.93 0-3.5-1.57-3.5-3.5S10.07 5 12 5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+                                  <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.375 8.5 15.5 8.5 15.5s8.5-9.125 8.5-15.5C20.5 3.81 16.69 0 12 0zm0 12c-1.93 0-3.5-1.57-3.5-3.5S10.07 5 12 5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z" />
                                 </svg>
                               </a>
                               <a href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 bg-yellow-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Waze">
@@ -1867,7 +1871,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   }}>📸 FOTO EVIDENCIA</Button>
                 </div>
 
-                {/* Indicador de GPS */}
                 <div className="flex items-center justify-center gap-2">
                   {gpsVerificando ? (
                     <div className="flex items-center gap-1 text-yellow-400 text-[10px]">
@@ -1887,9 +1890,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   ) : null}
                 </div>
 
-                {/* Botón principal - Registro automático */}
                 {!showModoManual ? (
-                  <Button 
+                  <Button
                     className="w-full h-16 text-lg font-black italic uppercase tracking-widest bg-green-600 hover:bg-green-500 shadow-xl shadow-green-900/40 rounded-2xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all"
                     onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora, false)}
                     disabled={actionLoading}
@@ -1897,21 +1899,20 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                     {actionLoading ? 'ESPERE...' : 'MARCAR LLEGADA →'}
                   </Button>
                 ) : (
-                  /* Modo manual - necesita confirmación */
                   <div className="space-y-2">
                     <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-xl text-center">
                       <p className="text-yellow-400 text-xs font-bold">¿Registrar manualmente?</p>
                       <p className="text-text-muted text-[10px] mt-1">Sin ubicación GPS</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Button 
+                      <Button
                         variant="secondary"
                         className="bg-surface-light/50 text-text-muted"
                         onClick={() => setShowModoManual(false)}
                       >
                         Cancelar
                       </Button>
-                      <Button 
+                      <Button
                         className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold"
                         onClick={() => handleRegistrarLlegada(tramoEnProgreso.id_bitacora, true)}
                         disabled={actionLoading}
@@ -1922,9 +1923,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   </div>
                 )}
 
-                {/* Botón para activar modo manual */}
                 {!showModoManual && (
-                  <button 
+                  <button
                     onClick={() => setShowModoManual(true)}
                     className="w-full text-center text-[10px] text-text-muted hover:text-yellow-400 transition-colors py-1"
                   >
@@ -1947,19 +1947,18 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 <div>
                   <p className="text-[9px] text-text-muted uppercase font-black tracking-widest mb-1 ml-1">Próximo Destino</p>
                   <div className="relative">
-                    {/* Si el destino es un local visitado (detour), mostrarlo como texto fijo */}
                     {localesVisitados.some(l => l.nombre === nuevoDestino) ? (
                       <div className="w-full bg-yellow-500/10 border border-yellow-500/40 rounded-xl px-3 py-3 text-yellow-300 font-black italic uppercase text-sm flex items-center justify-between">
                         <span>{nuevoDestino}</span>
                         <span className="text-[10px] text-yellow-500">REVISITA</span>
                       </div>
                     ) : (
-                      <select 
+                      <select
                         value={nuevoDestino}
                         onChange={(e) => setNuevoDestino(e.target.value)}
                         className="w-full bg-surface-light border border-primary/40 rounded-xl px-3 py-3 text-white font-black italic uppercase appearance-none focus:outline-none focus:ring-1 focus:ring-primary text-sm shadow-inner"
                       >
-                        {localesDisponibles.map(l => ( <option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option> ))}
+                        {localesDisponibles.map(l => (<option key={l.id_local_ruta} value={l.nombre || ''}>{l.nombre}</option>))}
                         {localesDisponibles.length === 0 && (locales.length > 0 && !localesRegistrados.includes('Planta') && bitacora.length > 0) && (
                           <option value="Planta">REGRESO A PLANTA</option>
                         )}
@@ -1993,14 +1992,14 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 </div>
               )}
 
-              <Button 
+              <Button
                 className="w-full h-16 text-xl font-black italic tracking-widest bg-primary hover:bg-primary-light shadow-xl shadow-primary/30 rounded-2xl border-b-4 border-primary-dark active:border-b-0 active:translate-y-1 transition-all"
                 onClick={handleRegistrarSalida}
                 disabled={actionLoading}
               >
                 {actionLoading ? 'INICIANDO...' : 'INICIAR VIAJE →'}
               </Button>
-              
+
               {!tramoEnProgreso && bitacora.length > 0 && bitacora[bitacora.length - 1].hora_llegada && ruta.estado !== 'finalizada' && (
                 <Button variant="ghost" onClick={() => {
                   const ultimoTramo = bitacora[bitacora.length - 1];
@@ -2024,7 +2023,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </Card>
       )}
 
-      <LocalList 
+      <LocalList
         localesDisponibles={localesDisponibles}
         rutaEstado={ruta.estado}
         localesRegistrados={localesRegistrados}
@@ -2033,7 +2032,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         setCurrentGuiaIndex={setCurrentGuiaIndex}
       />
 
-      <BitacoraList 
+      <BitacoraList
         bitacora={bitacora}
         locales={locales}
         editandoBitacora={editandoBitacora}
@@ -2048,7 +2047,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         setCurrentGuiaIndex={setCurrentGuiaIndex}
       />
 
-      {/* Botón para registrar combustible DURANTE la ruta */}
       {(ruta.estado === 'en_progreso' || ruta.estado === 'en_curso') && (
         <button
           onClick={() => setShowCombustible(true)}
@@ -2062,136 +2060,125 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       {ruta.estado === 'finalizada' && (
         <>
           <div className="bg-green-500/10 border-2 border-green-500/50 p-8 rounded-3xl text-center animate-in zoom-in-95 duration-700 shadow-2xl shadow-green-500/10">
-              <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-black shadow-lg shadow-green-500/20">
-                <CheckCircle2 size={36} />
-              </div>
-              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
-              <div className="flex flex-col gap-1 my-3">
-                <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
-                <div className="flex justify-center gap-3 mt-2">
-                  <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
-                    <p className="text-[10px] text-text-muted uppercase font-bold">Km Inicial</p>
-                    <p className="text-white font-black italic">{ruta.km_inicio || 0}</p>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
-                    <p className="text-[10px] text-text-muted uppercase font-bold">Km Final</p>
-                    <p className="text-white font-black italic">{ruta.km_fin || '?'}</p>
-                  </div>
+            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-black shadow-lg shadow-green-500/20">
+              <CheckCircle2 size={36} />
+            </div>
+            <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">¡Viaje Cerrado!</h3>
+            <div className="flex flex-col gap-1 my-3">
+              <p className="text-green-500/80 text-sm font-bold">Bitácora completada y registrada en el sistema.</p>
+              <div className="flex justify-center gap-3 mt-2">
+                <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
+                  <p className="text-[10px] text-text-muted uppercase font-bold">Km Inicial</p>
+                  <p className="text-white font-black italic">{ruta.km_inicio || 0}</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-lg">
+                  <p className="text-[10px] text-text-muted uppercase font-bold">Km Final</p>
+                  <p className="text-white font-black italic">{ruta.km_fin || '?'}</p>
                 </div>
               </div>
-              <button
-                onClick={iniciarNuevoViaje}
-                className="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm"
-              >
-                🚛 Iniciar Nuevo Viaje
-              </button>
-              
-              <button
-                onClick={async () => {
-                  if (enviandoWhatsapp) return;
-                  setEnviandoWhatsapp(true);
-                  
-                  try {
-                    // Obtener locales visitados con fotos
-                    const localesVisitados = locales.filter(l => l.hora_llegada);
-                    
-                    // Obtener gastos de combustible (separado de otros)
-                    const { data: gastos } = await supabase
-                      .from('gastos_combustible')
-                      .select('monto, tipo_combustible')
-                      .eq('id_ruta', ruta.id_ruta);
-                    
-                    const gastoCombustible = gastos?.filter(g => g.tipo_combustible !== 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
-                    const gastoOtros = gastos?.filter(g => g.tipo_combustible === 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
-                    
-                    // Calcular duración total
-                    let duracion = 'No registrado';
-                    if (ruta.hora_salida_planta && ruta.hora_llegada_planta) {
-                      const salida = new Date(ruta.hora_salida_planta);
-                      const llegada = new Date(ruta.hora_llegada_planta);
-                      const mins = Math.round((llegada.getTime() - salida.getTime()) / 60000);
-                      duracion = mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
-                    }
+            </div>
+            <button
+              onClick={iniciarNuevoViaje}
+              className="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm"
+            >
+              🚛 Iniciar Nuevo Viaje
+            </button>
 
-                    // Formatear hora
-                    const formatHora = (iso: string | null) => {
-                      if (!iso) return '--:--';
-                      const d = new Date(iso);
-                      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-                    };
+            <button
+              onClick={async () => {
+                if (enviandoWhatsapp) return;
+                setEnviandoWhatsapp(true);
 
-                    // Construir mensaje con formato de tabla
-                    const lineas: string[] = [];
-                    
-                    // ╔══════════════════════════════════════╗
-                    lineas.push('╔══════════════════════════════════════╗');
-                    lineas.push('║     RESUMEN DE RUTA - ' + (ruta.nombre || 'Viaje').padEnd(20) + '║');
-                    lineas.push('╠══════════════════════════════════════╣');
-                    lineas.push('║ 📅 ' + (ruta.fecha || 'Hoy').padEnd(15) + '  🚚 ' + (ruta.placa || 'N/A').padEnd(10) + '║');
-                    lineas.push('║ ⏱️ Duración: ' + duracion.padEnd(18) + '║');
-                    lineas.push('║ 📍 Locales: ' + String(localesVisitados.length).padEnd(3) + '  ⛽ GLP: S/ ' + gastoCombustible.toFixed(2).padStart(7) + '║');
-                    lineas.push('╚══════════════════════════════════════╝');
-                    lineas.push('');
+                try {
+                  const localesVisitados = locales.filter(l => l.hora_llegada);
 
-                    // Salida de Planta
-                    if (ruta.hora_salida_planta) {
-                      const primerDestino = bitacora.length > 0 ? bitacora[0].destino_nombre : 'N/A';
-                      lineas.push('🏭 SALIDA PLANTA: ' + formatHora(ruta.hora_salida_planta) + ' → ' + primerDestino);
-                    }
+                  const { data: gastos } = await supabase
+                    .from('gastos_combustible')
+                    .select('monto, tipo_combustible')
+                    .eq('id_ruta', ruta.id_ruta);
 
-                    // Lista de locales con formato de tabla
-                    if (bitacora.length > 0) {
-                      lineas.push('');
-                      lineas.push('┌─────────────────────────────────────┐');
-                      lineas.push('│         LOCALES VISITADOS          │');
-                      lineas.push('├────┬────────────────────────────────┤');
-                      lineas.push('│ #  │ Horario (Llegada - Salida)    │');
-                      lineas.push('├────┼────────────────────────────────┤');
-                      
-                      bitacora.forEach((tramo, idx) => {
-                        if (!tramo.hora_llegada) return;
-                        const llegada = formatHora(tramo.hora_llegada);
-                        const salida = tramo.hora_salida ? formatHora(tramo.hora_salida) : '--:--';
-                        const nombreCorto = tramo.destino_nombre.length > 28 ? tramo.destino_nombre.substring(0, 25) + '...' : tramo.destino_nombre;
-                        const num = String(idx + 1).padStart(2, ' ');
-                        const horas = `${llegada} - ${salida}`.padEnd(14);
-                        lineas.push(`│ ${num} │ ${nombreCorto.padEnd(32)}│`);
-                        lineas.push(`│    │ ${horas.padEnd(32)}│`);
-                        lineas.push(`│    │                                    │`);
-                      });
-                      
-                      lineas.push('└─────────────────────────────────────┘');
-                    }
+                  const gastoCombustible = gastos?.filter(g => g.tipo_combustible !== 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+                  const gastoOtros = gastos?.filter(g => g.tipo_combustible === 'otro').reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
 
-                    // Llegada a Planta
-                    if (ruta.hora_llegada_planta) {
-                      lineas.push('');
-                      lineas.push('🏭 LLEGADA PLANTA: ' + formatHora(ruta.hora_llegada_planta));
-                    }
-
-                    lineas.push('');
-                    lineas.push('_Enviado desde Shimaya Rutas_');
-
-                    const mensaje = encodeURIComponent(lineas.join('\n'));
-                    // Número de admin desde variable de entorno o valor por defecto
-                    const whatsappNumero = import.meta.env.VITE_WHATSAPP_ADMIN || '51948800569';
-                    window.open(`https://wa.me/${whatsappNumero}?text=${mensaje}`, '_blank');
-                    
-                  } catch (err) {
-                    console.error('[WhatsApp] Error:', err);
-                    showToast('error', 'Error al generar resumen');
-                  } finally {
-                    setEnviandoWhatsapp(false);
+                  let duracion = 'No registrado';
+                  if (ruta.hora_salida_planta && ruta.hora_llegada_planta) {
+                    const salida = new Date(ruta.hora_salida_planta);
+                    const llegada = new Date(ruta.hora_llegada_planta);
+                    const mins = Math.round((llegada.getTime() - salida.getTime()) / 60000);
+                    duracion = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}min`;
                   }
-                }}
-                disabled={enviandoWhatsapp}
-                className="mt-4 ml-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
-              >
-                {enviandoWhatsapp ? '⏳ Generando...' : '📤 Enviar Resumen'}
-              </button>
+
+                  const formatHora = (iso: string | null) => {
+                    if (!iso) return '--:--';
+                    const d = new Date(iso);
+                    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                  };
+
+                  const lineas: string[] = [];
+
+                  lineas.push('╔══════════════════════════════════════╗');
+                  lineas.push('║     RESUMEN DE RUTA - ' + (ruta.nombre || 'Viaje').padEnd(20) + '║');
+                  lineas.push('╠══════════════════════════════════════╣');
+                  lineas.push('║ 📅 ' + (ruta.fecha || 'Hoy').padEnd(15) + '  🚚 ' + (ruta.placa || 'N/A').padEnd(10) + '║');
+                  lineas.push('║ ⏱️ Duración: ' + duracion.padEnd(18) + '║');
+                  lineas.push('║ 📍 Locales: ' + String(localesVisitados.length).padEnd(3) + '  ⛽ GLP: S/ ' + gastoCombustible.toFixed(2).padStart(7) + '║');
+                  lineas.push('╚══════════════════════════════════════╝');
+                  lineas.push('');
+
+                  if (ruta.hora_salida_planta) {
+                    const primerDestino = bitacora.length > 0 ? bitacora[0].destino_nombre : 'N/A';
+                    lineas.push('🏭 SALIDA PLANTA: ' + formatHora(ruta.hora_salida_planta) + ' → ' + primerDestino);
+                  }
+
+                  if (bitacora.length > 0) {
+                    lineas.push('');
+                    lineas.push('┌─────────────────────────────────────┐');
+                    lineas.push('│         LOCALES VISITADOS          │');
+                    lineas.push('├────┬────────────────────────────────┤');
+                    lineas.push('│ #  │ Horario (Llegada - Salida)    │');
+                    lineas.push('├────┼────────────────────────────────┤');
+
+                    bitacora.forEach((tramo, idx) => {
+                      if (!tramo.hora_llegada) return;
+                      const llegada = formatHora(tramo.hora_llegada);
+                      const salida = tramo.hora_salida ? formatHora(tramo.hora_salida) : '--:--';
+                      const nombreCorto = tramo.destino_nombre.length > 28 ? tramo.destino_nombre.substring(0, 25) + '...' : tramo.destino_nombre;
+                      const num = String(idx + 1).padStart(2, ' ');
+                      const horas = `${llegada} - ${salida}`.padEnd(14);
+                      lineas.push(`│ ${num} │ ${nombreCorto.padEnd(32)}│`);
+                      lineas.push(`│    │ ${horas.padEnd(32)}│`);
+                      lineas.push(`│    │                                    │`);
+                    });
+
+                    lineas.push('└─────────────────────────────────────┘');
+                  }
+
+                  if (ruta.hora_llegada_planta) {
+                    lineas.push('');
+                    lineas.push('🏭 LLEGADA PLANTA: ' + formatHora(ruta.hora_llegada_planta));
+                  }
+
+                  lineas.push('');
+                  lineas.push('_Enviado desde Shimaya Rutas_');
+
+                  const mensaje = encodeURIComponent(lineas.join('\n'));
+                  const whatsappNumero = import.meta.env.VITE_WHATSAPP_ADMIN || '51948800569';
+                  window.open(`https://wa.me/${whatsappNumero}?text=${mensaje}`, '_blank');
+
+                } catch (err) {
+                  console.error('[WhatsApp] Error:', err);
+                  showToast('error', 'Error al generar resumen');
+                } finally {
+                  setEnviandoWhatsapp(false);
+                }
+              }}
+              disabled={enviandoWhatsapp}
+              className="mt-4 ml-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
+            >
+              {enviandoWhatsapp ? '⏳ Generando...' : '📤 Enviar Resumen'}
+            </button>
           </div>
-          
-          {/* Botón para agregar fotos después del viaje */}
+
           <div className="mt-6 p-4 bg-surface-light/30 rounded-2xl border border-white/10">
             <p className="text-xs text-text-muted mb-3 uppercase font-bold">Agregar fotos de evidencia (opcional)</p>
             <div className="grid grid-cols-2 gap-2">
@@ -2208,7 +2195,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
             </div>
           </div>
 
-          {/* Botón para agregar gastos de combustible después del viaje */}
           <button
             onClick={() => setShowCombustible(true)}
             className="mt-4 w-full bg-green-600/20 text-green-400 border border-green-600/50 py-3 rounded-xl font-bold flex items-center justify-center gap-2"
@@ -2222,8 +2208,8 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       {showCombustible && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-surface rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <RegistrarCombustible 
-              idRuta={ruta.id_ruta} 
+            <RegistrarCombustible
+              idRuta={ruta.id_ruta}
               idChofer={profile?.id_usuario || ''}
               onClose={() => setShowCombustible(false)}
             />
@@ -2240,7 +2226,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 <h3 className="text-lg font-black text-white italic uppercase">Kilometraje Inicial</h3>
                 <p className="text-xs text-text-muted">Ingresa el odómetro al salir de planta.</p>
               </div>
-              <Input 
+              <Input
                 type="number"
                 value={tempKmInicio}
                 onChange={e => setTempKmInicio(e.target.value)}
@@ -2278,7 +2264,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         />
       )}
 
-      {/* Modal Resumen de Ruta */}
       {showResumenRuta && ruta && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setShowResumenRuta(false)}>
           <div className="bg-surface rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -2289,13 +2274,11 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               </button>
             </div>
             <div className="p-4 space-y-4">
-              {/* Info de la ruta */}
               <div className="bg-primary/10 rounded-xl p-3 space-y-1">
                 <p className="text-white font-bold text-center">{ruta.nombre}</p>
                 <p className="text-text-muted text-xs text-center">{ruta.fecha}</p>
               </div>
 
-              {/* Salida de Planta */}
               {ruta.hora_salida_planta && (
                 <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
@@ -2311,13 +2294,12 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 </div>
               )}
 
-              {/* Locales */}
               <div className="space-y-2">
                 <p className="text-xs text-text-muted font-bold uppercase tracking-wider">Locales Visitados ({locales.filter(l => l.hora_llegada).length})</p>
                 {locales.map((local, idx) => {
                   const tramo = bitacora.find(b => b.destino_nombre === local.nombre);
                   const yaVisitado = !!tramo?.hora_llegada;
-                  
+
                   return yaVisitado ? (
                     <div key={local.id_local_ruta} className="bg-green-500/10 border border-green-500/30 p-3 rounded-xl">
                       <div className="flex items-center gap-2">
@@ -2333,7 +2315,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 })}
               </div>
 
-              {/* Llegada a Planta */}
               {ruta.hora_llegada_planta && (
                 <div className="bg-orange-500/10 border border-orange-500/30 p-3 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
@@ -2348,7 +2329,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 </div>
               )}
 
-              {/* Totales */}
               <div className="bg-surface-light/30 rounded-xl p-3 space-y-2">
                 <p className="text-xs text-text-muted font-bold uppercase tracking-wider">Totales</p>
                 <div className="flex justify-between text-sm">
@@ -2356,7 +2336,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   <span className="text-white font-bold">
                     {ruta.hora_salida_planta && ruta.hora_llegada_planta ? (() => {
                       const mins = Math.round((new Date(ruta.hora_llegada_planta).getTime() - new Date(ruta.hora_salida_planta).getTime()) / 60000);
-                      return mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins}min`;
+                      return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}min`;
                     })() : 'N/A'}
                   </span>
                 </div>
@@ -2370,7 +2350,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       )}
 
-      {/* Guías Viewer Modal */}
       {viewingGuias && (
         <div className="fixed inset-0 z-[100] bg-black backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200">
           <div className="absolute top-0 left-0 right-0 p-4 flex flex-col gap-3 bg-gradient-to-b from-black/90 via-black/50 to-transparent z-[110]">
@@ -2385,7 +2364,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   <button onClick={() => { setZoomScale(1); }} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg text-white border border-white/5 active:scale-90 transition-all"><Maximize2 size={18} /></button>
                 </div>
               </div>
-              <button 
+              <button
                 className="text-white bg-red-500/20 hover:bg-red-500/40 p-3 rounded-full backdrop-blur-md border border-red-500/30 transition-all active:scale-95"
                 onClick={() => {
                   setViewingGuias(null);
@@ -2396,10 +2375,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="relative group mx-2">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 group-focus-within:text-primary transition-colors" />
-              <input 
+              <input
                 type="text"
                 placeholder="Buscar productos (ej: Salmón, Arroz...)"
                 value={searchTermGuias}
@@ -2408,21 +2387,21 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               />
             </div>
           </div>
-          
+
           <div className="flex-1 w-full flex items-center justify-center p-2 pt-40 pb-28 relative overflow-hidden">
             <div className={`w-full h-full flex items-center justify-center transition-transform duration-300 ease-out cursor-move ${zoomScale > 1 ? 'overflow-auto scrollbar-hide' : ''}`}>
-               {viewingGuias[currentGuiaIndex].comentario && (
-                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-                    <span className="bg-primary/90 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg backdrop-blur-sm border border-white/20">
-                      {viewingGuias[currentGuiaIndex].comentario}
-                    </span>
-                 </div>
-               )}
+              {viewingGuias[currentGuiaIndex].comentario && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                  <span className="bg-primary/90 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg backdrop-blur-sm border border-white/20">
+                    {viewingGuias[currentGuiaIndex].comentario}
+                  </span>
+                </div>
+              )}
 
-              <img 
-                src={viewingGuias[currentGuiaIndex].archivo_url} 
-                alt="Documento de despacho" 
-                style={{ 
+              <img
+                src={viewingGuias[currentGuiaIndex].archivo_url}
+                alt="Documento de despacho"
+                style={{
                   transform: `scale(${zoomScale})`,
                   transformOrigin: 'center center',
                   transition: 'transform 0.2s ease-out'
@@ -2430,10 +2409,10 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 className="w-auto h-auto max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
               />
             </div>
-            
+
             {viewingGuias.length > 1 && (
               <>
-                <button 
+                <button
                   onClick={() => {
                     setCurrentGuiaIndex(prev => prev > 0 ? prev - 1 : viewingGuias.length - 1);
                     setZoomScale(1);
@@ -2442,7 +2421,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                 >
                   <ChevronLeft size={32} />
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setCurrentGuiaIndex(prev => prev < viewingGuias.length - 1 ? prev + 1 : 0);
                     setZoomScale(1);
@@ -2454,7 +2433,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               </>
             )}
           </div>
-          
+
           <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto z-10 py-1 scrollbar-hide">
             {viewingGuias.map((g, i) => {
               const matched = searchTermGuias && g.comentario?.toLowerCase().includes(searchTermGuias.toLowerCase());
@@ -2472,7 +2451,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   <img src={g.archivo_url} className="w-full h-full object-cover" />
                   {matched && (
                     <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center">
-                       <Check size={20} className="text-yellow-400 drop-shadow-lg" />
+                      <Check size={20} className="text-yellow-400 drop-shadow-lg" />
                     </div>
                   )}
                 </button>
@@ -2482,7 +2461,6 @@ if (bitError) console.error('Error loading bitacora:', bitError);
         </div>
       )}
 
-      {/* Modal para Kilometraje Final */}
       {showFinalKmModal && ruta && (
         <div className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center p-4 backdrop-blur-lg">
           <Card className="max-w-md w-full border-primary/20 bg-surface shadow-2xl">
@@ -2498,20 +2476,19 @@ if (bitError) console.error('Error loading bitacora:', bitError);
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Km Inicial: {ruta.km_inicio || 0}</label>
-                  <Input 
+                  <Input
                     type="number"
-                    placeholder="Kilometraje Final" 
+                    placeholder="Kilometraje Final"
                     className="bg-surface-light border-2 border-primary/20 text-white font-black italic uppercase text-lg tracking-widest"
                     value={kmFin}
                     onChange={e => setKmFin(e.target.value)}
                   />
                 </div>
 
-                {/* Foto Opcional Kilometraje Final */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-text-muted uppercase font-black tracking-widest ml-1">Foto del Odómetro (Opcional)</label>
                   {!fotoKmFin ? (
-                    <button 
+                    <button
                       onClick={() => {
                         const input = document.createElement('input');
                         input.type = 'file';
@@ -2540,7 +2517,7 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   ) : (
                     <div className="relative group">
                       <img src={fotoKmFin} className="w-full h-32 object-cover rounded-xl border-2 border-primary/50" />
-                      <button 
+                      <button
                         onClick={() => { setFotoKmFin(null); setKmFinDetectado(null); }}
                         className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white"
                       >
@@ -2561,21 +2538,21 @@ if (bitError) console.error('Error loading bitacora:', bitError);
                   )}
                 </div>
 
-                <Button 
+                <Button
                   className="w-full h-14 text-lg font-black italic bg-primary hover:bg-primary-hover shadow-xl"
                   disabled={!kmFin || parseFloat(kmFin) <= (ruta.km_inicio || 0) || subiendoFoto}
                   onClick={async () => {
                     try {
                       setSubiendoFoto(true);
                       let publicUrlFin = '';
-                      
+
                       if (fotoKmFin) {
                         const blob = await (await fetch(fotoKmFin)).blob();
                         const fileName = `${profile?.id_usuario}_end_${Date.now()}.jpg`;
                         const { error: uploadError } = await supabase.storage
                           .from('combustible_fotos')
                           .upload(`kilometraje/${fileName}`, blob);
-                        
+
                         if (!uploadError) {
                           const { data } = supabase.storage.from('combustible_fotos').getPublicUrl(`kilometraje/${fileName}`);
                           publicUrlFin = data.publicUrl;
@@ -2584,11 +2561,11 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
                       const { error } = await supabase
                         .from('rutas')
-                        .update({ 
+                        .update({
                           km_fin: parseFloat(kmFin)
                         })
                         .eq('id_ruta', ruta.id_ruta);
-                      
+
                       if (error) throw error;
                       setRuta({ ...ruta, km_fin: parseFloat(kmFin) });
                       setShowFinalKmModal(false);
