@@ -76,6 +76,13 @@ export default function DriverViaje() {
       return () => clearTimeout(timer);
     }
   }, [loadingRutasBase, loading]);
+
+  // Cargar plantillas al montar el componente
+  useEffect(() => {
+    if (!rutasBaseLoaded) {
+      loadRutasBase();
+    }
+  }, []);
   
   const [selectedRutaBase, setSelectedRutaBase] = useState('');
   const [nuevaPlaca, setNuevaPlaca] = useState(profile?.placa_camion || '');
