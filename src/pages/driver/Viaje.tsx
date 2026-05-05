@@ -1247,16 +1247,26 @@ if (bitError) console.error('Error loading bitacora:', bitError);
       const { error: insertError } = await supabase.from('locales_ruta').insert(localesRuta);
       if (insertError) throw insertError;
 
+      // After creating route, FORCE the UI to show "INICIAR VIAJE" card
+      // by clearing ruta state so it goes to nuevoDestino condition
       await loadCurrentRuta();
       
-      // FORCE Bitácora to show after route creation
       showToast('success', '¡Ruta creada! Ahora inicia tu viaje.');
+      
+      // Clear ruta state to force showing the "INICIAR VIAJE" card
+      // The condition is: ruta?.estado === 'pendiente' ? Card1 : nuevoDestino ? Card2 : Card3
+      // We need to clear ruta so it goes to nuevoDestino
+      const newRutaData = newRuta;
+      setRuta(null); // Force re-render to show nuevoDestino card
       
       // Small delay to ensure state updates propagate
       setTimeout(() => {
+        // Re-load to get fresh state
+        loadCurrentRuta();
+        // Calculate siguiente destino
         const siguiente = calcularSiguienteDestino();
         if (siguiente) setNuevoDestino(siguiente);
-      }, 300);
+      }, 500);
       
     } catch (e: any) {
       console.error('[Viaje] Error al crear viaje:', e);
