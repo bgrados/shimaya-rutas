@@ -56,6 +56,7 @@ export default function DriverViaje() {
   
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [justCreated, setJustCreated] = useState(false);  // Flag to prevent realtime overwrite
   
   // Selection/Creation state
   const [rutasBase, setRutasBase] = useState<any[]>([]);
@@ -906,54 +907,22 @@ export default function DriverViaje() {
   };
 
   const loadCurrentRuta = async () => {
-    if (!profile) {
-      setLoading(false);
+    if (!profile?.id_usuario) return;
+    
+    // PREVENT REALTIME OVERWRITE: If just created a route, don't overwrite
+    if (justCreated) {
+      console.log('[Viaje] Skipping loadCurrentRuta - just created route');
+      setJustCreated(false); // Reset flag
       return;
     }
-    // Solo mostrar spinner de carga completo en la primera carga
-    // En recargas por realtime, no bloquear la UI
-    if (!loadedAtLeastOnce) {
-      setLoading(true);
-    }
-
-    // Verificar si hay un ID de ruta histórico en la URL
-    const pathParts = window.location.pathname.split('/historial/');
     
+    if (loadingRutasBase || !rutasBaseLoaded) {
+      setLoading(true);
+      return;
+    }
     try {
-      // Si hay ID en URL, cargar esa ruta específica
-      if (pathParts.length > 1) {
-        const rutaIdFromUrl = pathParts[1];
-        const { data: rutaHistorica, error: rhError } = await supabase
-          .from('rutas')
-          .select('*')
-          .eq('id_ruta', rutaIdFromUrl)
-          .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
-          .maybeSingle();
-        
-        if (rhError) console.error('Error loading ruta histórica:', rhError);
-        
-        if (rutaHistorica) {
-          setRuta(rutaHistorica as Ruta);
-          setEsHistorial(true);
-          
-          const localesData = await fetchLocalesWithGuias(rutaHistorica.id_ruta);
-          setLocales(localesData);
-
-          const { data: bitacoraData, error: bitError } = await supabase
-            .from('viajes_bitacora')
-            .select('*')
-            .eq('id_ruta', rutaHistorica.id_ruta)
-            .order('created_at', { ascending: true });
-          
-          if (bitError) console.error('Error loading bitacora:', bitError);
-          setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
-          
-          await loadRutasBase();
-          setLoading(false);
-          return;
-        }
-      }
-
+      setLoadError(null);
+      
       // Primero buscar ruta activa (pendiente o en_progreso)
       const { data: rutaActiva, error: rError } = await supabase
         .from('rutas')
@@ -962,7 +931,9 @@ export default function DriverViaje() {
         .in('estado', ['pendiente', 'en_progreso'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle(); 
+        .maybeSingle();
+      
+      if (rError) throw rError;
       
       // Si hay ruta activa, usarla
       if (rutaActiva) {
@@ -970,59 +941,65 @@ export default function DriverViaje() {
         
         const localesData = await fetchLocalesWithGuias(rutaActiva.id_ruta);
         setLocales(localesData);
-
+        
         const { data: bitacoraData, error: bitError } = await supabase
           .from('viajes_bitacora')
           .select('*')
           .eq('id_ruta', rutaActiva.id_ruta)
           .order('created_at', { ascending: true });
         
-if (bitError) console.error('Error loading bitacora:', bitError);
+        if (bitError) console.error('Error loading bitacora:', bitError);
         setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
         
-        // Cargar rutas base SIEMPRE (para el selector) - aquí fuera del if para ejecutarse siempre
         await loadRutasBase();
-      } else {
-        // Si no hay ruta activa, buscar la ruta finalizada de HOY
-        const today = formatOnlyDatePeru();
-        const { data: rutaFinalizada, error: rfError } = await supabase
-          .from('rutas')
-          .select('*')
-          .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
-          .eq('estado', 'finalizada')
-          .eq('fecha', today)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (rfError) console.error('Error loading ruta finalizada:', rfError);
-        
-        if (rutaFinalizada) {
-          // Mostrar la ruta finalizada para poder agregar fotos
-          setRuta(rutaFinalizada as Ruta);
-          
-          const localesData = await fetchLocalesWithGuias(rutaFinalizada.id_ruta);
-          setLocales(localesData);
-
-          const { data: bitacoraData, error: bitError } = await supabase
-            .from('viajes_bitacora')
-            .select('*')
-            .eq('id_ruta', rutaFinalizada.id_ruta)
-            .order('created_at', { ascending: true });
-          
-          if (bitError) console.error('Error loading bitacora:', bitError);
-          setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
-        } else {
-          setRuta(null);
-          setLocales([]);
-          setBitacora([]);
-        }
-        
-        // Cargar rutas base SIEMPRE (para el selector)
-        await loadRutasBase();
+        setLoading(false);
+        return;
       }
+      
+      // Si no hay ruta activa, buscar la ruta finalizada de HOY
+      const today = formatOnlyDatePeru();
+      const { data: rutaFinalizada, error: rfError } = await supabase
+        .from('rutas')
+        .select('*')
+        .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
+        .eq('estado', 'finalizada')
+        .eq('fecha', today)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (rfError) console.error('Error loading ruta finalizada:', rfError);
+      
+      if (rutaFinalizada) {
+        // Mostrar la ruta finalizada para poder agregar fotos
+        setRuta(rutaFinalizada as Ruta);
+        
+        const localesData = await fetchLocalesWithGuias(rutaFinalizada.id_ruta);
+        setLocales(localesData);
+        
+        const { data: bitacoraData, error: bitError } = await supabase
+          .from('viajes_bitacora')
+          .select('*')
+          .eq('id_ruta', rutaFinalizada.id_ruta)
+          .order('created_at', { ascending: true });
+        
+        if (bitError) console.error('Error loading bitacora:', bitError);
+        setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
+        
+        await loadRutasBase();
+        setLoading(false);
+        return;
+      }
+      
+      // Si no hay ruta hoy, resetear
+      setRuta(null);
+      setLocales([]);
+      setBitacora([]);
+      await loadRutasBase();
+      setLoading(false);
+      
     } catch (err: any) {
-      console.error('Error cargando datos de viaje:', err);
+      console.error('[Viaje] Error cargando datos:', err);
       if (err.message?.includes('policy') || err.code === '42501') {
         setLoadError('Error de permisos (RLS). Contacta al administrador.');
       } else {
@@ -1249,23 +1226,27 @@ if (bitError) console.error('Error loading bitacora:', bitError);
 
       // After creating route, FORCE the UI to show "INICIAR VIAJE" card
       // by clearing ruta state so it goes to nuevoDestino condition
+      // Set flag to prevent realtime from overwriting
+      setJustCreated(true);
+      
       await loadCurrentRuta();
+      
+      // After creating route, FORCE the UI to show "INICIAR VIAJE" card
+      // by clearing ruta state so it goes to nuevoDestino condition
+      setRuta(null); // Force re-render to show nuevoDestino card
       
       showToast('success', '¡Ruta creada! Ahora inicia tu viaje.');
       
-      // Clear ruta state to force showing the "INICIAR VIAJE" card
-      // The condition is: ruta?.estado === 'pendiente' ? Card1 : nuevoDestino ? Card2 : Card3
-      // We need to clear ruta so it goes to nuevoDestino
-      const newRutaData = newRuta;
-      setRuta(null); // Force re-render to show nuevoDestino card
-      
-      // Small delay to ensure state updates propagate
+      // Small delay to ensure state propagation
       setTimeout(() => {
         // Re-load to get fresh state
         loadCurrentRuta();
         // Calculate siguiente destino
         const siguiente = calcularSiguienteDestino();
         if (siguiente) setNuevoDestino(siguiente);
+        
+        // Clear flag after delay
+        setTimeout(() => setJustCreated(false), 2000);
       }, 500);
       
     } catch (e: any) {
