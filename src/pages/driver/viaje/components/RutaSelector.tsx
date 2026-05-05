@@ -47,86 +47,15 @@ export function RutaSelector({
     setProcesandoOCR(true);
     setKmDetectado(null);
     try {
-      // 1. Preprocess image (like ModalEvidencia.tsx)
-      const img = new Image();
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.src = dataUrl;
-      });
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('No canvas context');
-      
-      ctx.drawImage(img, 0, 0);
-      
-      // Improve contrast and convert to grayscale
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        // Increase contrast
-        const contrasted = avg > 128 ? Math.min(255, avg * 1.2) : Math.max(0, avg * 0.8);
-        data[i] = data[i + 1] = data[i + 2] = contrasted;
-      }
-      ctx.putImageData(imageData, 0, 0);
-      
-      const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      
-      // 2. Use Spanish language (like fuel OCR) and add progress callback
-      const TesseractMod = await import('tesseract.js');
-      const result = await TesseractMod.default.recognize(optimizedDataUrl, 'spa', {
-        logger: (m: any) => {
-          if (m.status === 'recognizing text') {
-            console.log('[OCR KM] Progress:', Math.round(m.progress * 100) + '%');
-          }
-        }
-      });
-      
-      const text = result.data.text.toLowerCase();
-      console.log('[OCR KM] Text detected:', text);
-      
-      // 3. Use improved patterns (similar to fuel OCR)
-      const kilometrajePatterns = [
-        /(\d{4,7})\s*km/i,
-        /km[:\s]*(\d{4,7})/i,
-        /kilom[.\s]*(\d{4,7})/i,
-        /odo[.\s]*(\d{4,7})/i,
-        /(\d{5,7})/,  // 5-7 digits (most likely odometer)
-        /(\d{4})/,    // 4 digits as fallback
-      ];
-      
-      let kmEncontrado: number | null = null;
-      for (const pattern of kilometrajePatterns) {
-        const match = text.match(pattern);
-        if (match) {
-          const km = parseInt(match[1] || match[0]);
-          if (km > 0 && km < 999999) {  // Sanity check
-            kmEncontrado = km;
-            break;
-          }
-        }
-      }
-      
-      // Fallback: look for any 4-7 digit number (original logic)
-      if (!kmEncontrado) {
-        const matches = text.match(/\d{4,7}/g);
-        if (matches && matches.length > 0) {
-          const km = parseInt(matches.sort((a, b) => b.length - a.length)[0]);
-          if (km > 0 && km < 999999) {
-            kmEncontrado = km;
-          }
-        }
-      }
-      
-      if (kmEncontrado) {
-        setKmDetectado(kmEncontrado);
-        setKmInicio(kmEncontrado.toString());
-        console.log('[OCR KM] Kilometraje detectado:', kmEncontrado);
-      } else {
-        console.warn('[OCR KM] No se detectó kilometraje');
+      const result = await Tesseract.recognize(dataUrl, 'eng', {});
+      const text = result.data.text;
+      // Buscar número de 4-7 dígitos que sea el odómetro
+      const matches = text.match(/\d{4,7}/g);
+      if (matches && matches.length > 0) {
+        // Tomar el número más largo encontrado
+        const km = parseInt(matches.sort((a, b) => b.length - a.length)[0]);
+        setKmDetectado(km);
+        setKmInicio(km.toString());
       }
     } catch (err) {
       console.error('[OCR KM]', err);
