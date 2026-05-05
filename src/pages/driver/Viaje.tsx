@@ -1241,24 +1241,17 @@ export default function DriverViaje() {
       const { error: insertError } = await supabase.from('locales_ruta').insert(localesRuta);
       if (insertError) throw insertError;
 
-      // After creating route, FORCE the UI to show "INICIAR VIAJE" card
-      // by clearing ruta state so it goes to nuevoDestino condition
-      // Set flag to prevent realtime from overwriting
+      // After creating route, load it and show the active route screen
       setJustCreated(true);
       
+      // Load the newly created route
       await loadCurrentRuta();
-      
-      // After creating route, FORCE the UI to show "INICIAR VIAJE" card
-      // by clearing ruta state so it goes to nuevoDestino condition
-      setRuta(null); // Force re-render to show nuevoDestino card
       
       showToast('success', '¡Ruta creada! Ahora inicia tu viaje.');
       
       // Small delay to ensure state propagation
       setTimeout(() => {
-        // Re-load to get fresh state
-        loadCurrentRuta();
-        // Calculate siguiente destino
+        // Calculate siguiente destino for the UI
         const siguiente = calcularSiguienteDestino();
         if (siguiente) setNuevoDestino(siguiente);
         
