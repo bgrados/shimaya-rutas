@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { ListaAlertas, detectarInconsistenciasGlobales, Alerta } from '../../components/ui/Alertas';
-import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Car, Route, DollarSign, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Car, Route, DollarSign, Activity, ChevronDown, ChevronUp, Calendar, UserCheck, UserX } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatHoraPeru } from '../../lib/timezone';
 import { toDate } from 'date-fns-tz';
@@ -28,6 +28,7 @@ interface Stats {
   gastosHoy: number;
   peajeDia: number;
   peajeSemana: number;
+  totalGastosOperativosHoy: number;
 }
 
 interface RutaEnProgreso {
@@ -57,6 +58,16 @@ interface RendimientoDia {
   label: string;
 }
 
+interface EstadoChofer {
+  id: string;
+  nombre: string;
+  descansoNormal: string;
+  tieneExcepcionHoy: boolean;
+  descansaHoy: boolean;
+  motivo: string;
+  enRuta: boolean;
+}
+
 export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
@@ -66,12 +77,14 @@ export default function Dashboard() {
     choferesSinRuta: 0, totalChoferes: 0,
     gastoCombustibleDia: 0, gastoCombustibleSemana: 0,
     gastoOtrosDia: 0, gastoOtrosSemana: 0, gastosHoy: 0,
-    peajeDia: 0, peajeSemana: 0
+    peajeDia: 0, peajeSemana: 0,
+    totalGastosOperativosHoy: 0
   });
   const [rutasEnProgreso, setRutasEnProgreso] = useState<RutaEnProgreso[]>([]);
   const [topChoferes, setTopChoferes] = useState<TopChofer[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [rendimiento, setRendimiento] = useState<RendimientoDia | null>(null);
+  const [estadoChoferes, setEstadoChoferes] = useState<EstadoChofer[]>([]);
   const [loading, setLoading] = useState(true);
   const [choferFilter, setChoferFilter] = useState<string>('todos');
   const [choferes, setChoferes] = useState<{ id_usuario: string; nombre: string }[]>([]);
@@ -132,7 +145,7 @@ export default function Dashboard() {
       const hace30Str = format(hace30, 'yyyy-MM-dd');
 
       const rutasHoyQuery = supabase.from('rutas').select('*').eq('fecha', hoyStr);
-      const rutasSemanaQuery = supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr);
+      const rutasSemanaQuery = supabase.from('rutas').select('id_ruta, id_ruta_base').gte('fecha', semanaStr).lte('fecha', hoyStr);
       const rutasHistQuery = supabase.from('rutas').select('hora_salida_planta, hora_llegada_planta, fecha, id_chofer').eq('estado', 'finalizada').gte('fecha', hace30Str);
 
       if (choferFilter !== 'todos') {
@@ -163,7 +176,6 @@ export default function Dashboard() {
       const rutaIdsDelDia = rutasHoy.map(r => r.id_ruta);
       const rutaIdsSemana = rutasSemanaRes.data?.map(r => r.id_ruta) || [];
 
-      // CORRECCIÓN 2: Usar condición real, no placeholder UUID
       const tieneRutasDia = rutaIdsDelDia.length > 0;
       const tieneRutasSemana = rutaIdsSemana.length > 0;
 
@@ -193,17 +205,41 @@ export default function Dashboard() {
       const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
       const diaHoy = diasSemana[nowPeru.getDay()];
       const todosChoferes = todosChoferesRes.data || [];
-      const choferesEnDescanso = todosChoferes.filter((c: any) =>
-        (c.dias_descanso || []).includes(diaHoy)
-      );
-      const numDescanso = choferesEnDescanso.length;
-      const totalChoferesRegistrados = choferesRes.count || 0;
+
+      // Estado de choferes con días de descanso (normales y excepciones - preparado para futuro)
+      const choferesConEstado: EstadoChofer[] = todosChoferes.map((c: any) => {
+        const descansoNormal = (c.dias_descanso || [])[0] || 'ninguno';
+        // TODO: Consultar excepciones cuando se implemente la tabla
+        const tieneExcepcionHoy = false; // Placeholder para futura implementación
+        const descansaExcepcion = false;
+        const descansaHoy = descansaExcepcion || (c.dias_descanso || []).includes(diaHoy);
+
+        return {
+          id: c.id_usuario,
+          nombre: c.nombre,
+          descansoNormal,
+          tieneExcepcionHoy,
+          descansaHoy,
+          motivo: descansaHoy ? (tieneExcepcionHoy ? 'Excepción semanal' : 'Descanso fijo') : 'Laborando',
+          enRuta: false // Se actualizará después
+        };
+      });
 
       const rutasEnCurso = rutasHoy.filter(r => r.estado === 'en_progreso');
       const rutasPendientes = rutasHoy.filter(r => r.estado === 'pendiente');
       const rutasFinalizadas = rutasHoy.filter(r => r.estado === 'finalizada');
 
       const choferesActivosEnCurso = new Set(rutasEnCurso.map(r => r.id_chofer).filter(Boolean));
+
+      // Actualizar estado enRuta
+      choferesConEstado.forEach(c => {
+        c.enRuta = choferesActivosEnCurso.has(c.id);
+      });
+
+      setEstadoChoferes(choferesConEstado);
+
+      const numDescanso = choferesConEstado.filter(c => c.descansaHoy).length;
+      const totalChoferesRegistrados = choferesRes.count || 0;
       const numDisponibles = Math.max(0, totalChoferesRegistrados - numDescanso - choferesActivosEnCurso.size);
 
       const rutasActivasIds = [...rutasEnCurso, ...rutasFinalizadas].map(r => r.id_ruta);
@@ -223,8 +259,8 @@ export default function Dashboard() {
       const gastoSemana = combustibleSemanaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
       const gastoOtrosDia = otrosDiaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
       const gastoOtrosSemana = otrosSemanaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
-      const gastosHoy = gastoDia + gastoOtrosDia;
 
+      // Cálculo de peajes
       const rutasBaseIds = [...new Set(rutasHoy.map(r => r.id_ruta_base).filter(Boolean))];
       const rutasBaseIdsSemana = [...new Set(rutasSemanaRes.data?.map((_: any) => _.id_ruta_base).filter(Boolean) || [])];
       const rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
@@ -246,6 +282,7 @@ export default function Dashboard() {
       const peajeDia = rutasFinalizadas.reduce((s, r) => s + calcPeaje(r), 0);
       const rutasSemanaCompletas = rutasSemanaRes.data || [];
       const peajeSemana = rutasSemanaCompletas.reduce((s: number, r: any) => s + calcPeaje(r), 0);
+      const totalGastosOperativosHoy = gastoDia + gastoOtrosDia + peajeDia;
 
       setStats({
         rutasActivas: rutasEnCurso.length,
@@ -259,11 +296,12 @@ export default function Dashboard() {
         totalChoferes: totalChoferesRegistrados,
         gastoCombustibleDia: gastoDia, gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia, gastoOtrosSemana,
-        gastosHoy,
-        peajeDia, peajeSemana
+        gastosHoy: gastoDia + gastoOtrosDia,
+        peajeDia, peajeSemana,
+        totalGastosOperativosHoy
       });
 
-      // CORRECCIÓN 3: Mostrar rutas individuales por chofer (sin agrupar)
+      // Rutas en progreso
       if (rutasEnCurso.length > 0) {
         const rutasProgresoQuery = supabase
           .from('rutas').select('*, usuarios!rutas_id_chofer_fkey(nombre)')
@@ -297,7 +335,7 @@ export default function Dashboard() {
         setRutasEnProgreso([]);
       }
 
-      // CORRECCIÓN 1: Alertas respetan el filtro de chofer
+      // Alertas
       if (tieneRutasSemana) {
         const gastosQuery = supabase
           .from('gastos_combustible')
@@ -396,7 +434,6 @@ export default function Dashboard() {
   const getProgreso = (completadas: number, total: number) =>
     total === 0 ? 0 : Math.round((completadas / total) * 100);
 
-  // CORRECCIÓN 3: Agrupar rutas por chofer para mostrar expandible
   const rutasPorChofer = rutasEnProgreso.reduce((acc, ruta) => {
     if (!acc[ruta.chofer_id]) {
       acc[ruta.chofer_id] = {
@@ -663,15 +700,75 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs text-teal-300 uppercase font-bold flex items-center gap-1">
-                Total Gastos Hoy <Tooltip content="Suma de combustible + otros gastos del día." />
+                Total Gastos Operativos <Tooltip content="Suma de combustible + otros gastos + peajes del día." />
               </p>
-              <p className="text-2xl font-black text-white">S/ {stats.gastosHoy.toFixed(2)}</p>
+              <p className="text-2xl font-black text-white">S/ {stats.totalGastosOperativosHoy.toFixed(2)}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* CORRECCIÓN 3: Rutas en Progreso - Mostrar individualmente por chofer con expandible */}
+      {/* NUEVA SECCIÓN: Estado de choferes hoy */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Calendar className="text-primary" size={20} />
+              Estado de Choferes Hoy
+              <Tooltip content="Muestra qué choferes están trabajando, en descanso fijo o con excepción semanal." />
+            </h2>
+            <Link to="/admin/usuarios" className="text-primary text-sm hover:underline">Gestionar</Link>
+          </div>
+
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+            {estadoChoferes.map(chofer => (
+              <div key={chofer.id} className="flex items-center justify-between p-3 bg-surface-light/20 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${chofer.enRuta ? 'bg-green-500 animate-pulse' :
+                      chofer.descansaHoy ? 'bg-red-500' : 'bg-blue-500'
+                    }`} />
+                  <span className="text-white font-medium">{chofer.nombre}</span>
+                  {chofer.descansaHoy ? (
+                    <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <UserX size={12} /> Descanso
+                    </span>
+                  ) : chofer.enRuta ? (
+                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <UserCheck size={12} /> En ruta
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <UserCheck size={12} /> Disponible
+                    </span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-text-muted text-xs">
+                    {chofer.descansaHoy ? (
+                      <span className="flex items-center gap-1">
+                        {chofer.motivo}
+                        {chofer.tieneExcepcionHoy && (
+                          <Tooltip content="Excepción aplicada esta semana" />
+                        )}
+                      </span>
+                    ) : (
+                      `Descanso normal: ${chofer.descansoNormal}`
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-white/10 flex gap-4 text-xs text-text-muted">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> En ruta</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Disponible</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> En descanso</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Rutas en Progreso */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -699,7 +796,6 @@ export default function Dashboard() {
 
                 return (
                   <div key={choferId} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                    {/* Header del chofer - siempre visible */}
                     <div
                       className="p-4 cursor-pointer hover:bg-surface-light/50 transition-colors"
                       onClick={() => tieneMultiplesRutas && toggleExpand(choferId)}
@@ -731,7 +827,6 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Rutas individuales - expandible solo si tiene múltiples */}
                     {tieneMultiplesRutas && isExpanded && (
                       <div className="border-t border-white/10 bg-black/20 p-3 space-y-3">
                         <p className="text-xs text-text-muted px-2 uppercase font-bold">Detalle por ruta:</p>
@@ -765,7 +860,6 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Si tiene una sola ruta, mostrar el nombre de la ruta */}
                     {!tieneMultiplesRutas && rutas[0] && (
                       <div className="px-4 pb-4 pt-0">
                         <p className="text-text-muted text-xs flex items-center gap-2">
