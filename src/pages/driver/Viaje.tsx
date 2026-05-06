@@ -192,6 +192,12 @@ export default function Viaje() {
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
   const [detourParaFoto, setDetourParaFoto] = useState<LocalRuta | null>(null);
 
+  // Estado para agregar nota al destino
+  const [showNotaModal, setShowNotaModal] = useState(false);
+  const [notaActual, setNotaActual] = useState('');
+  const [notaBitacoraId, setNotaBitacoraId] = useState<string | null>(null);
+  const [notaDestinoNombre, setNotaDestinoNombre] = useState('');
+
   const [editandoBitacora, setEditandoBitacora] = useState<string | null>(null);
   const [editHoraSalida, setEditHoraSalida] = useState('');
   const [editHoraLlegada, setEditHoraLlegada] = useState('');
@@ -495,6 +501,37 @@ export default function Viaje() {
     setMensajeGPS('');
     setMostrarBotonManual(false);
     setDetourPendiente(null);
+  };
+
+  // Función para agregar nota al destino
+  const handleAgregarNota = async () => {
+    if (!notaBitacoraId || !notaActual.trim()) {
+      showToast('warning', 'Escribe una nota antes de guardar');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('viajes_bitacora')
+        .update({ observacion: notaActual.trim() })
+        .eq('id_bitacora', notaBitacoraId);
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      setBitacora(bitacora.map(b =>
+        b.id_bitacora === notaBitacoraId
+          ? { ...b, observacion: notaActual.trim() }
+          : b
+      ));
+
+      showToast('success', 'Nota agregada correctamente');
+      setShowNotaModal(false);
+      setNotaActual('');
+      setNotaBitacoraId(null);
+    } catch (err: any) {
+      showToast('error', 'Error al guardar nota: ' + err.message);
+    }
   };
 
   const iniciarWatchPosition = async () => {
@@ -1787,6 +1824,34 @@ export default function Viaje() {
         />
       )}
 
+      {/* Modal para agregar nota al destino */}
+      {showNotaModal && (
+        <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
+          <Card className="max-w-md w-full border-primary/30 bg-surface">
+            <CardContent className="p-6 space-y-4">
+              <div className="text-center space-y-1">
+                <FileText className="mx-auto text-primary" size={32} />
+                <h3 className="text-lg font-black text-white italic uppercase">Agregar Nota</h3>
+                <p className="text-xs text-text-muted">
+                  Agrega una observación para <span className="text-primary">{notaDestinoNombre}</span>
+                </p>
+              </div>
+              <textarea
+                value={notaActual}
+                onChange={(e) => setNotaActual(e.target.value)}
+                placeholder="Ej: Entregar factura, Cliente no estaba, etc."
+                className="w-full bg-surface-light border-2 border-primary/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary resize-none"
+                rows={4}
+              />
+              <div className="flex gap-2">
+                <Button variant="ghost" className="flex-1 text-xs" onClick={() => setShowNotaModal(false)}>Cancelar</Button>
+                <Button className="flex-1 text-xs font-black" onClick={handleAgregarNota}>Guardar Nota</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {ruta.estado === 'pendiente' && bitacora.length === 0 && (
         <Card className="bg-yellow-500/10 border-2 border-yellow-500/50 shadow-2xl overflow-hidden animate-pulse">
           <CardContent className="p-8 text-center">
@@ -1936,10 +2001,11 @@ export default function Viaje() {
                   )}
                 </div>
 
-                {gpsDebugLogs.length > 0 && (
+                {/* Debug GPS - solo visible en desarrollo */}
+                {import.meta.env.DEV && gpsDebugLogs.length > 0 && (
                   <details className="mt-3">
                     <summary className="text-[10px] text-text-muted cursor-pointer hover:text-white">
-                      Debug GPS ({gpsDebugLogs.length})
+                      🔧 Debug GPS ({gpsDebugLogs.length})
                     </summary>
                     <div className="mt-2 bg-black/30 rounded-lg p-2 text-[9px] font-mono text-text-muted max-h-32 overflow-y-auto">
                       {gpsDebugLogs.map((log, i) => (
@@ -1978,59 +2044,74 @@ export default function Viaje() {
                     <div className="absolute left-[-4px] top-0 w-2.5 h-2.5 rounded-full bg-primary shadow-lg shadow-primary/50"></div>
                   </div>
 
-                  {isEditingDestino ? (
-                    <div className="space-y-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
-                      <Input
-                        placeholder="Corregir nombre del destino..."
-                        value={destinoEditado}
-                        onChange={e => setDestinoEditado(e.target.value)}
-                        className="bg-black/40 border-primary/30"
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" className="flex-1 font-bold text-xs" onClick={() => setIsEditingDestino(false)}>CANCELAR</Button>
-                        <Button size="sm" className="flex-1 font-black text-xs" disabled={isSavingDestino} onClick={() => handleSaveDestino(tramoEnProgreso.id_bitacora)}>{isSavingDestino ? 'GUARDANDO...' : 'GUARDAR'}</Button>
-                      </div>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 pr-4">
+                      <p className="text-[9px] text-text-muted uppercase font-black tracking-widest mb-1">Hacia (Destino)</p>
+                      <h3 className="text-xl font-black text-white italic leading-tight uppercase">{tramoEnProgreso.destino_nombre}</h3>
+                      {tramoEnProgreso.observacion && (
+                        <p className="text-xs text-yellow-400 mt-1 italic">📝 {tramoEnProgreso.observacion}</p>
+                      )}
                     </div>
-                  ) : (
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 pr-4">
-                        <p className="text-[9px] text-text-muted uppercase font-black tracking-widest mb-1">Hacia (Destino)</p>
-                        <h3 className="text-xl font-black text-white italic leading-tight uppercase">{tramoEnProgreso.destino_nombre}</h3>
-                      </div>
-                      <div className="flex items-center gap-2 pt-2">
-                        {(function () {
-                          const normalizedDest = (tramoEnProgreso.destino_nombre || '').trim().toLowerCase();
-                          const localActual = locales.find(l => (l.nombre || '').trim().toLowerCase() === normalizedDest);
+                    <div className="flex items-center gap-2 pt-2">
+                      {(function () {
+                        const normalizedDest = (tramoEnProgreso.destino_nombre || '').trim().toLowerCase();
+                        const localActual = locales.find(l => (l.nombre || '').trim().toLowerCase() === normalizedDest);
 
-                          return (
-                            <>
-                              {localActual?.latitud && localActual?.longitud && (
-                                <>
-                                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 bg-blue-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Google Maps">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                      <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.375 8.5 15.5 8.5 15.5s8.5-9.125 8.5-15.5C20.5 3.81 16.69 0 12 0zm0 12c-1.93 0-3.5-1.57-3.5-3.5S10.07 5 12 5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z" />
-                                    </svg>
-                                  </a>
-                                  <a href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 bg-yellow-500/20 p-2.5 rounded-lg active:scale-90 transition-transform" title="Waze">
-                                    <Navigation size={18} />
-                                  </a>
-                                </>
-                              )}
-                              {localActual?.guias && localActual.guias.length > 0 && (
-                                <button onClick={() => { setViewingGuias(localActual.guias || []); setCurrentGuiaIndex(0); }} className="text-white bg-primary p-2.5 rounded-lg shadow-lg shadow-primary/30 active:scale-90 transition-transform flex items-center gap-1.5 animate-bounce">
-                                  <FileText size={20} />
-                                  <span className="text-xs font-black">{localActual.guias.length}</span>
-                                </button>
-                              )}
-                            </>
-                          );
-                        })()}
-                        <button onClick={() => { setDestinoEditado(tramoEnProgreso.destino_nombre || ''); setIsEditingDestino(true); }} className="bg-surface-light text-text-muted p-2.5 rounded-lg active:scale-90 transition-transform">
-                          <Edit2 size={18} />
-                        </button>
-                      </div>
+                        return (
+                          <>
+                            {localActual?.latitud && localActual?.longitud && (
+                              <>
+                                {/* Google Maps icon - oficial */}
+                                <a
+                                  href={`https://www.google.com/maps/dir/?api=1&destination=${localActual.latitud},${localActual.longitud}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-white bg-[#4285F4] p-2.5 rounded-lg active:scale-90 transition-transform hover:bg-[#3367D6]"
+                                  title="Abrir en Google Maps"
+                                >
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.375 8.5 15.5 8.5 15.5s8.5-9.125 8.5-15.5C20.5 3.81 16.69 0 12 0zm0 12c-1.93 0-3.5-1.57-3.5-3.5S10.07 5 12 5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z" />
+                                  </svg>
+                                </a>
+                                {/* Waze icon - oficial */}
+                                <a
+                                  href={`https://waze.com/ul?ll=${localActual.latitud},${localActual.longitud}&navigate=yes`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-white bg-[#33CCFF] p-2.5 rounded-lg active:scale-90 transition-transform hover:bg-[#2BB5E5]"
+                                  title="Abrir en Waze"
+                                >
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-.5-13h1v6h-1zm0 8h1v1h-1z" />
+                                    <circle cx="12" cy="16" r="1" />
+                                  </svg>
+                                </a>
+                              </>
+                            )}
+                            {localActual?.guias && localActual.guias.length > 0 && (
+                              <button onClick={() => { setViewingGuias(localActual.guias || []); setCurrentGuiaIndex(0); }} className="text-white bg-primary p-2.5 rounded-lg shadow-lg shadow-primary/30 active:scale-90 transition-transform flex items-center gap-1.5 animate-bounce">
+                                <FileText size={18} />
+                                <span className="text-xs font-black">{localActual.guias.length}</span>
+                              </button>
+                            )}
+                            {/* Botón para agregar nota - reemplaza al lápiz */}
+                            <button
+                              onClick={() => {
+                                setNotaBitacoraId(tramoEnProgreso.id_bitacora);
+                                setNotaDestinoNombre(tramoEnProgreso.destino_nombre || '');
+                                setNotaActual(tramoEnProgreso.observacion || '');
+                                setShowNotaModal(true);
+                              }}
+                              className="bg-surface-light text-text-muted p-2.5 rounded-lg active:scale-90 transition-transform hover:bg-primary/20 hover:text-primary group"
+                              title="Agregar nota u observación"
+                            >
+                              <Edit2 size={18} className="group-hover:text-primary" />
+                            </button>
+                          </>
+                        );
+                      })()}
                     </div>
-                  )}
+                  </div>
 
                   <div className="pt-2 border-t border-white/5 space-y-4">
                     <div className="flex items-center justify-between">
@@ -2483,6 +2564,7 @@ export default function Viaje() {
                           <div className="mt-2 text-xs text-text-muted pl-6 space-y-1">
                             <p>⏰ Llegada: {tramo.hora_llegada ? formatPeru(tramo.hora_llegada, 'HH:mm') : '--:--'}</p>
                             {tramo.hora_salida && <p>🚗 Salida: {formatPeru(tramo.hora_salida, 'HH:mm')}</p>}
+                            {tramo.observacion && <p className="text-yellow-400 text-[10px]">📝 Nota: {tramo.observacion}</p>}
                           </div>
                         </div>
                       ) : null;
