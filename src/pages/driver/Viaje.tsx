@@ -240,11 +240,12 @@ export default function Viaje() {
 
   const [lecturasBuffer, setLecturasBuffer] = useState<{ lat: number; lng: number; accuracy: number; timestamp: number }[]>([]);
   const [posicionPromediada, setPosicionPromediada] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
-  const [estadoDetectar, setEstadoDetectar] = useState<'idle' | 'validando_llegada' | 'validando_salida'>('idle');
+  const [estadoDetectar, setEstadoDetectar] = useState<'idle' | 'validando_llegada' | 'validando_salida' | 'preguntando_detour'>('idle');
   const [mensajeGPS, setMensajeGPS] = useState<string>('');
   const [mostrarBotonManual, setMostrarBotonManual] = useState<boolean>(false);
   const [tiempoValidando, setTiempoValidando] = useState<number>(0);
   const [signalBaja, setSignalBaja] = useState<boolean>(false);
+  const [detourPendiente, setDetourPendiente] = useState<LocalRuta | null>(null);
   const timerValidacionRef = useRef<NodeJS.Timeout | null>(null);
   const timerSignalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -433,6 +434,20 @@ export default function Viaje() {
     return null;
   };
 
+  // Función para obtener el siguiente local pendiente según orden
+  const obtenerSiguienteLocalPendiente = (): LocalRuta | null => {
+    // Filtrar locales que ya tienen llegada registrada en bitácora
+    const localesConLlegada = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
+
+    // Ordenar locales por orden y encontrar el primero que no tenga llegada
+    const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+    const siguiente = localesOrdenados.find(l =>
+      !localesConLlegada.includes(l.nombre || '') && l.nombre !== 'Planta'
+    );
+
+    return siguiente || null;
+  };
+
   const iniciarTemporizadorValidacion = (tipo: 'llegada' | 'salida', onComplete: () => void) => {
     if (timerValidacionRef.current) {
       clearInterval(timerValidacionRef.current);
@@ -482,6 +497,7 @@ export default function Viaje() {
     setEstadoDetectar('idle');
     setMensajeGPS('');
     setMostrarBotonManual(false);
+    setDetourPendiente(null);
   };
 
   const iniciarWatchPosition = async () => {
@@ -502,7 +518,7 @@ export default function Viaje() {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
 
-    agregarLogDebug('🚀 Iniciando watchPosition v2 con promediado...');
+    agregarLogDebug('🚀 Iniciando watchPosition v2 con promediado y validación de orden...');
     setEstadoGPS('buscando');
     limpiarTemporizadoresValidacion();
     setLecturasBuffer([]);
@@ -526,24 +542,60 @@ export default function Viaje() {
           setMensajeGPS(`⚠️ Señal GPS baja (${accuracy.toFixed(0)}m), acércate más al punto`);
         } else {
           setSignalBaja(false);
-          if (!mensajeGPS.includes('inestable')) {
+          if (!mensajeGPS.includes('inestable') && estadoDetectar !== 'preguntando_detour') {
             setMensajeGPS('');
           }
         }
 
-        const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
-        const localPendiente = locales.find(l => !l.hora_llegada && l.latitud && l.longitud);
-        const localActual = localPendiente || (bitacoraActual ? locales.find(l => l.id_local === bitacoraActual?.id_local) : null);
+        // Obtener el siguiente local pendiente según orden
+        const siguienteLocal = obtenerSiguienteLocalPendiente();
 
-        if (!localActual?.latitud || !localActual?.longitud) {
-          setDistanciaAlPunto(null);
-          setEstadoGPS('buscando');
-          limpiarTemporizadoresValidacion();
-          agregarLogDebug(`❓ Sin local pendiente para detectar`);
-          return;
+        // Obtener todos los locales pendientes (para detección de detour)
+        const localesConLlegada = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
+        const localesPendientes = locales.filter(l =>
+          !localesConLlegada.includes(l.nombre || '') && l.nombre !== 'Planta' && l.latitud && l.longitud
+        );
+
+        // Buscar si hay algún local pendiente (incluyendo el siguiente) cerca
+        let localCerca: LocalRuta | null = null;
+        let distanciaCerca = Infinity;
+
+        for (const local of localesPendientes) {
+          if (local.latitud && local.longitud) {
+            const dist = calcularDistanciaHaversine(lat, lng, local.latitud, local.longitud);
+            const radioBase = getRadioDinamico(accuracy);
+            if (dist <= radioBase && dist < distanciaCerca) {
+              distanciaCerca = dist;
+              localCerca = local;
+            }
+          }
         }
 
-        const radioBase = getRadioDinamico(accuracy);
+        if (localCerca && distanciaCerca !== Infinity) {
+          setDistanciaAlPunto(distanciaCerca);
+
+          // Verificar si el local cerca es el siguiente en orden
+          const esSiguiente = siguienteLocal && siguienteLocal.id_local_ruta === localCerca.id_local_ruta;
+
+          if (!esSiguiente && estadoDetectar !== 'preguntando_detour' && !detourPendiente) {
+            // No es el siguiente local: preguntar si quiere hacer detour
+            setDetourPendiente(localCerca);
+            setEstadoDetectar('preguntando_detour');
+            setMensajeGPS(`📍 Estás cerca de "${localCerca.nombre}" pero tu próximo destino es "${siguienteLocal?.nombre || 'Planta'}". ¿Registrar como visita extra?`);
+            agregarLogDebug(`⚠️ DETOUR DETECTADO: ${localCerca.nombre} (${distanciaCerca.toFixed(0)}m) - Siguiente es ${siguienteLocal?.nombre || 'Planta'}`);
+            return;
+          }
+
+          if (esSiguiente) {
+            agregarLogDebug(`✅ Local correcto: ${localCerca.nombre} (${distanciaCerca.toFixed(0)}m) - coincide con el siguiente en orden`);
+          }
+        } else {
+          setDistanciaAlPunto(null);
+        }
+
+        const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
+        const necesitaLlegada = bitacoraActual && !bitacoraActual.hora_llegada;
+        const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
 
         if (accuracy > 150) {
           agregarLogDebug(`⚠️ GPS muy impreciso: ${accuracy.toFixed(0)}m - ignorando`);
@@ -557,71 +609,76 @@ export default function Viaje() {
         const lngUsar = promedio?.lng || lng;
         const accuracyUsar = promedio?.accuracy || accuracy;
 
-        const distancia = calcularDistanciaHaversine(latUsar, lngUsar, localActual.latitud, localActual.longitud);
-        setDistanciaAlPunto(distancia);
+        const localActual = localCerca && obtenerSiguienteLocalPendiente()?.id_local_ruta === localCerca.id_local_ruta ? localCerca : null;
 
-        const dentroDelRadio = distancia <= radioBase;
-        const necesitaLlegada = bitacoraActual && !bitacoraActual.hora_llegada;
-        const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
+        if (localActual?.latitud && localActual?.longitud && obtenerSiguienteLocalPendiente()?.id_local_ruta === localActual.id_local_ruta) {
+          const distancia = calcularDistanciaHaversine(latUsar, lngUsar, localActual.latitud, localActual.longitud);
+          setDistanciaAlPunto(distancia);
 
-        if (promedio) {
-          agregarLogDebug(`📊 Promediado: ${distancia.toFixed(0)}m (radio: ${radioBase}m) | L:${necesitaLlegada ? 'SI' : 'NO'} S:${necesitaSalida ? 'SI' : 'NO'}`);
-        }
+          const radioBase = getRadioDinamico(accuracyUsar);
+          const dentroDelRadio = distancia <= radioBase;
 
-        if (!puedeRegistrar()) {
-          setEstadoGPS('buscando');
-          agregarLogDebug(`⏳ Cooldown activo - esperando`);
-          return;
-        }
-
-        setEstadoGPS(dentroDelRadio ? 'en_rango' : 'detectado');
-
-        if (dentroDelRadio && necesitaLlegada) {
-          if (estadoDetectar !== 'validando_llegada') {
-            agregarLogDebug(`✅ DENTRO DEL RADIO - iniciando validación de LLEGADA (${distancia.toFixed(0)}m)`);
-            iniciarTemporizadorValidacion('llegada', () => {
-              if (bitacoraActual && !bitacoraActual.hora_llegada) {
-                agregarLogDebug(`⏱️ 12s completado - REGISTRANDO LLEGADA!`);
-                setLlegadaDetectada(true);
-                setUltimoRegistroTime(Date.now());
-                handleRegistrarLlegada(bitacoraActual.id_bitacora);
-              }
-            });
+          if (promedio) {
+            agregarLogDebug(`📊 Promediado: ${distancia.toFixed(0)}m (radio: ${radioBase}m) | L:${necesitaLlegada ? 'SI' : 'NO'} S:${necesitaSalida ? 'SI' : 'NO'}`);
           }
-        }
-        else if (!dentroDelRadio && necesitaSalida) {
-          if (estadoDetectar !== 'validando_salida') {
-            agregarLogDebug(`⭕ FUERA DEL RADIO - iniciando validación de SALIDA (${distancia.toFixed(0)}m)`);
-            iniciarTemporizadorValidacion('salida', () => {
-              if (bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida) {
-                agregarLogDebug(`⏱️ 6s fuera - REGISTRANDO SALIDA!`);
-                setUltimoRegistroTime(Date.now());
-                handleRegistrarSalidaAutomatica(bitacoraActual.id_bitacora);
-              }
-            });
+
+          if (!puedeRegistrar()) {
+            setEstadoGPS('buscando');
+            agregarLogDebug(`⏳ Cooldown activo - esperando`);
+            return;
           }
-        }
-        else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
-          agregarLogDebug(`⚠️ SALISTE DEL RADIO - reiniciando validación de llegada`);
-          limpiarTemporizadoresValidacion();
-        }
-        else if (dentroDelRadio && estadoDetectar === 'validando_salida') {
-          agregarLogDebug(`⚠️ REGRESASTE AL RADIO - reiniciando validación de salida`);
-          limpiarTemporizadoresValidacion();
-        }
-        else if (!necesitaLlegada && !necesitaSalida) {
-          if (estadoDetectar !== 'idle') {
+
+          setEstadoGPS(dentroDelRadio ? 'en_rango' : 'detectado');
+
+          if (dentroDelRadio && necesitaLlegada) {
+            if (estadoDetectar !== 'validando_llegada') {
+              agregarLogDebug(`✅ DENTRO DEL RADIO - iniciando validación de LLEGADA (${distancia.toFixed(0)}m)`);
+              iniciarTemporizadorValidacion('llegada', () => {
+                if (bitacoraActual && !bitacoraActual.hora_llegada) {
+                  agregarLogDebug(`⏱️ 12s completado - REGISTRANDO LLEGADA!`);
+                  setLlegadaDetectada(true);
+                  setUltimoRegistroTime(Date.now());
+                  handleRegistrarLlegada(bitacoraActual.id_bitacora);
+                }
+              });
+            }
+          }
+          else if (!dentroDelRadio && necesitaSalida) {
+            if (estadoDetectar !== 'validando_salida') {
+              agregarLogDebug(`⭕ FUERA DEL RADIO - iniciando validación de SALIDA (${distancia.toFixed(0)}m)`);
+              iniciarTemporizadorValidacion('salida', () => {
+                if (bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida) {
+                  agregarLogDebug(`⏱️ 6s fuera - REGISTRANDO SALIDA!`);
+                  setUltimoRegistroTime(Date.now());
+                  handleRegistrarSalidaAutomatica(bitacoraActual.id_bitacora);
+                }
+              });
+            }
+          }
+          else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
+            agregarLogDebug(`⚠️ SALISTE DEL RADIO - reiniciando validación de llegada`);
             limpiarTemporizadoresValidacion();
-            setLecturasBuffer([]);
           }
-        }
+          else if (dentroDelRadio && estadoDetectar === 'validando_salida') {
+            agregarLogDebug(`⚠️ REGRESASTE AL RADIO - reiniciando validación de salida`);
+            limpiarTemporizadoresValidacion();
+          }
+          else if (!necesitaLlegada && !necesitaSalida) {
+            if (estadoDetectar !== 'idle') {
+              limpiarTemporizadoresValidacion();
+              setLecturasBuffer([]);
+            }
+          }
 
-        if (estadoDetectar === 'validando_llegada') {
-          const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_LLEGADA) * 100));
-          agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/12s) - ${distancia.toFixed(0)}m`);
-        } else if (estadoDetectar === 'validando_salida') {
-          const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_SALIDA) * 100));
-          agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/6s) - ${distancia.toFixed(0)}m`);
+          if (estadoDetectar === 'validando_llegada') {
+            const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_LLEGADA) * 100));
+            agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/12s) - ${distancia.toFixed(0)}m`);
+          } else if (estadoDetectar === 'validando_salida') {
+            const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_SALIDA) * 100));
+            agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/6s) - ${distancia.toFixed(0)}m`);
+          }
+        } else {
+          setEstadoGPS('buscando');
         }
       },
       (error) => {
@@ -659,6 +716,68 @@ export default function Viaje() {
     agregarLogDebug('🛑 GPS detenido');
   };
 
+  const handleRegistrarDetour = async (local: LocalRuta) => {
+    if (!ruta || !profile) return;
+    setActionLoading(true);
+    try {
+      const now = nowPeru();
+
+      // Crear tramo de bitácora para el detour
+      const origen = proximoOrigen;
+      const { data, error } = await supabase
+        .from('viajes_bitacora')
+        .insert([{
+          id_ruta: ruta.id_ruta,
+          id_chofer: profile.id_usuario,
+          origen_nombre: origen,
+          destino_nombre: local.nombre,
+          hora_salida: now,
+          hora_llegada: now,
+          tipo_registro: 'detour'
+        }])
+        .select()
+        .single();
+
+      if (!error && data) {
+        setBitacora([...bitacora, data as ViajeBitacora]);
+
+        // Actualizar local_ruta con observación de detour
+        await supabase
+          .from('locales_ruta')
+          .update({
+            observacion: (local.observacion ? local.observacion + ' | ' : '') + 'Detour: ' + now,
+            hora_llegada: now,
+            estado_visita: 'visitado'
+          })
+          .eq('id_local_ruta', local.id_local_ruta);
+
+        showToast('success', `✓ Detour registrado: ${local.nombre}`);
+        agregarLogDebug(`✅ DETOUR registrado: ${local.nombre}`);
+
+        // Limpiar estado de detour
+        setDetourPendiente(null);
+        setEstadoDetectar('idle');
+        setMensajeGPS('');
+
+        // Recargar datos
+        await loadCurrentRuta();
+      } else if (error) {
+        showToast('error', 'Error al registrar detour: ' + error.message);
+      }
+    } catch (err: any) {
+      showToast('error', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelarDetour = () => {
+    setDetourPendiente(null);
+    setEstadoDetectar('idle');
+    setMensajeGPS('');
+    agregarLogDebug('❌ Detour cancelado por el usuario');
+  };
+
   useEffect(() => {
     if (esDiaDescanso) {
       setDiaDescansoBloqueado(true);
@@ -694,7 +813,7 @@ export default function Viaje() {
     return () => {
       detenerWatchPosition();
     };
-  }, [ruta?.id_ruta, ruta?.estado, esHistorial, llegadaDetectada, gpsDisponible]);
+  }, [ruta?.id_ruta, ruta?.estado, esHistorial, llegadaDetectada, gpsDisponible, bitacora.length, locales]);
 
   useEffect(() => {
     if (bitacora.length > 0) {
@@ -1679,6 +1798,39 @@ export default function Viaje() {
         </div>
       </div>
 
+      {/* Modal de confirmación para DETOUR */}
+      {estadoDetectar === 'preguntando_detour' && detourPendiente && (
+        <Card className="bg-yellow-500/20 border-2 border-yellow-500/50 shadow-2xl overflow-hidden animate-in fade-in duration-300">
+          <CardContent className="p-6 text-center">
+            <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MapPin size={32} className="text-black" />
+            </div>
+            <h3 className="text-lg font-black text-yellow-400 mb-2">📍 Visita Extra Detectada</h3>
+            <p className="text-text-muted mb-4 text-sm">
+              Estás cerca de <span className="text-yellow-400 font-bold">{detourPendiente.nombre}</span>
+            </p>
+            <p className="text-text-muted text-xs mb-6">
+              Tu próximo destino programado es otro local. ¿Deseas registrar <span className="text-yellow-400">{detourPendiente.nombre}</span> como visita extra?
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleCancelarDetour}
+                variant="secondary"
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white"
+              >
+                Ignorar
+              </Button>
+              <Button
+                onClick={() => handleRegistrarDetour(detourPendiente)}
+                className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+              >
+                Registrar Detour
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {ruta.estado === 'pendiente' && bitacora.length === 0 && (
         <Card className="bg-yellow-500/10 border-2 border-yellow-500/50 shadow-2xl overflow-hidden animate-pulse">
           <CardContent className="p-8 text-center">
@@ -1747,7 +1899,7 @@ export default function Viaje() {
                   </div>
                 )}
 
-                {mensajeGPS && !signalBaja && (
+                {mensajeGPS && !signalBaja && estadoDetectar !== 'preguntando_detour' && (
                   <div className="mb-3 bg-blue-500/20 border border-blue-500/50 rounded-lg p-2 flex items-center gap-2">
                     {estadoDetectar === 'validando_llegada' && <span className="text-blue-400">📍</span>}
                     {estadoDetectar === 'validando_salida' && <span className="text-orange-400">🚗</span>}
@@ -2578,7 +2730,7 @@ export default function Viaje() {
                         >
                           <Camera size={24} />
                           <span className="text-xs font-bold uppercase">Tomar Foto del Odómetro</span>
-                          <span className="text-[10px] text-text-muted">El número se detecta automáticamente</span>
+                          <span className="text-[10px] text-text-muted">El número se detecta automáticamente (mejor en horizontal)</span>
                         </button>
                       ) : (
                         <div className="relative group">
