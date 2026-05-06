@@ -68,16 +68,9 @@ interface EstadoChofer {
   enRuta: boolean;
 }
 
-// Mapeo de números a días de la semana
 const diasMap: Record<string, string> = {
-  '0': 'domingo',
-  '1': 'lunes',
-  '2': 'martes',
-  '3': 'miércoles',
-  '4': 'jueves',
-  '5': 'viernes',
-  '6': 'sábado',
-  'ninguno': 'ninguno'
+  '0': 'domingo', '1': 'lunes', '2': 'martes', '3': 'miércoles',
+  '4': 'jueves', '5': 'viernes', '6': 'sábado', 'ninguno': 'ninguno'
 };
 
 export default function Dashboard() {
@@ -146,7 +139,8 @@ export default function Dashboard() {
     }, 15000);
 
     try {
-      const nowPeru = toDate(new Date().toISOString(), { timeZone: 'America/Lima' });
+      // 🔧 CORRECCIÓN: Usar new Date() en lugar de nowPeru()
+      const nowPeru = new Date();
       const hoyStr = format(nowPeru, 'yyyy-MM-dd');
       const inicioSemana = new Date(nowPeru);
       const day = nowPeru.getDay();
@@ -218,7 +212,6 @@ export default function Dashboard() {
       const diaHoy = diasSemana[nowPeru.getDay()];
       const todosChoferes = todosChoferesRes.data || [];
 
-      // Estado de choferes con días de descanso - CORREGIDO: convierte número a nombre de día
       const choferesConEstado: EstadoChofer[] = todosChoferes.map((c: any) => {
         const descansoNormalNumerico = (c.dias_descanso || [])[0] || 'ninguno';
         const descansoNormal = diasMap[descansoNormalNumerico] || descansoNormalNumerico;
@@ -243,7 +236,6 @@ export default function Dashboard() {
 
       const choferesActivosEnCurso = new Set(rutasEnCurso.map(r => r.id_chofer).filter(Boolean));
 
-      // Actualizar estado enRuta
       choferesConEstado.forEach(c => {
         c.enRuta = choferesActivosEnCurso.has(c.id);
       });
@@ -272,7 +264,6 @@ export default function Dashboard() {
       const gastoOtrosDia = otrosDiaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
       const gastoOtrosSemana = otrosSemanaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
 
-      // Cálculo de peajes
       const rutasBaseIds = [...new Set(rutasHoy.map(r => r.id_ruta_base).filter(Boolean))];
       const rutasBaseIdsSemana = [...new Set(rutasSemanaRes.data?.map((_: any) => _.id_ruta_base).filter(Boolean) || [])];
       const rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
@@ -313,7 +304,6 @@ export default function Dashboard() {
         totalGastosOperativosHoy
       });
 
-      // Rutas en progreso
       if (rutasEnCurso.length > 0) {
         const rutasProgresoQuery = supabase
           .from('rutas').select('*, usuarios!rutas_id_chofer_fkey(nombre)')
@@ -347,7 +337,6 @@ export default function Dashboard() {
         setRutasEnProgreso([]);
       }
 
-      // Alertas
       if (tieneRutasSemana) {
         const gastosQuery = supabase
           .from('gastos_combustible')
@@ -365,7 +354,6 @@ export default function Dashboard() {
         setAlertas(inconsistencias);
       }
 
-      // Top gastos semana
       if (tieneRutasSemana) {
         const gastosTopQuery = supabase
           .from('gastos_combustible')
@@ -392,12 +380,13 @@ export default function Dashboard() {
         }
       }
 
-      // Rendimiento del día
       const histData = rutasHistRes.data || [];
       const diaSemanaHoy = nowPeru.getDay();
       const rutasMismoDia = histData.filter(r => {
         if (!r.fecha) return false;
-        return toDate(r.fecha + 'T00:00:00', { timeZone: 'America/Lima' }).getDay() === diaSemanaHoy;
+        try {
+          return toDate(r.fecha + 'T00:00:00', { timeZone: 'America/Lima' }).getDay() === diaSemanaHoy;
+        } catch { return false; }
       });
 
       const tiemposHistoricos = rutasMismoDia
@@ -430,6 +419,7 @@ export default function Dashboard() {
       });
 
     } catch (err) {
+      console.error('[Dashboard] Error:', err);
       setError('Error al cargar los datos. Intenta de nuevo.');
     } finally {
       setLoading(false);
@@ -479,7 +469,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold text-white">Panel General</h1>
@@ -509,24 +498,22 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Alertas */}
       {alertas.length > 0 && (
         <div className="bg-surface-light/20 border border-surface-light rounded-xl p-4">
           <ListaAlertas alertas={alertas} titulo="Alertas detectadas" />
         </div>
       )}
 
-      {/* Pulso del día */}
       {rendimiento && (
         <div className={`p-4 rounded-2xl border-2 flex items-center justify-between gap-4 ${rendimiento.diferenciaPct === null ? 'bg-surface border-surface-light' :
-          rendimiento.diferenciaPct <= -5 ? 'bg-green-500/10 border-green-500/40' :
-            rendimiento.diferenciaPct >= 10 ? 'bg-red-500/10 border-red-500/40' :
-              'bg-yellow-500/10 border-yellow-500/40'
+            rendimiento.diferenciaPct <= -5 ? 'bg-green-500/10 border-green-500/40' :
+              rendimiento.diferenciaPct >= 10 ? 'bg-red-500/10 border-red-500/40' :
+                'bg-yellow-500/10 border-yellow-500/40'
           }`}>
           <div className="flex items-center gap-3">
             <div className={`p-3 rounded-xl ${rendimiento.diferenciaPct === null ? 'bg-surface-light' :
-              rendimiento.diferenciaPct <= -5 ? 'bg-green-500/20' :
-                rendimiento.diferenciaPct >= 10 ? 'bg-red-500/20' : 'bg-yellow-500/20'
+                rendimiento.diferenciaPct <= -5 ? 'bg-green-500/20' :
+                  rendimiento.diferenciaPct >= 10 ? 'bg-red-500/20' : 'bg-yellow-500/20'
               }`}>
               <Activity size={22} className={
                 rendimiento.diferenciaPct === null ? 'text-text-muted' :
@@ -547,8 +534,8 @@ export default function Dashboard() {
                       <span className="text-text-muted text-sm">vs promedio {formatMins(rendimiento.promedioHistoricoMinutos)}</span>
                       {rendimiento.diferenciaPct !== null && (
                         <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${rendimiento.diferenciaPct <= -5 ? 'text-green-400 bg-green-500/10' :
-                          rendimiento.diferenciaPct >= 10 ? 'text-red-400 bg-red-500/10' :
-                            'text-yellow-400 bg-yellow-500/10'
+                            rendimiento.diferenciaPct >= 10 ? 'text-red-400 bg-red-500/10' :
+                              'text-yellow-400 bg-yellow-500/10'
                           }`}>
                           {rendimiento.diferenciaPct > 0 ? '+' : ''}{rendimiento.diferenciaPct}%
                         </span>
@@ -578,7 +565,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats Cards principales */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-blue-500/30">
           <CardContent className="p-4">
@@ -656,7 +642,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Gastos del día */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-yellow-500/30">
           <CardContent className="p-4">
@@ -720,7 +705,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Estado de Choferes Hoy */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -737,7 +721,7 @@ export default function Dashboard() {
               <div key={chofer.id} className="flex items-center justify-between p-3 bg-surface-light/20 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${chofer.enRuta ? 'bg-green-500 animate-pulse' :
-                    chofer.descansaHoy ? 'bg-red-500' : 'bg-blue-500'
+                      chofer.descansaHoy ? 'bg-red-500' : 'bg-blue-500'
                     }`} />
                   <span className="text-white font-medium">{chofer.nombre}</span>
                   {chofer.descansaHoy ? (
@@ -777,7 +761,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Rutas en Progreso */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -886,7 +869,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Top Gastos Semana */}
       {topChoferes.length > 0 && (
         <Card>
           <CardContent className="p-4">
@@ -918,7 +900,6 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Accesos Rápidos */}
       <Card>
         <CardContent className="p-4">
           <h2 className="text-lg font-bold text-white mb-4">Accesos Rápidos</h2>
