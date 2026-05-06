@@ -252,6 +252,10 @@ export default function Viaje() {
       if (!profile?.id_usuario) return;
 
       const diasDescansoChofer = profile?.dias_descanso || [];
+      console.log('🔍 diaHoy:', diaHoy);
+      console.log('🔍 diasDescansoChofer:', diasDescansoChofer);
+      console.log('🔍 profile completo:', profile);
+
       const { puede, motivo } = await puedeTrabajarHoy(profile.id_usuario, diaHoy, diasDescansoChofer);
 
       if (!puede) {
