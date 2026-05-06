@@ -4,17 +4,21 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
 import type { RutaBase, LocalBase } from '../../types';
-import { Loader2, Map as MapIcon, Info } from 'lucide-react';
+import { Loader2, Map as MapIcon, Info, Eye, EyeOff, CheckSquare, Square } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 
 export default function MapaGeneral() {
   const [rutasBase, setRutasBase] = useState<RutaBase[]>([]);
   const [locales, setLocales] = useState<LocalBase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleRoutes, setVisibleRoutes] = useState<Set<string>>(new Set());
+  const [showAll, setShowAll] = useState(true);
+  const [plantaLocation, setPlantaLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const ROUTE_COLORS: Record<string, string> = {
-    'negra':    '#64748b',
-    'guinda':   '#ef4444',
-    'verde':    '#22c55e',
+    'negra': '#64748b',
+    'guinda': '#ef4444',
+    'verde': '#22c55e',
     'amarilla': '#eab308',
   };
 
@@ -23,40 +27,33 @@ export default function MapaGeneral() {
     for (const [key, color] of Object.entries(ROUTE_COLORS)) {
       if (n.includes(key)) return color;
     }
-    // Fallback por zona - orden importante: amarilla antes de este/verde
-    if (n.includes('norte')) return '#64748b';
-    if (n.includes('sur'))   return '#ef4444';
-    if (n.includes('amarilla')) return '#eab308';
-    if (n.includes('verde')) return '#22c55e';
-    if (n.includes('este'))  return '#22c55e';
-    if (n.includes('oeste') || n.includes('centro')) return '#eab308';
-    // Color aleatorio para rutas no reconocidas
     const hash = nombre.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     const hue = hash % 360;
     return `hsl(${hue}, 70%, 55%)`;
   };
 
-  const createCustomIcon = (color: string, nombre?: string) => {
+  // Nuevo: crear icono con número de orden
+  const createNumberedIcon = (color: string, order: number) => {
     return L.divIcon({
       html: `
         <div style="
           background-color: ${color};
-          width: 20px;
-          height: 20px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
           border: 3px solid #ffffff;
           box-shadow: 0 0 10px ${color}88;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 8px;
+          font-size: 10px;
           font-weight: bold;
           color: white;
-        ">${nombre ? nombre.substring(0, 2).toUpperCase() : ''}</div>
+        ">${order}</div>
       `,
       className: 'custom-div-icon',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
     });
   };
 
@@ -124,9 +121,33 @@ export default function MapaGeneral() {
         if (rutasRes.error) console.error('[Mapa] Error rutas:', rutasRes.error);
         if (localesRes.error) console.error('[Mapa] Error locales:', localesRes.error);
 
-        if (rutasRes.data) setRutasBase(rutasRes.data);
+        if (rutasRes.data) {
+          setRutasBase(rutasRes.data);
+          const stored = localStorage.getItem('mapa_visible_routes');
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              const visibleSet = new Set(parsed);
+              setVisibleRoutes(visibleSet);
+              setShowAll(visibleSet.size === rutasRes.data.length);
+            } catch (e) {
+              const allIds = rutasRes.data.map((r: RutaBase) => r.id_ruta_base);
+              setVisibleRoutes(new Set(allIds));
+              setShowAll(true);
+            }
+          } else {
+            const allIds = rutasRes.data.map((r: RutaBase) => r.id_ruta_base);
+            setVisibleRoutes(new Set(allIds));
+            setShowAll(true);
+          }
+        }
         if (localesRes.data) {
           setLocales(localesRes.data);
+          // Buscar Planta
+          const planta = localesRes.data.find(l => l.nombre?.toLowerCase().includes('planta'));
+          if (planta?.latitud && planta?.longitud) {
+            setPlantaLocation({ lat: planta.latitud, lng: planta.longitud });
+          }
         }
       } catch (err) {
         console.error('[Mapa] Error loading map data', err);
@@ -136,6 +157,36 @@ export default function MapaGeneral() {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (rutasBase.length > 0 && visibleRoutes.size > 0) {
+      localStorage.setItem('mapa_visible_routes', JSON.stringify([...visibleRoutes]));
+    }
+  }, [visibleRoutes, rutasBase]);
+
+  const toggleRoute = (routeId: string) => {
+    setVisibleRoutes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(routeId)) {
+        newSet.delete(routeId);
+      } else {
+        newSet.add(routeId);
+      }
+      setShowAll(newSet.size === rutasBase.length);
+      return newSet;
+    });
+  };
+
+  const toggleAllRoutes = () => {
+    if (showAll) {
+      setVisibleRoutes(new Set());
+      setShowAll(false);
+    } else {
+      const allIds = rutasBase.map(r => r.id_ruta_base);
+      setVisibleRoutes(new Set(allIds));
+      setShowAll(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -156,26 +207,34 @@ export default function MapaGeneral() {
       .filter(l => l.latitud && l.longitud)
       .map(l => [l.latitud, l.longitud] as [number, number]);
 
+    // 🔥 MEJORA: Agregar retorno a Planta si existe
+    let fullPositions = [...positions];
+    let returnToPlanta = false;
+    if (plantaLocation && positions.length > 0) {
+      fullPositions.push([plantaLocation.lat, plantaLocation.lng]);
+      returnToPlanta = true;
+    }
+
     return {
       ...ruta,
       locales: routeLocales,
-      positions,
+      positions: fullPositions,
+      originalPositions: positions,
+      returnToPlanta,
       color,
+      visible: visibleRoutes.has(ruta.id_ruta_base),
     };
   });
 
   const unassignedLocales = locales.filter(l => !l.id_ruta_base);
-  const unassignedColor = '#94a3b8';
-  
-  // Separar planta de locales cerrados temporalmente usando la columna cerrado_temporal
   const plantaLocal = unassignedLocales.find(l => l.nombre?.toLowerCase().includes('planta'));
   const cerradosTemporales = locales.filter(l => l.cerrado_temporal === true);
-  const plantaCount = plantaLocal ? 1 : 0;
+  const visibleRoutesCount = routesData.filter(r => r.visible).length;
 
-  // Leyenda dinámica basada en rutas reales
   const leyenda = rutasBase.map(r => ({
     nombre: r.nombre,
     color: getRouteColor(r.nombre),
+    visible: visibleRoutes.has(r.id_ruta_base),
   }));
 
   return (
@@ -189,28 +248,45 @@ export default function MapaGeneral() {
             Mostrando <span className="text-white font-bold">{locales.length}</span> locales en{' '}
             <span className="text-white font-bold">{rutasBase.length}</span> rutas base
           </p>
+          <p className="text-text-muted text-xs mt-1">
+            💡 Los números en los marcadores indican el <span className="text-primary">orden de visita</span>.
+            La línea punteada muestra el <span className="text-primary">retorno a Planta</span>.
+          </p>
         </div>
 
-        {/* Leyenda dinámica */}
-        <div className="flex flex-wrap gap-3">
-          {leyenda.map(r => (
-            <div key={r.nombre} className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.color }}></div>
-              <span className="text-[10px] font-bold text-white uppercase italic">{r.nombre}</span>
-            </div>
-          ))}
-          {plantaCount > 0 && (
-            <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
-              <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">P</span>
-              <span className="text-[10px] font-bold text-white uppercase italic">PLANTA</span>
-            </div>
-          )}
-          {cerradosTemporales.length > 0 && (
-            <div className="flex items-center gap-2 bg-surface-light/30 px-3 py-1.5 rounded-full border border-white/5">
-              <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">X</span>
-              <span className="text-[10px] font-bold text-white uppercase italic">CERRADO</span>
-            </div>
-          )}
+        <div className="bg-surface-light/30 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-text-muted uppercase font-bold">Filtrar rutas</span>
+            <button
+              onClick={toggleAllRoutes}
+              className="text-[10px] text-primary hover:text-primary-light flex items-center gap-1"
+            >
+              {showAll ? <EyeOff size={12} /> : <Eye size={12} />}
+              {showAll ? 'Ocultar todas' : 'Mostrar todas'}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 max-w-md">
+            {leyenda.map(r => (
+              <button
+                key={r.nombre}
+                onClick={() => {
+                  const route = rutasBase.find(rb => rb.nombre === r.nombre);
+                  if (route) toggleRoute(route.id_ruta_base);
+                }}
+                className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-all text-[10px] font-bold ${r.visible
+                    ? 'bg-white/20 text-white'
+                    : 'bg-white/5 text-text-muted opacity-50'
+                  }`}
+              >
+                {r.visible ? <CheckSquare size={12} /> : <Square size={12} />}
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: r.color }} />
+                <span className="uppercase italic">{r.nombre}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 pt-2 border-t border-white/10 text-[9px] text-text-muted">
+            Mostrando {visibleRoutesCount} de {rutasBase.length} rutas
+          </div>
         </div>
       </div>
 
@@ -226,26 +302,33 @@ export default function MapaGeneral() {
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
 
-          {routesData.map(route => (
+          {routesData.map(route => route.visible && (
             <React.Fragment key={route.id_ruta_base}>
+              {/* Línea de ruta (ida + retorno a Planta) */}
               {route.positions.length > 1 && (
                 <Polyline
                   positions={route.positions}
-                  pathOptions={{ color: route.color, weight: 3, opacity: 0.6, dashArray: '10, 10' }}
+                  pathOptions={{
+                    color: route.color,
+                    weight: 3,
+                    opacity: 0.6,
+                    dashArray: route.returnToPlanta ? '10, 10' : undefined
+                  }}
                 />
               )}
-              {route.locales.map(local =>
+              {/* Marcadores con número de orden */}
+              {route.locales.map((local, idx) =>
                 local.latitud && local.longitud ? (
                   <Marker
                     key={local.id_local_base}
                     position={[local.latitud, local.longitud]}
-                    icon={createCustomIcon(route.color, local.nombre)}
+                    icon={createNumberedIcon(route.color, idx + 1)}
                   >
                     <Popup>
                       <div className="p-1">
                         {local.foto_url && (
-                          <img 
-                            src={local.foto_url} 
+                          <img
+                            src={local.foto_url}
                             alt={local.nombre}
                             style={{ width: '100%', height: '60px', objectFit: 'cover', borderRadius: '6px', marginBottom: '6px', display: 'block', opacity: 0.85 }}
                           />
@@ -264,7 +347,7 @@ export default function MapaGeneral() {
             </React.Fragment>
           ))}
 
-          {/* PLANTA - solo si existe */}
+          {/* PLANTA */}
           {plantaLocal && plantaLocal.latitud && plantaLocal.longitud && (
             <Marker
               key={plantaLocal.id_local_base}
@@ -275,7 +358,7 @@ export default function MapaGeneral() {
                 <div className="p-1">
                   <h4 className="font-bold text-gray-900">{plantaLocal.nombre}</h4>
                   <p className="text-[10px] text-gray-600 mb-1">{plantaLocal.direccion}</p>
-                  <p className="text-[10px] text-blue-600 font-bold">PLANTA - Inicio y Fin de todas las rutas</p>
+                  <p className="text-[10px] text-blue-600 font-bold">🏭 PLANTA - Inicio y Fin de todas las rutas</p>
                 </div>
               </Popup>
             </Marker>
@@ -301,7 +384,7 @@ export default function MapaGeneral() {
           )}
         </MapContainer>
 
-        <div className="absolute bottom-6 right-6 z-[1000] bg-surface/90 backdrop-blur-md p-4 rounded-xl border border-surface-light shadow-xl text-white max-w-[200px]">
+        <div className="absolute bottom-6 right-6 z-[1000] bg-surface/90 backdrop-blur-md p-4 rounded-xl border border-surface-light shadow-xl text-white max-w-[220px]">
           <h4 className="text-[10px] font-black uppercase italic tracking-widest text-primary mb-2 flex items-center gap-1">
             <Info size={12} /> Información de Red
           </h4>
@@ -312,12 +395,12 @@ export default function MapaGeneral() {
             </div>
             <div className="flex justify-between">
               <span className="text-[9px] text-text-muted">Zonas Activas:</span>
-              <span className="text-[9px] font-bold">{rutasBase.length}</span>
+              <span className="text-[9px] font-bold">{visibleRoutesCount}</span>
             </div>
-            {plantaCount > 0 && (
+            {plantaLocal && (
               <div className="flex justify-between">
                 <span className="text-[9px] text-text-muted">PLANTA:</span>
-                <span className="text-[9px] font-bold text-yellow-400">{plantaCount}</span>
+                <span className="text-[9px] font-bold text-yellow-400">1</span>
               </div>
             )}
             {cerradosTemporales.length > 0 && (
@@ -326,6 +409,10 @@ export default function MapaGeneral() {
                 <span className="text-[9px] font-bold text-red-400">{cerradosTemporales.length}</span>
               </div>
             )}
+          </div>
+          <div className="mt-3 pt-2 border-t border-white/10 text-[8px] text-text-muted">
+            🔢 Números = Orden de visita<br />
+            ⬚ Línea punteada = Retorno a Planta
           </div>
         </div>
       </div>
