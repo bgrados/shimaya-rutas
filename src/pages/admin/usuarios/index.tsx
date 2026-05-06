@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Usuario } from '../../../types';
 import { Button } from '../../../components/ui/Button';
-import { Plus, Shield, Truck, User, Edit2, Trash2, Key, Loader2, CheckCircle, X, Smartphone, Mail, Camera, Phone, Circle, Coffee } from 'lucide-react';
+import { Plus, Shield, Truck, User, Edit2, Trash2, Key, Loader2, CheckCircle, X, Smartphone, Mail, Camera, Phone, Circle, Coffee, Calendar } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Input } from '../../../components/ui/Input';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
-
-// 🔧 CORRECCIÓN: Eliminado nowPeru, usamos new Date() directamente
-import { formatOnlyDatePeru } from '../../../lib/timezone';
+import { format } from 'date-fns';
 
 interface UsuarioExtendido extends Usuario {
   connected?: boolean;
@@ -16,6 +14,18 @@ interface UsuarioExtendido extends Usuario {
   dias_descanso?: string[];
 }
 
+interface ExcepcionDescanso {
+  id_excepcion: string;
+  id_chofer: string;
+  fecha: string;
+  estado: 'descansa' | 'trabaja';
+  observaciones?: string;
+}
+
+const diasMap: Record<string, string> = {
+  '0': 'domingo', '1': 'lunes', '2': 'martes', '3': 'miércoles',
+  '4': 'jueves', '5': 'viernes', '6': 'sábado', 'ninguno': 'ninguno'
+};
 
 /* ───────────── Sub-componente EditForm ───────────── */
 
@@ -74,7 +84,7 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
     const { error: uploadError } = await supabase.storage.from('perfiles').upload(filePath, fotoFile, { upsert: true });
     if (uploadError) {
       console.error('[EditForm] Error upload:', uploadError);
-      alert('Error al subir la foto de perfil. Asegúrate de configurar el bucket "perfiles" como Público y con permisos (Policies) para INSERT.');
+      alert('Error al subir la foto de perfil.');
       return user.foto_url;
     }
 
@@ -130,7 +140,7 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
             <div>
               <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-tighter flex items-center gap-1">
                 <Coffee size={12} />
-                Días de Descanso
+                Días de Descanso (Fijos)
               </label>
               <div className="flex flex-wrap gap-2">
                 {diasSemana.map(dia => (
@@ -139,8 +149,8 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
                     type="button"
                     onClick={() => toggleDiaDescanso(dia.key)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${diasDescanso.includes(dia.key)
-                      ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
-                      : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
+                        ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
+                        : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
                       }`}
                   >
                     {dia.label}
@@ -209,6 +219,210 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
   );
 }
 
+/* ───────────── Modal de Excepción de Descanso ───────────── */
+interface ExcepcionModalProps {
+  chofer: UsuarioExtendido;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function ExcepcionModal({ chofer, onClose, onSaved }: ExcepcionModalProps) {
+  const [fecha, setFecha] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [estado, setEstado] = useState<'descansa' | 'trabaja'>('trabaja');
+  const [observaciones, setObservaciones] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [excepcionExistente, setExcepcionExistente] = useState<ExcepcionDescanso | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadExcepcionExistente();
+  }, [fecha]);
+
+  const loadExcepcionExistente = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('excepciones_descanso')
+      .select('*')
+      .eq('id_chofer', chofer.id_usuario)
+      .eq('fecha', fecha)
+      .maybeSingle();
+    setExcepcionExistente(data as ExcepcionDescanso || null);
+    if (data) {
+      setEstado(data.estado);
+      setObservaciones(data.observaciones || '');
+    } else {
+      setEstado('trabaja');
+      setObservaciones('');
+    }
+    setLoading(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (excepcionExistente) {
+        const { error } = await supabase
+          .from('excepciones_descanso')
+          .update({
+            estado,
+            observaciones: observaciones.trim() || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id_excepcion', excepcionExistente.id_excepcion);
+        if (error) throw error;
+        alert('Excepción actualizada correctamente');
+      } else {
+        const { error } = await supabase
+          .from('excepciones_descanso')
+          .insert({
+            id_chofer: chofer.id_usuario,
+            fecha,
+            estado,
+            observaciones: observaciones.trim() || null
+          });
+        if (error) throw error;
+        alert('Excepción registrada correctamente');
+      }
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!excepcionExistente) return;
+    if (!confirm('¿Eliminar esta excepción?')) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('excepciones_descanso')
+        .delete()
+        .eq('id_excepcion', excepcionExistente.id_excepcion);
+      if (error) throw error;
+      alert('Excepción eliminada');
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const diaSemana = new Date(fecha).toLocaleDateString('es-ES', { weekday: 'long' });
+  const esDiaDescansoNormal = (chofer.dias_descanso || []).includes(diaSemana.toLowerCase());
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-surface border border-primary/30 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-surface-light flex items-center gap-3 bg-primary/10">
+          <Calendar size={20} className="text-primary" />
+          <h3 className="text-lg font-black text-white uppercase italic">Excepción de Descanso</h3>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="text-center">
+            <p className="text-white font-bold">{chofer.nombre}</p>
+            <p className="text-text-muted text-xs mt-1">
+              Día de descanso normal: <span className="text-primary font-bold">
+                {chofer.dias_descanso?.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ') || 'Ninguno'}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-text-muted mb-1 uppercase">Fecha</label>
+              <input
+                type="date"
+                value={fecha}
+                onChange={e => setFecha(e.target.value)}
+                className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-text-muted mb-1 uppercase">Día</label>
+              <div className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-2 text-white text-sm">
+                {diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)}
+              </div>
+            </div>
+          </div>
+
+          {esDiaDescansoNormal && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-center">
+              <p className="text-blue-400 text-xs font-bold">
+                📅 Normalmente descansa los {diaSemana}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-text-muted mb-2 uppercase">¿Qué aplica para esta fecha?</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setEstado('trabaja')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${estado === 'trabaja'
+                    ? 'bg-green-500/20 border-green-500 text-green-400'
+                    : 'bg-surface-light/20 border-white/10 text-text-muted hover:border-green-500/50'
+                  }`}
+              >
+                <CheckCircle size={24} />
+                <span className="text-xs font-bold">Trabaja</span>
+                <span className="text-[9px]">(Anula descanso fijo)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEstado('descansa')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${estado === 'descansa'
+                    ? 'bg-red-500/20 border-red-500 text-red-400'
+                    : 'bg-surface-light/20 border-white/10 text-text-muted hover:border-red-500/50'
+                  }`}
+              >
+                <Coffee size={24} />
+                <span className="text-xs font-bold">Descansa</span>
+                <span className="text-[9px]">(Descanso extra)</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-text-muted mb-1 uppercase">Observaciones (opcional)</label>
+            <textarea
+              value={observaciones}
+              onChange={e => setObservaciones(e.target.value)}
+              placeholder="Ej: Cambio de turno por apoyo, permiso, etc."
+              className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none min-h-[80px]"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            {excepcionExistente && (
+              <Button
+                variant="danger"
+                onClick={handleDelete}
+                disabled={saving}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <Trash2 size={16} className="mr-1" /> Eliminar
+              </Button>
+            )}
+            <Button variant="ghost" onClick={onClose} disabled={saving} className="flex-1">
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} isLoading={saving} className="flex-1 bg-primary">
+              {excepcionExistente ? 'Actualizar' : 'Guardar'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ───────────── Página principal Usuarios ───────────── */
 export default function Usuarios() {
   const navigate = useNavigate();
@@ -217,6 +431,8 @@ export default function Usuarios() {
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [excepcionChofer, setExcepcionChofer] = useState<UsuarioExtendido | null>(null);
+  const [excepcionesActivas, setExcepcionesActivas] = useState<Record<string, ExcepcionDescanso>>({});
 
   const load = async () => {
     setLoading(true);
@@ -226,12 +442,27 @@ export default function Usuarios() {
         const usuariosActualizados = (data as Usuario[]).map(u => ({
           ...u,
           connected: onlineUsers.includes(u.id_usuario),
-          lastSeen: new Date().toISOString()
+          lastSeen: new Date().toISOString(),
+          dias_descanso: (u as any).dias_descanso || []
         }));
         setUsuarios(usuariosActualizados);
       }
+
+      const hoy = format(new Date(), 'yyyy-MM-dd');
+      const { data: excepciones } = await supabase
+        .from('excepciones_descanso')
+        .select('*')
+        .eq('fecha', hoy);
+
+      if (excepciones) {
+        const mapa: Record<string, ExcepcionDescanso> = {};
+        excepciones.forEach((e: any) => {
+          mapa[e.id_chofer] = e;
+        });
+        setExcepcionesActivas(mapa);
+      }
     } catch (err) {
-      // Error loading users
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -267,15 +498,12 @@ export default function Usuarios() {
     if (payload.password || payload.activo === false || payload.activo === true) {
       supabase.functions.invoke('admin-auth', {
         body: { action: 'update_user', userId: id, password: payload.password, activo: payload.activo }
-      }).then(({ error: authErr }) => {
-        if (authErr) console.warn('[Auth Sync] Error:', authErr.message);
-      }).catch(err => {
-        console.warn('[Auth Sync] Fallo de conexión:', err);
-      });
+      }).catch(err => console.warn('[Auth Sync] Error:', err));
     }
 
     setUsuarios((prev: Usuario[]) => prev.map((u: Usuario) => u.id_usuario === id ? { ...u, ...payload } : u));
     setEditId(null);
+    load();
   };
 
   const handleDelete = async (user: Usuario) => {
@@ -308,9 +536,7 @@ export default function Usuarios() {
         await supabase.functions.invoke('admin-auth', {
           body: { action: 'delete_user', userId: user.id_usuario }
         });
-      } catch (err) {
-        // Auth deletion failed, but DB record is already removed
-      }
+      } catch (err) { }
     }
 
     setUsuarios((prev: Usuario[]) => prev.filter((u: Usuario) => u.id_usuario !== user.id_usuario));
@@ -355,11 +581,33 @@ export default function Usuarios() {
                   </td>
                 </tr>
               ) : usuarios.map((user) => {
-                // 🔧 CORRECCIÓN: Calcular día de descanso usando new Date() directamente
                 const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-                const ahoraPeru = new Date(); // ← Cambiado: antes era new Date(nowPeru())
+                const ahoraPeru = new Date();
                 const diaHoy = diasSemana[ahoraPeru.getDay()];
                 const tieneDescansoHoy = (user as any).dias_descanso?.includes(diaHoy);
+                const excepcionHoy = excepcionesActivas[user.id_usuario];
+
+                let estadoTexto = '';
+                let estadoColor = '';
+
+                if (!user.activo) {
+                  estadoTexto = 'INACTIVO';
+                  estadoColor = 'bg-red-500/10 text-red-500';
+                } else if (excepcionHoy) {
+                  if (excepcionHoy.estado === 'descansa') {
+                    estadoTexto = 'DESCANSO (EXCEPCIÓN)';
+                    estadoColor = 'bg-orange-500/20 text-orange-400';
+                  } else {
+                    estadoTexto = 'TRABAJA (EXCEPCIÓN)';
+                    estadoColor = 'bg-green-500/20 text-green-400';
+                  }
+                } else if (tieneDescansoHoy && (user.rol === 'chofer' || user.rol === 'descansero')) {
+                  estadoTexto = 'DESCANSO';
+                  estadoColor = 'bg-yellow-500/20 text-yellow-500';
+                } else {
+                  estadoTexto = 'ACTIVO';
+                  estadoColor = 'bg-green-500/20 text-green-500';
+                }
 
                 return (
                   <React.Fragment key={user.id_usuario}>
@@ -383,6 +631,11 @@ export default function Usuarios() {
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-white mb-0.5">{user.nombre}</span>
+                              {excepcionHoy && (
+                                <span className="text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full" title={`Excepción: ${excepcionHoy.estado === 'trabaja' ? 'Trabaja hoy' : 'Descansa hoy'}`}>
+                                  ⚡ Excepción
+                                </span>
+                              )}
                               {user.connected && (
                                 <span className="text-[10px] text-green-400 font-bold">● En línea</span>
                               )}
@@ -397,8 +650,8 @@ export default function Usuarios() {
                       </td>
                       <td className="px-6 py-4">
                         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${user.rol === 'administrador' ? 'bg-primary/20 text-primary' :
-                          user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' :
-                            user.rol === 'asistente' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-500'
+                            user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' :
+                              user.rol === 'asistente' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-500'
                           }`}>
                           {getRoleIcon(user.rol)} {user.rol}
                         </div>
@@ -410,14 +663,9 @@ export default function Usuarios() {
                               const diasSemanaMap: Record<string, string> = {
                                 lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J', viernes: 'V', sabado: 'S', domingo: 'D'
                               };
-
                               if (dias_desc.length > 0) {
                                 dias_desc.forEach(d => labels.push(diasSemanaMap[d.toLowerCase()] || d));
-                              } else if ((user as any).dia_descanso !== undefined && (user as any).dia_descanso >= 0) {
-                                const diasLabelsShort = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
-                                labels.push(diasLabelsShort[(user as any).dia_descanso]);
                               }
-
                               return labels.map((l, idx) => (
                                 <span key={idx} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded font-bold">
                                   {l}
@@ -428,29 +676,14 @@ export default function Usuarios() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {(() => {
-                          if (!user.activo) {
-                            return (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-red-500/10 text-red-500">
-                                INACTIVO
-                              </span>
-                            );
-                          }
-
-                          if (tieneDescansoHoy && (user.rol === 'chofer' || user.rol === 'descansero')) {
-                            return (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-yellow-500/10 text-yellow-500">
-                                DESCANSO
-                              </span>
-                            );
-                          }
-
-                          return (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-green-500/10 text-green-500">
-                              ACTIVO
-                            </span>
-                          );
-                        })()}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${estadoColor}`}>
+                          {estadoTexto}
+                        </span>
+                        {excepcionHoy?.observaciones && (
+                          <p className="text-[9px] text-text-muted mt-1 max-w-[150px] truncate" title={excepcionHoy.observaciones}>
+                            📝 {excepcionHoy.observaciones}
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -465,6 +698,14 @@ export default function Usuarios() {
                               <Phone size={16} />
                             </a>
                           )}
+                          {/* Botón de Excepción de Descanso - CALENDARIO */}
+                          <button
+                            onClick={() => setExcepcionChofer(user)}
+                            className="p-2 hover:bg-orange-500/20 rounded-lg text-orange-400 hover:text-orange-300 transition-all"
+                            title="Excepción de descanso"
+                          >
+                            <Calendar size={16} />
+                          </button>
                           <button
                             onClick={() => setEditId(editId === user.id_usuario ? null : user.id_usuario)}
                             className="p-2 hover:bg-primary/20 rounded-lg text-text-muted hover:text-primary transition-all"
@@ -505,6 +746,21 @@ export default function Usuarios() {
           )}
         </div>
       </div>
+
+      {/* Modal de Excepción de Descanso */}
+      {excepcionChofer && (
+        <ExcepcionModal
+          chofer={excepcionChofer}
+          onClose={() => {
+            setExcepcionChofer(null);
+            load();
+          }}
+          onSaved={() => {
+            setExcepcionChofer(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

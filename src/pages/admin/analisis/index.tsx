@@ -47,9 +47,9 @@ interface ChoferStats {
   rutas: number;
   visitasRealizadas: number;
   visitasExtra: number;
-  tiempoTotal: number;      // minutos
-  eficienciaPromedio: number; // 0–100, basada en mejor tiempo histórico
-  tieneEficiencia: boolean;   // false si no hay historial suficiente
+  tiempoTotal: number;
+  eficienciaPromedio: number;
+  tieneEficiencia: boolean;
   diasTrabajados: number;
   diasEsperados: number;
   diasDescanso: string[];
@@ -158,7 +158,6 @@ export default function AnalisisRutas() {
   const [rutas, setRutas] = useState<RutaData[]>([]);
   const [mejorTiempoPorDia, setMejorTiempoPorDia] = useState<Record<number, number>>({});
 
-  // 🔧 CORRECCIÓN: usar new Date() en lugar de nowPeru()
   const [fechaInicio, setFechaInicio] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() - 20);
@@ -615,7 +614,6 @@ export default function AnalisisRutas() {
       });
       setMejorTiempoPorDia(mejoresValidados);
 
-      // 🔧 CORRECCIÓN: usar new Date() en lugar de nowPeru()
       const inicioMes = new Date().toISOString().substring(0, 7) + '-01';
       const fechaInicioQuery = fechaInicio < inicioMes ? fechaInicio : inicioMes;
       const { data: rutasData, error: rutasError } = await supabase
@@ -697,9 +695,10 @@ export default function AnalisisRutas() {
     return EFICIENCIA_COLORS.baja;
   };
 
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="text-text-muted">Cargando...</div></div>;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
           <div>
@@ -756,7 +755,6 @@ export default function AnalisisRutas() {
         )}
       </div>
 
-      {/* Hero: Comparación Semanal Automática */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className={`lg:col-span-2 p-5 rounded-2xl border-2 flex items-center justify-between gap-6 ${semanaStats.pct === null ? 'bg-surface border-surface-light' :
           semanaStats.pct < 0 ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'
@@ -845,7 +843,6 @@ export default function AnalisisRutas() {
         </div>
       </div>
 
-      {/* Comparación Día Equivalente */}
       {comparacionDiaEquivalente.hayDatosPasados && (
         <Card className="bg-surface border border-surface-light overflow-hidden">
           <CardContent className="p-5">
@@ -899,7 +896,6 @@ export default function AnalisisRutas() {
         </Card>
       )}
 
-      {/* Summary Cards */}
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-bold text-white flex items-center gap-2 px-1">
           Totales del Período Seleccionado
@@ -1028,7 +1024,6 @@ export default function AnalisisRutas() {
         </div>
       </div>
 
-      {/* Validation Alerts */}
       {stats.totalRutas > 0 && stats.rutasCompletadas < stats.totalRutas && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex items-center gap-3">
           <AlertCircle className="text-yellow-500" size={20} />
@@ -1039,19 +1034,18 @@ export default function AnalisisRutas() {
         </div>
       )}
 
-      {/* Insights */}
       {insights.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {insights.slice(0, 3).map((insight, idx) => (
             <div
               key={idx}
-              className={`p-4 rounded-xl border ${insight.tipo.includes('positivo') ? 'bg-green-500/10 border-green-500/30' :
-                insight.tipo.includes('negativo') ? 'bg-red-500/10 border-red-500/30' :
+              className={`p-4 rounded-xl border ${insight.tipo === 'positivo' ? 'bg-green-500/10 border-green-500/30' :
+                insight.tipo === 'negativo' ? 'bg-red-500/10 border-red-500/30' :
                   'bg-blue-500/10 border-blue-500/30'
                 }`}
             >
-              <p className={`font-bold text-sm ${insight.tipo.includes('positivo') ? 'text-green-400' :
-                insight.tipo.includes('negativo') ? 'text-red-400' :
+              <p className={`font-bold text-sm ${insight.tipo === 'positivo' ? 'text-green-400' :
+                insight.tipo === 'negativo' ? 'text-red-400' :
                   'text-blue-400'
                 }`}>
                 {insight.titulo}
@@ -1062,9 +1056,7 @@ export default function AnalisisRutas() {
         </div>
       )}
 
-      {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Time Comparison */}
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-4">
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
@@ -1080,7 +1072,7 @@ export default function AnalisisRutas() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis dataKey="dia" stroke="#94a3b8" fontSize={12} />
                 <YAxis stroke="#94a3b8" fontSize={12} unit="h" />
-                <Tooltip
+                <RechartsTooltip
                   contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
                   labelStyle={{ color: '#f8fafc' }}
                 />
@@ -1092,7 +1084,6 @@ export default function AnalisisRutas() {
           </CardContent>
         </Card>
 
-        {/* Efficiency Chart */}
         <Card className="bg-surface border border-surface-light">
           <CardContent className="p-4">
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
@@ -1112,7 +1103,7 @@ export default function AnalisisRutas() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis dataKey="dia" stroke="#94a3b8" fontSize={12} />
                     <YAxis stroke="#94a3b8" fontSize={12} unit="%" domain={[0, 105]} tickFormatter={v => v > 100 ? '' : `${v}`} />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
                       labelStyle={{ color: '#f8fafc', fontWeight: 'bold', marginBottom: 4 }}
                       formatter={(value: any, _name: string, props: any) => {
@@ -1173,7 +1164,6 @@ export default function AnalisisRutas() {
         </Card>
       </div>
 
-      {/* Driver Performance Table */}
       <Card className="bg-surface border border-surface-light">
         <CardContent className="p-4">
           <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
@@ -1325,7 +1315,6 @@ export default function AnalisisRutas() {
         </CardContent>
       </Card>
 
-      {/* Gestión de Asistencia Manual */}
       <Card className="bg-surface border border-surface-light mt-8">
         <CardContent className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -1353,132 +1342,124 @@ export default function AnalisisRutas() {
                   <th className="p-3">Estado</th>
                   <th className="p-3">Observaciones</th>
                   <th className="p-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {asistencia.length === 0 ? (
                   <tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {asistencia.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="p-8 text-center text-text-muted">
-                          No hay registros manuales en este periodo.
-                        </td>
-                      </tr>
-                    ) : (
-                      asistencia.map((f: any) => (
-                        <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
-                          <td className="p-3 border-t border-surface-light">
-                            <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
-                          </td>
-                          <td className="p-3 border-t border-surface-light text-text-muted">
-                            {formatFriendlyDate(f.fecha)}
-                          </td>
-                          <td className="p-3 border-t border-surface-light">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
-                              f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
-                                f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
-                                  'bg-purple-500/20 text-purple-400'
-                              }`}>
-                              {f.estado || 'falta'}
-                            </span>
-                          </td>
-                          <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
-                            {f.observaciones || '-'}
-                          </td>
-                          <td className="p-3 border-t border-surface-light text-right">
-                            <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                    <td colSpan={5} className="p-8 text-center text-text-muted">
+                      No hay registros manuales en este periodo.
+                    </td>
+                  </tr>
+                ) : (
+                  asistencia.map((f: any) => (
+                    <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
+                      <td className="p-3 border-t border-surface-light">
+                        <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
+                      </td>
+                      <td className="p-3 border-t border-surface-light text-text-muted">
+                        {formatFriendlyDate(f.fecha)}
+                      </td>
+                      <td className="p-3 border-t border-surface-light">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
+                          f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
+                            f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
+                              'bg-purple-500/20 text-purple-400'
+                          }`}>
+                          {f.estado || 'falta'}
+                        </span>
+                      </td>
+                      <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
+                        {f.observaciones || '-'}
+                      </td>
+                      <td className="p-3 border-t border-surface-light text-right">
+                        <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {showAsistenciaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-surface-light rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-surface-light flex items-center gap-3">
+              <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
+                <AlertCircle size={20} />
               </div>
-            </CardContent>
-          </Card>
+              <h3 className="text-lg font-bold text-white">
+                Registrar Asistencia Manual
+              </h3>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Chofer</label>
+                <select
+                  className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                  value={nuevaAsistencia.id_chofer || ''}
+                  onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, id_chofer: e.target.value })}
+                >
+                  <option value="">Seleccione chofer...</option>
+                  {choferes.map(c => (
+                    <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Modal Registrar Asistencia Manual */}
-          {showAsistenciaModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <div className="bg-surface border border-surface-light rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-                <div className="p-4 border-b border-surface-light flex items-center gap-3">
-                  <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
-                    <AlertCircle size={20} />
-                  </div>
-                  <h3 className="text-lg font-bold text-white">
-                    Registrar Asistencia Manual
-                  </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Fecha</label>
+                  <input
+                    type="date"
+                    className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={nuevaAsistencia.fecha}
+                    onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, fecha: e.target.value })}
+                    max={format(new Date(), 'yyyy-MM-dd')}
+                  />
                 </div>
-                <div className="p-6 space-y-5">
-                  <div>
-                    <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Chofer</label>
-                    <select
-                      className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
-                      value={nuevaAsistencia.id_chofer || ''}
-                      onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, id_chofer: e.target.value })}
-                    >
-                      <option value="">Seleccione chofer...</option>
-                      {choferes.map(c => (
-                        <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Fecha</label>
-                      <input
-                        type="date"
-                        className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                        value={nuevaAsistencia.fecha}
-                        onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, fecha: e.target.value })}
-                        max={format(new Date(), 'yyyy-MM-dd')}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Estado</label>
-                      <select
-                        className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
-                        value={nuevaAsistencia.estado}
-                        onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, estado: e.target.value as any })}
-                      >
-                        <option value="falta">Falta</option>
-                        <option value="permiso">Permiso</option>
-                        <option value="trabajo">Trabajo Extra</option>
-                        <option value="descanso">Descanso</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Observaciones</label>
-                    <textarea
-                      className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] resize-none"
-                      placeholder="Ej. Descanso médico certificado, cambió de turno, etc."
-                      value={nuevaAsistencia.observaciones || ''}
-                      onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, observaciones: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <Button variant="secondary" className="flex-1 py-3" onClick={() => setShowAsistenciaModal(false)}>
-                      Cancelar
-                    </Button>
-                    <Button className="flex-1 bg-orange-600 hover:bg-orange-700 py-3" onClick={handleSaveAsistencia}>
-                      Guardar
-                    </Button>
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Estado</label>
+                  <select
+                    className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                    value={nuevaAsistencia.estado}
+                    onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, estado: e.target.value as any })}
+                  >
+                    <option value="falta">Falta</option>
+                    <option value="permiso">Permiso</option>
+                    <option value="trabajo">Trabajo Extra</option>
+                    <option value="descanso">Descanso</option>
+                  </select>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Loading State */}
-          {loading && (
-            <div className="flex items-center justify-center p-12">
-              <div className="text-text-muted">Cargando análisis...</div>
+              <div>
+                <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Observaciones</label>
+                <textarea
+                  className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] resize-none"
+                  placeholder="Ej. Descanso médico certificado, cambió de turno, etc."
+                  value={nuevaAsistencia.observaciones || ''}
+                  onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, observaciones: e.target.value })}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="secondary" className="flex-1 py-3" onClick={() => setShowAsistenciaModal(false)}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 bg-orange-600 hover:bg-orange-700 py-3" onClick={handleSaveAsistencia}>
+                  Guardar
+                </Button>
+              </div>
             </div>
-          )}
+          </div>
         </div>
-        );
+      )}
+    </div>
+  );
 }

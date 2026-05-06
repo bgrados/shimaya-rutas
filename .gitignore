@@ -39,3 +39,4 @@ install_loop.ps1
 
 # Node local embebido
 .local_node/.local_node/
+.vercel
