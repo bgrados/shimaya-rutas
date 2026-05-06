@@ -519,14 +519,14 @@ export default function Dashboard() {
       {/* Pulso del día */}
       {rendimiento && (
         <div className={`p-4 rounded-2xl border-2 flex items-center justify-between gap-4 ${rendimiento.diferenciaPct === null ? 'bg-surface border-surface-light' :
-            rendimiento.diferenciaPct <= -5 ? 'bg-green-500/10 border-green-500/40' :
-              rendimiento.diferenciaPct >= 10 ? 'bg-red-500/10 border-red-500/40' :
-                'bg-yellow-500/10 border-yellow-500/40'
+          rendimiento.diferenciaPct <= -5 ? 'bg-green-500/10 border-green-500/40' :
+            rendimiento.diferenciaPct >= 10 ? 'bg-red-500/10 border-red-500/40' :
+              'bg-yellow-500/10 border-yellow-500/40'
           }`}>
           <div className="flex items-center gap-3">
             <div className={`p-3 rounded-xl ${rendimiento.diferenciaPct === null ? 'bg-surface-light' :
-                rendimiento.diferenciaPct <= -5 ? 'bg-green-500/20' :
-                  rendimiento.diferenciaPct >= 10 ? 'bg-red-500/20' : 'bg-yellow-500/20'
+              rendimiento.diferenciaPct <= -5 ? 'bg-green-500/20' :
+                rendimiento.diferenciaPct >= 10 ? 'bg-red-500/20' : 'bg-yellow-500/20'
               }`}>
               <Activity size={22} className={
                 rendimiento.diferenciaPct === null ? 'text-text-muted' :
@@ -547,8 +547,8 @@ export default function Dashboard() {
                       <span className="text-text-muted text-sm">vs promedio {formatMins(rendimiento.promedioHistoricoMinutos)}</span>
                       {rendimiento.diferenciaPct !== null && (
                         <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${rendimiento.diferenciaPct <= -5 ? 'text-green-400 bg-green-500/10' :
-                            rendimiento.diferenciaPct >= 10 ? 'text-red-400 bg-red-500/10' :
-                              'text-yellow-400 bg-yellow-500/10'
+                          rendimiento.diferenciaPct >= 10 ? 'text-red-400 bg-red-500/10' :
+                            'text-yellow-400 bg-yellow-500/10'
                           }`}>
                           {rendimiento.diferenciaPct > 0 ? '+' : ''}{rendimiento.diferenciaPct}%
                         </span>
@@ -737,7 +737,7 @@ export default function Dashboard() {
               <div key={chofer.id} className="flex items-center justify-between p-3 bg-surface-light/20 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${chofer.enRuta ? 'bg-green-500 animate-pulse' :
-                      chofer.descansaHoy ? 'bg-red-500' : 'bg-blue-500'
+                    chofer.descansaHoy ? 'bg-red-500' : 'bg-blue-500'
                     }`} />
                   <span className="text-white font-medium">{chofer.nombre}</span>
                   {chofer.descansaHoy ? (
