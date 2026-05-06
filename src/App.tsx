@@ -7,7 +7,7 @@ import { AdminLayout } from './layouts/AdminLayout';
 import { DriverLayout } from './layouts/DriverLayout';
 import { Spinner } from './components/ui/Spinner';
 import { Component, ReactNode } from 'react';
-
+import CompletarRuta from './pages/driver/CompletarRuta';
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/Dashboard';
 import RutasDiarias from './pages/admin/rutas';
@@ -148,6 +148,7 @@ function App() {
                   <Route path="viaje/historial/:id" element={<DriverViaje />} />
                   <Route path="ruta/:id" element={<EjecucionRuta />} />
                   <Route path="ruta/:rId/visita/:vId" element={<VisitaLocal />} />
+                  <Route path="ruta/completar/:id" element={<CompletarRuta />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
