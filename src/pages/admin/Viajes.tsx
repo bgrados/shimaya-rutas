@@ -46,9 +46,9 @@ export default function AdminViajes() {
   const [allChoferes, setAllChoferes] = useState<Usuario[]>([]);
   const [allAsistentes, setAllAsistentes] = useState<Usuario[]>([]);
 
-  // 🔧 CORRECCIÓN: Calcular inicio de semana actual dinámicamente
+  // 🔧 CORRECCIÓN: Usar Date() nativo en lugar de nowPeru()
   const getStartOfCurrentWeek = () => {
-    const now = nowPeru();
+    const now = new Date(); // Cambiado: antes era nowPeru()
     const day = now.getDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
     const monday = new Date(now);
@@ -102,7 +102,6 @@ export default function AdminViajes() {
 
   const loadData = async () => {
     setLoading(true);
-    // 🔧 CORRECCIÓN: Usar fecha dinámica en lugar de hardcode
     const mondayStr = getStartOfCurrentWeek();
 
     const { data: rutasData, error: rutasError } = await supabase
