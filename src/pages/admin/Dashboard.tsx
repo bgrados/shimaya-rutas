@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { ListaAlertas, detectarInconsistenciasGlobales, Alerta } from '../../components/ui/Alertas';
-import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Car, Route, DollarSign, Activity } from 'lucide-react';
+import { Truck, MapPin, Users, Fuel, TrendingUp, Clock, CheckCircle, AlertCircle, Car, Route, DollarSign, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatHoraPeru } from '../../lib/timezone';
 import { toDate } from 'date-fns-tz';
@@ -33,6 +33,7 @@ interface Stats {
 interface RutaEnProgreso {
   id_ruta: string;
   nombre: string;
+  chofer_id: string;
   chofer_nombre: string;
   placa: string;
   estado: string;
@@ -48,7 +49,6 @@ interface TopChofer {
   tipo?: 'combustible' | 'otros';
 }
 
-// NUEVA: Estadística de rendimiento del día vs promedio histórico
 interface RendimientoDia {
   promedioHistoricoMinutos: number;
   tiempoHoyMinutos: number;
@@ -57,7 +57,7 @@ interface RendimientoDia {
   label: string;
 }
 
-export default function AdminDashboard() {
+export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
     rutasActivas: 0, rutasPendientes: 0, rutasFinalizadas: 0,
@@ -74,16 +74,28 @@ export default function AdminDashboard() {
   const [rendimiento, setRendimiento] = useState<RendimientoDia | null>(null);
   const [loading, setLoading] = useState(true);
   const [choferFilter, setChoferFilter] = useState<string>('todos');
-  const [choferes, setChoferes] = useState<{id_usuario: string; nombre: string}[]>([]);
+  const [choferes, setChoferes] = useState<{ id_usuario: string; nombre: string }[]>([]);
+  const [expandedChoferes, setExpandedChoferes] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (choferId: string) => {
+    setExpandedChoferes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(choferId)) {
+        newSet.delete(choferId);
+      } else {
+        newSet.add(choferId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     loadDashboardData();
-    // Auto-refresh cada 3 minutos
     const interval = setInterval(loadDashboardData, 3 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [choferFilter]);
 
-    const calcularMinutos = (inicio: string | null, fin: string | null): number => {
+  const calcularMinutos = (inicio: string | null, fin: string | null): number => {
     if (!inicio || !fin) return 0;
     try {
       const toMins = (h: string) => {
@@ -99,32 +111,30 @@ export default function AdminDashboard() {
     } catch { return 0; }
   };
 
-    const loadDashboardData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      const timeoutId = setTimeout(() => {
-        setLoading(false);
-        setError('La consulta está tardando demasiado. Verifica tu conexión.');
-      }, 15000);
-      
-      try {
-        const nowPeru = toDate(new Date().toISOString(), { timeZone: 'America/Lima' });
-        const day = nowPeru.getDay();
-        const hoyStr = format(nowPeru, 'yyyy-MM-dd');
-        const inicioSemana = new Date(nowPeru);
-        inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
-        const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
-        // Solo últimos 30 días para no sobrecargar
-        const hace30 = new Date(nowPeru);
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setError('La consulta está tardando demasiado. Verifica tu conexión.');
+    }, 15000);
+
+    try {
+      const nowPeru = toDate(new Date().toISOString(), { timeZone: 'America/Lima' });
+      const hoyStr = format(nowPeru, 'yyyy-MM-dd');
+      const inicioSemana = new Date(nowPeru);
+      const day = nowPeru.getDay();
+      inicioSemana.setDate(inicioSemana.getDate() - day + (day === 0 ? -6 : 1));
+      const semanaStr = format(inicioSemana, 'yyyy-MM-dd');
+      const hace30 = new Date(nowPeru);
       hace30.setDate(hace30.getDate() - 30);
       const hace30Str = format(hace30, 'yyyy-MM-dd');
 
-      // Cargar rutas solo del período relevante
       const rutasHoyQuery = supabase.from('rutas').select('*').eq('fecha', hoyStr);
       const rutasSemanaQuery = supabase.from('rutas').select('id_ruta').gte('fecha', semanaStr).lte('fecha', hoyStr);
       const rutasHistQuery = supabase.from('rutas').select('hora_salida_planta, hora_llegada_planta, fecha, id_chofer').eq('estado', 'finalizada').gte('fecha', hace30Str);
-      
+
       if (choferFilter !== 'todos') {
         rutasHoyQuery.eq('id_chofer', choferFilter);
         rutasSemanaQuery.eq('id_chofer', choferFilter);
@@ -153,18 +163,33 @@ export default function AdminDashboard() {
       const rutaIdsDelDia = rutasHoy.map(r => r.id_ruta);
       const rutaIdsSemana = rutasSemanaRes.data?.map(r => r.id_ruta) || [];
 
-      // Fix: usar arrays vacíos correctamente
-      const filterDia = rutaIdsDelDia.length > 0 ? rutaIdsDelDia : ['00000000-0000-0000-0000-000000000000'];
-      const filterSemana = rutaIdsSemana.length > 0 ? rutaIdsSemana : ['00000000-0000-0000-0000-000000000000'];
+      // CORRECCIÓN 2: Usar condición real, no placeholder UUID
+      const tieneRutasDia = rutaIdsDelDia.length > 0;
+      const tieneRutasSemana = rutaIdsSemana.length > 0;
 
-      const [combustibleDiaRes, combustibleSemanaRes, otrosDiaRes, otrosSemanaRes] = await Promise.all([
-        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterDia),
-        supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
-        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterDia),
-        supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', filterSemana),
-      ]);
+      let combustibleDiaRes = { data: [] as any[] };
+      let combustibleSemanaRes = { data: [] as any[] };
+      let otrosDiaRes = { data: [] as any[] };
+      let otrosSemanaRes = { data: [] as any[] };
 
-      // Calcular día de descanso
+      if (tieneRutasDia) {
+        const results = await Promise.all([
+          supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', rutaIdsDelDia),
+          supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', rutaIdsDelDia),
+        ]);
+        combustibleDiaRes = results[0];
+        otrosDiaRes = results[1];
+      }
+
+      if (tieneRutasSemana) {
+        const results = await Promise.all([
+          supabase.from('gastos_combustible').select('monto').neq('tipo_combustible', 'otro').in('id_ruta', rutaIdsSemana),
+          supabase.from('gastos_combustible').select('monto').eq('tipo_combustible', 'otro').in('id_ruta', rutaIdsSemana),
+        ]);
+        combustibleSemanaRes = results[0];
+        otrosSemanaRes = results[1];
+      }
+
       const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
       const diaHoy = diasSemana[nowPeru.getDay()];
       const todosChoferes = todosChoferesRes.data || [];
@@ -174,18 +199,13 @@ export default function AdminDashboard() {
       const numDescanso = choferesEnDescanso.length;
       const totalChoferesRegistrados = choferesRes.count || 0;
 
-      // Rutas por estado
       const rutasEnCurso = rutasHoy.filter(r => r.estado === 'en_progreso');
       const rutasPendientes = rutasHoy.filter(r => r.estado === 'pendiente');
       const rutasFinalizadas = rutasHoy.filter(r => r.estado === 'finalizada');
 
-      // Fix: choferes únicos en ruta activa
       const choferesActivosEnCurso = new Set(rutasEnCurso.map(r => r.id_chofer).filter(Boolean));
-
-      // Fix: disponibles = total - descanso - en ruta
       const numDisponibles = Math.max(0, totalChoferesRegistrados - numDescanso - choferesActivosEnCurso.size);
 
-      // Visitas de rutas en curso Y finalizadas
       const rutasActivasIds = [...rutasEnCurso, ...rutasFinalizadas].map(r => r.id_ruta);
       let visitasCompletadas = 0, visitasPendientes = 0, localesVisitados = 0;
 
@@ -203,10 +223,8 @@ export default function AdminDashboard() {
       const gastoSemana = combustibleSemanaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
       const gastoOtrosDia = otrosDiaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
       const gastoOtrosSemana = otrosSemanaRes.data?.reduce((s, g) => s + (g.monto || 0), 0) || 0;
-      // Fix: gastosHoy = suma real de montos del día
       const gastosHoy = gastoDia + gastoOtrosDia;
 
-      // Peajes
       const rutasBaseIds = [...new Set(rutasHoy.map(r => r.id_ruta_base).filter(Boolean))];
       const rutasBaseIdsSemana = [...new Set(rutasSemanaRes.data?.map((_: any) => _.id_ruta_base).filter(Boolean) || [])];
       const rutasBaseMap: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
@@ -231,28 +249,28 @@ export default function AdminDashboard() {
 
       setStats({
         rutasActivas: rutasEnCurso.length,
-        rutasPendientes: rutasPendientes.length, // Fix: rutas realmente pendientes
+        rutasPendientes: rutasPendientes.length,
         rutasFinalizadas: rutasFinalizadas.length,
         visitasCompletadas, visitasPendientes, localesVisitados,
         choferesEnRuta: choferesActivosEnCurso.size,
-        choferesDisponibles: numDisponibles, // Fix: resta en ruta también
+        choferesDisponibles: numDisponibles,
         choferesDescanso: numDescanso,
         choferesSinRuta: totalChoferesRegistrados - choferesActivosEnCurso.size,
         totalChoferes: totalChoferesRegistrados,
         gastoCombustibleDia: gastoDia, gastoCombustibleSemana: gastoSemana,
         gastoOtrosDia, gastoOtrosSemana,
-        gastosHoy, // Fix: suma real de montos
+        gastosHoy,
         peajeDia, peajeSemana
       });
 
-      // Rutas en progreso con visitas
+      // CORRECCIÓN 3: Mostrar rutas individuales por chofer (sin agrupar)
       if (rutasEnCurso.length > 0) {
         const rutasProgresoQuery = supabase
           .from('rutas').select('*, usuarios!rutas_id_chofer_fkey(nombre)')
           .eq('fecha', hoyStr).eq('estado', 'en_progreso');
-        
+
         if (choferFilter !== 'todos') rutasProgresoQuery.eq('id_chofer', choferFilter);
-        
+
         const { data: rutasProgreso } = await rutasProgresoQuery;
 
         if (rutasProgreso) {
@@ -264,6 +282,7 @@ export default function AdminDashboard() {
             return {
               id_ruta: r.id_ruta,
               nombre: r.nombre || 'Ruta sin nombre',
+              chofer_id: r.id_chofer,
               chofer_nombre: r.usuarios?.nombre || 'Sin chofer',
               placa: r.placa || '-',
               estado: r.estado,
@@ -278,16 +297,34 @@ export default function AdminDashboard() {
         setRutasEnProgreso([]);
       }
 
-      // Top gastos semana
-      if (filterSemana[0] !== '00000000-0000-0000-0000-000000000000') {
+      // CORRECCIÓN 1: Alertas respetan el filtro de chofer
+      if (tieneRutasSemana) {
         const gastosQuery = supabase
           .from('gastos_combustible')
-          .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
-          .in('id_ruta', filterSemana);
-        
+          .select('monto, created_at')
+          .in('id_ruta', rutaIdsSemana);
+
         if (choferFilter !== 'todos') gastosQuery.eq('id_chofer', choferFilter);
-        
-        const { data: gastosChofer } = await gastosQuery;
+
+        const { data: gastosSemana } = await gastosQuery;
+
+        const inconsistencias = detectarInconsistenciasGlobales(
+          rutasHoy, choferesActivosEnCurso.size, totalChoferesRegistrados,
+          (gastosSemana || []).map((g: any) => ({ fecha: g.created_at, monto: g.monto })), 5
+        );
+        setAlertas(inconsistencias);
+      }
+
+      // Top gastos semana
+      if (tieneRutasSemana) {
+        const gastosTopQuery = supabase
+          .from('gastos_combustible')
+          .select('*, usuarios!gastos_combustible_id_chofer_fkey(nombre)')
+          .in('id_ruta', rutaIdsSemana);
+
+        if (choferFilter !== 'todos') gastosTopQuery.eq('id_chofer', choferFilter);
+
+        const { data: gastosChofer } = await gastosTopQuery;
 
         if (gastosChofer) {
           const grpComb: Record<string, { nombre: string; total: number; cargas: number }> = {};
@@ -302,17 +339,10 @@ export default function AdminDashboard() {
           const topComb = Object.values(grpComb).map(d => ({ chofer_nombre: d.nombre, total_gasto: d.total, cargas: d.cargas, tipo: 'combustible' as const })).sort((a, b) => b.total_gasto - a.total_gasto).slice(0, 5);
           const topOtros = Object.values(grpOtros).map(d => ({ chofer_nombre: d.nombre, total_gasto: d.total, cargas: d.cargas, tipo: 'otros' as const })).sort((a, b) => b.total_gasto - a.total_gasto).slice(0, 3);
           setTopChoferes([...topComb, ...topOtros]);
-
-          // Alertas
-          const inconsistencias = detectarInconsistenciasGlobales(
-            rutasHoy, choferesActivosEnCurso.size, totalChoferesRegistrados,
-            (combustibleSemanaRes.data || []).map((g: any) => ({ fecha: g.created_at, monto: g.monto })), 5
-          );
-          setAlertas(inconsistencias);
         }
       }
 
-      // NUEVA FUNCIONALIDAD: Rendimiento del día vs promedio histórico
+      // Rendimiento del día
       const histData = rutasHistRes.data || [];
       const diaSemanaHoy = nowPeru.getDay();
       const rutasMismoDia = histData.filter(r => {
@@ -366,6 +396,19 @@ export default function AdminDashboard() {
   const getProgreso = (completadas: number, total: number) =>
     total === 0 ? 0 : Math.round((completadas / total) * 100);
 
+  // CORRECCIÓN 3: Agrupar rutas por chofer para mostrar expandible
+  const rutasPorChofer = rutasEnProgreso.reduce((acc, ruta) => {
+    if (!acc[ruta.chofer_id]) {
+      acc[ruta.chofer_id] = {
+        nombre: ruta.chofer_nombre,
+        placa: ruta.placa,
+        rutas: []
+      };
+    }
+    acc[ruta.chofer_id].rutas.push(ruta);
+    return acc;
+  }, {} as Record<string, { nombre: string; placa: string; rutas: RutaEnProgreso[] }>);
+
   if (error) return (
     <div className="p-4">
       <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
@@ -385,37 +428,37 @@ export default function AdminDashboard() {
     </div>
   );
 
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-white">Panel General</h1>
-            {choferFilter !== 'todos' && (
-              <div className="bg-primary/10 border border-primary/30 px-3 py-1.5 rounded-xl">
-                <p className="text-primary text-sm font-bold">
-                  {choferes.find(c => c.id_usuario === choferFilter)?.nombre || 'Chofer'}
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <select 
-              value={choferFilter} 
-              onChange={e => setChoferFilter(e.target.value)}
-              className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
-            >
-              <option value="todos">Todos los choferes</option>
-              {choferes.map(c => (
-                <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
-              ))}
-            </select>
-            <button onClick={loadDashboardData}
-              className="text-text-muted hover:text-white text-sm flex items-center gap-1">
-              <Clock size={14} /> Actualizar
-            </button>
-          </div>
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-white">Panel General</h1>
+          {choferFilter !== 'todos' && (
+            <div className="bg-primary/10 border border-primary/30 px-3 py-1.5 rounded-xl">
+              <p className="text-primary text-sm font-bold">
+                {choferes.find(c => c.id_usuario === choferFilter)?.nombre || 'Chofer'}
+              </p>
+            </div>
+          )}
         </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={choferFilter}
+            onChange={e => setChoferFilter(e.target.value)}
+            className="bg-surface border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
+          >
+            <option value="todos">Todos los choferes</option>
+            {choferes.map(c => (
+              <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
+            ))}
+          </select>
+          <button onClick={loadDashboardData}
+            className="text-text-muted hover:text-white text-sm flex items-center gap-1">
+            <Clock size={14} /> Actualizar
+          </button>
+        </div>
+      </div>
 
       {/* Alertas */}
       {alertas.length > 0 && (
@@ -424,24 +467,22 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── NUEVA FUNCIONALIDAD: Pulso del día ── */}
+      {/* Pulso del día */}
       {rendimiento && (
-        <div className={`p-4 rounded-2xl border-2 flex items-center justify-between gap-4 ${
-          rendimiento.diferenciaPct === null ? 'bg-surface border-surface-light' :
-          rendimiento.diferenciaPct <= -5 ? 'bg-green-500/10 border-green-500/40' :
-          rendimiento.diferenciaPct >= 10 ? 'bg-red-500/10 border-red-500/40' :
-          'bg-yellow-500/10 border-yellow-500/40'
-        }`}>
+        <div className={`p-4 rounded-2xl border-2 flex items-center justify-between gap-4 ${rendimiento.diferenciaPct === null ? 'bg-surface border-surface-light' :
+            rendimiento.diferenciaPct <= -5 ? 'bg-green-500/10 border-green-500/40' :
+              rendimiento.diferenciaPct >= 10 ? 'bg-red-500/10 border-red-500/40' :
+                'bg-yellow-500/10 border-yellow-500/40'
+          }`}>
           <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-xl ${
-              rendimiento.diferenciaPct === null ? 'bg-surface-light' :
-              rendimiento.diferenciaPct <= -5 ? 'bg-green-500/20' :
-              rendimiento.diferenciaPct >= 10 ? 'bg-red-500/20' : 'bg-yellow-500/20'
-            }`}>
+            <div className={`p-3 rounded-xl ${rendimiento.diferenciaPct === null ? 'bg-surface-light' :
+                rendimiento.diferenciaPct <= -5 ? 'bg-green-500/20' :
+                  rendimiento.diferenciaPct >= 10 ? 'bg-red-500/20' : 'bg-yellow-500/20'
+              }`}>
               <Activity size={22} className={
                 rendimiento.diferenciaPct === null ? 'text-text-muted' :
-                rendimiento.diferenciaPct <= -5 ? 'text-green-400' :
-                rendimiento.diferenciaPct >= 10 ? 'text-red-400' : 'text-yellow-400'
+                  rendimiento.diferenciaPct <= -5 ? 'text-green-400' :
+                    rendimiento.diferenciaPct >= 10 ? 'text-red-400' : 'text-yellow-400'
               } />
             </div>
             <div>
@@ -456,11 +497,10 @@ export default function AdminDashboard() {
                     <>
                       <span className="text-text-muted text-sm">vs promedio {formatMins(rendimiento.promedioHistoricoMinutos)}</span>
                       {rendimiento.diferenciaPct !== null && (
-                        <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${
-                          rendimiento.diferenciaPct <= -5 ? 'text-green-400 bg-green-500/10' :
-                          rendimiento.diferenciaPct >= 10 ? 'text-red-400 bg-red-500/10' :
-                          'text-yellow-400 bg-yellow-500/10'
-                        }`}>
+                        <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${rendimiento.diferenciaPct <= -5 ? 'text-green-400 bg-green-500/10' :
+                            rendimiento.diferenciaPct >= 10 ? 'text-red-400 bg-red-500/10' :
+                              'text-yellow-400 bg-yellow-500/10'
+                          }`}>
                           {rendimiento.diferenciaPct > 0 ? '+' : ''}{rendimiento.diferenciaPct}%
                         </span>
                       )}
@@ -472,17 +512,17 @@ export default function AdminDashboard() {
               )}
               <p className="text-text-muted text-xs mt-0.5">
                 {rendimiento.diferenciaPct === null ? 'Sin datos históricos suficientes para comparar' :
-                 rendimiento.diferenciaPct <= -5 ? '✅ Rutas más rápidas que el promedio' :
-                 rendimiento.diferenciaPct >= 10 ? '⚠️ Rutas más lentas que el promedio' :
-                 '↔️ Rendimiento dentro del rango normal'}
+                  rendimiento.diferenciaPct <= -5 ? '✅ Rutas más rápidas que el promedio' :
+                    rendimiento.diferenciaPct >= 10 ? '⚠️ Rutas más lentas que el promedio' :
+                      '↔️ Rendimiento dentro del rango normal'}
               </p>
             </div>
           </div>
           <div className="hidden md:flex flex-col items-center text-center min-w-[80px]">
             <span className="text-3xl">
               {rendimiento.diferenciaPct === null ? '📊' :
-               rendimiento.diferenciaPct <= -5 ? '🚀' :
-               rendimiento.diferenciaPct >= 10 ? '🐢' : '✅'}
+                rendimiento.diferenciaPct <= -5 ? '🚀' :
+                  rendimiento.diferenciaPct >= 10 ? '🐢' : '✅'}
             </span>
             <span className="text-xs text-text-muted mt-1">{rendimiento.rutasConDatos} refs.</span>
           </div>
@@ -631,60 +671,113 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Rutas en Progreso */}
+      {/* CORRECCIÓN 3: Rutas en Progreso - Mostrar individualmente por chofer con expandible */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Truck className="text-primary" size={20} />
               Rutas en Progreso
-              <Tooltip content="Rutas actualmente en ejecución con su avance de visitas." />
+              <Tooltip content="Rutas actualmente en ejecución. Si un chofer tiene múltiples rutas, se muestran todas." />
             </h2>
             <Link to="/admin/rutas" className="text-primary text-sm hover:underline">Ver todas</Link>
           </div>
 
-          {rutasEnProgreso.length === 0 ? (
+          {Object.keys(rutasPorChofer).length === 0 ? (
             <div className="text-center py-8 text-text-muted">
               <AlertCircle className="mx-auto mb-2 opacity-50" size={32} />
               <p>No hay rutas en progreso</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {(() => {
-                const porChofer: Record<string, { rutas: RutaEnProgreso[]; chofer: string; placa: string }> = {};
-                rutasEnProgreso.forEach(r => {
-                  if (!porChofer[r.chofer_nombre]) porChofer[r.chofer_nombre] = { rutas: [], chofer: r.chofer_nombre, placa: r.placa };
-                  porChofer[r.chofer_nombre].rutas.push(r);
-                });
-                return Object.values(porChofer).map(({ rutas, chofer, placa }) => {
-                  const totalV = rutas.reduce((s, r) => s + r.visitas_totales, 0);
-                  const completadasV = rutas.reduce((s, r) => s + r.visitas_completadas, 0);
-                  const pct = getProgreso(completadasV, totalV);
-                  return (
-                    <div key={chofer} className="bg-surface-light/30 p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-white font-bold flex items-center gap-2">
-                            {chofer}
-                            {rutas.length > 1 && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">{rutas.length} rutas</span>}
-                          </p>
+              {Object.entries(rutasPorChofer).map(([choferId, { nombre, placa, rutas }]) => {
+                const totalV = rutas.reduce((s, r) => s + r.visitas_totales, 0);
+                const completadasV = rutas.reduce((s, r) => s + r.visitas_completadas, 0);
+                const pctGeneral = getProgreso(completadasV, totalV);
+                const isExpanded = expandedChoferes.has(choferId);
+                const tieneMultiplesRutas = rutas.length > 1;
+
+                return (
+                  <div key={choferId} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                    {/* Header del chofer - siempre visible */}
+                    <div
+                      className="p-4 cursor-pointer hover:bg-surface-light/50 transition-colors"
+                      onClick={() => tieneMultiplesRutas && toggleExpand(choferId)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-white font-bold">{nombre}</p>
+                            {tieneMultiplesRutas && (
+                              <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                                {rutas.length} rutas
+                              </span>
+                            )}
+                          </div>
                           <p className="text-text-muted text-sm">{placa}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-primary font-black text-xl">{pct}%</p>
+                          <p className="text-primary font-black text-xl">{pctGeneral}%</p>
                           <p className="text-text-muted text-xs">{completadasV}/{totalV} visitas</p>
                         </div>
+                        {tieneMultiplesRutas && (
+                          <div className="ml-3">
+                            {isExpanded ? <ChevronUp size={20} className="text-text-muted" /> : <ChevronDown size={20} className="text-text-muted" />}
+                          </div>
+                        )}
                       </div>
-                      <div className="w-full bg-surface rounded-full h-2 mb-2">
-                        <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      <div className="w-full bg-surface rounded-full h-2 mt-2">
+                        <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${pctGeneral}%` }} />
                       </div>
-                      {rutas[0].hora_salida && (
-                        <p className="text-text-muted text-xs">Salida: {formatHoraPeru(rutas[0].hora_salida)}</p>
-                      )}
                     </div>
-                  );
-                });
-              })()}
+
+                    {/* Rutas individuales - expandible solo si tiene múltiples */}
+                    {tieneMultiplesRutas && isExpanded && (
+                      <div className="border-t border-white/10 bg-black/20 p-3 space-y-3">
+                        <p className="text-xs text-text-muted px-2 uppercase font-bold">Detalle por ruta:</p>
+                        {rutas.map((ruta, idx) => {
+                          const pctRuta = getProgreso(ruta.visitas_completadas, ruta.visitas_totales);
+                          return (
+                            <div key={ruta.id_ruta} className="bg-surface/30 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <p className="text-white text-sm font-bold flex items-center gap-2">
+                                    {ruta.nombre}
+                                    <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                                      Ruta {idx + 1}
+                                    </span>
+                                  </p>
+                                  {ruta.hora_salida && (
+                                    <p className="text-text-muted text-xs">Salida: {formatHoraPeru(ruta.hora_salida)}</p>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-primary font-bold">{pctRuta}%</p>
+                                  <p className="text-text-muted text-[10px]">{ruta.visitas_completadas}/{ruta.visitas_totales}</p>
+                                </div>
+                              </div>
+                              <div className="w-full bg-surface rounded-full h-1.5">
+                                <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${pctRuta}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Si tiene una sola ruta, mostrar el nombre de la ruta */}
+                    {!tieneMultiplesRutas && rutas[0] && (
+                      <div className="px-4 pb-4 pt-0">
+                        <p className="text-text-muted text-xs flex items-center gap-2">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary"></span>
+                          Ruta: {rutas[0].nombre}
+                          {rutas[0].hora_salida && ` · Salida: ${formatHoraPeru(rutas[0].hora_salida)}`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
