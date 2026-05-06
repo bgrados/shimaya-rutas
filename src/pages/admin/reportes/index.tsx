@@ -301,7 +301,7 @@ export default function Reportes() {
   }
 
   // ============================================================
-  // FUNCIÓN CORREGIDA: Filtro de fechas en combustible
+  // FUNCIÓN CORREGIDA: Usa la columna 'fecha' para filtrar (igual que en combustible/index.tsx)
   // ============================================================
   async function loadCombustible() {
     setCombustibleLoading(true);
@@ -310,21 +310,14 @@ export default function Reportes() {
 
       console.log(`[Combustible] Período: ${period}, Fecha: ${selectedDate}, Rango: ${from} - ${to}`);
 
-      // Fechas en formato ISO para filtrar created_at
-      const fechaInicio = from + 'T00:00:00-05:00';
-      const fechaFin = to + 'T23:59:59-05:00';
-
-      console.log(`[Combustible] Buscando gastos entre: ${fechaInicio} y ${fechaFin}`);
-
-      // Consulta directa por created_at (sin depender de rutas)
+      // Usar la columna 'fecha' en lugar de 'created_at' (igual que en combustible/index.tsx)
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
-        .gte('created_at', fechaInicio)
-        .lte('created_at', fechaFin)
-        .order('created_at', { ascending: false });
+        .gte('fecha', from)
+        .lte('fecha', to)
+        .order('fecha', { ascending: false });
 
-      // Filtro por chofer
       if (filterChofer) {
         query = query.eq('id_chofer', filterChofer);
       }
@@ -737,7 +730,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastosCombustible.forEach(gasto => {
-      const fecha = gasto.created_at ? format(new Date(gasto.created_at), 'yyyy-MM-dd') : 'sin fecha';
+      const fecha = gasto.fecha ? format(new Date(gasto.fecha), 'yyyy-MM-dd') : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });
@@ -797,12 +790,12 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
       const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente' ? '#eab308' : '#ef4444';
 
       return `<tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:8px;color:#475569;">${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-'}</td>
+        <td style="padding:8px;color:#475569;">${gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : '-'}</td>
         <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
         <td style="padding:8px;color:#475569;">${gasto.ruta_nombre || '-'}</td>
         <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
         <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
-      </tr>`;
+      </table>`;
     }).join('');
 
     const html = `<!DOCTYPE html>
@@ -848,7 +841,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
       <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Ruta</th>
       <th style="padding:8px;text-align:center;color:#475569;font-weight:600;">Estado</th>
       <th style="padding:8px;text-align:right;color:#475569;font-weight:600;">Monto</th>
-    </table></thead>
+    </tr></thead>
     <tbody>${gastosHTML}</tbody>
     <tfoot style="background:#f1f5f9;font-weight:bold;">
       <tr>
@@ -1036,7 +1029,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
               <td style="padding:8px;color:#475569;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
               <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
-             </tr>`;
+            </tr>`;
         }).join('');
 
         return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
@@ -1387,419 +1380,418 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                                   <td className="px-4 py-2 text-text-muted">{b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
                                   <td className="px-4 py-2 text-text-muted">{b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : <span className="text-blue-400 animate-pulse">En camino</span>}</td>
                                   <td className="px-4 py-2 font-bold text-primary">{formatMins(dur)}</td>
-                                  <tr>
-                                    );
+                                </tr>
+                              );
                             })}
-                                  </tbody>
-                                </table>
-                      </div>
-                          ) : (
-                          <p className="text-text-muted text-xs italic p-4">Sin movimientos registrados.</p>
-                    )}
-
-                          {/* Fotos de evidencia por local */}
-                          {ruta.localesRuta && ruta.localesRuta.length > 0 && (
-                            <div className="p-4 bg-surface-light/20 border-t border-white/5">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-xs text-text-muted font-bold uppercase">📸 Evidencia por Local</p>
-                                <button
-                                  onClick={handleExportarEvidenciaZip}
-                                  disabled={descargandoZipEvidencia}
-                                  className="text-xs text-primary hover:underline flex items-center gap-1"
-                                >
-                                  <DownloadIcon size={12} />
-                                  {descargandoZipEvidencia ? 'Descargando...' : 'Descargar todas'}
-                                </button>
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                                {ruta.localesRuta.map((local: any) => {
-                                  const fotos = fotosPorLocal[local.id_local_ruta] || [];
-                                  if (fotos.length === 0) return null;
-                                  return (
-                                    <div key={local.id_local_ruta} className="bg-surface rounded-lg p-2 border border-surface-light">
-                                      <p className="text-[10px] text-white font-medium truncate mb-1">{local.nombre || 'Local'}</p>
-                                      <div className="grid grid-cols-3 gap-1">
-                                        {fotos.map((foto: any, idx: number) => (
-                                          <div key={foto.id_foto} className="relative group">
-                                            <button
-                                              onClick={() => {
-                                                const allRouteFotos: { url: string; title: string }[] = [];
-                                                ruta.localesRuta.forEach((l: any) => {
-                                                  const lFotos = fotosPorLocal[l.id_local_ruta] || [];
-                                                  lFotos.forEach((f: any) => {
-                                                    allRouteFotos.push({ url: f.foto_url, title: l.nombre || 'Evidencia' });
-                                                  });
-                                                });
-
-                                                if (allRouteFotos.length === 0) {
-                                                  alert('No hay fotos disponibles');
-                                                  return;
-                                                }
-
-                                                const clickedIndex = allRouteFotos.findIndex(f => f.url === foto.foto_url);
-                                                const finalIndex = clickedIndex >= 0 ? clickedIndex : 0;
-
-                                                setActivePhoto({ images: allRouteFotos, index: finalIndex });
-                                              }}
-                                              className="w-full block"
-                                            >
-                                              <img
-                                                src={foto.foto_url}
-                                                alt={`Evidencia ${idx + 1}`}
-                                                className="w-full aspect-square object-cover rounded cursor-zoom-in hover:brightness-110 transition-all"
-                                                onError={(e) => {
-                                                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EImagen no disponible%3C/text%3E%3C/svg%3E';
-                                                }}
-                                              />
-                                            </button>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                const link = document.createElement('a');
-                                                link.href = foto.foto_url;
-                                                link.download = `${local.nombre}_evidencia_${idx + 1}.jpg`;
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
-                                              }}
-                                              className="absolute bottom-1 right-1 bg-black/60 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                              title="Descargar"
-                                            >
-                                              <DownloadIcon size={12} className="text-white" />
-                                            </button>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteEvidenciaFoto(foto.id_foto, local.id_local_ruta);
-                                              }}
-                                              className="absolute bottom-1 left-1 bg-red-600 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                              title="Eliminar"
-                                            >
-                                              <Trash2 size={12} className="text-white" />
-                                            </button>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </Card>
-                        );
-              })}
-                      </div>
-                    )}
-                  </>
-                )
-              }
-
-      { reportType === 'combustible' && (
-                  <>
-                    <div className="flex flex-wrap gap-4 mb-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setAgruparPor('fecha')}
-                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${agruparPor === 'fecha' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'}`}
-                        >
-                          <Calendar size={16} className="inline mr-2" />
-                          Por Fecha
-                        </button>
-                        <button
-                          onClick={() => setAgruparPor('chofer')}
-                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${agruparPor === 'chofer' ? 'bg-green-600 text-white' : 'bg-surface text-text-muted'}`}
-                        >
-                          <Truck size={16} className="inline mr-2" />
-                          Por Chofer
-                        </button>
-                      </div>
-
-                      <Button onClick={handleExportarCombustiblePDF} className="flex items-center gap-2">
-                        <Download size={18} />
-                        Exportar PDF
-                      </Button>
-                      <label className="flex items-center gap-2 cursor-pointer bg-surface-light px-3 py-2 rounded-xl border border-white/10">
-                        <input
-                          type="checkbox"
-                          checked={incluirFotosEnPDF}
-                          onChange={(e) => setIncluirFotosEnPDF(e.target.checked)}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        <span className="text-white text-sm">Incluir fotos</span>
-                      </label>
-                    </div>
-
-                    {/* Totales Combustible */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                      <Card className="bg-green-500/10 border-green-500/30">
-                        <CardContent className="p-3 text-center">
-                          <p className="text-xs text-green-300 uppercase font-bold">GLP</p>
-                          <p className="text-xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-blue-500/10 border-blue-500/30">
-                        <CardContent className="p-3 text-center">
-                          <p className="text-xs text-blue-300 uppercase font-bold">Gasolina</p>
-                          <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-orange-500/10 border-orange-500/30">
-                        <CardContent className="p-3 text-center">
-                          <p className="text-xs text-orange-300 uppercase font-bold">Diesel</p>
-                          <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-yellow-500/10 border-yellow-500/30">
-                        <CardContent className="p-3 text-center">
-                          <p className="text-xs text-yellow-300 uppercase font-bold">Cargas</p>
-                          <p className="text-xl font-black text-yellow-400">{gastosCombustible.length}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-primary/10 border-primary/30">
-                        <CardContent className="p-3 text-center">
-                          <p className="text-xs text-primary uppercase font-bold">TOTAL</p>
-                          <p className="text-xl font-black text-primary">S/ {totalGeneral.toFixed(2)}</p>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {combustibleLoading ? (
-                      <div className="text-center py-8 text-text-muted">Cargando...</div>
-                    ) : agruparPor === 'fecha' ? (
-                      <div className="space-y-4">
-                        {gastosAgrupadosPorFecha().map(grupo => (
-                          <Card key={grupo.fecha}>
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="text-blue-400" size={20} />
-                                  <span className="font-bold text-white">
-                                    {format(new Date(grupo.fecha), 'dd/MM/yyyy')}
-                                  </span>
-                                </div>
-                                <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
-                              </div>
-                              <div className="space-y-2">
-                                {grupo.gastos.map(gasto => (
-                                  <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded">
-                                    <div className="flex items-center gap-2">
-                                      <Truck size={14} className="text-text-muted" />
-                                      <span className="text-white">{gasto.chofer_nombre || 'Chofer'}</span>
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
-                                        gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
-                                          'bg-orange-500/20 text-orange-400'
-                                        }`}>
-                                        {gasto.tipo_combustible}
-                                      </span>
-                                      {gasto.kilometraje && (
-                                        <span className="text-[11px] text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded font-black italic">
-                                          📍 {gasto.kilometraje} KM
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                          </tbody>
+                        </table>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {gastosAgrupadosPorChofer().map(grupo => (
-                          <Card key={grupo.choferId}>
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <Truck className="text-green-400" size={20} />
-                                  <span className="font-bold text-white">{grupo.choferNombre}</span>
-                                  <span className="text-text-muted text-sm">({grupo.gastos.length} cargas)</span>
-                                </div>
-                                <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
-                              </div>
-                              <div className="space-y-2">
-                                {grupo.gastos.map(gasto => (
-                                  <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded ml-6">
-                                    <div className="flex items-center gap-2">
-                                      <Calendar size={14} className="text-text-muted" />
-                                      <span className="text-text-muted">
-                                        {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
-                                      </span>
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
-                                        gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
-                                          'bg-orange-500/20 text-orange-400'
-                                        }`}>
-                                        {gasto.tipo_combustible}
-                                      </span>
-                                      {gasto.kilometraje && (
-                                        <span className="text-[11px] text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded font-black italic">
-                                          📍 {gasto.kilometraje} KM
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                      <p className="text-text-muted text-xs italic p-4">Sin movimientos registrados.</p>
                     )}
 
-                    {gastosCombustible.length === 0 && (
-                      <div className="text-center py-12">
-                        <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-                        <p className="text-text-muted">Sin cargas de combustible en este período</p>
-                      </div>
-                    )}
-
-                    {/* Fotos de Combustible */}
-                    <Card className="mt-6">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-white font-bold flex items-center gap-2">
-                            📸 Fotos de Comprobantes
-                            <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
-                          </h3>
-                          {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={handleExportarFotosZip}
-                              disabled={descargandoZip}
-                              className="flex items-center gap-1"
-                            >
-                              <DownloadIcon size={14} />
-                              {descargandoZip ? 'Descargando...' : 'Descargar ZIP'}
-                            </Button>
-                          )}
+                    {/* Fotos de evidencia por local */}
+                    {ruta.localesRuta && ruta.localesRuta.length > 0 && (
+                      <div className="p-4 bg-surface-light/20 border-t border-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-text-muted font-bold uppercase">📸 Evidencia por Local</p>
+                          <button
+                            onClick={handleExportarEvidenciaZip}
+                            disabled={descargandoZipEvidencia}
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                          >
+                            <DownloadIcon size={12} />
+                            {descargandoZipEvidencia ? 'Descargando...' : 'Descargar todas'}
+                          </button>
                         </div>
-                        {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length === 0 ? (
-                          <p className="text-text-muted text-sm">No hay fotos de combustible</p>
-                        ) : (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
-                              <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                                <div className="relative">
-                                  <button
-                                    onClick={() => {
-                                      const images = gastosCombustible
-                                        .filter(g => fotosCombustible[g.id_gasto])
-                                        .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Comprobante Combustible - ${g.chofer_nombre}` }));
-                                      const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
-                                      setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
-                                    }}
-                                    className="w-full flex"
-                                  >
-                                    <img
-                                      src={fotosCombustible[gasto.id_gasto]}
-                                      alt="Comprobante"
-                                      className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all"
-                                    />
-                                  </button>
-                                  <div className="absolute bottom-2 right-2 flex gap-1">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`);
-                                      }}
-                                      className="bg-black/60 p-2 rounded-lg hover:bg-black/80 transition-colors"
-                                      title="Descargar"
-                                    >
-                                      <DownloadIcon size={14} className="text-white" />
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteGasto(gasto.id_gasto);
-                                      }}
-                                      className="bg-red-500/60 p-2 rounded-lg hover:bg-red-500/80 transition-colors"
-                                      title="Eliminar"
-                                    >
-                                      <Trash2 size={14} className="text-white" />
-                                    </button>
-                                  </div>
-                                </div>
-                                <div className="p-2 text-xs">
-                                  <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
-                                  <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {ruta.localesRuta.map((local: any) => {
+                            const fotos = fotosPorLocal[local.id_local_ruta] || [];
+                            if (fotos.length === 0) return null;
+                            return (
+                              <div key={local.id_local_ruta} className="bg-surface rounded-lg p-2 border border-surface-light">
+                                <p className="text-[10px] text-white font-medium truncate mb-1">{local.nombre || 'Local'}</p>
+                                <div className="grid grid-cols-3 gap-1">
+                                  {fotos.map((foto: any, idx: number) => (
+                                    <div key={foto.id_foto} className="relative group">
+                                      <button
+                                        onClick={() => {
+                                          const allRouteFotos: { url: string; title: string }[] = [];
+                                          ruta.localesRuta.forEach((l: any) => {
+                                            const lFotos = fotosPorLocal[l.id_local_ruta] || [];
+                                            lFotos.forEach((f: any) => {
+                                              allRouteFotos.push({ url: f.foto_url, title: l.nombre || 'Evidencia' });
+                                            });
+                                          });
+
+                                          if (allRouteFotos.length === 0) {
+                                            alert('No hay fotos disponibles');
+                                            return;
+                                          }
+
+                                          const clickedIndex = allRouteFotos.findIndex(f => f.url === foto.foto_url);
+                                          const finalIndex = clickedIndex >= 0 ? clickedIndex : 0;
+
+                                          setActivePhoto({ images: allRouteFotos, index: finalIndex });
+                                        }}
+                                        className="w-full block"
+                                      >
+                                        <img
+                                          src={foto.foto_url}
+                                          alt={`Evidencia ${idx + 1}`}
+                                          className="w-full aspect-square object-cover rounded cursor-zoom-in hover:brightness-110 transition-all"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EImagen no disponible%3C/text%3E%3C/svg%3E';
+                                          }}
+                                        />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const link = document.createElement('a');
+                                          link.href = foto.foto_url;
+                                          link.download = `${local.nombre}_evidencia_${idx + 1}.jpg`;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                        }}
+                                        className="absolute bottom-1 right-1 bg-black/60 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Descargar"
+                                      >
+                                        <DownloadIcon size={12} className="text-white" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteEvidenciaFoto(foto.id_foto, local.id_local_ruta);
+                                        }}
+                                        className="absolute bottom-1 left-1 bg-red-600 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Eliminar"
+                                      >
+                                        <Trash2 size={12} className="text-white" />
+                                      </button>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            ))}
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {reportType === 'combustible' && (
+        <>
+          <div className="flex flex-wrap gap-4 mb-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAgruparPor('fecha')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${agruparPor === 'fecha' ? 'bg-blue-600 text-white' : 'bg-surface text-text-muted'}`}
+              >
+                <Calendar size={16} className="inline mr-2" />
+                Por Fecha
+              </button>
+              <button
+                onClick={() => setAgruparPor('chofer')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${agruparPor === 'chofer' ? 'bg-green-600 text-white' : 'bg-surface text-text-muted'}`}
+              >
+                <Truck size={16} className="inline mr-2" />
+                Por Chofer
+              </button>
+            </div>
+
+            <Button onClick={handleExportarCombustiblePDF} className="flex items-center gap-2">
+              <Download size={18} />
+              Exportar PDF
+            </Button>
+            <label className="flex items-center gap-2 cursor-pointer bg-surface-light px-3 py-2 rounded-xl border border-white/10">
+              <input
+                type="checkbox"
+                checked={incluirFotosEnPDF}
+                onChange={(e) => setIncluirFotosEnPDF(e.target.checked)}
+                className="w-4 h-4 accent-primary"
+              />
+              <span className="text-white text-sm">Incluir fotos</span>
+            </label>
+          </div>
+
+          {/* Totales Combustible */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+            <Card className="bg-green-500/10 border-green-500/30">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-green-300 uppercase font-bold">GLP</p>
+                <p className="text-xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-blue-500/10 border-blue-500/30">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-blue-300 uppercase font-bold">Gasolina</p>
+                <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-orange-500/10 border-orange-500/30">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-orange-300 uppercase font-bold">Diesel</p>
+                <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-yellow-500/10 border-yellow-500/30">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-yellow-300 uppercase font-bold">Cargas</p>
+                <p className="text-xl font-black text-yellow-400">{gastosCombustible.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/10 border-primary/30">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-primary uppercase font-bold">TOTAL</p>
+                <p className="text-xl font-black text-primary">S/ {totalGeneral.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {combustibleLoading ? (
+            <div className="text-center py-8 text-text-muted">Cargando...</div>
+          ) : agruparPor === 'fecha' ? (
+            <div className="space-y-4">
+              {gastosAgrupadosPorFecha().map(grupo => (
+                <Card key={grupo.fecha}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="text-blue-400" size={20} />
+                        <span className="font-bold text-white">
+                          {format(new Date(grupo.fecha), 'dd/MM/yyyy')}
+                        </span>
+                      </div>
+                      <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {grupo.gastos.map(gasto => (
+                        <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded">
+                          <div className="flex items-center gap-2">
+                            <Truck size={14} className="text-text-muted" />
+                            <span className="text-white">{gasto.chofer_nombre || 'Chofer'}</span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
+                              gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                                'bg-orange-500/20 text-orange-400'
+                              }`}>
+                              {gasto.tipo_combustible}
+                            </span>
+                            {gasto.kilometraje && (
+                              <span className="text-[11px] text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded font-black italic">
+                                📍 {gasto.kilometraje} KM
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </>
+                          <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {gastosAgrupadosPorChofer().map(grupo => (
+                <Card key={grupo.choferId}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Truck className="text-green-400" size={20} />
+                        <span className="font-bold text-white">{grupo.choferNombre}</span>
+                        <span className="text-text-muted text-sm">({grupo.gastos.length} cargas)</span>
+                      </div>
+                      <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {grupo.gastos.map(gasto => (
+                        <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded ml-6">
+                          <div className="flex items-center gap-2">
+                            <Calendar size={14} className="text-text-muted" />
+                            <span className="text-text-muted">
+                              {gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : '-'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
+                              gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                                'bg-orange-500/20 text-orange-400'
+                              }`}>
+                              {gasto.tipo_combustible}
+                            </span>
+                            {gasto.kilometraje && (
+                              <span className="text-[11px] text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded font-black italic">
+                                📍 {gasto.kilometraje} KM
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {gastosCombustible.length === 0 && (
+            <div className="text-center py-12">
+              <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+              <p className="text-text-muted">Sin cargas de combustible en este período</p>
+            </div>
+          )}
+
+          {/* Fotos de Combustible */}
+          <Card className="mt-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-bold flex items-center gap-2">
+                  📸 Fotos de Comprobantes
+                  <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                </h3>
+                {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleExportarFotosZip}
+                    disabled={descargandoZip}
+                    className="flex items-center gap-1"
+                  >
+                    <DownloadIcon size={14} />
+                    {descargandoZip ? 'Descargando...' : 'Descargar ZIP'}
+                  </Button>
                 )}
-
-              {reportType === 'peajes' && (
-                <Card className="border-surface-light">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <FileDown size={24} className="text-blue-500" />
-                        REPORTE DE PEAJES
-                      </h2>
+              </div>
+              {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length === 0 ? (
+                <p className="text-text-muted text-sm">No hay fotos de combustible</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
+                    <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            const images = gastosCombustible
+                              .filter(g => fotosCombustible[g.id_gasto])
+                              .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Comprobante Combustible - ${g.chofer_nombre}` }));
+                            const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
+                            setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
+                          }}
+                          className="w-full flex"
+                        >
+                          <img
+                            src={fotosCombustible[gasto.id_gasto]}
+                            alt="Comprobante"
+                            className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all"
+                          />
+                        </button>
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`);
+                            }}
+                            className="bg-black/60 p-2 rounded-lg hover:bg-black/80 transition-colors"
+                            title="Descargar"
+                          >
+                            <DownloadIcon size={14} className="text-white" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteGasto(gasto.id_gasto);
+                            }}
+                            className="bg-red-500/60 p-2 rounded-lg hover:bg-red-500/80 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} className="text-white" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-2 text-xs">
+                        <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
+                        <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
-                    <p className="text-text-muted mb-4">Período: <span className="text-primary font-bold">{rangoLabel}</span></p>
+      {reportType === 'peajes' && (
+        <Card className="border-surface-light">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <FileDown size={24} className="text-blue-500" />
+                REPORTE DE PEAJES
+              </h2>
+            </div>
 
-                    {/* Resumen de Peajes */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                      <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                        <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Automáticos</p>
-                        <p className="text-2xl font-black text-blue-400">
-                          S/ {peajesCalculados.toFixed(2)}
-                        </p>
-                        <p className="text-text-muted text-[10px] mt-1">Basado en rutas ejecutadas</p>
-                      </div>
-                      <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                        <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Manuales</p>
-                        <p className="text-2xl font-black text-green-400">
-                          S/ {peajesManualesMonto.toFixed(2)}
-                        </p>
-                        <p className="text-text-muted text-[10px] mt-1">Con ticket/foto (pagados)</p>
-                      </div>
-                      <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                        <p className="text-text-muted text-xs uppercase font-bold mb-1">Compromisos Peaje</p>
-                        <p className="text-2xl font-black text-yellow-400">
-                          S/ {peajesCompromisoMonto.toFixed(2)}
-                        </p>
-                        <p className="text-text-muted text-[10px] mt-1">Tickets pendientes por pagar</p>
-                      </div>
-                      <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                        <p className="text-text-muted text-xs uppercase font-bold mb-1">Total Peajes</p>
-                        <p className="text-2xl font-black text-white">
-                          S/ {(peajesCalculados + peajesManualesMonto).toFixed(2)}
-                        </p>
-                        <p className="text-text-muted text-[10px] mt-1">Sin contar compromisos</p>
-                      </div>
-                    </div>
+            <p className="text-text-muted mb-4">Período: <span className="text-primary font-bold">{rangoLabel}</span></p>
 
-                    {/* Detalle de peajes manuales */}
-                    {peajesManuales.length > 0 && (
-                      <div className="mt-4">
-                        <h3 className="text-sm font-bold text-white mb-3">Peajes con Ticket/Foto</h3>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="text-text-muted border-b border-white/10">
-                                <th className="text-left py-2 px-3 cursor-pointer hover:text-primary" onClick={() => setOrdenPeajes(ordenPeajes === 'asc' ? 'desc' : 'asc')}>
-                                  Fecha {ordenPeajes === 'asc' ? '↑' : '↓'}
-                                </th>
-                                <th className="text-left py-2 px-3">Foto</th>
-                                <th className="text-left py-2 px-3">Chofer</th>
-                                <th className="text-left py-2 px-3">Tipo</th>
-                                <th className="text-right py-2 px-3">Monto</th>
-                                <th className="text-center py-2 px-3">Acciones</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {peajesManuales.map((gasto: any) => (
+            {/* Resumen de Peajes */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Automáticos</p>
+                <p className="text-2xl font-black text-blue-400">
+                  S/ {peajesCalculados.toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Basado en rutas ejecutadas</p>
+              </div>
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Manuales</p>
+                <p className="text-2xl font-black text-green-400">
+                  S/ {peajesManualesMonto.toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Con ticket/foto (pagados)</p>
+              </div>
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Compromisos Peaje</p>
+                <p className="text-2xl font-black text-yellow-400">
+                  S/ {peajesCompromisoMonto.toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Tickets pendientes por pagar</p>
+              </div>
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Total Peajes</p>
+                <p className="text-2xl font-black text-white">
+                  S/ {(peajesCalculados + peajesManualesMonto).toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Sin contar compromisos</p>
+              </div>
+            </div>
+
+            {/* Detalle de peajes manuales */}
+            {peajesManuales.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-white mb-3">Peajes con Ticket/Foto</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-text-muted border-b border-white/10">
+                        <th className="text-left py-2 px-3 cursor-pointer hover:text-primary" onClick={() => setOrdenPeajes(ordenPeajes === 'asc' ? 'desc' : 'asc')}>
+                          Fecha {ordenPeajes === 'asc' ? '↑' : '↓'}
+                        </th>
+                        <th className="text-left py-2 px-3">Foto</th>
+                        <th className="text-left py-2 px-3">Chofer</th>
+                        <th className="text-left py-2 px-3">Tipo</th>
+                        <th className="text-right py-2 px-3">Monto</th>
+                        <th className="text-center py-2 px-3">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {peajesManuales.map((gasto: any) => (
                         <tr key={gasto.id_gasto} className="border-b border-white/5 hover:bg-white/5">
                           <td className="py-2 px-3">
                             {editandoPeajeId === gasto.id_gasto ? (
@@ -1826,7 +1818,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                             ) : (
                               <span className="text-text-muted text-xs">-</span>
                             )}
-                          </tr>
+                          </td>
                           <td className="py-2 px-3 text-white font-medium text-xs">
                             {gasto.chofer_nombre || '-'}
                           </td>
@@ -1891,154 +1883,154 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                           </td>
                         </tr>
                       ))}
-                          </tbody>
-                          <td>
-                        </div>
-                      </div>
-                    )}
-
-                    {peajesManuales.length === 0 && peajesCalculados === 0 && (
-                      <div className="text-center py-8">
-                        <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-                        <p className="text-text-muted">No hay registros de peajes en el período seleccionado</p>
-                      </div>
-                    )}
-
-                    {peajesManuales.length > 0 && (
-                      <div className="mt-4 flex justify-end">
-                        <Button onClick={handleExportarPeajesPDF} className="flex items-center gap-2">
-                          <Download size={18} /> Exportar PDF
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {reportType === 'otros' && (
-                <Card className="border-surface-light">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <FileDown size={24} className="text-red-500" />
-                        OTROS GASTOS
-                      </h2>
-                    </div>
-
-                    <p className="text-text-muted mb-4">Período: <span className="text-primary font-bold">{rangoLabel}</span></p>
-
-                    {gastosOtros.length === 0 ? (
-                      <div className="text-center py-12">
-                        <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-                        <p className="text-text-muted">No hay otros gastos registrados en este período</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex justify-between items-center mb-4">
-                          <Button onClick={handleExportarOtrosPDF} className="flex items-center gap-2">
-                            <Download size={18} />
-                            Exportar PDF
-                          </Button>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {gastosOtros.map(gasto => (
-                            <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                              <div className="relative">
-                                {fotosCombustible[gasto.id_gasto] ? (
-                                  <button
-                                    onClick={() => {
-                                      const images = gastosOtros
-                                        .filter(g => fotosCombustible[g.id_gasto])
-                                        .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Gasto: ${g.chofer_nombre} - S/ ${g.monto}` }));
-                                      const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
-                                      setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
-                                    }}
-                                    className="w-full"
-                                  >
-                                    <img
-                                      src={fotosCombustible[gasto.id_gasto]}
-                                      alt="Comprobante"
-                                      className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all"
-                                    />
-                                  </button>
-                                ) : (
-                                  <div className="w-full h-40 bg-surface-light/50 flex items-center justify-center">
-                                    <span className="text-text-muted text-4xl">-</span>
-                                  </div>
-                                )}
-                                <div className="absolute bottom-2 right-2 flex gap-1">
-                                  <button
-                                    onClick={() => {
-                                      if (window.confirm(`¿Eliminar gasto de ${gasto.chofer_nombre || 'este registro'} por S/ ${(gasto.monto || 0).toFixed(2)}?`)) {
-                                        handleDeleteGasto(gasto.id_gasto);
-                                      }
-                                    }}
-                                    className="bg-red-500/80 hover:bg-red-500 p-2 rounded-lg transition-colors"
-                                    title="Eliminar"
-                                  >
-                                    <Trash2 size={16} className="text-white" />
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="p-3 text-sm">
-                                <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
-                                <p className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</p>
-                                <p className="text-text-muted text-xs mt-1">
-                                  {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-'}
-                                </p>
-                                <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
-                                  gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
-                                    'bg-red-500/20 text-red-400'
-                                  }`}>
-                                  {gasto.estado || '-'}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="mt-4 p-4 bg-surface-light/30 rounded-xl flex justify-between items-center">
-                          <span className="text-white font-bold">Total Otros Gastos:</span>
-                          <span className="text-green-400 font-black text-xl">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {showFotoModal && (
-                <div
-                  className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-pointer"
-                  onClick={() => setShowFotoModal(null)}
-                >
-                  <div
-                    className="relative max-w-4xl w-full cursor-default"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => setShowFotoModal(null)}
-                      className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 bg-surface px-4 py-2 rounded-lg"
-                    >
-                      <X size={20} />
-                      Cerrar
-                    </button>
-                    <img
-                      src={showFotoModal}
-                      alt="Foto ampliada"
-                      className="max-h-[80vh] w-full object-contain rounded-lg border border-surface-light"
-                    />
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
-              )}
-              <ImageModal
-                isOpen={!!activePhoto}
-                onClose={() => setActivePhoto(null)}
-                images={activePhoto?.images || []}
-                initialIndex={activePhoto?.index}
-              />
+              </div>
+            )}
+
+            {peajesManuales.length === 0 && peajesCalculados === 0 && (
+              <div className="text-center py-8">
+                <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+                <p className="text-text-muted">No hay registros de peajes en el período seleccionado</p>
+              </div>
+            )}
+
+            {peajesManuales.length > 0 && (
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleExportarPeajesPDF} className="flex items-center gap-2">
+                  <Download size={18} /> Exportar PDF
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {reportType === 'otros' && (
+        <Card className="border-surface-light">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <FileDown size={24} className="text-red-500" />
+                OTROS GASTOS
+              </h2>
             </div>
-          );
+
+            <p className="text-text-muted mb-4">Período: <span className="text-primary font-bold">{rangoLabel}</span></p>
+
+            {gastosOtros.length === 0 ? (
+              <div className="text-center py-12">
+                <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+                <p className="text-text-muted">No hay otros gastos registrados en este período</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <Button onClick={handleExportarOtrosPDF} className="flex items-center gap-2">
+                    <Download size={18} />
+                    Exportar PDF
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {gastosOtros.map(gasto => (
+                    <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                      <div className="relative">
+                        {fotosCombustible[gasto.id_gasto] ? (
+                          <button
+                            onClick={() => {
+                              const images = gastosOtros
+                                .filter(g => fotosCombustible[g.id_gasto])
+                                .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Gasto: ${g.chofer_nombre} - S/ ${g.monto}` }));
+                              const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
+                              setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
+                            }}
+                            className="w-full"
+                          >
+                            <img
+                              src={fotosCombustible[gasto.id_gasto]}
+                              alt="Comprobante"
+                              className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all"
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-full h-40 bg-surface-light/50 flex items-center justify-center">
+                            <span className="text-text-muted text-4xl">-</span>
+                          </div>
+                        )}
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`¿Eliminar gasto de ${gasto.chofer_nombre || 'este registro'} por S/ ${(gasto.monto || 0).toFixed(2)}?`)) {
+                                handleDeleteGasto(gasto.id_gasto);
+                              }
+                            }}
+                            className="bg-red-500/80 hover:bg-red-500 p-2 rounded-lg transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={16} className="text-white" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-3 text-sm">
+                        <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
+                        <p className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</p>
+                        <p className="text-text-muted text-xs mt-1">
+                          {gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : '-'}
+                        </p>
+                        <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
+                          gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                          {gasto.estado || '-'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-4 bg-surface-light/30 rounded-xl flex justify-between items-center">
+                  <span className="text-white font-bold">Total Otros Gastos:</span>
+                  <span className="text-green-400 font-black text-xl">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {showFotoModal && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setShowFotoModal(null)}
+        >
+          <div
+            className="relative max-w-4xl w-full cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowFotoModal(null)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 bg-surface px-4 py-2 rounded-lg"
+            >
+              <X size={20} />
+              Cerrar
+            </button>
+            <img
+              src={showFotoModal}
+              alt="Foto ampliada"
+              className="max-h-[80vh] w-full object-contain rounded-lg border border-surface-light"
+            />
+          </div>
+        </div>
+      )}
+      <ImageModal
+        isOpen={!!activePhoto}
+        onClose={() => setActivePhoto(null)}
+        images={activePhoto?.images || []}
+        initialIndex={activePhoto?.index}
+      />
+    </div>
+  );
 }
 
