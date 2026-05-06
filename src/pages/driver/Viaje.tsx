@@ -190,6 +190,7 @@ export default function Viaje() {
   const [showModoManual, setShowModoManual] = useState(false);
 
   const [localParaFoto, setLocalParaFoto] = useState<LocalRuta | null>(null);
+  const [detourParaFoto, setDetourParaFoto] = useState<LocalRuta | null>(null);
 
   const [editandoBitacora, setEditandoBitacora] = useState<string | null>(null);
   const [editHoraSalida, setEditHoraSalida] = useState('');
@@ -436,15 +437,11 @@ export default function Viaje() {
 
   // Función para obtener el siguiente local pendiente según orden
   const obtenerSiguienteLocalPendiente = (): LocalRuta | null => {
-    // Filtrar locales que ya tienen llegada registrada en bitácora
     const localesConLlegada = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
-
-    // Ordenar locales por orden y encontrar el primero que no tenga llegada
     const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
     const siguiente = localesOrdenados.find(l =>
       !localesConLlegada.includes(l.nombre || '') && l.nombre !== 'Planta'
     );
-
     return siguiente || null;
   };
 
@@ -518,7 +515,7 @@ export default function Viaje() {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
 
-    agregarLogDebug('🚀 Iniciando watchPosition v2 con promediado y validación de orden...');
+    agregarLogDebug('🚀 Iniciando watchPosition con validación de orden...');
     setEstadoGPS('buscando');
     limpiarTemporizadoresValidacion();
     setLecturasBuffer([]);
@@ -547,16 +544,18 @@ export default function Viaje() {
           }
         }
 
-        // Obtener el siguiente local pendiente según orden
         const siguienteLocal = obtenerSiguienteLocalPendiente();
 
-        // Obtener todos los locales pendientes (para detección de detour)
+        // Mostrar en la UI cuál es el próximo local
+        if (siguienteLocal && estadoDetectar !== 'preguntando_detour') {
+          setMensajeGPS(`🎯 Próximo: ${siguienteLocal.nombre}`);
+        }
+
         const localesConLlegada = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
         const localesPendientes = locales.filter(l =>
           !localesConLlegada.includes(l.nombre || '') && l.nombre !== 'Planta' && l.latitud && l.longitud
         );
 
-        // Buscar si hay algún local pendiente (incluyendo el siguiente) cerca
         let localCerca: LocalRuta | null = null;
         let distanciaCerca = Infinity;
 
@@ -574,20 +573,14 @@ export default function Viaje() {
         if (localCerca && distanciaCerca !== Infinity) {
           setDistanciaAlPunto(distanciaCerca);
 
-          // Verificar si el local cerca es el siguiente en orden
           const esSiguiente = siguienteLocal && siguienteLocal.id_local_ruta === localCerca.id_local_ruta;
 
           if (!esSiguiente && estadoDetectar !== 'preguntando_detour' && !detourPendiente) {
-            // No es el siguiente local: preguntar si quiere hacer detour
             setDetourPendiente(localCerca);
             setEstadoDetectar('preguntando_detour');
-            setMensajeGPS(`📍 Estás cerca de "${localCerca.nombre}" pero tu próximo destino es "${siguienteLocal?.nombre || 'Planta'}". ¿Registrar como visita extra?`);
-            agregarLogDebug(`⚠️ DETOUR DETECTADO: ${localCerca.nombre} (${distanciaCerca.toFixed(0)}m) - Siguiente es ${siguienteLocal?.nombre || 'Planta'}`);
+            setMensajeGPS(`📍 Cerca de "${localCerca.nombre}" (${distanciaCerca.toFixed(0)}m) - ¿Registrar como visita extra?`);
+            agregarLogDebug(`⚠️ DETOUR: ${localCerca.nombre} - Siguiente es ${siguienteLocal?.nombre || 'Planta'}`);
             return;
-          }
-
-          if (esSiguiente) {
-            agregarLogDebug(`✅ Local correcto: ${localCerca.nombre} (${distanciaCerca.toFixed(0)}m) - coincide con el siguiente en orden`);
           }
         } else {
           setDistanciaAlPunto(null);
@@ -598,33 +591,27 @@ export default function Viaje() {
         const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
 
         if (accuracy > 150) {
-          agregarLogDebug(`⚠️ GPS muy impreciso: ${accuracy.toFixed(0)}m - ignorando`);
+          agregarLogDebug(`⚠️ GPS impreciso: ${accuracy.toFixed(0)}m`);
           setEstadoGPS('buscando');
           return;
         }
 
         const promedio = procesarLecturaConPromedio(lat, lng, accuracy);
-
         const latUsar = promedio?.lat || lat;
         const lngUsar = promedio?.lng || lng;
         const accuracyUsar = promedio?.accuracy || accuracy;
 
-        const localActual = localCerca && obtenerSiguienteLocalPendiente()?.id_local_ruta === localCerca.id_local_ruta ? localCerca : null;
+        const localActual = localCerca && siguienteLocal?.id_local_ruta === localCerca.id_local_ruta ? localCerca : null;
 
-        if (localActual?.latitud && localActual?.longitud && obtenerSiguienteLocalPendiente()?.id_local_ruta === localActual.id_local_ruta) {
+        if (localActual?.latitud && localActual?.longitud && siguienteLocal?.id_local_ruta === localActual.id_local_ruta) {
           const distancia = calcularDistanciaHaversine(latUsar, lngUsar, localActual.latitud, localActual.longitud);
           setDistanciaAlPunto(distancia);
 
           const radioBase = getRadioDinamico(accuracyUsar);
           const dentroDelRadio = distancia <= radioBase;
 
-          if (promedio) {
-            agregarLogDebug(`📊 Promediado: ${distancia.toFixed(0)}m (radio: ${radioBase}m) | L:${necesitaLlegada ? 'SI' : 'NO'} S:${necesitaSalida ? 'SI' : 'NO'}`);
-          }
-
           if (!puedeRegistrar()) {
             setEstadoGPS('buscando');
-            agregarLogDebug(`⏳ Cooldown activo - esperando`);
             return;
           }
 
@@ -632,11 +619,10 @@ export default function Viaje() {
 
           if (dentroDelRadio && necesitaLlegada) {
             if (estadoDetectar !== 'validando_llegada') {
-              agregarLogDebug(`✅ DENTRO DEL RADIO - iniciando validación de LLEGADA (${distancia.toFixed(0)}m)`);
+              agregarLogDebug(`✅ En ${localActual.nombre} - iniciando validación`);
               iniciarTemporizadorValidacion('llegada', () => {
                 if (bitacoraActual && !bitacoraActual.hora_llegada) {
-                  agregarLogDebug(`⏱️ 12s completado - REGISTRANDO LLEGADA!`);
-                  setLlegadaDetectada(true);
+                  agregarLogDebug(`✅ Registrando llegada a ${localActual.nombre}`);
                   setUltimoRegistroTime(Date.now());
                   handleRegistrarLlegada(bitacoraActual.id_bitacora);
                 }
@@ -645,10 +631,10 @@ export default function Viaje() {
           }
           else if (!dentroDelRadio && necesitaSalida) {
             if (estadoDetectar !== 'validando_salida') {
-              agregarLogDebug(`⭕ FUERA DEL RADIO - iniciando validación de SALIDA (${distancia.toFixed(0)}m)`);
+              agregarLogDebug(`⭕ Saliendo de ${localActual.nombre} - validando`);
               iniciarTemporizadorValidacion('salida', () => {
                 if (bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida) {
-                  agregarLogDebug(`⏱️ 6s fuera - REGISTRANDO SALIDA!`);
+                  agregarLogDebug(`✅ Registrando salida de ${localActual.nombre}`);
                   setUltimoRegistroTime(Date.now());
                   handleRegistrarSalidaAutomatica(bitacoraActual.id_bitacora);
                 }
@@ -656,11 +642,11 @@ export default function Viaje() {
             }
           }
           else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
-            agregarLogDebug(`⚠️ SALISTE DEL RADIO - reiniciando validación de llegada`);
+            agregarLogDebug(`⚠️ Salió del radio - reiniciando`);
             limpiarTemporizadoresValidacion();
           }
           else if (dentroDelRadio && estadoDetectar === 'validando_salida') {
-            agregarLogDebug(`⚠️ REGRESASTE AL RADIO - reiniciando validación de salida`);
+            agregarLogDebug(`⚠️ Regresó al radio - reiniciando`);
             limpiarTemporizadoresValidacion();
           }
           else if (!necesitaLlegada && !necesitaSalida) {
@@ -668,14 +654,6 @@ export default function Viaje() {
               limpiarTemporizadoresValidacion();
               setLecturasBuffer([]);
             }
-          }
-
-          if (estadoDetectar === 'validando_llegada') {
-            const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_LLEGADA) * 100));
-            agregarLogDebug(`⏳ Validando LLEGADA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/12s) - ${distancia.toFixed(0)}m`);
-          } else if (estadoDetectar === 'validando_salida') {
-            const progreso = Math.min(100, Math.round((tiempoValidando / TIEMPO_SALIDA) * 100));
-            agregarLogDebug(`⏳ Validando SALIDA: ${progreso}% (${Math.round(tiempoValidando / 1000)}s/6s) - ${distancia.toFixed(0)}m`);
           }
         } else {
           setEstadoGPS('buscando');
@@ -685,19 +663,17 @@ export default function Viaje() {
         let msg = 'Error GPS';
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            msg = '❌Permisos negados';
+            msg = '❌Permisos denegados';
             setGpsDisponible(false);
-            setGpsError('Permisos denegados');
             break;
           case error.POSITION_UNAVAILABLE:
-            msg = '⚠️Sin señal GPS';
-            setGpsError('Sin señal');
+            msg = '⚠️Sin señal';
             break;
           case error.TIMEOUT:
-            msg = '⏱️Timeout GPS';
+            msg = '⏱️Timeout';
             break;
         }
-        agregarLogDebug(msg + ` (${error.message})`);
+        agregarLogDebug(msg);
         setEstadoGPS('buscando');
       },
       options
@@ -709,10 +685,6 @@ export default function Viaje() {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
-    if (timerPermanenciaRef.current) {
-      clearInterval(timerPermanenciaRef.current);
-      timerPermanenciaRef.current = null;
-    }
     agregarLogDebug('🛑 GPS detenido');
   };
 
@@ -721,9 +693,8 @@ export default function Viaje() {
     setActionLoading(true);
     try {
       const now = nowPeru();
-
-      // Crear tramo de bitácora para el detour
       const origen = proximoOrigen;
+
       const { data, error } = await supabase
         .from('viajes_bitacora')
         .insert([{
@@ -741,28 +712,27 @@ export default function Viaje() {
       if (!error && data) {
         setBitacora([...bitacora, data as ViajeBitacora]);
 
-        // Actualizar local_ruta con observación de detour
         await supabase
           .from('locales_ruta')
           .update({
-            observacion: (local.observacion ? local.observacion + ' | ' : '') + 'Detour: ' + now,
+            observacion: (local.observacion ? local.observacion + ' | ' : '') + `Detour: ${formatPeru(now, 'HH:mm')}`,
             hora_llegada: now,
             estado_visita: 'visitado'
           })
           .eq('id_local_ruta', local.id_local_ruta);
 
-        showToast('success', `✓ Detour registrado: ${local.nombre}`);
-        agregarLogDebug(`✅ DETOUR registrado: ${local.nombre}`);
+        showToast('success', `✓ Detour registrado en ${local.nombre}`);
+        agregarLogDebug(`✅ Detour: ${local.nombre}`);
 
-        // Limpiar estado de detour
         setDetourPendiente(null);
         setEstadoDetectar('idle');
-        setMensajeGPS('');
 
-        // Recargar datos
+        // Abrir modal para tomar foto de evidencia del detour
+        setDetourParaFoto(local);
+
         await loadCurrentRuta();
       } else if (error) {
-        showToast('error', 'Error al registrar detour: ' + error.message);
+        showToast('error', 'Error: ' + error.message);
       }
     } catch (err: any) {
       showToast('error', err.message);
@@ -775,31 +745,28 @@ export default function Viaje() {
     setDetourPendiente(null);
     setEstadoDetectar('idle');
     setMensajeGPS('');
-    agregarLogDebug('❌ Detour cancelado por el usuario');
+    agregarLogDebug('❌ Detour cancelado');
   };
 
   useEffect(() => {
     if (esDiaDescanso) {
       setDiaDescansoBloqueado(true);
-      showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'warning');
+      showToast('Hoy es tu día de descanso.', 'warning');
     }
   }, []);
 
   useEffect(() => {
     async function verificarAlIniciar() {
       if (!navigator.geolocation) {
-        agregarLogDebug('❌ GPS no soportado en este dispositivo');
         setGpsDisponible(false);
         return;
       }
-
       const pos = await iniciarGPSConPermisos();
       if (pos) {
-        agregarLogDebug('✅ GPS inicializado correctamente');
+        agregarLogDebug('✅ GPS inicializado');
         setGpsDisponible(true);
       }
     }
-
     verificarAlIniciar();
   }, []);
 
@@ -809,61 +776,42 @@ export default function Viaje() {
     } else {
       detenerWatchPosition();
     }
-
-    return () => {
-      detenerWatchPosition();
-    };
+    return () => detenerWatchPosition();
   }, [ruta?.id_ruta, ruta?.estado, esHistorial, llegadaDetectada, gpsDisponible, bitacora.length, locales]);
 
   useEffect(() => {
     if (bitacora.length > 0) {
       setLlegadaDetectada(false);
-      agregarLogDebug('🔄 Nuevo tramo iniciado, reseteando detección de llegada');
     }
   }, [bitacora.length]);
 
   const procesarOCRKmFin = async (dataUrl: string) => {
     setProcesandoOCRFin(true);
     setKmFinDetectado(null);
-
     try {
-      showToast('info', '🔍 Procesando imagen del odómetro...');
-
+      showToast('info', '🔍 Procesando imagen...');
       const imgCorregida = await corregirOrientacionImagenDesdeDataUrl(dataUrl);
       const imgPreprocesada = await preprocesarImagenOcr(imgCorregida);
-
       const Tesseract = await import('tesseract.js');
-      const result = await Tesseract.default.recognize(
-        imgPreprocesada,
-        'eng',
-        {
-          logger: (m) => console.log('[OCR]', m),
-          tessedit_char_whitelist: '0123456789',
-          tessedit_pageseg_mode: 7,
-        }
-      );
-
+      const result = await Tesseract.default.recognize(imgPreprocesada, 'eng', {
+        tessedit_char_whitelist: '0123456789',
+        tessedit_pageseg_mode: 7,
+      });
       const text = result.data.text;
-      console.log('[OCR] Texto detectado:', text);
-
       const matches = text.match(/\b\d{3,8}\b/g);
-
       if (matches && matches.length > 0) {
         const km = parseInt(matches.sort((a, b) => b.length - a.length)[0]);
-
         if (!isNaN(km) && km > 0) {
           setKmFinDetectado(km);
           setKmFin(km.toString());
-          showToast('success', `✅ Kilometraje detectado: ${km.toLocaleString()} km`);
+          showToast('success', `✅ KM: ${km.toLocaleString()}`);
           return;
         }
       }
-
-      showToast('warning', '⚠️ No se pudo leer el número. Toma la foto HORIZONTALMENTE y con buena luz.');
-
+      showToast('warning', '⚠️ No se pudo leer. Toma la foto HORIZONTALMENTE.');
     } catch (err) {
-      console.error('[OCR KM FIN]', err);
-      showToast('error', 'Error al procesar la imagen. Intenta nuevamente.');
+      console.error(err);
+      showToast('error', 'Error al procesar');
     } finally {
       setProcesandoOCRFin(false);
     }
@@ -926,7 +874,7 @@ export default function Viaje() {
     }
 
     if (nuevaLlegada && nuevaLlegada <= nuevaSalida) {
-      showToast('error', 'La hora de llegada no puede ser anterior a la hora de salida');
+      showToast('error', 'La llegada no puede ser anterior a la salida');
       return;
     }
 
@@ -934,7 +882,7 @@ export default function Viaje() {
     if (idxActual > 0) {
       const tramoAnterior = bitacora[idxActual - 1];
       if (tramoAnterior.hora_llegada && nuevaSalida < new Date(tramoAnterior.hora_llegada)) {
-        showToast('error', 'La hora de salida no puede ser anterior a la llegada del tramo anterior');
+        showToast('error', 'La salida no puede ser anterior a la llegada anterior');
         return;
       }
     }
@@ -947,9 +895,7 @@ export default function Viaje() {
     await supabase.from('viajes_bitacora').update(updates).eq('id_bitacora', tramo.id_bitacora);
 
     let bitacoraActualizada = bitacora.map(b =>
-      b.id_bitacora === tramo.id_bitacora
-        ? { ...b, ...updates }
-        : b
+      b.id_bitacora === tramo.id_bitacora ? { ...b, ...updates } : b
     );
 
     if (nuevaLlegada && idxActual < bitacoraActualizada.length - 1) {
@@ -959,9 +905,7 @@ export default function Viaje() {
         const nuevaSalidaSiguiente = new Date(nuevaLlegada);
         await supabase.from('viajes_bitacora').update({ hora_salida: nuevaSalidaSiguiente.toISOString() }).eq('id_bitacora', siguienteTramo.id_bitacora);
         bitacoraActualizada = bitacoraActualizada.map(b =>
-          b.id_bitacora === siguienteTramo.id_bitacora
-            ? { ...b, hora_salida: nuevaSalidaSiguiente.toISOString() }
-            : b
+          b.id_bitacora === siguienteTramo.id_bitacora ? { ...b, hora_salida: nuevaSalidaSiguiente.toISOString() } : b
         );
       }
     }
@@ -1517,7 +1461,7 @@ export default function Viaje() {
             tipoRegistro = 'automatico';
             agregarLogDebug(`✅ Usando GPS validado: ${lat.toFixed(5)},${lng.toFixed(5)}`);
           } else {
-            agregarLogDebug('📍 Intentando obtener GPS fresco para llegada...');
+            agregarLogDebug('📍 Intentando obtener GPS fresco...');
             const pos = await iniciarGPSConPermisos();
 
             if (pos) {
@@ -1592,8 +1536,8 @@ export default function Viaje() {
         setUltimoRegistroTime(Date.now());
         setEstadoGPS('registrado');
 
-        agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre} | Dist: ${distanciaAlPunto?.toFixed(0) || 'N/A'}m`);
-        showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática registrada' : '✓Llegada manual registrada');
+        agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre}`);
+        showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática' : '✓Llegada manual');
         setShowModoManual(false);
       } else if (error) {
         console.error('[Viaje] Error registrar llegada:', error);
@@ -1620,14 +1564,14 @@ export default function Viaje() {
       if (gpsPosicionActual && !signalBaja) {
         lat = gpsPosicionActual.lat;
         lng = gpsPosicionActual.lng;
-        agregarLogDebug(`✅ Usando GPS validado para salida: ${lat.toFixed(5)},${lng.toFixed(5)}`);
+        agregarLogDebug(`✅ Usando GPS para salida: ${lat.toFixed(5)},${lng.toFixed(5)}`);
       } else {
-        agregarLogDebug('📍 Intentando obtener GPS fresco para salida...');
+        agregarLogDebug('📍 Intentando obtener GPS fresco...');
         const pos = await iniciarGPSConPermisos();
         if (pos) {
           lat = pos.lat;
           lng = pos.lng;
-          agregarLogDebug(`✅ GPS Fresco salida: ${lat.toFixed(5)},${lng.toFixed(5)}`);
+          agregarLogDebug(`✅ GPS fresco: ${lat.toFixed(5)},${lng.toFixed(5)}`);
         }
       }
     } catch (e) {
@@ -1651,8 +1595,8 @@ export default function Viaje() {
       }
 
       setUltimoRegistroTime(Date.now());
-      agregarLogDebug(`✅ SALIDA REGISTRADA automáticamente: ${data.destino_nombre}`);
-      showToast('success', '✓Salida automática registrada');
+      agregarLogDebug(`✅ SALIDA registrada: ${data.destino_nombre}`);
+      showToast('success', '✓Salida automática');
 
       setLecturasBuffer([]);
       setPosicionPromediada(null);
@@ -1663,7 +1607,7 @@ export default function Viaje() {
     setActionLoading(false);
   };
 
-  if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando Sistema de Rutas...</div>;
+  if (loading) return <div className="p-4 text-white text-center mt-10 italic animate-pulse">Cargando...</div>;
 
   const esRutaDeHoy = (r: Ruta | null) => {
     if (!r) return false;
@@ -1829,6 +1773,18 @@ export default function Viaje() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Modal para tomar foto del detour */}
+      {detourParaFoto && (
+        <ModalEvidencia
+          local={detourParaFoto}
+          onClose={() => setDetourParaFoto(null)}
+          onSuccess={() => {
+            setDetourParaFoto(null);
+            if (ruta) loadViajeData(ruta.id_ruta);
+          }}
+        />
       )}
 
       {ruta.estado === 'pendiente' && bitacora.length === 0 && (
