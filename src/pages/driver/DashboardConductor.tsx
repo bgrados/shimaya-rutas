@@ -30,12 +30,21 @@ interface StatsPropios {
     porcentaje_cambio: number | null;
 }
 
+interface RutaPendiente {
+    id_ruta: string;
+    nombre: string;
+    fecha: string;
+    faltantes: string[];
+    faltantesTexto: string;
+}
+
 export default function DashboardConductor() {
     const { profile, signOut } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [rutaActiva, setRutaActiva] = useState<RutaPropia | null>(null);
     const [ultimasRutas, setUltimasRutas] = useState<RutaPropia[]>([]);
+    const [rutasPendientes, setRutasPendientes] = useState<RutaPendiente[]>([]);
     const [proximoDescanso, setProximoDescanso] = useState<string | null>(null);
     const [excepcionProxima, setExcepcionProxima] = useState<{ fecha: string; estado: string } | null>(null);
     const [stats, setStats] = useState<StatsPropios>({
@@ -51,6 +60,69 @@ export default function DashboardConductor() {
     useEffect(() => {
         cargarDatos();
     }, [profile?.id_usuario]);
+
+    const cargarRutasPendientes = async () => {
+        if (!profile?.id_usuario) return;
+
+        const hace7Dias = new Date();
+        hace7Dias.setDate(hace7Dias.getDate() - 7);
+        const hace7DiasStr = format(hace7Dias, 'yyyy-MM-dd');
+
+        const { data: rutas } = await supabase
+            .from('rutas')
+            .select('*')
+            .eq('id_chofer', profile.id_usuario)
+            .eq('estado', 'finalizada')
+            .gte('fecha', hace7DiasStr)
+            .order('fecha', { ascending: false });
+
+        if (!rutas) return;
+
+        const pendientes: RutaPendiente[] = [];
+
+        for (const ruta of rutas) {
+            const faltantes: string[] = [];
+
+            if (!ruta.km_fin || ruta.km_fin === 0) {
+                faltantes.push('km_fin');
+            }
+
+            const { data: gastos } = await supabase
+                .from('gastos_combustible')
+                .select('id_gasto, foto_url, tipo_combustible')
+                .eq('id_ruta', ruta.id_ruta);
+
+            const gastosSinFoto = gastos?.filter(g => !g.foto_url) || [];
+            if (gastosSinFoto.length > 0) {
+                const tieneCombustible = gastosSinFoto.some(g => g.tipo_combustible !== 'peaje' && g.tipo_combustible !== 'peaje_compromiso');
+                const tienePeaje = gastosSinFoto.some(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
+                if (tieneCombustible) faltantes.push('fotos_combustible');
+                if (tienePeaje) faltantes.push('fotos_peaje');
+            }
+
+            const { data: bitacora } = await supabase
+                .from('viajes_bitacora')
+                .select('id_bitacora, hora_llegada')
+                .eq('id_ruta', ruta.id_ruta);
+
+            const tramosSinLlegada = bitacora?.filter(b => !b.hora_llegada) || [];
+            if (tramosSinLlegada.length > 0) {
+                faltantes.push(`llegadas (${tramosSinLlegada.length})`);
+            }
+
+            if (faltantes.length > 0) {
+                pendientes.push({
+                    id_ruta: ruta.id_ruta,
+                    nombre: ruta.nombre || 'Sin nombre',
+                    fecha: ruta.fecha,
+                    faltantes,
+                    faltantesTexto: faltantes.join(', ')
+                });
+            }
+        }
+
+        setRutasPendientes(pendientes);
+    };
 
     const cargarDatos = async () => {
         if (!profile?.id_usuario) {
@@ -68,7 +140,7 @@ export default function DashboardConductor() {
             const inicioSemanaStr = format(inicioSemana, 'yyyy-MM-dd');
             const finSemanaStr = format(new Date(), 'yyyy-MM-dd');
 
-            // 1. Ruta activa (pendiente o en_progreso)
+            // 1. Ruta activa
             const { data: rutaActivaData } = await supabase
                 .from('rutas')
                 .select('*')
@@ -79,7 +151,6 @@ export default function DashboardConductor() {
                 .maybeSingle();
 
             if (rutaActivaData) {
-                // Calcular visitas realizadas
                 const { data: bitacoraData } = await supabase
                     .from('viajes_bitacora')
                     .select('id_bitacora')
@@ -137,7 +208,10 @@ export default function DashboardConductor() {
                 setUltimasRutas(rutasConVisitas);
             }
 
-            // 3. Estadísticas de hoy
+            // 3. Rutas pendientes de completar
+            await cargarRutasPendientes();
+
+            // 4. Estadísticas de hoy
             const { data: rutasHoy } = await supabase
                 .from('rutas')
                 .select('*')
@@ -166,7 +240,7 @@ export default function DashboardConductor() {
                 }
             }
 
-            // 4. Estadísticas de la semana actual y anterior
+            // 5. Estadísticas de la semana
             const { data: rutasSemanaActual } = await supabase
                 .from('rutas')
                 .select('*')
@@ -220,7 +294,7 @@ export default function DashboardConductor() {
                 porcentaje_cambio: porcentajeCambio
             });
 
-            // 5. Próximo día de descanso (basado en días fijos)
+            // 6. Próximo descanso
             const diasDescanso = profile.dias_descanso || [];
             const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
             const hoy = new Date();
@@ -245,12 +319,13 @@ export default function DashboardConductor() {
                 setProximoDescanso('Sin descanso programado');
             }
 
-            // 6. Excepciones próximas
+            // 7. Excepciones próximas
+            const hoyStrFecha = format(new Date(), 'yyyy-MM-dd');
             const { data: excepciones } = await supabase
                 .from('excepciones_descanso')
                 .select('estado, fecha')
                 .eq('id_chofer', profile.id_usuario)
-                .gte('fecha', hoyStr)
+                .gte('fecha', hoyStrFecha)
                 .order('fecha', { ascending: true })
                 .limit(1);
 
@@ -411,6 +486,36 @@ export default function DashboardConductor() {
                     <p className="text-[10px] text-text-muted uppercase font-bold">Kilómetros</p>
                 </div>
             </div>
+
+            {/* Rutas pendientes de completar */}
+            {rutasPendientes.length > 0 && (
+                <Card className="border-yellow-500/30 bg-yellow-500/5">
+                    <CardContent className="p-4">
+                        <h2 className="text-sm font-black text-yellow-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <AlertCircle size={16} />
+                            Rutas con información pendiente ({rutasPendientes.length})
+                        </h2>
+                        <div className="space-y-3">
+                            {rutasPendientes.map(ruta => (
+                                <div key={ruta.id_ruta} className="flex justify-between items-center p-3 bg-surface-light/20 rounded-lg">
+                                    <div>
+                                        <p className="text-white font-bold text-sm">{ruta.nombre}</p>
+                                        <p className="text-text-muted text-[10px]">{formatFriendlyDate(ruta.fecha)}</p>
+                                        <p className="text-yellow-400 text-[10px] mt-1">⚠️ Falta: {ruta.faltantesTexto}</p>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => navigate(`/driver/ruta/completar/${ruta.id_ruta}`)}
+                                        className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold"
+                                    >
+                                        Completar ruta
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Últimas rutas */}
             <Card>
