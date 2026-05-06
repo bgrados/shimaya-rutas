@@ -149,8 +149,8 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
                     type="button"
                     onClick={() => toggleDiaDescanso(dia.key)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${diasDescanso.includes(dia.key)
-                        ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
-                        : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
+                      ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
+                      : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
                       }`}
                   >
                     {dia.label}
@@ -312,7 +312,8 @@ function ExcepcionModal({ chofer, onClose, onSaved }: ExcepcionModalProps) {
     }
   };
 
-  const diaSemana = new Date(fecha).toLocaleDateString('es-ES', { weekday: 'long' });
+  // Forzar la fecha a medianoche UTC para evitar problemas de zona horaria
+  const fechaObj = new Date(fecha + 'T12:00:00');
   const esDiaDescansoNormal = (chofer.dias_descanso || []).includes(diaSemana.toLowerCase());
 
   return (
@@ -366,8 +367,8 @@ function ExcepcionModal({ chofer, onClose, onSaved }: ExcepcionModalProps) {
                 type="button"
                 onClick={() => setEstado('trabaja')}
                 className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${estado === 'trabaja'
-                    ? 'bg-green-500/20 border-green-500 text-green-400'
-                    : 'bg-surface-light/20 border-white/10 text-text-muted hover:border-green-500/50'
+                  ? 'bg-green-500/20 border-green-500 text-green-400'
+                  : 'bg-surface-light/20 border-white/10 text-text-muted hover:border-green-500/50'
                   }`}
               >
                 <CheckCircle size={24} />
@@ -378,8 +379,8 @@ function ExcepcionModal({ chofer, onClose, onSaved }: ExcepcionModalProps) {
                 type="button"
                 onClick={() => setEstado('descansa')}
                 className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${estado === 'descansa'
-                    ? 'bg-red-500/20 border-red-500 text-red-400'
-                    : 'bg-surface-light/20 border-white/10 text-text-muted hover:border-red-500/50'
+                  ? 'bg-red-500/20 border-red-500 text-red-400'
+                  : 'bg-surface-light/20 border-white/10 text-text-muted hover:border-red-500/50'
                   }`}
               >
                 <Coffee size={24} />
@@ -650,8 +651,8 @@ export default function Usuarios() {
                       </td>
                       <td className="px-6 py-4">
                         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${user.rol === 'administrador' ? 'bg-primary/20 text-primary' :
-                            user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' :
-                              user.rol === 'asistente' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-500'
+                          user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' :
+                            user.rol === 'asistente' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-500'
                           }`}>
                           {getRoleIcon(user.rol)} {user.rol}
                         </div>
