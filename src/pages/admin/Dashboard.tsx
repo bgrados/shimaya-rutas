@@ -68,6 +68,18 @@ interface EstadoChofer {
   enRuta: boolean;
 }
 
+// Mapeo de números a días de la semana
+const diasMap: Record<string, string> = {
+  '0': 'domingo',
+  '1': 'lunes',
+  '2': 'martes',
+  '3': 'miércoles',
+  '4': 'jueves',
+  '5': 'viernes',
+  '6': 'sábado',
+  'ninguno': 'ninguno'
+};
+
 export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
@@ -206,11 +218,11 @@ export default function Dashboard() {
       const diaHoy = diasSemana[nowPeru.getDay()];
       const todosChoferes = todosChoferesRes.data || [];
 
-      // Estado de choferes con días de descanso (normales y excepciones - preparado para futuro)
+      // Estado de choferes con días de descanso - CORREGIDO: convierte número a nombre de día
       const choferesConEstado: EstadoChofer[] = todosChoferes.map((c: any) => {
-        const descansoNormal = (c.dias_descanso || [])[0] || 'ninguno';
-        // TODO: Consultar excepciones cuando se implemente la tabla
-        const tieneExcepcionHoy = false; // Placeholder para futura implementación
+        const descansoNormalNumerico = (c.dias_descanso || [])[0] || 'ninguno';
+        const descansoNormal = diasMap[descansoNormalNumerico] || descansoNormalNumerico;
+        const tieneExcepcionHoy = false;
         const descansaExcepcion = false;
         const descansaHoy = descansaExcepcion || (c.dias_descanso || []).includes(diaHoy);
 
@@ -221,7 +233,7 @@ export default function Dashboard() {
           tieneExcepcionHoy,
           descansaHoy,
           motivo: descansaHoy ? (tieneExcepcionHoy ? 'Excepción semanal' : 'Descanso fijo') : 'Laborando',
-          enRuta: false // Se actualizará después
+          enRuta: false
         };
       });
 
@@ -708,7 +720,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* NUEVA SECCIÓN: Estado de choferes hoy */}
+      {/* Estado de Choferes Hoy */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -747,9 +759,6 @@ export default function Dashboard() {
                     {chofer.descansaHoy ? (
                       <span className="flex items-center gap-1">
                         {chofer.motivo}
-                        {chofer.tieneExcepcionHoy && (
-                          <Tooltip content="Excepción aplicada esta semana" />
-                        )}
                       </span>
                     ) : (
                       `Descanso normal: ${chofer.descansoNormal}`
