@@ -30,11 +30,12 @@ function normalizeDay(d: string): string {
 
 export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string, asistenciaManual: any[] = []): AsistenciaResult {
   const ingreso = chofer?.fecha_ingreso;
-  
+
   const diasDescansoStr = chofer.dias_descanso || [];
-  const diaDescNumRaw = chofer.dia_descanso;
+  //const diaDescNumRaw = chofer.dia_descanso;
+  const diaDescNumRaw = null;
   const diaDescNum = typeof diaDescNumRaw === 'string' ? parseInt(diaDescNumRaw) : (typeof diaDescNumRaw === 'number' ? diaDescNumRaw : -1);
-  
+
   const setDiasDescanso = new Set<number>();
   if (diaDescNum >= 0) setDiasDescanso.add(diaDescNum);
   diasDescansoStr.forEach(d => {
@@ -49,16 +50,16 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
       inicio = String(misRutas[0].fecha).split('T')[0];
     }
   }
-  
+
   if (!inicio) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio: '', fin: '' };
-  
+
   const hoyPeru = formatOnlyDatePeru();
   const fechaFin = fin || hoyPeru;
   const fIni = new Date(inicio + 'T12:00:00');
   const fFin = new Date(fechaFin + 'T12:00:00');
-  
+
   if (fIni > fFin) return { porcentaje: 0, trabajados: 0, descansos: 0, faltan: 0, programados: 0, diasMes: 0, inicio, fin: inicio };
-  
+
   const diasConRuta = new Set<string>();
   const diasActividadEmpresa = new Set<string>(); // Dias donde alguien hizo ruta
   (rutas || []).forEach(r => {
@@ -79,7 +80,7 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
       mapManual.set(String(a.fecha).split('T')[0], a.estado);
     }
   });
-  
+
   let totalDiasParaProgramados = 0;
   let trabajados = 0;
   let descansos = 0;
@@ -120,7 +121,7 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
     } else {
       // Día laborable sin registro manual
       // Solo contamos como programado si la empresa tuvo actividad ese día O si el chofer trabajó
-      
+
       if (hayRuta) {
         trabajados++;
         if (!esDiaDescanso) totalDiasParaProgramados++;
@@ -129,14 +130,14 @@ export function calcularAsistencia(chofer: Usuario, rutas: Ruta[], fin?: string,
         totalDiasParaProgramados++;
       }
     }
-    
+
     it.setDate(it.getDate() + 1);
   }
-  
-  const programados = totalDiasParaProgramados; 
+
+  const programados = totalDiasParaProgramados;
   const faltantes = Math.max(0, programados - trabajados);
   const pct = programados > 0 ? Math.round((trabajados / programados) * 100) : (trabajados > 0 ? 100 : 0);
-  
+
   return {
     porcentaje: Math.min(100, pct),
     trabajados,
@@ -165,7 +166,7 @@ export const getDiaDescansoLabel = (chofer: any): string => {
   }
   const diaNumRaw = chofer?.dia_descanso;
   if (diaNumRaw === undefined || diaNumRaw === null) return 'No asignado';
-  
+
   if (typeof diaNumRaw === 'string') {
     if (/^\d+$/.test(diaNumRaw)) {
       const n = parseInt(diaNumRaw);
@@ -177,10 +178,10 @@ export const getDiaDescansoLabel = (chofer: any): string => {
     if (n !== undefined) return DIAS_LABELS[n];
     return diaNumRaw.charAt(0).toUpperCase() + diaNumRaw.slice(1);
   }
-  
+
   if (typeof diaNumRaw === 'number' && diaNumRaw >= 0 && diaNumRaw < DIAS_LABELS.length) {
     return DIAS_LABELS[diaNumRaw];
   }
-  
+
   return 'No asignado';
 };
