@@ -139,8 +139,8 @@ function EditForm({ user, onSave, onCancel }: EditFormProps) {
                     type="button"
                     onClick={() => toggleDiaDescanso(dia.key)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${diasDescanso.includes(dia.key)
-                        ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
-                        : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
+                      ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
+                      : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
                       }`}
                   >
                     {dia.label}
@@ -397,8 +397,8 @@ export default function Usuarios() {
                       </td>
                       <td className="px-6 py-4">
                         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${user.rol === 'administrador' ? 'bg-primary/20 text-primary' :
-                            user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' :
-                              user.rol === 'asistente' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-500'
+                          user.rol === 'supervisor' ? 'bg-orange-500/20 text-orange-500' :
+                            user.rol === 'asistente' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-500'
                           }`}>
                           {getRoleIcon(user.rol)} {user.rol}
                         </div>
