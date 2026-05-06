@@ -3,23 +3,12 @@ import { supabase } from '../../../lib/supabase';
 import type { Ruta, GastoCombustible, FotoVisita, LocalRuta, ViajeBitacora } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check, Image } from 'lucide-react';
-import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check, Image, Users } from 'lucide-react';
+import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatFriendlyDate } from '../../../lib/timezone';
-import type { AsistenciaChofer, TipoAsistencia } from '../../../types';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
-
-// 🔧 CORRECCIÓN: Funciones reemplazadas sin nowPeru()
-function localToday(): string { return format(new Date(), 'yyyy-MM-dd'); }
-
-function formatMins(mins: number | null) {
-  if (mins === null || mins === undefined || isNaN(mins as number)) return '-';
-  if (mins < 60) return `${mins} min`;
-  const h = Math.floor(mins / 60); const m = mins % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
 
 type Period = 'diario' | 'semanal' | 'mensual';
 type ReportType = 'rutas' | 'combustible' | 'peajes' | 'otros';
@@ -35,9 +24,12 @@ interface Usuario { id_usuario: string; nombre: string; }
 interface GrupoFecha { fecha: string; gastos: GastoCombustible[]; total: number; }
 interface GrupoChofer { choferId: string; choferNombre: string; gastos: GastoCombustible[]; total: number; }
 
-const reprocessAllPhotos = async () => {
-  alert('Las fotos nuevas ya se guardan con marca de agua automáticamente. Las fotos antiguas no serán reprocesadas.');
-};
+function formatMins(mins: number | null) {
+  if (mins === null || mins === undefined || isNaN(mins as number)) return '-';
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60); const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
 
 const calcularDistanciaHaversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
   const R = 6371;
@@ -50,44 +42,36 @@ const calcularDistanciaHaversine = (lat1: number, lng1: number, lat2: number, ln
   return R * c;
 };
 
-const getStartOfCurrentWeek = (): string => {
-  const today = new Date();
-  const day = today.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diffToMonday);
-  return format(monday, 'yyyy-MM-dd');
-};
-
 export default function Reportes() {
   const [reportType, setReportType] = useState<ReportType>('rutas');
 
+  // FILTROS GLOBALES
   const [period, setPeriod] = useState<Period>('diario');
-  const [selectedDate, setSelectedDate] = useState(localToday());
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [filterChofer, setFilterChofer] = useState('');
+
   const [allRutas, setAllRutas] = useState<RutaConBitacora[]>([]);
   const [choferes, setChoferes] = useState<Usuario[]>([]);
   const [rutasBase, setRutasBase] = useState<{ id_ruta_base: string; nombre: string; cantidad_peajes?: number; costo_peaje?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [reprocessingPhotos, setReprocessingPhotos] = useState(false);
 
   const [fotosPorLocal, setFotosPorLocal] = useState<Record<string, FotoVisita[]>>({});
 
   const [gastos, setGastos] = useState<GastoCombustible[]>([]);
   const [combustibleLoading, setCombustibleLoading] = useState(true);
   const [agruparPor, setAgruparPor] = useState<'fecha' | 'chofer'>('fecha');
-  const [filtroFecha, setFiltroFecha] = useState<'dia' | 'semana' | 'mes' | 'todo'>('dia');
   const [activePhoto, setActivePhoto] = useState<{ images: { url: string; title: string }[]; index: number } | null>(null);
 
   const [editandoLlegada, setEditandoLlegada] = useState<string | null>(null);
   const [horaLlegadaEdit, setHoraLlegadaEdit] = useState('');
-  const [activeTab, setActiveTab] = useState<'ventas' | 'gastos' | 'peajes'>('ventas');
   const [fotosCombustible, setFotosCombustible] = useState<Record<string, string>>({});
   const [showFotoModal, setShowFotoModal] = useState<string | null>(null);
   const [incluirFotosEnPDF, setIncluirFotosEnPDF] = useState(true);
   const [descargandoZip, setDescargandoZip] = useState(false);
   const [descargandoZipEvidencia, setDescargandoZipEvidencia] = useState(false);
   const [ordenPeajes, setOrdenPeajes] = useState<'asc' | 'desc'>('desc');
+  const [filterRutaNombre, setFilterRutaNombre] = useState('');
 
   const handleDeleteEvidenciaFoto = async (fotoId: string, localId: string) => {
     if (!confirm('¿Eliminar esta foto de evidencia?')) return;
@@ -197,42 +181,26 @@ export default function Reportes() {
     }
   };
 
-  const [filterChofer, setFilterChofer] = useState('');
-  const [filterRuta, setFilterRuta] = useState('');
-
-  function getRange(p: Period, date: string): { from: string; to: string; fromIso: string; toIso: string } {
+  function getRange(p: Period, date: string): { from: string; to: string } {
     const d = new Date(date + 'T12:00:00');
 
-    let from = '';
-    let to = '';
-    let fromIso = '';
-    let toIso = '';
-
     if (p === 'diario') {
-      from = date;
-      to = date;
-      fromIso = new Date(date + 'T00:00:00').toISOString();
-      toIso = new Date(date + 'T23:59:59').toISOString();
+      return { from: date, to: date };
     } else if (p === 'semanal') {
       const fromDate = new Date(d);
       fromDate.setDate(d.getDate() - 7);
-      from = format(fromDate, 'yyyy-MM-dd');
-      to = date;
-      fromIso = new Date(from + 'T00:00:00').toISOString();
-      toIso = new Date(d + 'T23:59:59').toISOString();
+      return { from: format(fromDate, 'yyyy-MM-dd'), to: date };
     } else {
       const start = startOfMonth(d);
       const end = endOfMonth(d);
-      from = format(start, 'yyyy-MM-dd');
-      to = format(end, 'yyyy-MM-dd');
-      fromIso = new Date(from + 'T00:00:00').toISOString();
-      toIso = new Date(to + 'T23:59:59').toISOString();
+      return { from: format(start, 'yyyy-MM-dd'), to: format(end, 'yyyy-MM-dd') };
     }
-    return { from, to, fromIso, toIso };
   }
 
-  useEffect(() => { loadData(); }, [period, selectedDate, reportType]);
-  useEffect(() => { loadCombustible(); }, [filtroFecha, reportType]);
+  useEffect(() => {
+    loadData();
+    loadCombustible();
+  }, [period, selectedDate, filterChofer]);
 
   useEffect(() => {
     supabase.from('usuarios').select('id_usuario,nombre').eq('rol', 'chofer').then(r => { if (r.data) setChoferes(r.data); });
@@ -242,31 +210,30 @@ export default function Reportes() {
   async function loadData() {
     setLoading(true);
     try {
-      const { from, to, fromIso, toIso } = getRange(period, selectedDate);
-      console.log(`[REPORTES-DIAG] Cargando RUTAS. Período: ${period}, Fecha: ${selectedDate}`);
-      console.log(`[REPORTES-DIAG] Rango: ${from} a ${to}`);
+      const { from, to } = getRange(period, selectedDate);
 
-      const { data: rutasData, error: rutasError } = await supabase
+      let query = supabase
         .from('rutas')
         .select('*')
         .gte('fecha', from)
         .lte('fecha', to)
         .order('fecha', { ascending: false });
 
-      if (rutasError) {
-        console.error('[REPORTES-DIAG] Error Supabase rutas:', rutasError);
-        throw rutasError;
+      if (filterChofer) {
+        query = query.eq('id_chofer', filterChofer);
       }
 
-      console.log(`[REPORTES-DIAG] Rutas encontradas: ${rutasData?.length || 0}`);
+      const { data: rutasData, error: rutasError } = await query;
+
+      if (rutasError) throw rutasError;
 
       if (rutasData && rutasData.length > 0) {
         const ids = rutasData.map(r => r.id_ruta);
         const { data: bitData, error: bitError } = await supabase.from('viajes_bitacora').select('*').in('id_ruta', ids).order('created_at', { ascending: true });
-        if (bitError) console.warn('[REPORTES-DIAG] Error bitácora:', bitError);
+        if (bitError) console.warn('[LoadData] Error bitácora:', bitError);
 
         const { data: localesData, error: localesError } = await supabase.from('locales_ruta').select('*').in('id_ruta', ids).order('orden', { ascending: true });
-        if (localesError) console.warn('[REPORTES-DIAG] Error locales:', localesError);
+        if (localesError) console.warn('[LoadData] Error locales:', localesError);
 
         const localRutaIds = localesData?.map(l => l.id_local_ruta) || [];
         const fotosMap: Record<string, FotoVisita[]> = {};
@@ -318,17 +285,15 @@ export default function Reportes() {
 
             return { ...r, bitacora: bits, localesRuta: locales, durationMin, horaLlegadaReal, distanciaGpsKm };
           } catch (err) {
-            console.warn(`[REPORTES-DIAG] Error enriqueciendo ruta ${r.id_ruta}:`, err);
             return { ...r, bitacora: [], localesRuta: [], durationMin: null, horaLlegadaReal: r.hora_llegada_planta, distanciaGpsKm: 0 };
           }
         });
         setAllRutas(enriched as RutaConBitacora[]);
-        console.log('[REPORTES-DIAG] Datos cargados y enriquecidos.');
       } else {
         setAllRutas([]);
       }
     } catch (error) {
-      console.error('[REPORTES-DIAG] Error en loadData:', error);
+      console.error('Error en loadData:', error);
       setAllRutas([]);
     } finally {
       setLoading(false);
@@ -338,54 +303,42 @@ export default function Reportes() {
   async function loadCombustible() {
     setCombustibleLoading(true);
     try {
-      const nowStr = localToday();
-      console.log(`[REPORTES-DIAG] Cargando COMBUSTIBLE. Filtro: ${filtroFecha}, Hoy: ${nowStr}`);
+      const { from, to } = getRange(period, selectedDate);
 
-      let fechaDesde = nowStr;
-      let fechaHasta = nowStr;
+      console.log(`[Combustible] Período: ${period}, Fecha: ${selectedDate}, Rango: ${from} - ${to}`);
 
-      if (filtroFecha === 'semana') {
-        fechaDesde = getStartOfCurrentWeek();
-      } else if (filtroFecha === 'mes') {
-        const d = new Date();
-        fechaDesde = format(startOfMonth(d), 'yyyy-MM-dd');
-        fechaHasta = format(endOfMonth(d), 'yyyy-MM-dd');
-      } else if (filtroFecha === 'todo') {
-        fechaDesde = '2020-01-01';
-        fechaHasta = '2099-12-31';
+      // Obtener rutas en el período (para filtrar gastos por ruta)
+      let rutasQuery = supabase.from('rutas').select('id_ruta').gte('fecha', from).lte('fecha', to);
+      if (filterChofer) {
+        rutasQuery = rutasQuery.eq('id_chofer', filterChofer);
       }
+      const { data: rutasData } = await rutasQuery;
+      const rutaIds = (rutasData || []).map(r => r.id_ruta);
 
-      console.log(`[REPORTES-DIAG] Rango combustible: ${fechaDesde} a ${fechaHasta}`);
-
-      const { data: rutasIdsData } = await supabase
-        .from('rutas')
-        .select('id_ruta')
-        .gte('fecha', fechaDesde)
-        .lte('fecha', fechaHasta);
-
-      const rutaIds = (rutasIdsData || []).map(r => r.id_ruta);
-      console.log(`[REPORTES-DIAG] IDs de rutas en rango: ${rutaIds.length}`);
-
+      // Construir consulta de gastos
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
         .order('created_at', { ascending: false });
 
-      if (filtroFecha !== 'todo') {
-        if (rutaIds.length > 0) {
-          query = query.or(`id_ruta.in.(${rutaIds.join(',')}),fecha.gte.${fechaDesde},fecha.lte.${fechaHasta}`);
-        } else {
-          query = query.gte('created_at', fechaDesde + 'T00:00:00').lte('created_at', fechaHasta + 'T23:59:59');
-        }
+      // Filtro por fecha usando created_at o fecha
+      const fechaInicio = from + 'T00:00:00';
+      const fechaFin = to + 'T23:59:59';
+
+      if (rutaIds.length > 0) {
+        query = query.or(`id_ruta.in.(${rutaIds.join(',')}),created_at.gte.${fechaInicio},created_at.lte.${fechaFin}`);
+      } else {
+        query = query.gte('created_at', fechaInicio).lte('created_at', fechaFin);
+      }
+
+      // Filtro por chofer
+      if (filterChofer) {
+        query = query.eq('id_chofer', filterChofer);
       }
 
       const { data, error } = await query;
-      if (error) {
-        console.error('[REPORTES-DIAG] Error Supabase combustible:', error);
-        throw error;
-      }
 
-      console.log(`[REPORTES-DIAG] Gastos encontrados: ${data?.length || 0}`);
+      if (error) throw error;
 
       if (data) {
         const mapped = (data as GastoCombustible[]).map(g => ({
@@ -402,7 +355,7 @@ export default function Reportes() {
         setFotosCombustible(fotosMap);
       }
     } catch (err) {
-      console.error('[Gastos] Error:', err);
+      console.error('[Combustible] Error:', err);
     } finally {
       setCombustibleLoading(false);
     }
@@ -411,38 +364,19 @@ export default function Reportes() {
   const gastosCombustible = useMemo(() => gastos.filter(g => g.tipo_combustible !== 'otro' && g.tipo_combustible !== 'estacionamiento' && g.tipo_combustible !== 'peaje' && g.tipo_combustible !== 'peaje_compromiso'), [gastos]);
   const gastosOtros = useMemo(() => gastos.filter(g => g.tipo_combustible === 'otro' || g.tipo_combustible === 'estacionamiento' || g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso'), [gastos]);
 
-  const peajesManualesOrdenados = useMemo(() => {
-    console.log('[DEBUG PEAJES] filtroFecha:', filtroFecha, 'gastos.length:', gastos.length);
-
+  const peajesManuales = useMemo(() => {
     let filtered = gastos.filter(g => g.tipo_combustible === 'peaje' || g.tipo_combustible === 'peaje_compromiso');
-    console.log('[DEBUG PEAJES] peajes sin filtrar count:', filtered.length);
 
-    const hoyStr = localToday();
-    const mesStr = hoyStr.substring(0, 7);
-    const inicioSemanaStr = getStartOfCurrentWeek();
+    const { from, to } = getRange(period, selectedDate);
 
-    if (filtroFecha === 'dia') {
-      filtered = filtered.filter(g => {
-        const fechaRaw = g.fecha || (g as any).created_at || '';
-        const fechaGasto = fechaRaw.toString().split('T')[0];
-        return fechaGasto === hoyStr;
-      });
-    } else if (filtroFecha === 'semana') {
-      filtered = filtered.filter(g => {
-        const fechaRaw = g.fecha || (g as any).created_at || '';
-        const fechaGasto = fechaRaw.toString().split('T')[0];
-        return fechaGasto >= inicioSemanaStr && fechaGasto <= hoyStr;
-      });
-    } else if (filtroFecha === 'mes') {
-      console.log('[DEBUG PEAJES] Aplicando filtro mes, mesStr:', mesStr);
-      filtered = filtered.filter(g => {
-        const fechaRaw = g.fecha || (g as any).created_at || '';
-        const fechaGasto = fechaRaw.toString().split('T')[0];
-        const matches = fechaGasto.startsWith(mesStr);
-        console.log('[DEBUG PEAJES] fechaGasto:', fechaGasto, 'mesStr:', mesStr, 'matches:', matches);
-        return fechaGasto.startsWith(mesStr);
-      });
-      console.log('[DEBUG PEAJES] después de filtro mes, filtered.length:', filtered.length);
+    filtered = filtered.filter(g => {
+      const fechaRaw = g.fecha || (g as any).created_at || '';
+      const fechaGasto = fechaRaw.toString().split('T')[0];
+      return fechaGasto >= from && fechaGasto <= to;
+    });
+
+    if (filterChofer) {
+      filtered = filtered.filter(g => g.id_chofer === filterChofer);
     }
 
     return filtered.sort((a, b) => {
@@ -452,9 +386,7 @@ export default function Reportes() {
       const dateB = new Date(fechaB).getTime();
       return ordenPeajes === 'asc' ? dateA - dateB : dateB - dateA;
     });
-  }, [gastos, ordenPeajes, filtroFecha]);
-
-  const peajesManuales = peajesManualesOrdenados;
+  }, [gastos, period, selectedDate, filterChofer, ordenPeajes]);
 
   const peajesManualesMonto = peajesManuales
     .filter(g => g.tipo_combustible === 'peaje')
@@ -465,36 +397,21 @@ export default function Reportes() {
     .reduce((sum, g) => sum + (g.monto || 0), 0);
 
   const peajesCalculados = useMemo(() => {
-    console.log('[DEBUG PEAJES] allRutas:', allRutas?.length, 'rutasBase:', rutasBase);
-    if (!allRutas || allRutas.length === 0) {
-      console.log('[DEBUG PEAJES] No hay rutas');
-      return 0;
-    }
+    if (!allRutas || allRutas.length === 0) return 0;
     const rutasFiltradas = allRutas.filter(r => r.estado === 'finalizada');
-    console.log('[DEBUG PEAJES] rutasFiltradas:', rutasFiltradas.length);
     let total = 0;
 
     rutasFiltradas.forEach(ruta => {
-      console.log('[DEBUG PEAJES] ruta:', ruta.id_ruta_base, ruta.estado);
       const rutaBase = rutasBase.find(rb => rb.id_ruta_base === ruta.id_ruta_base);
-      console.log('[DEBUG PEAJES] rutaBase:', rutaBase);
       if (rutaBase && typeof rutaBase === 'object') {
         const datos = rutaBase as any;
         const cantidadPeajes = datos.cantidad_peajes || 0;
         const costoPeaje = datos.costo_peaje || 0;
-        console.log('[DEBUG PEAJES] cantidad:', cantidadPeajes, 'costo:', costoPeaje);
         total += cantidadPeajes * costoPeaje;
       }
     });
-
-    console.log('[DEBUG PEAJES] total calculado:', total);
     return total;
   }, [allRutas, rutasBase]);
-
-  const getRutaBaseNombre = (idRutaBase: string) => {
-    const rb = rutasBase.find(r => r.id_ruta_base === idRutaBase);
-    return rb?.nombre || '-';
-  };
 
   const [editandoPeajeId, setEditandoPeajeId] = useState<string | null>(null);
   const [editandoPeajeDatos, setEditandoPeajeDatos] = useState<any>(null);
@@ -543,12 +460,13 @@ export default function Reportes() {
   };
 
   const rutas = useMemo(() => {
-    return allRutas.filter(r => {
+    let filtered = allRutas.filter(r => {
       if (filterChofer && r.id_chofer !== filterChofer) return false;
-      if (filterRuta && !r.nombre?.toLowerCase().includes(filterRuta.toLowerCase())) return false;
+      if (filterRutaNombre && !r.nombre?.toLowerCase().includes(filterRutaNombre.toLowerCase())) return false;
       return true;
     });
-  }, [allRutas, filterChofer, filterRuta]);
+    return filtered;
+  }, [allRutas, filterChofer, filterRutaNombre]);
 
   const { from, to } = getRange(period, selectedDate);
   const totalRutas = rutas.length;
@@ -677,6 +595,7 @@ export default function Reportes() {
     const texto = encodeURIComponent(lines.join('\n'));
     window.open(`https://wa.me/?text=${texto}`, '_blank');
   };
+
   const handleGeneratePDF = () => {
     setGenerating(true);
     const rows = rutas.map(r => {
@@ -723,7 +642,7 @@ export default function Reportes() {
             <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Llegada</th>
             <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Tránsito</th>
             <th style="padding:6px 8px;text-align:left;color:#f59e0b;font-weight:600;">Permanencia</th>
-           </tr></thead>
+          </tr></thead>
           <tbody>${paradas}</tbody>
         </table>` :
           '<p style="padding:10px 16px;color:#94a3b8;font-size:12px;font-style:italic;margin:0;">Sin movimientos registrados</p>'}
@@ -757,7 +676,7 @@ export default function Reportes() {
 
     const filtrosTexto = [
       filterChofer ? `Chofer: ${choferNombre}` : '',
-      filterRuta ? `Ruta: ${filterRuta}` : '',
+      filterRutaNombre ? `Ruta: ${filterRutaNombre}` : '',
     ].filter(Boolean).join(' · ') || 'Todos los registros';
 
     const html = `<!DOCTYPE html>
@@ -861,15 +780,18 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 
   const totalGeneral = gastosCombustible.reduce((sum, g) => sum + (g.monto || 0), 0);
 
-  const getFiltroLabel = () => {
-    if (filtroFecha === 'dia') return 'Hoy';
-    if (filtroFecha === 'semana') return 'Esta semana';
-    if (filtroFecha === 'mes') return 'Este mes';
-    return 'Todo';
+  const getPeriodoLabel = () => {
+    if (period === 'diario') return formatFriendlyDate(selectedDate);
+    if (period === 'semanal') {
+      const { from, to } = getRange('semanal', selectedDate);
+      return `${formatFriendlyDate(from)} al ${formatFriendlyDate(to)}`;
+    }
+    const { from, to } = getRange('mensual', selectedDate);
+    return `${formatFriendlyDate(from)} al ${formatFriendlyDate(to)}`;
   };
 
   const handleExportarOtrosPDF = () => {
-    const periodoLabel = getFiltroLabel();
+    const periodoLabel = getPeriodoLabel();
     const totalOtros = gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0);
 
     const gastosHTML = gastosOtros.map(gasto => {
@@ -882,7 +804,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
         <td style="padding:8px;color:#475569;">${gasto.ruta_nombre || '-'}</td>
         <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
         <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
-       </tr>`;
+       </td>`;
     }).join('');
 
     const html = `<!DOCTYPE html>
@@ -928,7 +850,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
       <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Ruta</th>
       <th style="padding:8px;text-align:center;color:#475569;font-weight:600;">Estado</th>
       <th style="padding:8px;text-align:right;color:#475569;font-weight:600;">Monto</th>
-     </tr></thead>
+    </tr></thead>
     <tbody>${gastosHTML}</tbody>
     <tfoot style="background:#f1f5f9;font-weight:bold;">
       <tr>
@@ -954,21 +876,20 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
   };
 
   const handleExportarPeajesPDF = () => {
-    const periodoLabel = getFiltroLabel();
+    const periodoLabel = getPeriodoLabel();
     const peajesFiltrados = peajesManuales;
-    const incluirFotos = true;
 
     const peajesHTML = peajesFiltrados.map((gasto: any) => {
       const tipoLabel = gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : 'Pagado';
       const fechaMostrar = gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : '-';
-      const fotoHTML = incluirFotos && gasto.foto_url ? `<br><img src="${gasto.foto_url}" style="max-height:80px;border-radius:4px;margin-top:4px;">` : '';
+      const fotoHTML = gasto.foto_url ? `<br><img src="${gasto.foto_url}" style="max-height:80px;border-radius:4px;margin-top:4px;">` : '';
 
       return `<tr style="border-bottom:1px solid #f1f5f9;">
         <td style="padding:8px;color:#475569;">${fechaMostrar}</td>
         <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
         <td style="padding:8px;color:#475569;">${tipoLabel}${fotoHTML}</td>
         <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
-       </tr>`;
+      </tr>`;
     }).join('');
 
     const totalPeajes = peajesFiltrados.reduce((sum, g: any) => sum + (g.monto || 0), 0).toFixed(2);
@@ -1062,7 +983,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
   };
 
   const handleExportarCombustiblePDF = () => {
-    const periodoLabel = getFiltroLabel();
+    const periodoLabel = getPeriodoLabel();
 
     const gruposHTML = agruparPor === 'fecha'
       ? gastosAgrupadosPorFecha().map(grupo => {
@@ -1076,7 +997,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
               <td style="padding:8px;color:#475569;text-transform:uppercase;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
               <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
-             </tr>`;
+            </table>`;
         }).join('');
 
         return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
@@ -1091,7 +1012,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                 <th style="padding:8px;text-align:left;color:#475569;font-weight:600;">Tipo</th>
                 <th style="padding:8px;text-align:center;color:#475569;font-weight:600;">Estado</th>
                 <th style="padding:8px;text-align:right;color:#475569;font-weight:600;">Monto</th>
-               </tr></thead>
+              </tr></thead>
               <tbody>${gastosHTML}</tbody>
             </table>
           </div>`;
@@ -1117,7 +1038,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
               <td style="padding:8px;color:#475569;">${gasto.tipo_combustible || '-'}</td>
               <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
               <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
-             </tr>`;
+            </tr>`;
         }).join('');
 
         return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
@@ -1220,20 +1141,60 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
     { key: 'mensual', label: 'Mensual' },
   ];
 
-  const hasFilters = filterChofer || filterRuta;
-
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-wrap gap-4 items-start justify-between">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter">Reportes</h1>
-          <p className="text-text-muted text-sm capitalize">{rangoLabel}</p>
-          <p className="text-xs text-text-muted">Las fotos nuevas se guardan con marca de agua automáticamente.</p>
-        </div>
+      {/* HEADER con filtros globales */}
+      <div className="space-y-4">
+        <h1 className="text-2xl font-black text-white uppercase italic tracking-tighter">Reportes</h1>
 
-        {/* Tipo de reporte */}
-        <div className="flex bg-surface rounded-xl overflow-hidden border border-surface-light">
+        {/* Filtros Globales */}
+        <Card className="border-surface-light">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
+                {PERIODS.map(p => (
+                  <button key={p.key} onClick={() => setPeriod(p.key)}
+                    className={`px-5 py-2.5 text-sm font-black italic transition-all ${period === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar size={15} className="text-primary" />
+                <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                  className="bg-surface-light border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-primary" />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 items-center border-t border-white/5 pt-4">
+              <Filter size={14} className="text-text-muted" />
+              <span className="text-xs text-text-muted uppercase font-black tracking-widest">Filtrar por:</span>
+
+              <div className="relative">
+                <select value={filterChofer} onChange={e => setFilterChofer(e.target.value)}
+                  className="bg-surface-light border border-white/10 rounded-xl pl-3 pr-8 py-2 text-white text-sm appearance-none focus:outline-none focus:border-primary min-w-[160px]">
+                  <option value="">Todos los choferes</option>
+                  {choferes.map(c => <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>)}
+                </select>
+              </div>
+
+              {filterChofer && (
+                <button onClick={() => setFilterChofer('')}
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
+                  <X size={12} /> Limpiar
+                </button>
+              )}
+            </div>
+
+            <p className="text-xs text-text-muted">
+              📅 Período seleccionado: <span className="text-primary font-bold">{rangoLabel}</span>
+              {filterChofer && ` · 👤 Chofer: ${choferNombre}`}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Pestañas de tipo de reporte */}
+        <div className="flex bg-surface rounded-xl overflow-hidden border border-surface-light w-fit">
           <button
             onClick={() => setReportType('rutas')}
             className={`px-4 py-2 font-medium transition-colors ${reportType === 'rutas' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
@@ -1265,58 +1226,35 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
         </div>
       </div>
 
-      {reportType === 'rutas' ? (
+      {/* CONTENIDO SEGÚN PESTAÑA */}
+      {reportType === 'rutas' && (
         <>
-          {/* FILTROS RUTAS */}
-          <Card className="border-surface-light">
-            <CardContent className="p-5 space-y-4">
-              <div className="flex flex-wrap gap-3 items-center">
-                <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
-                  {PERIODS.map(p => (
-                    <button key={p.key} onClick={() => setPeriod(p.key)}
-                      className={`px-5 py-2.5 text-sm font-black italic transition-all ${period === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar size={15} className="text-primary" />
-                  <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                    className="bg-surface-light border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-primary" />
-                </div>
-              </div>
+          {/* Filtro adicional por nombre de ruta (solo para rutas) */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Filtrar por nombre de ruta..."
+                value={filterRutaNombre}
+                onChange={e => setFilterRutaNombre(e.target.value)}
+                className="bg-surface-light border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-primary w-64"
+              />
+              {filterRutaNombre && (
+                <button onClick={() => setFilterRutaNombre('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-red-400">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {(filterChofer || filterRutaNombre) && (
+              <button onClick={() => { setFilterChofer(''); setFilterRutaNombre(''); }}
+                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
+                <X size={12} /> Limpiar todos
+              </button>
+            )}
+          </div>
 
-              <div className="flex flex-wrap gap-3 items-center border-t border-white/5 pt-4">
-                <Filter size={14} className="text-text-muted" />
-                <span className="text-xs text-text-muted uppercase font-black tracking-widest">Filtrar por:</span>
-
-                <div className="relative">
-                  <select value={filterRuta} onChange={e => setFilterRuta(e.target.value)}
-                    className="bg-surface-light border border-white/10 rounded-xl pl-3 pr-8 py-2 text-white text-sm appearance-none focus:outline-none focus:border-primary min-w-[160px]">
-                    <option value="">Todas las rutas</option>
-                    {rutasBase.map(r => <option key={r.id_ruta_base} value={r.nombre}>{r.nombre}</option>)}
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <select value={filterChofer} onChange={e => setFilterChofer(e.target.value)}
-                    className="bg-surface-light border border-white/10 rounded-xl pl-3 pr-8 py-2 text-white text-sm appearance-none focus:outline-none focus:border-primary min-w-[160px]">
-                    <option value="">Todos los choferes</option>
-                    {choferes.map(c => <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>)}
-                  </select>
-                </div>
-
-                {hasFilters && (
-                  <button onClick={() => { setFilterChofer(''); setFilterRuta(''); }}
-                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20">
-                    <X size={12} /> Limpiar
-                  </button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* BOTONES EXPORTAR */}
+          {/* BOTONES EXPORTAR RUTAS */}
           <div className="flex gap-2 flex-wrap items-center">
             <Button onClick={handleShareWhatsApp} disabled={rutas.length === 0} className="bg-[#25D366] hover:bg-[#1fb85a] flex items-center gap-2 font-black">
               <Share2 size={18} /> WhatsApp
@@ -1335,7 +1273,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
             </label>
           </div>
 
-          {/* STATS */}
+          {/* STATS RUTAS */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { label: 'Total Rutas', value: totalRutas, color: 'text-white', icon: Truck },
@@ -1388,7 +1326,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                       <div className="flex items-center gap-3">
                         {ruta.hora_salida_planta && (
                           <span className="text-xs text-text-muted">
-                            🕐 ${format(new Date(ruta.hora_salida_planta), 'HH:mm')}
+                            🕐 {format(new Date(ruta.hora_salida_planta), 'HH:mm')}
                             {ruta.horaLlegadaReal && ` → ${format(new Date(ruta.horaLlegadaReal), 'HH:mm')}`}
                             {ruta.durationMin && ` (${formatMins(ruta.durationMin)})`}
                             {ruta.distanciaGpsKm && ` · 🧭 ~${ruta.distanciaGpsKm.toFixed(1)} km`}
@@ -1556,31 +1494,11 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
             </div>
           )}
         </>
-      ) : (
+      )}
+
+      {reportType === 'combustible' && (
         <>
-          {/* REPORTES COMBUSTIBLE */}
-          <style>{`
-          @media print {
-            .no-print { display: none !important; }
-            .print-title { font-size: 20px !important; font-weight: bold !important; }
-          }
-        `}</style>
-
-          <div id="combustible-report-content" className="flex flex-wrap gap-4 mb-6">
-            <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
-              {[
-                { key: 'dia', label: 'Hoy' },
-                { key: 'semana', label: 'Semana' },
-                { key: 'mes', label: 'Mes' },
-                { key: 'todo', label: 'Todo' }
-              ].map(p => (
-                <button key={p.key} onClick={() => setFiltroFecha(p.key as any)}
-                  className={`px-5 py-2.5 text-sm font-black italic transition-all ${filtroFecha === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
+          <div className="flex flex-wrap gap-4 mb-4">
             <div className="flex gap-2">
               <button
                 onClick={() => setAgruparPor('fecha')}
@@ -1613,33 +1531,24 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
             </label>
           </div>
 
-          {/* Título para impresión */}
-          <div className="print-title hidden mb-4">
-            <h1 className="text-xl font-bold">Reporte de Gastos de Combustible</h1>
-            <p style={{ color: '#666', fontSize: '14px' }}>
-              Período: ${filtroFecha === 'semana' ? 'Esta semana' : filtroFecha === 'mes' ? 'Este mes' : 'Todo'} |
-              Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}
-            </p>
-          </div>
-
-          {/* Totales */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Totales Combustible */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <Card className="bg-green-500/10 border-green-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-green-300 uppercase font-bold">GLP</p>
-                <p className="text-xl font-black text-green-400">S/ ${(totalesPorTipo.glp || 0).toFixed(2)}</p>
+                <p className="text-xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card className="bg-blue-500/10 border-blue-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-blue-300 uppercase font-bold">Gasolina</p>
-                <p className="text-xl font-black text-blue-400">S/ ${(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
+                <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card className="bg-orange-500/10 border-orange-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-orange-300 uppercase font-bold">Diesel</p>
-                <p className="text-xl font-black text-orange-400">S/ ${(totalesPorTipo.diesel || 0).toFixed(2)}</p>
+                <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card className="bg-yellow-500/10 border-yellow-500/30">
@@ -1651,33 +1560,14 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
             <Card className="bg-primary/10 border-primary/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-primary uppercase font-bold">TOTAL</p>
-                <p className="text-xl font-black text-primary">S/ ${totalGeneral.toFixed(2)}</p>
+                <p className="text-xl font-black text-primary">S/ {totalGeneral.toFixed(2)}</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Cards de Otros (Estacionamiento/Peaje) */}
-          {gastosOtros.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <Card className="bg-blue-500/10 border-blue-500/30">
-                <CardContent className="p-3 text-center">
-                  <p className="text-xs text-blue-300 uppercase font-bold">Otros Semanal</p>
-                  <p className="text-xl font-black text-blue-400">S/ ${getGastosFiltrados().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</p>
-                </CardContent>
-              </Card>
-              <Card className="bg-blue-500/10 border-blue-500/30">
-                <CardContent className="p-3 text-center">
-                  <p className="text-xs text-blue-300 uppercase font-bold">Transacciones</p>
-                  <p className="text-xl font-black text-blue-400">{getGastosFiltrados().otros.length}</p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Lista agrupada */}
           {combustibleLoading ? (
             <div className="text-center py-8 text-text-muted">Cargando...</div>
-          ) : reportType === 'combustible' && agruparPor === 'fecha' ? (
+          ) : agruparPor === 'fecha' ? (
             <div className="space-y-4">
               {gastosAgrupadosPorFecha().map(grupo => (
                 <Card key={grupo.fecha}>
@@ -1686,10 +1576,10 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                       <div className="flex items-center gap-2">
                         <Calendar className="text-blue-400" size={20} />
                         <span className="font-bold text-white">
-                          ${format(new Date(grupo.fecha), 'dd/MM/yyyy')}
+                          {format(new Date(grupo.fecha), 'dd/MM/yyyy')}
                         </span>
                       </div>
-                      <span className="text-green-400 font-bold">S/ ${grupo.total.toFixed(2)}</span>
+                      <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
                     </div>
                     <div className="space-y-2">
                       {grupo.gastos.map(gasto => (
@@ -1698,8 +1588,8 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                             <Truck size={14} className="text-text-muted" />
                             <span className="text-white">{gasto.chofer_nombre || 'Chofer'}</span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
-                                gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
-                                  'bg-orange-500/20 text-orange-400'
+                              gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                                'bg-orange-500/20 text-orange-400'
                               }`}>
                               {gasto.tipo_combustible}
                             </span>
@@ -1709,7 +1599,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                               </span>
                             )}
                           </div>
-                          <span className="text-green-400 font-bold">S/ ${(gasto.monto || 0).toFixed(2)}</span>
+                          <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -1717,7 +1607,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                 </Card>
               ))}
             </div>
-          ) : reportType === 'combustible' && (
+          ) : (
             <div className="space-y-4">
               {gastosAgrupadosPorChofer().map(grupo => (
                 <Card key={grupo.choferId}>
@@ -1728,7 +1618,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                         <span className="font-bold text-white">{grupo.choferNombre}</span>
                         <span className="text-text-muted text-sm">({grupo.gastos.length} cargas)</span>
                       </div>
-                      <span className="text-green-400 font-bold">S/ ${grupo.total.toFixed(2)}</span>
+                      <span className="text-green-400 font-bold">S/ {grupo.total.toFixed(2)}</span>
                     </div>
                     <div className="space-y-2">
                       {grupo.gastos.map(gasto => (
@@ -1736,11 +1626,11 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                           <div className="flex items-center gap-2">
                             <Calendar size={14} className="text-text-muted" />
                             <span className="text-text-muted">
-                              ${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
+                              {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy HH:mm') : '-'}
                             </span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
-                                gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
-                                  'bg-orange-500/20 text-orange-400'
+                              gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
+                                'bg-orange-500/20 text-orange-400'
                               }`}>
                               {gasto.tipo_combustible}
                             </span>
@@ -1750,7 +1640,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                               </span>
                             )}
                           </div>
-                          <span className="text-green-400 font-bold">S/ ${(gasto.monto || 0).toFixed(2)}</span>
+                          <span className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -1760,50 +1650,312 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
             </div>
           )}
 
-          {reportType === 'combustible' && gastosCombustible.length === 0 && (
-            <div className="text-center py-12 no-print">
+          {gastosCombustible.length === 0 && (
+            <div className="text-center py-12">
               <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
               <p className="text-text-muted">Sin cargas de combustible en este período</p>
             </div>
           )}
 
-          {reportType === 'combustible' && (
-            <Card className="mt-6">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-white font-bold flex items-center gap-2">
-                    📸 Fotos de Comprobantes
-                    <span className="text-text-muted text-sm font-normal">(${[...gastosCombustible, ...gastosOtros].filter(g => fotosCombustible[g.id_gasto]).length})</span>
-                  </h3>
-                  {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={handleExportarFotosZip}
-                      disabled={descargandoZip}
-                      className="flex items-center gap-1"
-                    >
-                      <DownloadIcon size={14} />
-                      {descargandoZip ? 'Descargando...' : 'Descargar ZIP'}
-                    </Button>
-                  )}
+          {/* Fotos de Combustible */}
+          <Card className="mt-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-bold flex items-center gap-2">
+                  📸 Fotos de Comprobantes
+                  <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                </h3>
+                {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleExportarFotosZip}
+                    disabled={descargandoZip}
+                    className="flex items-center gap-1"
+                  >
+                    <DownloadIcon size={14} />
+                    {descargandoZip ? 'Descargando...' : 'Descargar ZIP'}
+                  </Button>
+                )}
+              </div>
+              {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length === 0 ? (
+                <p className="text-text-muted text-sm">No hay fotos de combustible</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
+                    <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            const images = gastosCombustible
+                              .filter(g => fotosCombustible[g.id_gasto])
+                              .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Comprobante Combustible - ${g.chofer_nombre}` }));
+                            const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
+                            setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
+                          }}
+                          className="w-full flex"
+                        >
+                          <img
+                            src={fotosCombustible[gasto.id_gasto]}
+                            alt="Comprobante"
+                            className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all"
+                          />
+                        </button>
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`);
+                            }}
+                            className="bg-black/60 p-2 rounded-lg hover:bg-black/80 transition-colors"
+                            title="Descargar"
+                          >
+                            <DownloadIcon size={14} className="text-white" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteGasto(gasto.id_gasto);
+                            }}
+                            className="bg-red-500/60 p-2 rounded-lg hover:bg-red-500/80 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} className="text-white" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-2 text-xs">
+                        <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
+                        <p className="text-green-400">S/ {(gasto.monto || 0).toFixed(2)} - {gasto.tipo_combustible?.toUpperCase()}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length === 0 ? (
-                  <p className="text-text-muted text-sm">No hay fotos de combustible</p>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
-                      <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                        <div className="relative">
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {reportType === 'peajes' && (
+        <Card className="border-surface-light">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <FileDown size={24} className="text-blue-500" />
+                REPORTE DE PEAJES
+              </h2>
+            </div>
+
+            <p className="text-text-muted mb-4">Período: <span className="text-primary font-bold">{rangoLabel}</span></p>
+
+            {/* Resumen de Peajes */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Automáticos</p>
+                <p className="text-2xl font-black text-blue-400">
+                  S/ {peajesCalculados.toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Basado en rutas ejecutadas</p>
+              </div>
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Manuales</p>
+                <p className="text-2xl font-black text-green-400">
+                  S/ {peajesManualesMonto.toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Con ticket/foto (pagados)</p>
+              </div>
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Compromisos Peaje</p>
+                <p className="text-2xl font-black text-yellow-400">
+                  S/ {peajesCompromisoMonto.toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Tickets pendientes por pagar</p>
+              </div>
+              <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
+                <p className="text-text-muted text-xs uppercase font-bold mb-1">Total Peajes</p>
+                <p className="text-2xl font-black text-white">
+                  S/ {(peajesCalculados + peajesManualesMonto).toFixed(2)}
+                </p>
+                <p className="text-text-muted text-[10px] mt-1">Sin contar compromisos</p>
+              </div>
+            </div>
+
+            {/* Detalle de peajes manuales */}
+            {peajesManuales.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-white mb-3">Peajes con Ticket/Foto</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-text-muted border-b border-white/10">
+                        <th className="text-left py-2 px-3 cursor-pointer hover:text-primary" onClick={() => setOrdenPeajes(ordenPeajes === 'asc' ? 'desc' : 'asc')}>
+                          Fecha {ordenPeajes === 'asc' ? '↑' : '↓'}
+                        </th>
+                        <th className="text-left py-2 px-3">Foto</th>
+                        <th className="text-left py-2 px-3">Chofer</th>
+                        <th className="text-left py-2 px-3">Tipo</th>
+                        <th className="text-right py-2 px-3">Monto</th>
+                        <th className="text-center py-2 px-3">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {peajesManuales.map((gasto: any) => (
+                        <tr key={gasto.id_gasto} className="border-b border-white/5 hover:bg-white/5">
+                          <td className="py-2 px-3">
+                            {editandoPeajeId === gasto.id_gasto ? (
+                              <input
+                                type="date"
+                                value={editandoPeajeDatos?.fecha || ''}
+                                onChange={(e) => setEditandoPeajeDatos({ ...editandoPeajeDatos, fecha: e.target.value })}
+                                className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs"
+                              />
+                            ) : (
+                              <span className="text-white text-xs">
+                                {gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : (gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-')}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3">
+                            {gasto.foto_url ? (
+                              <button
+                                onClick={() => setShowFotoModal(gasto.foto_url)}
+                                className="text-primary hover:text-primary/80 text-xs flex items-center gap-1"
+                              >
+                                <Image size={14} /> Ver
+                              </button>
+                            ) : (
+                              <span className="text-text-muted text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-white font-medium text-xs">
+                            {gasto.chofer_nombre || '-'}
+                          </td>
+                          <td className="py-2 px-3">
+                            {editandoPeajeId === gasto.id_gasto ? (
+                              <select
+                                value={editandoPeajeDatos?.tipo_combustible || 'peaje'}
+                                onChange={(e) => setEditandoPeajeDatos({ ...editandoPeajeDatos, tipo_combustible: e.target.value })}
+                                className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs"
+                              >
+                                <option value="peaje">Pagado</option>
+                                <option value="peaje_compromiso">Compromiso</option>
+                                <option value="estacionamiento">Estacionamiento</option>
+                                <option value="otro">Otro</option>
+                              </select>
+                            ) : (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${gasto.tipo_combustible === 'peaje_compromiso'
+                                ? 'bg-yellow-500/20 text-yellow-400'
+                                : 'bg-green-500/20 text-green-400'
+                                }`}>
+                                {gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : gasto.tipo_combustible === 'peaje' ? 'Pagado' : gasto.tipo_combustible}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3">
+                            {editandoPeajeId === gasto.id_gasto ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editandoPeajeDatos?.monto || 0}
+                                onChange={(e) => setEditandoPeajeDatos({ ...editandoPeajeDatos, monto: e.target.value })}
+                                className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs w-20 text-right"
+                              />
+                            ) : (
+                              <span className="text-green-400 font-bold text-xs">
+                                S/ {(gasto.monto || 0).toFixed(2)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <div className="flex justify-center gap-1">
+                              {editandoPeajeId === gasto.id_gasto ? (
+                                <>
+                                  <button onClick={guardarEdicionPeaje} className="text-green-400 hover:text-green-300 p-1" title="Guardar">
+                                    <Check size={14} />
+                                  </button>
+                                  <button onClick={() => { setEditandoPeajeId(null); setEditandoPeajeDatos(null); }} className="text-red-400 hover:text-red-300 p-1" title="Cancelar">
+                                    <X size={14} />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button onClick={() => iniciarEdicionPeaje(gasto)} className="text-blue-400 hover:text-blue-300 p-1" title="Editar">
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => eliminarGastoPeaje(gasto.id_gasto)} className="text-red-400 hover:text-red-300 p-1" title="Eliminar">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {peajesManuales.length === 0 && peajesCalculados === 0 && (
+              <div className="text-center py-8">
+                <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+                <p className="text-text-muted">No hay registros de peajes en el período seleccionado</p>
+              </div>
+            )}
+
+            {peajesManuales.length > 0 && (
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleExportarPeajesPDF} className="flex items-center gap-2">
+                  <Download size={18} /> Exportar PDF
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {reportType === 'otros' && (
+        <Card className="border-surface-light">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <FileDown size={24} className="text-red-500" />
+                OTROS GASTOS
+              </h2>
+            </div>
+
+            <p className="text-text-muted mb-4">Período: <span className="text-primary font-bold">{rangoLabel}</span></p>
+
+            {gastosOtros.length === 0 ? (
+              <div className="text-center py-12">
+                <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+                <p className="text-text-muted">No hay otros gastos registrados en este período</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <Button onClick={handleExportarOtrosPDF} className="flex items-center gap-2">
+                    <Download size={18} />
+                    Exportar PDF
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {gastosOtros.map(gasto => (
+                    <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
+                      <div className="relative">
+                        {fotosCombustible[gasto.id_gasto] ? (
                           <button
                             onClick={() => {
-                              const images = gastosCombustible
+                              const images = gastosOtros
                                 .filter(g => fotosCombustible[g.id_gasto])
-                                .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Comprobante Combustible - ${g.chofer_nombre}` }));
+                                .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Gasto: ${g.chofer_nombre} - S/ ${g.monto}` }));
                               const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
                               setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
                             }}
-                            className="w-full flex"
+                            className="w-full"
                           >
                             <img
                               src={fotosCombustible[gasto.id_gasto]}
@@ -1811,397 +1963,76 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                               className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all"
                             />
                           </button>
-                          <div className="absolute bottom-2 right-2 flex gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadFoto(fotosCombustible[gasto.id_gasto], `${gasto.chofer_nombre}_${gasto.monto}.jpg`);
-                              }}
-                              className="bg-black/60 p-2 rounded-lg hover:bg-black/80 transition-colors"
-                              title="Descargar"
-                            >
-                              <DownloadIcon size={14} className="text-white" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteGasto(gasto.id_gasto);
-                              }}
-                              className="bg-red-500/60 p-2 rounded-lg hover:bg-red-500/80 transition-colors"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={14} className="text-white" />
-                            </button>
+                        ) : (
+                          <div className="w-full h-40 bg-surface-light/50 flex items-center justify-center">
+                            <span className="text-text-muted text-4xl">-</span>
                           </div>
-                        </div>
-                        <div className="p-2 text-xs">
-                          <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
-                          <p className="text-green-400">S/ ${(gasto.monto || 0).toFixed(2)} - ${gasto.tipo_combustible?.toUpperCase()}</p>
+                        )}
+                        <div className="absolute bottom-2 right-2 flex gap-1">
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`¿Eliminar gasto de ${gasto.chofer_nombre || 'este registro'} por S/ ${(gasto.monto || 0).toFixed(2)}?`)) {
+                                handleDeleteGasto(gasto.id_gasto);
+                              }
+                            }}
+                            className="bg-red-500/80 hover:bg-red-500 p-2 rounded-lg transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={16} className="text-white" />
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {reportType === 'otros' && (
-            <Card className="border-surface-light">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <FileDown size={24} className="text-red-500" />
-                    SECCION OTROS GASTOS <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full ml-2">v6</span>
-                  </h2>
-                </div>
-
-                <p className="text-text-muted mb-4">Gastos adicionales como estacionamiento, peajes y otros.</p>
-
-                <div className="flex flex-wrap gap-3 items-center mb-4">
-                  <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
-                    {[
-                      { key: 'dia', label: 'Hoy' },
-                      { key: 'semana', label: 'Semana' },
-                      { key: 'mes', label: 'Mes' },
-                      { key: 'todo', label: 'Todo' }
-                    ].map(p => (
-                      <button key={p.key} onClick={() => setFiltroFecha(p.key as any)}
-                        className={`px-5 py-2.5 text-sm font-black italic transition-all ${filtroFecha === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {gastosOtros.length === 0 ? (
-                  <div className="text-center py-12 no-print">
-                    <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-                    <p className="text-text-muted">No hay otros gastos registrados</p>
-                    {gastos.length > 0 && (
-                      <p className="text-text-muted text-xs mt-2">Pero hay ${gastos.length} gastos en total. Los tipos son: ${[...new Set(gastos.map(g => g.tipo_combustible))].join(', ')}</p>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-4">
-                      <Button onClick={handleExportarOtrosPDF} className="flex items-center gap-2">
-                        <Download size={18} />
-                        Exportar PDF
-                      </Button>
+                      <div className="p-3 text-sm">
+                        <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
+                        <p className="text-green-400 font-bold">S/ {(gasto.monto || 0).toFixed(2)}</p>
+                        <p className="text-text-muted text-xs mt-1">
+                          {gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-'}
+                        </p>
+                        <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
+                          gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                          {gasto.estado || '-'}
+                        </span>
+                      </div>
                     </div>
-
-                    {/* TARJETAS estilo Detalle de Gastos */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {gastosOtros.map(gasto => (
-                        <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                          <div className="relative">
-                            {fotosCombustible[gasto.id_gasto] ? (
-                              <button
-                                onClick={() => {
-                                  const images = gastosOtros
-                                    .filter(g => fotosCombustible[g.id_gasto])
-                                    .map(g => ({ url: fotosCombustible[g.id_gasto]!, title: `Gasto: ${g.chofer_nombre} - S/ ${g.monto}` }));
-                                  const currentIndex = images.findIndex(img => img.url === fotosCombustible[gasto.id_gasto]);
-                                  setActivePhoto({ images, index: currentIndex >= 0 ? currentIndex : 0 });
-                                }}
-                                className="w-full"
-                              >
-                                <img
-                                  src={fotosCombustible[gasto.id_gasto]}
-                                  alt="Comprobante"
-                                  className="w-full h-40 object-cover cursor-zoom-in hover:brightness-110 transition-all"
-                                />
-                              </button>
-                            ) : (
-                              <div className="w-full h-40 bg-surface-light/50 flex items-center justify-center">
-                                <span className="text-text-muted text-4xl">-</span>
-                              </div>
-                            )}
-                            <div className="absolute bottom-2 right-2 flex gap-1">
-                              <button
-                                onClick={() => {
-                                  if (window.confirm(`¿Eliminar gasto de ${gasto.chofer_nombre || 'este registro'} por S/ ${(gasto.monto || 0).toFixed(2)}?`)) {
-                                    handleDeleteGasto(gasto.id_gasto);
-                                  }
-                                }}
-                                className="bg-red-500/80 hover:bg-red-500 p-2 rounded-lg transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 size={16} className="text-white" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="p-3 text-sm">
-                            <p className="text-white font-bold">{gasto.chofer_nombre || '-'}</p>
-                            <p className="text-green-400 font-bold">S/ ${(gasto.monto || 0).toFixed(2)}</p>
-                            <p className="text-text-muted text-xs mt-1">
-                              ${gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-'}
-                            </p>
-                            <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.estado === 'confirmado' ? 'bg-green-500/20 text-green-400' :
-                                gasto.estado === 'pendiente' ? 'bg-yellow-500/20 text-yellow-400' :
-                                  'bg-red-500/20 text-red-400'
-                              }`}>
-                              {gasto.estado || '-'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Total */}
-                    <div className="mt-4 p-4 bg-surface-light/30 rounded-xl flex justify-between items-center">
-                      <span className="text-white font-bold">Total Otros Gastos:</span>
-                      <span className="text-green-400 font-black text-xl">S/ ${getGastosFiltrados().otros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {reportType === 'peajes' && (
-            <Card className="border-surface-light">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <FileDown size={24} className="text-blue-500" />
-                    REPORTE DE PEAJES <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full ml-2">NEW</span>
-                  </h2>
+                  ))}
                 </div>
 
-                <p className="text-text-muted mb-4">Gestión de peajes: automáticos (calculados) y manuales (con ticket).</p>
-
-                <div className="flex flex-wrap gap-3 items-center mb-4">
-                  <div className="flex bg-surface-light rounded-xl overflow-hidden border border-white/5">
-                    {[
-                      { key: 'dia', label: 'Hoy' },
-                      { key: 'semana', label: 'Semana' },
-                      { key: 'mes', label: 'Mes' },
-                      { key: 'todo', label: 'Todo' }
-                    ].map(p => (
-                      <button key={p.key} onClick={() => setFiltroFecha(p.key as any)}
-                        className={`px-5 py-2.5 text-sm font-black italic transition-all ${filtroFecha === p.key ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}>
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="mt-4 p-4 bg-surface-light/30 rounded-xl flex justify-between items-center">
+                  <span className="text-white font-bold">Total Otros Gastos:</span>
+                  <span className="text-green-400 font-black text-xl">S/ {gastosOtros.reduce((sum, g) => sum + (g.monto || 0), 0).toFixed(2)}</span>
                 </div>
-
-                {/* Resumen de Peajes */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                    <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Automáticos</p>
-                    <p className="text-2xl font-black text-blue-400">
-                      S/ ${peajesCalculados.toFixed(2)}
-                    </p>
-                    <p className="text-text-muted text-[10px] mt-1">Basado en rutas ejecutadas</p>
-                  </div>
-                  <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                    <p className="text-text-muted text-xs uppercase font-bold mb-1">Peajes Manuales</p>
-                    <p className="text-2xl font-black text-green-400">
-                      S/ ${peajesManualesMonto.toFixed(2)}
-                    </p>
-                    <p className="text-text-muted text-[10px] mt-1">Con ticket/foto (pagados)</p>
-                  </div>
-                  <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                    <p className="text-text-muted text-xs uppercase font-bold mb-1">Compromisos Peaje</p>
-                    <p className="text-2xl font-black text-yellow-400">
-                      S/ ${peajesCompromisoMonto.toFixed(2)}
-                    </p>
-                    <p className="text-text-muted text-[10px] mt-1">Tickets pendientes por pagar</p>
-                  </div>
-                  <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
-                    <p className="text-text-muted text-xs uppercase font-bold mb-1">Total Peajes</p>
-                    <p className="text-2xl font-black text-white">
-                      S/ ${(peajesCalculados + peajesManualesMonto).toFixed(2)}
-                    </p>
-                    <p className="text-text-muted text-[10px] mt-1">Sin contar compromisos</p>
-                  </div>
-                </div>
-
-                {/* Detalle de peajes manuales */}
-                {peajesManuales.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-bold text-white mb-3">Peajes con Ticket/Foto</h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-text-muted border-b border-white/10">
-                            <th
-                              className="text-left py-2 px-3 cursor-pointer hover:text-primary"
-                              onClick={() => setOrdenPeajes(ordenPeajes === 'asc' ? 'desc' : 'asc')}
-                            >
-                              Fecha ${ordenPeajes === 'asc' ? '↑' : '↓'}
-                            </th>
-                            <th className="text-left py-2 px-3">Foto</th>
-                            <th className="text-left py-2 px-3">Chofer</th>
-                            <th className="text-left py-2 px-3">Tipo</th>
-                            <th className="text-right py-2 px-3">Monto</th>
-                            <th className="text-center py-2 px-3">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {peajesManuales.map((gasto: any) => (
-                            <tr key={gasto.id_gasto} className="border-b border-white/5 hover:bg-white/5">
-                              <td className="py-2 px-3">
-                                {editandoPeajeId === gasto.id_gasto ? (
-                                  <input
-                                    type="date"
-                                    value={editandoPeajeDatos?.fecha || ''}
-                                    onChange={(e) => setEditandoPeajeDatos({ ...editandoPeajeDatos, fecha: e.target.value })}
-                                    className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs"
-                                  />
-                                ) : (
-                                  <span className="text-white text-xs">
-                                    ${gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : (gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-')}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2 px-3">
-                                {gasto.foto_url ? (
-                                  <button
-                                    onClick={() => setShowFotoModal(gasto.foto_url)}
-                                    className="text-primary hover:text-primary/80 text-xs flex items-center gap-1"
-                                  >
-                                    <Image size={14} /> Ver
-                                  </button>
-                                ) : (
-                                  <span className="text-text-muted text-xs">-</span>
-                                )}
-                              </td>
-                              <td className="py-2 px-3 text-white font-medium text-xs">
-                                {gasto.chofer_nombre || '-'}
-                              </td>
-                              <td className="py-2 px-3">
-                                {editandoPeajeId === gasto.id_gasto ? (
-                                  <select
-                                    value={editandoPeajeDatos?.tipo_combustible || 'peaje'}
-                                    onChange={(e) => setEditandoPeajeDatos({ ...editandoPeajeDatos, tipo_combustible: e.target.value })}
-                                    className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs"
-                                  >
-                                    <option value="peaje">Pagado</option>
-                                    <option value="peaje_compromiso">Compromiso</option>
-                                    <option value="estacionamiento">Estacionamiento</option>
-                                    <option value="otro">Otro</option>
-                                  </select>
-                                ) : (
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${gasto.tipo_combustible === 'peaje_compromiso'
-                                      ? 'bg-yellow-500/20 text-yellow-400'
-                                      : 'bg-green-500/20 text-green-400'
-                                    }`}>
-                                    {gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : gasto.tipo_combustible === 'peaje' ? 'Pagado' : gasto.tipo_combustible}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2 px-3">
-                                {editandoPeajeId === gasto.id_gasto ? (
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    value={editandoPeajeDatos?.monto || 0}
-                                    onChange={(e) => setEditandoPeajeDatos({ ...editandoPeajeDatos, monto: e.target.value })}
-                                    className="bg-surface border border-white/20 rounded px-2 py-1 text-white text-xs w-20 text-right"
-                                  />
-                                ) : (
-                                  <span className="text-green-400 font-bold text-xs">
-                                    S/ ${(gasto.monto || 0).toFixed(2)}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2 px-3 text-center">
-                                <div className="flex justify-center gap-1">
-                                  {editandoPeajeId === gasto.id_gasto ? (
-                                    <>
-                                      <button
-                                        onClick={guardarEdicionPeaje}
-                                        className="text-green-400 hover:text-green-300 p-1"
-                                        title="Guardar"
-                                      >
-                                        <Check size={14} />
-                                      </button>
-                                      <button
-                                        onClick={() => { setEditandoPeajeId(null); setEditandoPeajeDatos(null); }}
-                                        className="text-red-400 hover:text-red-300 p-1"
-                                        title="Cancelar"
-                                      >
-                                        <X size={14} />
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <button
-                                        onClick={() => iniciarEdicionPeaje(gasto)}
-                                        className="text-blue-400 hover:text-blue-300 p-1"
-                                        title="Editar"
-                                      >
-                                        <Edit2 size={14} />
-                                      </button>
-                                      <button
-                                        onClick={() => eliminarGastoPeaje(gasto.id_gasto)}
-                                        className="text-red-400 hover:text-red-300 p-1"
-                                        title="Eliminar"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </table>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {peajesManuales.length === 0 && peajesCalculados === 0 && (
-                  <div className="text-center py-8">
-                    <FileDown className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-                    <p className="text-text-muted">No hay registros de peajes en el período seleccionado</p>
-                  </div>
-                )}
-
-                {/* Botón exportar PDF de Peajes */}
-                {peajesManuales.length > 0 && (
-                  <div className="mt-4 flex justify-end">
-                    <Button onClick={handleExportarPeajesPDF} className="flex items-center gap-2">
-                      <Download size={18} /> Exportar PDF
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {showFotoModal && (
-            <div
-              className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-pointer"
-              onClick={() => setShowFotoModal(null)}
-            >
-              <div
-                className="relative max-w-4xl w-full cursor-default"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  onClick={() => setShowFotoModal(null)}
-                  className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 bg-surface px-4 py-2 rounded-lg"
-                >
-                  <X size={20} />
-                  Cerrar
-                </button>
-                <img
-                  src={showFotoModal}
-                  alt="Foto ampliada"
-                  className="max-h-[80vh] w-full object-contain rounded-lg border border-surface-light"
-                />
-              </div>
-            </div>
-          )}
-        </>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
-      {/* Visor de Imágenes en modo Galería */}
+
+      {showFotoModal && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setShowFotoModal(null)}
+        >
+          <div
+            className="relative max-w-4xl w-full cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowFotoModal(null)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 bg-surface px-4 py-2 rounded-lg"
+            >
+              <X size={20} />
+              Cerrar
+            </button>
+            <img
+              src={showFotoModal}
+              alt="Foto ampliada"
+              className="max-h-[80vh] w-full object-contain rounded-lg border border-surface-light"
+            />
+          </div>
+        </div>
+      )}
       <ImageModal
         isOpen={!!activePhoto}
         onClose={() => setActivePhoto(null)}
