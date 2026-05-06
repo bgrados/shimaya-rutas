@@ -301,21 +301,19 @@ export default function Reportes() {
   }
 
   // ============================================================
-  // FUNCIÓN CORREGIDA: Usa la columna 'fecha' para filtrar (igual que en combustible/index.tsx)
+  // FUNCIÓN CORREGIDA DEFINITIVA - Usa eq() en lugar de gte/lte
   // ============================================================
   async function loadCombustible() {
     setCombustibleLoading(true);
     try {
       const { from, to } = getRange(period, selectedDate);
 
-      console.log(`[Combustible] Período: ${period}, Fecha: ${selectedDate}, Rango: ${from} - ${to}`);
+      console.log(`[Combustible] Filtrando por fecha: ${from} a ${to}`);
 
-      // Usar la columna 'fecha' en lugar de 'created_at' (igual que en combustible/index.tsx)
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
-        .gte('fecha', from)
-        .lte('fecha', to)
+        .eq('fecha', from)  // 🔥 AHORA SOLO LA FECHA EXACTA
         .order('fecha', { ascending: false });
 
       if (filterChofer) {
@@ -635,7 +633,7 @@ export default function Reportes() {
             <th style="padding:6px 8px;text-align:left;color:#f59e0b;font-weight:600;">Permanencia</th>
           </tr></thead>
           <tbody>${paradas}</tbody>
-        </table>` :
+        </tr>` :
           '<p style="padding:10px 16px;color:#94a3b8;font-size:12px;font-style:italic;margin:0;">Sin movimientos registrados</p>'}
         ${incluirFotosEnPDF && (r.localesRuta || []).length > 0 ? (() => {
           const allFotos: { url: string; localName: string }[] = [];
@@ -795,7 +793,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
         <td style="padding:8px;color:#475569;">${gasto.ruta_nombre || '-'}</td>
         <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
         <td style="padding:8px;text-align:right;font-weight:bold;color:#16a34a;">S/ ${(gasto.monto || 0).toFixed(2)}</td>
-      </table>`;
+      </tr>`;
     }).join('');
 
     const html = `<!DOCTYPE html>
@@ -1524,24 +1522,28 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 
           {/* Totales Combustible */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-            <Card className="bg-green-500/10 border-green-500/30">
-              <CardContent className="p-3 text-center">
-                <p className="text-xs text-green-300 uppercase font-bold">GLP</p>
-                <p className="text-xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-blue-500/10 border-blue-500/30">
-              <CardContent className="p-3 text-center">
-                <p className="text-xs text-blue-300 uppercase font-bold">Gasolina</p>
-                <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-orange-500/10 border-orange-500/30">
-              <CardContent className="p-3 text-center">
-                <p className="text-xs text-orange-300 uppercase font-bold">Diesel</p>
-                <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
-              </CardContent>
-            </Card>
+            {gastosCombustible.length > 0 && (
+              <>
+                <Card className="bg-green-500/10 border-green-500/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-xs text-green-300 uppercase font-bold">GLP</p>
+                    <p className="text-xl font-black text-green-400">S/ {(totalesPorTipo.glp || 0).toFixed(2)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-blue-500/10 border-blue-500/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-xs text-blue-300 uppercase font-bold">Gasolina</p>
+                    <p className="text-xl font-black text-blue-400">S/ {(totalesPorTipo.gasolina || 0).toFixed(2)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-orange-500/10 border-orange-500/30">
+                  <CardContent className="p-3 text-center">
+                    <p className="text-xs text-orange-300 uppercase font-bold">Diesel</p>
+                    <p className="text-xl font-black text-orange-400">S/ {(totalesPorTipo.diesel || 0).toFixed(2)}</p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
             <Card className="bg-yellow-500/10 border-yellow-500/30">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-yellow-300 uppercase font-bold">Cargas</p>
@@ -1558,6 +1560,11 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
 
           {combustibleLoading ? (
             <div className="text-center py-8 text-text-muted">Cargando...</div>
+          ) : gastosCombustible.length === 0 ? (
+            <div className="text-center py-12">
+              <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
+              <p className="text-text-muted">No hay gastos de combustible para la fecha seleccionada</p>
+            </div>
           ) : agruparPor === 'fecha' ? (
             <div className="space-y-4">
               {gastosAgrupadosPorFecha().map(grupo => (
@@ -1641,22 +1648,15 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
             </div>
           )}
 
-          {gastosCombustible.length === 0 && (
-            <div className="text-center py-12">
-              <Fuel className="mx-auto mb-4 text-text-muted opacity-50" size={48} />
-              <p className="text-text-muted">Sin cargas de combustible en este período</p>
-            </div>
-          )}
-
           {/* Fotos de Combustible */}
-          <Card className="mt-6">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-bold flex items-center gap-2">
-                  📸 Fotos de Comprobantes
-                  <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
-                </h3>
-                {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+          {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length > 0 && (
+            <Card className="mt-6">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white font-bold flex items-center gap-2">
+                    📸 Fotos de Comprobantes
+                    <span className="text-text-muted text-sm font-normal">({gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length})</span>
+                  </h3>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -1667,11 +1667,7 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                     <DownloadIcon size={14} />
                     {descargandoZip ? 'Descargando...' : 'Descargar ZIP'}
                   </Button>
-                )}
-              </div>
-              {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).length === 0 ? (
-                <p className="text-text-muted text-sm">No hay fotos de combustible</p>
-              ) : (
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {gastosCombustible.filter(g => fotosCombustible[g.id_gasto]).map(gasto => (
                     <div key={gasto.id_gasto} className="bg-surface-light/30 rounded-lg overflow-hidden">
@@ -1722,9 +1718,9 @@ ${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros
                     </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 
