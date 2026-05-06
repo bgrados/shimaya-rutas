@@ -123,35 +123,6 @@ const preprocesarImagenOcr = (dataUrl: string): Promise<string> => {
   });
 };
 
-// ============================================================
-// FUNCIÓN PARA VERIFICAR DÍA DE DESCANSO CON EXCEPCIONES
-// ============================================================
-
-const puedeTrabajarHoy = async (choferId: string, diaHoy: string, diasDescanso: string[]): Promise<{ puede: boolean; motivo: string }> => {
-  const hoyStr = format(new Date(), 'yyyy-MM-dd');
-  const { data: excepcion } = await supabase
-    .from('excepciones_descanso')
-    .select('estado, observaciones')
-    .eq('id_chofer', choferId)
-    .eq('fecha', hoyStr)
-    .maybeSingle();
-
-  if (excepcion) {
-    if (excepcion.estado === 'trabaja') {
-      return { puede: true, motivo: `Excepción: Trabaja hoy` };
-    } else {
-      return { puede: false, motivo: `Excepción: Descanso hoy` };
-    }
-  }
-
-  const esDiaDescanso = diasDescanso.includes(diaHoy);
-  if (esDiaDescanso) {
-    return { puede: false, motivo: `Día de descanso fijo (${diaHoy})` };
-  }
-
-  return { puede: true, motivo: '' };
-};
-
 export default function Viaje() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -246,21 +217,37 @@ export default function Viaje() {
   const diaHoy = diasSemana[new Date().getDay()];
   const [diaDescansoBloqueado, setDiaDescansoBloqueado] = useState(false);
 
-  // Verificar día de descanso con excepciones al inicio
+  // Validación de día de descanso con excepciones (simplificada)
   useEffect(() => {
     const verificarDiaDescanso = async () => {
       if (!profile?.id_usuario) return;
 
       const diasDescansoChofer = profile?.dias_descanso || [];
-      console.log('🔍 diaHoy:', diaHoy);
-      console.log('🔍 diasDescansoChofer:', diasDescansoChofer);
-      console.log('🔍 profile completo:', profile);
 
-      const { puede, motivo } = await puedeTrabajarHoy(profile.id_usuario, diaHoy, diasDescansoChofer);
+      // 1. Verificar excepción en la tabla excepciones_descanso
+      const hoyStr = format(new Date(), 'yyyy-MM-dd');
+      const { data: excepcion, error: exError } = await supabase
+        .from('excepciones_descanso')
+        .select('estado, observaciones')
+        .eq('id_chofer', profile.id_usuario)
+        .eq('fecha', hoyStr)
+        .maybeSingle();
 
-      if (!puede) {
+      if (excepcion) {
+        if (excepcion.estado === 'descansa') {
+          setDiaDescansoBloqueado(true);
+          showToast(`📅 Hoy es tu día de descanso (excepción). No puedes iniciar rutas.`, 'warning');
+          return;
+        } else if (excepcion.estado === 'trabaja') {
+          setDiaDescansoBloqueado(false);
+          return;
+        }
+      }
+
+      // 2. Sin excepción, verificar día de descanso fijo
+      if (diasDescansoChofer.includes(diaHoy)) {
         setDiaDescansoBloqueado(true);
-        showToast(`Hoy no puedes iniciar rutas. ${motivo}`, 'warning');
+        showToast(`📅 Hoy es tu día de descanso fijo (${diaHoy}). No puedes iniciar rutas.`, 'warning');
       } else {
         setDiaDescansoBloqueado(false);
       }
@@ -341,9 +328,11 @@ export default function Viaje() {
         resolve(null);
         return;
       }
+
       const lecturas: { lat: number; lng: number; accuracy: number; timestamp: number }[] = [];
       setIntentosLectura(0);
       agregarLogDebug(`📡 Iniciando ${LECTURAS_REQUERIDAS} lecturas GPS...`);
+
       const timeoutTotal = setTimeout(() => {
         const promedio = promediarLecturas(lecturas);
         if (promedio) {
@@ -354,6 +343,7 @@ export default function Viaje() {
           resolve(null);
         }
       }, 12000);
+
       const hacerLectura = (intento: number) => {
         if (intento >= LECTURAS_REQUERIDAS) {
           clearTimeout(timeoutTotal);
@@ -367,14 +357,17 @@ export default function Viaje() {
           }
           return;
         }
+
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
+
             lecturas.push({ lat, lng, accuracy, timestamp: Date.now() });
             setIntentosLectura(intento + 1);
             agregarLogDebug(`📍 Lectura ${intento + 1}/${LECTURAS_REQUERIDAS}: ±${accuracy.toFixed(0)}m`);
+
             setTimeout(() => hacerLectura(intento + 1), 1000);
           },
           (error) => {
@@ -384,6 +377,7 @@ export default function Viaje() {
           { enableHighAccuracy: true, timeout: 5000 }
         );
       };
+
       hacerLectura(0);
     });
   };
@@ -437,24 +431,29 @@ export default function Viaje() {
 
   const promediarLecturasConsistentes = (lecturas: { lat: number; lng: number; accuracy: number }[]): { lat: number; lng: number; accuracy: number } | null => {
     if (lecturas.length < LECTURAS_PROMEDIAR) return null;
+
     const lats = lecturas.map(l => l.lat);
     const lngs = lecturas.map(l => l.lng);
     const latProm = lats.reduce((a, b) => a + b, 0) / lats.length;
     const lngProm = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+
     const consistente = lecturas.every(l => {
       const dist = calcularDistanciaHaversine(latProm, lngProm, l.lat, l.lng);
       return dist < STABILIDAD_ACEPTABLE;
     });
+
     if (!consistente) {
       agregarLogDebug('⚠️ Lecturas inconsistentes - ignorando');
       return null;
     }
+
     const accuracyProm = lecturas.reduce((a, b) => a + b.accuracy, 0) / lecturas.length;
     return { lat: latProm, lng: lngProm, accuracy: accuracyProm };
   };
 
   const procesarLecturaConPromedio = (lat: number, lng: number, accuracy: number): { lat: number; lng: number; accuracy: number } | null => {
     const timestamp = Date.now();
+
     const nuevaLectura = { lat, lng, accuracy, timestamp };
     setLecturasBuffer(prev => {
       const nuevoBuffer = [...prev, nuevaLectura];
@@ -463,15 +462,18 @@ export default function Viaje() {
       }
       return nuevoBuffer;
     });
+
     if (lecturasBuffer.length >= LECTURAS_PROMEDIAR - 1) {
       const bufferActual = [...lecturasBuffer, nuevaLectura].slice(-LECTURAS_PROMEDIAR);
       const promedio = promediarLecturasConsistentes(bufferActual);
+
       if (promedio) {
         agregarLogDebug(`📊 Promedio GPS: ${promedio.lat.toFixed(5)}, ${promedio.lng.toFixed(5)} (±${promedio.accuracy.toFixed(0)}m) [${bufferActual.length}/${LECTURAS_PROMEDIAR}]`);
         setPosicionPromediada(promedio);
         return promedio;
       }
     }
+
     agregarLogDebug(`📡 Lectura ${lecturasBuffer.length + 1}/${LECTURAS_PROMEDIAR}: ${lat.toFixed(5)}, ${lng.toFixed(5)} (±${accuracy.toFixed(0)}m)`);
     return null;
   };
@@ -489,19 +491,23 @@ export default function Viaje() {
     if (timerValidacionRef.current) {
       clearInterval(timerValidacionRef.current);
     }
+
     const tiempoTotal = tipo === 'llegada' ? TIEMPO_LLEGADA : TIEMPO_SALIDA;
     setTiempoValidando(0);
     setEstadoDetectar(tipo === 'llegada' ? 'validando_llegada' : 'validando_salida');
     setMensajeGPS(tipo === 'llegada' ? 'Validando llegada...' : 'Validando salida...');
     setMostrarBotonManual(false);
+
     if (timerSignalRef.current) clearTimeout(timerSignalRef.current);
     timerSignalRef.current = setTimeout(() => {
       setMostrarBotonManual(true);
       setMensajeGPS('GPS inestable, puedes registrar manualmente');
     }, TIEMPO_BOTON_MANUAL);
+
     timerValidacionRef.current = setInterval(() => {
       setTiempoValidando(prev => {
         const nuevoTiempo = prev + 1000;
+
         if (nuevoTiempo >= tiempoTotal) {
           if (timerValidacionRef.current) {
             clearInterval(timerValidacionRef.current);
@@ -511,6 +517,7 @@ export default function Viaje() {
           setMensajeGPS('');
           onComplete();
         }
+
         return nuevoTiempo;
       });
     }, 1000);
@@ -538,6 +545,7 @@ export default function Viaje() {
     try {
       const now = nowPeru();
       const origen = proximoOrigen;
+
       const { data, error } = await supabase
         .from('viajes_bitacora')
         .insert([{
@@ -551,8 +559,10 @@ export default function Viaje() {
         }])
         .select()
         .single();
+
       if (!error && data) {
         setBitacora([...bitacora, data as ViajeBitacora]);
+
         await supabase
           .from('locales_ruta')
           .update({
@@ -561,11 +571,15 @@ export default function Viaje() {
             estado_visita: 'visitado'
           })
           .eq('id_local_ruta', local.id_local_ruta);
+
         showToast('success', `✓ Detour registrado en ${local.nombre}`);
         agregarLogDebug(`✅ Detour: ${local.nombre}`);
+
         setDetourPendiente(null);
         setEstadoDetectar('idle');
+
         setDetourParaFoto(local);
+
         await loadCurrentRuta();
       } else if (error) {
         showToast('error', 'Error: ' + error.message);
@@ -590,30 +604,37 @@ export default function Viaje() {
       setGpsDisponible(false);
       return;
     }
+
     const permisos = await verificarPermisosGPS();
     if (!permisos.granted) {
       agregarLogDebug('⚠️ Permisos denegados. Usa registro manual.');
       setGpsDisponible(false);
       return;
     }
+
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
+
     agregarLogDebug('🚀 Iniciando watchPosition con validación de orden...');
     setEstadoGPS('buscando');
     limpiarTemporizadoresValidacion();
     setLecturasBuffer([]);
+
     const options = {
       enableHighAccuracy: true,
       maximumAge: 0,
       timeout: 15000
     };
+
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         const accuracy = position.coords.accuracy;
+
         setGpsPosicionActual({ lat, lng });
+
         if (accuracy > ALERTA_PRECISION) {
           setSignalBaja(true);
           setMensajeGPS(`⚠️ Señal GPS baja (${accuracy.toFixed(0)}m), acércate más al punto`);
@@ -623,16 +644,21 @@ export default function Viaje() {
             setMensajeGPS('');
           }
         }
+
         const siguienteLocal = obtenerSiguienteLocalPendiente();
+
         if (siguienteLocal && estadoDetectar !== 'preguntando_detour') {
           setMensajeGPS(`🎯 Próximo: ${siguienteLocal.nombre}`);
         }
+
         const localesConLlegada = bitacora.filter(b => b.hora_llegada).map(b => b.destino_nombre);
         const localesPendientes = locales.filter(l =>
           !localesConLlegada.includes(l.nombre || '') && l.nombre !== 'Planta' && l.latitud && l.longitud
         );
+
         let localCerca: LocalRuta | null = null;
         let distanciaCerca = Infinity;
+
         for (const local of localesPendientes) {
           if (local.latitud && local.longitud) {
             const dist = calcularDistanciaHaversine(lat, lng, local.latitud, local.longitud);
@@ -643,9 +669,12 @@ export default function Viaje() {
             }
           }
         }
+
         if (localCerca && distanciaCerca !== Infinity) {
           setDistanciaAlPunto(distanciaCerca);
+
           const esSiguiente = siguienteLocal && siguienteLocal.id_local_ruta === localCerca.id_local_ruta;
+
           if (!esSiguiente && estadoDetectar !== 'preguntando_detour' && !detourPendiente) {
             setDetourPendiente(localCerca);
             setEstadoDetectar('preguntando_detour');
@@ -656,29 +685,38 @@ export default function Viaje() {
         } else {
           setDistanciaAlPunto(null);
         }
+
         const bitacoraActual = bitacora.length > 0 ? bitacora[bitacora.length - 1] : null;
         const necesitaLlegada = bitacoraActual && !bitacoraActual.hora_llegada;
         const necesitaSalida = bitacoraActual && bitacoraActual.hora_llegada && !bitacoraActual.hora_salida;
+
         if (accuracy > 150) {
           agregarLogDebug(`⚠️ GPS impreciso: ${accuracy.toFixed(0)}m`);
           setEstadoGPS('buscando');
           return;
         }
+
         const promedio = procesarLecturaConPromedio(lat, lng, accuracy);
         const latUsar = promedio?.lat || lat;
         const lngUsar = promedio?.lng || lng;
         const accuracyUsar = promedio?.accuracy || accuracy;
+
         const localActual = localCerca && siguienteLocal?.id_local_ruta === localCerca.id_local_ruta ? localCerca : null;
+
         if (localActual?.latitud && localActual?.longitud && siguienteLocal?.id_local_ruta === localActual.id_local_ruta) {
           const distancia = calcularDistanciaHaversine(latUsar, lngUsar, localActual.latitud, localActual.longitud);
           setDistanciaAlPunto(distancia);
+
           const radioBase = getRadioDinamico(accuracyUsar);
           const dentroDelRadio = distancia <= radioBase;
+
           if (!puedeRegistrar()) {
             setEstadoGPS('buscando');
             return;
           }
+
           setEstadoGPS(dentroDelRadio ? 'en_rango' : 'detectado');
+
           if (dentroDelRadio && necesitaLlegada) {
             if (estadoDetectar !== 'validando_llegada') {
               agregarLogDebug(`✅ En ${localActual.nombre} - iniciando validación`);
@@ -690,7 +728,8 @@ export default function Viaje() {
                 }
               });
             }
-          } else if (!dentroDelRadio && necesitaSalida) {
+          }
+          else if (!dentroDelRadio && necesitaSalida) {
             if (estadoDetectar !== 'validando_salida') {
               agregarLogDebug(`⭕ Saliendo de ${localActual.nombre} - validando`);
               iniciarTemporizadorValidacion('salida', () => {
@@ -701,13 +740,16 @@ export default function Viaje() {
                 }
               });
             }
-          } else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
+          }
+          else if (!dentroDelRadio && estadoDetectar === 'validando_llegada') {
             agregarLogDebug(`⚠️ Salió del radio - reiniciando`);
             limpiarTemporizadoresValidacion();
-          } else if (dentroDelRadio && estadoDetectar === 'validando_salida') {
+          }
+          else if (dentroDelRadio && estadoDetectar === 'validando_salida') {
             agregarLogDebug(`⚠️ Regresó al radio - reiniciando`);
             limpiarTemporizadoresValidacion();
-          } else if (!necesitaLlegada && !necesitaSalida) {
+          }
+          else if (!necesitaLlegada && !necesitaSalida) {
             if (estadoDetectar !== 'idle') {
               limpiarTemporizadoresValidacion();
               setLecturasBuffer([]);
@@ -751,17 +793,21 @@ export default function Viaje() {
       showToast('warning', 'Escribe una nota antes de guardar');
       return;
     }
+
     try {
       const { error } = await supabase
         .from('viajes_bitacora')
         .update({ observacion: notaActual.trim() })
         .eq('id_bitacora', notaBitacoraId);
+
       if (error) throw error;
+
       setBitacora(bitacora.map(b =>
         b.id_bitacora === notaBitacoraId
           ? { ...b, observacion: notaActual.trim() }
           : b
       ));
+
       showToast('success', 'Nota agregada correctamente');
       setShowNotaModal(false);
       setNotaActual('');
@@ -825,6 +871,7 @@ export default function Viaje() {
       .eq('id_ruta', idRuta)
       .order('orden', { ascending: true });
     if (localesData) setLocales(localesData as LocalRuta[]);
+
     const { data: bitacoraData } = await supabase
       .from('viajes_bitacora')
       .select('*')
@@ -859,10 +906,12 @@ export default function Viaje() {
 
   const guardarEdicionHora = async (tramo: ViajeBitacora) => {
     if (!editHoraSalida) return;
+
     const [hS, mS] = editHoraSalida.split(':').map(Number);
     const fechaBase = new Date(tramo.hora_salida);
     const nuevaSalida = new Date(fechaBase);
     nuevaSalida.setHours(hS, mS, 0, 0);
+
     let nuevaLlegada: Date | null = null;
     if (editHoraLlegada && editHoraLlegada !== '') {
       const [hL, mL] = editHoraLlegada.split(':').map(Number);
@@ -870,10 +919,12 @@ export default function Viaje() {
       nuevaLlegada = new Date(fechaBaseL);
       nuevaLlegada.setHours(hL, mL, 0, 0);
     }
+
     if (nuevaLlegada && nuevaLlegada <= nuevaSalida) {
       showToast('error', 'La llegada no puede ser anterior a la salida');
       return;
     }
+
     const idxActual = bitacora.findIndex(b => b.id_bitacora === tramo.id_bitacora);
     if (idxActual > 0) {
       const tramoAnterior = bitacora[idxActual - 1];
@@ -882,14 +933,18 @@ export default function Viaje() {
         return;
       }
     }
+
     const updates: Partial<ViajeBitacora> = { hora_salida: nuevaSalida.toISOString() };
     if (nuevaLlegada) {
       updates.hora_llegada = nuevaLlegada.toISOString();
     }
+
     await supabase.from('viajes_bitacora').update(updates).eq('id_bitacora', tramo.id_bitacora);
+
     let bitacoraActualizada = bitacora.map(b =>
       b.id_bitacora === tramo.id_bitacora ? { ...b, ...updates } : b
     );
+
     if (nuevaLlegada && idxActual < bitacoraActualizada.length - 1) {
       const siguienteTramo = bitacoraActualizada[idxActual + 1];
       const horaSalidaSiguiente = new Date(siguienteTramo.hora_salida);
@@ -901,6 +956,7 @@ export default function Viaje() {
         );
       }
     }
+
     setBitacora(bitacoraActualizada);
     setEditandoBitacora(null);
   };
@@ -911,15 +967,19 @@ export default function Viaje() {
       .select('*')
       .eq('id_ruta', rutaId)
       .order('orden', { ascending: true });
+
     if (locError) {
       console.error('Error loading locales_ruta:', locError);
       return [];
     }
+
     const localeIds = localesData?.map(l => l.id_local_ruta) || [];
+
     const { data: guiasData } = await supabase
       .from('guias_remision')
       .select('*')
       .in('id_local_ruta', localeIds);
+
     return (localesData || []).map(l => ({
       ...l,
       guias: (guiasData || []).filter((g: any) => g.id_local_ruta === l.id_local_ruta)
@@ -934,7 +994,9 @@ export default function Viaje() {
     if (!loadedAtLeastOnce) {
       setLoading(true);
     }
+
     const pathParts = window.location.pathname.split('/historial/');
+
     try {
       if (pathParts.length > 1) {
         const rutaIdFromUrl = pathParts[1];
@@ -944,24 +1006,31 @@ export default function Viaje() {
           .eq('id_ruta', rutaIdFromUrl)
           .or(`id_chofer.eq.${profile.id_usuario},id_asistente.eq.${profile.id_usuario}`)
           .maybeSingle();
+
         if (rhError) console.error('Error loading ruta histórica:', rhError);
+
         if (rutaHistorica) {
           setRuta(rutaHistorica as Ruta);
           setEsHistorial(true);
+
           const localesData = await fetchLocalesWithGuias(rutaHistorica.id_ruta);
           setLocales(localesData);
+
           const { data: bitacoraData, error: bitError } = await supabase
             .from('viajes_bitacora')
             .select('*')
             .eq('id_ruta', rutaHistorica.id_ruta)
             .order('created_at', { ascending: true });
+
           if (bitError) console.error('Error loading bitacora:', bitError);
           setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
+
           await loadRutasBase();
           setLoading(false);
           return;
         }
       }
+
       const { data: rutaActiva, error: rError } = await supabase
         .from('rutas')
         .select('*')
@@ -970,17 +1039,22 @@ export default function Viaje() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
       if (rutaActiva) {
         setRuta(rutaActiva as Ruta);
+
         const localesData = await fetchLocalesWithGuias(rutaActiva.id_ruta);
         setLocales(localesData);
+
         const { data: bitacoraData, error: bitError } = await supabase
           .from('viajes_bitacora')
           .select('*')
           .eq('id_ruta', rutaActiva.id_ruta)
           .order('created_at', { ascending: true });
+
         if (bitError) console.error('Error loading bitacora:', bitError);
         setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
+
         await loadRutasBase();
       } else {
         const today = formatOnlyDatePeru();
@@ -993,16 +1067,21 @@ export default function Viaje() {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+
         if (rfError) console.error('Error loading ruta finalizada:', rfError);
+
         if (rutaFinalizada) {
           setRuta(rutaFinalizada as Ruta);
+
           const localesData = await fetchLocalesWithGuias(rutaFinalizada.id_ruta);
           setLocales(localesData);
+
           const { data: bitacoraData, error: bitError } = await supabase
             .from('viajes_bitacora')
             .select('*')
             .eq('id_ruta', rutaFinalizada.id_ruta)
             .order('created_at', { ascending: true });
+
           if (bitError) console.error('Error loading bitacora:', bitError);
           setBitacora(bitacoraData ? (bitacoraData as ViajeBitacora[]) : []);
         } else {
@@ -1010,6 +1089,7 @@ export default function Viaje() {
           setLocales([]);
           setBitacora([]);
         }
+
         await loadRutasBase();
       }
     } catch (err: any) {
@@ -1037,23 +1117,29 @@ export default function Viaje() {
         .from('rutas_base')
         .select('*')
         .order('nombre');
+
       if (rbError) {
         console.error('Error loading rutas base:', rbError);
         return;
       }
+
       if (baseData && baseData.length > 0) {
         const { data: allLocales, error: locError } = await supabase
           .from('locales_base')
           .select('id_ruta_base');
+
         if (locError) console.error('Error counting locales:', locError);
+
         const countMap: Record<string, number> = {};
         (allLocales || []).forEach((l: any) => {
           countMap[l.id_ruta_base] = (countMap[l.id_ruta_base] || 0) + 1;
         });
+
         const withCounts = baseData.map(rb => ({
           ...rb,
           locales_count: countMap[rb.id_ruta_base] || 0
         }));
+
         setRutasBase(withCounts);
       } else {
         setRutasBase([]);
@@ -1069,6 +1155,7 @@ export default function Viaje() {
 
   useEffect(() => {
     let timerId: NodeJS.Timeout | undefined;
+
     if (!profile?.id_usuario) {
       const timer = setTimeout(() => {
         if (!profile?.id_usuario) {
@@ -1079,6 +1166,7 @@ export default function Viaje() {
       }, 2000);
       return () => clearTimeout(timer);
     }
+
     timerId = setTimeout(() => {
       console.warn('[Viaje] useEffect safety timer (6s) - forzando liberación');
       setLoading(false);
@@ -1086,7 +1174,9 @@ export default function Viaje() {
       setRutasBaseLoaded(true);
       setLoadedAtLeastOnce(true);
     }, 6000);
+
     loadCurrentRuta();
+
     const channel = supabase
       .channel(`viaje_chofer_${profile.id_usuario}`)
       .on('postgres_changes', {
@@ -1099,7 +1189,9 @@ export default function Viaje() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locales_ruta' }, () => loadCurrentRuta())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'guias_remision' }, () => loadCurrentRuta())
       .subscribe();
+
     window.addEventListener('online', loadCurrentRuta);
+
     return () => {
       if (timerId) clearTimeout(timerId);
       supabase.removeChannel(channel);
@@ -1112,6 +1204,7 @@ export default function Viaje() {
       setGpsDisponible(false);
       return;
     }
+
     setGpsVerificando(true);
     navigator.geolocation.getCurrentPosition(
       () => {
@@ -1150,7 +1243,9 @@ export default function Viaje() {
         .from('viajes_bitacora')
         .update({ destino_nombre: destinoEditado.trim() })
         .eq('id_bitacora', idBitacora);
+
       if (error) throw error;
+
       setBitacora(bitacora.map(b =>
         b.id_bitacora === idBitacora
           ? { ...b, destino_nombre: destinoEditado.trim() }
@@ -1166,7 +1261,7 @@ export default function Viaje() {
   };
 
   const handleCreateViaje = async () => {
-    if (esDiaDescanso) {
+    if (diaDescansoBloqueado) {
       showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'error');
       return;
     }
@@ -1177,23 +1272,30 @@ export default function Viaje() {
     }
     setCreateError('');
     setIsCreating(true);
+
     try {
       const baseRuta = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
+      const today = formatOnlyDatePeru();
+
       const { data: baseLocales, error: lbError } = await supabase
         .from('locales_base')
         .select('*')
         .eq('id_ruta_base', selectedRutaBase)
         .order('orden', { ascending: true });
+
       if (lbError) {
         setCreateError(`Error al consultar locales base: ${lbError.message}`);
         return;
       }
+
       if (!baseLocales || baseLocales.length === 0) {
         setCreateError('Esta plantilla no tiene locales configurados. Pide al administrador que los agregue.');
         setIsCreating(false);
         return;
       }
+
       const template = rutasBase.find(r => r.id_ruta_base === selectedRutaBase);
+
       let publicUrlInicio = '';
       if (fotoKmInicio) {
         setSubiendoFoto(true);
@@ -1202,11 +1304,13 @@ export default function Viaje() {
         const { error: uploadError } = await supabase.storage
           .from('combustible_fotos')
           .upload(`kilometraje/${fileName}`, blob);
+
         if (!uploadError) {
           const { data } = supabase.storage.from('combustible_fotos').getPublicUrl(`kilometraje/${fileName}`);
           publicUrlInicio = data.publicUrl;
         }
       }
+
       const { data: newRuta, error: rError } = await supabase
         .from('rutas')
         .insert({
@@ -1220,7 +1324,9 @@ export default function Viaje() {
         })
         .select()
         .single();
+
       if (rError) throw rError;
+
       const localesRuta = baseLocales.map(bl => ({
         id_ruta: newRuta.id_ruta,
         id_local_base: bl.id_local_base,
@@ -1231,12 +1337,16 @@ export default function Viaje() {
         orden: bl.orden,
         estado_visita: 'pendiente'
       }));
+
       const { error: insertError } = await supabase.from('locales_ruta').insert(localesRuta);
       if (insertError) throw insertError;
+
       await loadCurrentRuta();
+
       setSelectedRutaBase('');
       setFotoKmInicio(null);
       setKmInicio('');
+
     } catch (e: any) {
       console.error('[Viaje] Error al crear viaje:', e);
       setCreateError('Error al crear el viaje: ' + (e.message || JSON.stringify(e)));
@@ -1259,8 +1369,11 @@ export default function Viaje() {
     const ultimoDestino = tramosCompletados.length > 0
       ? tramosCompletados[tramosCompletados.length - 1].destino_nombre
       : 'Planta';
+
     const localesOrdenados = [...locales].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+
     const localActual = localesOrdenados.find(l => normalizar(l.nombre || '') === normalizar(ultimoDestino || ''));
+
     if (localActual) {
       const siguienteEnOrden = localesOrdenados.find(l =>
         (l.orden || 0) > (localActual.orden || 0) &&
@@ -1270,11 +1383,14 @@ export default function Viaje() {
       );
       if (siguienteEnOrden) return siguienteEnOrden.nombre || '';
     }
+
     const pendiente = localesOrdenados.find(l =>
       !localesRegistrados.some(r => normalizar(r) === normalizar(l.nombre || ''))
     );
     if (pendiente) return pendiente.nombre || '';
+
     if (bitacora.length > 0 && !localesRegistrados.includes('Planta')) return 'Planta';
+
     return '';
   };
 
@@ -1286,7 +1402,7 @@ export default function Viaje() {
   }, [tramoEnProgreso, bitacora.length, localesRegistrados.length]);
 
   const handleRegistrarSalida = async () => {
-    if (esDiaDescanso) {
+    if (diaDescansoBloqueado) {
       showToast('Hoy es tu día de descanso.', 'error');
       return;
     }
@@ -1297,6 +1413,7 @@ export default function Viaje() {
     }
     try {
       const origen = proximoOrigen;
+
       setActionLoading(true);
       let lat = null, lng = null;
       try {
@@ -1315,6 +1432,7 @@ export default function Viaje() {
       } catch (e) {
         console.warn('GPS Error:', e);
       }
+
       const { data, error } = await supabase
         .from('viajes_bitacora')
         .insert([{
@@ -1328,6 +1446,7 @@ export default function Viaje() {
         }])
         .select()
         .single();
+
       if (!error && data) {
         setBitacora([...bitacora, data as ViajeBitacora]);
         if (origen !== 'Planta') {
@@ -1364,7 +1483,7 @@ export default function Viaje() {
   };
 
   const handleRegistrarLlegada = async (idBitacora: string, modoManual = false) => {
-    if (esDiaDescanso) {
+    if (diaDescansoBloqueado) {
       showToast('Hoy es tu día de descanso.', 'error');
       return;
     }
@@ -1373,10 +1492,12 @@ export default function Viaje() {
       alert('No puedes modificar un viaje histórico');
       return;
     }
+
     setActionLoading(true);
     try {
       let lat = null, lng = null;
       let tipoRegistro = 'automatico';
+
       if (modoManual) {
         tipoRegistro = 'manual';
       } else {
@@ -1389,11 +1510,12 @@ export default function Viaje() {
           } else {
             agregarLogDebug('📍 Intentando obtener GPS fresco...');
             const pos = await iniciarGPSConPermisos();
+
             if (pos) {
               lat = pos.lat;
               lng = pos.lng;
               tipoRegistro = 'automatico';
-              agregarLogDebug(`✅ GPS fresco: ${lat.toFixed(5)},${lng.toFixed(5)} (±${pos.accuracy.toFixed(0)}m)`);
+              agregarLogDebug(`✅ GPS Fresco: ${lat.toFixed(5)},${lng.toFixed(5)} (±${pos.accuracy.toFixed(0)}m)`);
             } else {
               tipoRegistro = 'manual';
               agregarLogDebug('⚠️ Sin GPS - modo manual');
@@ -1405,24 +1527,31 @@ export default function Viaje() {
           agregarLogDebug('❌ Error GPS');
         }
       }
+
       const now = nowPeru();
+
       const updateData: any = {
         hora_llegada: now,
         gps_llegada_lat: lat,
         gps_llegada_lng: lng,
         tipo_registro: tipoRegistro
       };
+
       const { data, error } = await supabase
         .from('viajes_bitacora')
         .update(updateData)
         .eq('id_bitacora', idBitacora)
         .select()
         .single();
+
       console.log('Respuesta Supabase (Llegada):', data, error);
+
       if (!error && data) {
         setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
+
         const normalizar = (s: string) => (s || '').trim().toLowerCase();
         const eraDetour = localesRegistrados.some(r => normalizar(r) === normalizar(data.destino_nombre || ''));
+
         if (data.destino_nombre !== 'Planta' && !eraDetour) {
           await supabase.from('locales_ruta').update({
             hora_llegada: now,
@@ -1450,8 +1579,10 @@ export default function Viaje() {
           if (ruta) setRuta({ ...ruta, estado: 'finalizada' });
           setShowFinalKmModal(true);
         }
+
         setUltimoRegistroTime(Date.now());
         setEstadoGPS('registrado');
+
         agregarLogDebug(`✅ LLEGADA REGISTRADA (${tipoRegistro}): ${data.destino_nombre}`);
         showToast('success', tipoRegistro === 'automatico' ? '✓Llegada automática' : '✓Llegada manual');
         setShowModoManual(false);
@@ -1469,11 +1600,13 @@ export default function Viaje() {
   };
 
   const handleRegistrarSalidaAutomatica = async (idBitacora: string) => {
-    if (esDiaDescanso) return;
+    if (diaDescansoBloqueado) return;
     if (actionLoading) return;
     if (esHistorial) return;
+
     setActionLoading(true);
     let lat = null, lng = null;
+
     try {
       if (gpsPosicionActual && !signalBaja) {
         lat = gpsPosicionActual.lat;
@@ -1491,21 +1624,27 @@ export default function Viaje() {
     } catch (e) {
       console.warn('GPS Error:', e);
     }
+
     const now = nowPeru();
+
     const { data, error } = await supabase
       .from('viajes_bitacora')
       .update({ hora_salida: now, gps_salida_lat: lat, gps_salida_lng: lng })
       .eq('id_bitacora', idBitacora)
       .select()
       .single();
+
     if (!error && data) {
       setBitacora(bitacora.map(b => b.id_bitacora === idBitacora ? (data as ViajeBitacora) : b));
+
       if (data.origen_nombre && data.origen_nombre !== 'Planta') {
         await supabase.from('locales_ruta').update({ hora_salida: now }).eq('id_ruta', ruta?.id_ruta).eq('nombre', data.origen_nombre);
       }
+
       setUltimoRegistroTime(Date.now());
       agregarLogDebug(`✅ SALIDA registrada: ${data.destino_nombre}`);
       showToast('success', '✓Salida automática');
+
       setLecturasBuffer([]);
       setPosicionPromediada(null);
     } else if (error) {
