@@ -14,7 +14,7 @@ import {
   differenceInMinutes, parseISO, isValid, parse
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatFriendlyDate, nowPeru, formatOnlyDatePeru } from '../../../lib/timezone';
+import { formatFriendlyDate } from '../../../lib/timezone';
 import type { AsistenciaChofer, TipoAsistencia } from '../../../types';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -117,20 +117,16 @@ function formatDurationHuman(mins: number): string {
 function calcularTiempoMinutos(horaInicio: string | null, horaFin: string | null): number {
   if (!horaInicio || !horaFin) return 0;
   try {
-    // Si son solo horas (formato HH:mm sin fecha completa), extraer solo la parte de tiempo
     const soloHora = (h: string) => {
       if (h.includes('T') && h.length <= 16) {
-        // Es ISO pero sin segundos: "2024-04-24T03:30"
         const parts = h.split('T');
         const timePart = parts[1]?.substring(0, 5) || h;
         const [ho, mi] = timePart.split(':').map(Number);
         return { hora: ho || 0, min: mi || 0 };
       } else if (h.includes('T')) {
-        // Es ISO completo
         const d = parseISO(h);
         return { hora: d.getHours(), min: d.getMinutes() };
       } else if (h.includes(':')) {
-        // Es solo hora "03:30"
         const [ho, mi] = h.split(':').map(Number);
         return { hora: ho || 0, min: mi || 0 };
       }
@@ -144,7 +140,7 @@ function calcularTiempoMinutos(horaInicio: string | null, horaFin: string | null
     const minsFin = fin.hora * 60 + fin.min;
 
     let diff = minsFin - minsInicio;
-    if (diff < 0) diff += 24 * 60; // Si cruzó medianoche
+    if (diff < 0) diff += 24 * 60;
 
     return diff > 0 && diff < 24 * 60 ? diff : 0;
   } catch {
@@ -157,35 +153,31 @@ function getDiaSemana(fecha: string): string {
   return dias[parseISO(fecha).getDay()];
 }
 
-// Datos reales desde Supabase
-
 export default function AnalisisRutas() {
   const [loading, setLoading] = useState(true);
   const [rutas, setRutas] = useState<RutaData[]>([]);
-  // mejorTiempoPorDia: key = día ISO (0=Dom,1=Lun...), value = mejor tiempo en minutos
   const [mejorTiempoPorDia, setMejorTiempoPorDia] = useState<Record<number, number>>({});
-  // Por defecto cargamos 14 días para tener semana actual + anterior
+
+  // 🔧 CORRECCIÓN: usar new Date() en lugar de nowPeru()
   const [fechaInicio, setFechaInicio] = useState<string>(() => {
-    // nowPeru() retorna string ISO, debemos convertir a Date para manipular
-    const d = new Date(nowPeru());
+    const d = new Date();
     d.setDate(d.getDate() - 20);
     return format(d, 'yyyy-MM-dd');
   });
-  const [fechaFin, setFechaFin] = useState<string>(() => formatOnlyDatePeru());
+  const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [choferFilter, setChoferFilter] = useState<string>('todos');
   const [choferes, setChoferes] = useState<{ id_usuario: string; nombre: string; dias_descanso: string[]; fecha_ingreso: string | null }[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaChofer[]>([]);
   const [showAsistenciaModal, setShowAsistenciaModal] = useState(false);
   const [nuevaAsistencia, setNuevaAsistencia] = useState<Partial<AsistenciaChofer>>({
     estado: 'falta',
-    fecha: formatOnlyDatePeru()
+    fecha: format(new Date(), 'yyyy-MM-dd')
   });
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Label dinámico para comparación acumulada de la semana
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  const nowObj = new Date(nowPeru());
+  const nowObj = new Date();
   const dow = nowObj.getDay();
   const diasTranscurridosLabel = dow === 0 ? 7 : dow;
   const diaFin = diasSemana[dow];
@@ -194,8 +186,7 @@ export default function AnalisisRutas() {
     ? `1 día (${diaFin})`
     : `Acumulado ${diaInicio}–${diaFin}`;
 
-  // ── Semana auto: lunes–domingo de la semana actual y la anterior ──
-  const now = new Date(nowPeru());
+  const now = new Date();
   const semanaActualInicio = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   const semanaActualFin = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   const semanaAnteriorInicio = format(startOfWeek(subDays(now, 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -203,29 +194,23 @@ export default function AnalisisRutas() {
 
   const semanaStats = useMemo(() => {
     const filtrarChofer = (r: RutaData) => choferFilter === 'todos' || r.id_chofer === choferFilter;
-    const today = new Date(nowPeru());
+    const today = new Date();
 
-    // ¿Qué día de la semana es hoy? (1=Lun...7=Dom)
-    // getDay() returns 0=Sun, so we map to 1=Mon...7=Sun
     const dowToday = today.getDay() === 0 ? 7 : today.getDay();
-    // Días transcurridos en esta semana incluyendo hoy (1 = solo lunes, 2 = lun+mar, ...)
     const diasTranscurridos = dowToday;
 
-    // Semana actual: desde el lunes de esta semana hasta HOY
     const semActIni = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
     const semActFin = format(today, 'yyyy-MM-dd');
 
-    // Semana anterior: MISMOS días equivalentes (lunes pasado + diasTranscurridos - 1)
     const lunesPasado = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
     const semAntIni = format(lunesPasado, 'yyyy-MM-dd');
-    const semAntFin = format(subDays(lunesPasado, -diasTranscurridos + 1), 'yyyy-MM-dd'); // lunes + (dias-1)
+    const semAntFin = format(subDays(lunesPasado, -diasTranscurridos + 1), 'yyyy-MM-dd');
     const actual = rutas.filter(r => filtrarChofer(r) && r.fecha >= semActIni && r.fecha <= semActFin);
     const anterior = rutas.filter(r => filtrarChofer(r) && r.fecha >= semAntIni && r.fecha <= semAntFin);
 
     const horasActual = actual.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
     const horasAnterior = anterior.reduce((s, r) => s + (r.tiempo_real || 0), 0) / 60;
 
-    // Validación de comparación
     const sinDatosActual = actual.length === 0;
     const sinDatosAnterior = anterior.length === 0;
     const comparacionParcial = sinDatosActual || sinDatosAnterior;
@@ -244,7 +229,6 @@ export default function AnalisisRutas() {
       comparacionParcial,
       sinDatosActual,
       sinDatosAnterior,
-      // Labels for transparency
       labelActual: `${semActIni} – ${semActFin}`,
       labelAnterior: `${semAntIni} – ${semAntFin}`,
       diaEquivalente: diasSemana[today.getDay()],
@@ -262,7 +246,6 @@ export default function AnalisisRutas() {
       kmTotal: number;
     }>();
 
-    // Inicializar mapa con todos los choferes para incluirlos aunque no tengan rutas
     choferes.forEach(c => {
       choferMap.set(c.id_usuario, {
         id: c.id_usuario,
@@ -297,10 +280,8 @@ export default function AnalisisRutas() {
       }
     });
 
-
     return Array.from(choferMap.values())
       .map(c => {
-        // Mapear nombre de día o número a número
         const diasMap: Record<string, number> = {
           'domingo': 0, 'lunes': 1, 'martes': 2, 'miercoles': 3, 'miércoles': 3,
           'jueves': 4, 'viernes': 5, 'sabado': 6, 'sábado': 6,
@@ -361,7 +342,6 @@ export default function AnalisisRutas() {
       return true;
     });
 
-    // Count unique dates with finalized routes
     const fechasUnicas = new Set(filtered.map(r => r.fecha).filter(Boolean));
     const diasTrabajados = fechasUnicas.size;
     const totalRutas = diasTrabajados;
@@ -463,7 +443,6 @@ export default function AnalisisRutas() {
         ? conEff.reduce((sum, r) => sum + (r.eficiencia || 0), 0) / conEff.length
         : 0;
 
-      // Variación diaria
       const variacion = tiempoAnterior > 0 ? ((tiempoActual - tiempoAnterior) / tiempoAnterior) * 100 : 0;
 
       result.push({
@@ -491,7 +470,7 @@ export default function AnalisisRutas() {
     }[] = [];
 
     for (let i = 13; i >= 0; i--) {
-      const fecha = subDays(new Date(nowPeru()), i);
+      const fecha = subDays(new Date(), i);
       const fechaStr = format(fecha, 'yyyy-MM-dd');
       const rutasDia = rutas.filter(r => filtrarChofer(r) && r.fecha === fechaStr);
 
@@ -526,7 +505,6 @@ export default function AnalisisRutas() {
 
     if (rutas.length === 0) return;
 
-    // 1. Variación semanal AUTOMÁTICA (basada en semanas reales lun-dom)
     if (semanaStats.horasAnterior > 0) {
       const diff = semanaStats.pct!;
       newInsights.push({
@@ -542,7 +520,6 @@ export default function AnalisisRutas() {
       });
     }
 
-    // 2. Día más lento
     const diaLento = [...comparacionSemanal].sort((a, b) => b.semanaActual - a.semanaActual)[0];
     if (diaLento && diaLento.semanaActual > 0) {
       newInsights.push({
@@ -552,7 +529,6 @@ export default function AnalisisRutas() {
       });
     }
 
-    // 3. Visitas extra (Ineficiencias)
     const extraVisits = stats.totalExtra;
     if (extraVisits > 0) {
       newInsights.push({
@@ -562,7 +538,6 @@ export default function AnalisisRutas() {
       });
     }
 
-    // 4. Chofer destacado
     if (rendimientoChoferes.length > 0) {
       const mejorChofer = rendimientoChoferes[0];
       newInsights.push({
@@ -611,7 +586,7 @@ export default function AnalisisRutas() {
       alert('Error: ' + error.message);
     } else {
       setShowAsistenciaModal(false);
-      setNuevaAsistencia({ estado: 'falta', fecha: formatOnlyDatePeru() });
+      setNuevaAsistencia({ estado: 'falta', fecha: format(new Date(), 'yyyy-MM-dd') });
       loadData();
     }
   };
@@ -619,33 +594,29 @@ export default function AnalisisRutas() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch ALL historical rutas (no date limit) to compute best times per weekday
       const { data: allRutas } = await supabase
         .from('rutas')
         .select('fecha, hora_salida_planta, hora_llegada_planta, estado')
         .eq('estado', 'finalizada');
 
-      // Compute best time (minimum) per weekday from ALL history
-      const mejores: Record<number, number> = {}; // key: 0=Dom..6=Sáb
-      const conteo: Record<number, number> = {}; // how many data points per weekday
+      const mejores: Record<number, number> = {};
+      const conteo: Record<number, number> = {};
       (allRutas || []).forEach(r => {
         const t = calcularTiempoMinutos(r.hora_salida_planta, r.hora_llegada_planta);
         if (t <= 0) return;
         const dia = parseISO(r.fecha).getDay();
 
         conteo[dia] = (conteo[dia] || 0) + 1;
-        // Only store best if we have at least 1 data point; we validate later with conteo
         if (!mejores[dia] || t < mejores[dia]) mejores[dia] = t;
       });
-      // Only keep days with at least 2 historical data points
       const mejoresValidados: Record<number, number> = {};
       Object.keys(mejores).forEach(d => {
         if ((conteo[Number(d)] || 0) >= 2) mejoresValidados[Number(d)] = mejores[Number(d)];
       });
       setMejorTiempoPorDia(mejoresValidados);
 
-      // 2. Fetch rutas in the selected range
-      const inicioMes = nowPeru().substring(0, 7) + '-01';
+      // 🔧 CORRECCIÓN: usar new Date() en lugar de nowPeru()
+      const inicioMes = new Date().toISOString().substring(0, 7) + '-01';
       const fechaInicioQuery = fechaInicio < inicioMes ? fechaInicio : inicioMes;
       const { data: rutasData, error: rutasError } = await supabase
         .from('rutas')
@@ -656,7 +627,6 @@ export default function AnalisisRutas() {
 
       if (rutasError) throw rutasError;
 
-      // 2. Fetch manual asistencia records
       const { data: fData } = await supabase
         .from('asistencia_chofer')
         .select('*, usuarios(nombre)')
@@ -670,7 +640,6 @@ export default function AnalisisRutas() {
         })));
       }
 
-      // 3. Fetch viajes_bitacora to count REAL visits (excluding Planta)
       const { data: bitacoraData, error: bitacoraError } = await supabase
         .from('viajes_bitacora')
         .select('id_ruta, destino_nombre, hora_llegada')
@@ -684,7 +653,6 @@ export default function AnalisisRutas() {
           const diaSemana = parseISO(r.fecha).getDay();
           const tEstimado = mejoresValidados[diaSemana] || 0;
 
-          // Filtro de paradas reales (idéntico a Viajes.tsx)
           const segments = bitacoraData?.filter(b =>
             b.id_ruta === r.id_ruta &&
             b.hora_llegada &&
@@ -694,9 +662,8 @@ export default function AnalisisRutas() {
           const totalVisitas = segments.length;
           const uniqueLocales = new Set(segments.map(s => s.destino_nombre?.toLowerCase().trim())).size;
 
-          // Eficiencia basada en mejor tiempo histórico si existe
           const eficiencia = (tEstimado > 0 && tReal > 0)
-            ? Math.min((tEstimado / tReal) * 100, 100)  // cap at 100%
+            ? Math.min((tEstimado / tReal) * 100, 100)
             : 0;
 
           return {
@@ -732,7 +699,7 @@ export default function AnalisisRutas() {
 
   return (
     <div className="space-y-6">
-      {/* Header + Auto Weekly Comparison Hero */}
+      {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
           <div>
@@ -746,7 +713,6 @@ export default function AnalisisRutas() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Chofer filter */}
             <select
               value={choferFilter}
               onChange={(e) => setChoferFilter(e.target.value)}
@@ -758,7 +724,6 @@ export default function AnalisisRutas() {
               ))}
             </select>
 
-            {/* Toggle filtros avanzados */}
             <button
               onClick={() => setShowFilters(v => !v)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-surface-light text-text-muted hover:text-white text-sm transition-colors"
@@ -770,7 +735,6 @@ export default function AnalisisRutas() {
           </div>
         </div>
 
-        {/* Filtros avanzados (colapsable) */}
         {showFilters && (
           <div className="flex flex-wrap items-center gap-3 p-4 bg-surface border border-surface-light rounded-xl animate-in slide-in-from-top-2">
             <Calendar size={16} className="text-text-muted" />
@@ -792,11 +756,10 @@ export default function AnalisisRutas() {
         )}
       </div>
 
-      {/* ── HERO: Comparación Semanal Automática ── */}
+      {/* Hero: Comparación Semanal Automática */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Total horas semana */}
         <div className={`lg:col-span-2 p-5 rounded-2xl border-2 flex items-center justify-between gap-6 ${semanaStats.pct === null ? 'bg-surface border-surface-light' :
-            semanaStats.pct < 0 ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'
+          semanaStats.pct < 0 ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'
           }`}>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -870,7 +833,6 @@ export default function AnalisisRutas() {
           </div>
         </div>
 
-        {/* Visitas semana actual */}
         <div className="p-5 rounded-2xl border border-surface-light bg-surface flex flex-col justify-center gap-1">
           <p className="text-xs font-black uppercase tracking-widest text-text-muted flex items-center gap-1">
             Visitas esta semana
@@ -883,7 +845,6 @@ export default function AnalisisRutas() {
         </div>
       </div>
 
-
       {/* Comparación Día Equivalente */}
       {comparacionDiaEquivalente.hayDatosPasados && (
         <Card className="bg-surface border border-surface-light overflow-hidden">
@@ -895,7 +856,6 @@ export default function AnalisisRutas() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* KM */}
               <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
                 <p className="text-text-muted text-[10px] uppercase font-bold mb-1">Kilómetros Recorridos</p>
                 <div className="flex items-baseline gap-2">
@@ -909,7 +869,6 @@ export default function AnalisisRutas() {
                 </p>
               </div>
 
-              {/* Tiempo */}
               <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
                 <p className="text-text-muted text-[10px] uppercase font-bold mb-1">Tiempo de Ruta</p>
                 <div className="flex items-baseline gap-2">
@@ -923,7 +882,6 @@ export default function AnalisisRutas() {
                 </p>
               </div>
 
-              {/* Paradas */}
               <div className="bg-surface-light/30 p-4 rounded-xl border border-white/5">
                 <p className="text-text-muted text-[10px] uppercase font-bold mb-1">Visitas / Paradas</p>
                 <div className="flex items-baseline gap-2">
@@ -941,7 +899,7 @@ export default function AnalisisRutas() {
         </Card>
       )}
 
-      {/* Summary Cards del Período Seleccionado */}
+      {/* Summary Cards */}
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-bold text-white flex items-center gap-2 px-1">
           Totales del Período Seleccionado
@@ -950,7 +908,6 @@ export default function AnalisisRutas() {
           </span>
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-
           <Card className="bg-surface border border-surface-light overflow-hidden">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -960,7 +917,7 @@ export default function AnalisisRutas() {
                 <div>
                   <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                     Total Horas
-                    <Tooltip content="Total acumulado de horas trabajadas desde el inicio del registro. No es una comparación, solo un resumen general." />
+                    <Tooltip content="Total acumulado de horas trabajadas desde el inicio del registro." />
                   </p>
                   <div className="flex items-baseline gap-1">
                     <p className="text-xl font-black text-white">{stats.totalHoras.toFixed(1)}h</p>
@@ -998,7 +955,7 @@ export default function AnalisisRutas() {
                 <div>
                   <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                     Visitas Realizadas
-                    <Tooltip content="Total de paradas realizadas en todo el periodo. Incluye todas las visitas, incluso si se repite el mismo local." />
+                    <Tooltip content="Total de paradas realizadas en todo el periodo." />
                   </p>
                   <div className="flex items-baseline gap-2">
                     <p className="text-xl font-black text-white">{stats.totalReal}</p>
@@ -1019,7 +976,7 @@ export default function AnalisisRutas() {
                 <div>
                   <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                     Locales Únicos
-                    <Tooltip content="Cantidad de clientes diferentes visitados, sin contar repeticiones en un mismo día o ruta." />
+                    <Tooltip content="Cantidad de clientes diferentes visitados, sin contar repeticiones." />
                   </p>
                   <p className="text-xl font-black text-white">{stats.totalUnicos}</p>
                 </div>
@@ -1058,7 +1015,7 @@ export default function AnalisisRutas() {
                 <div>
                   <p className="text-[10px] text-text-muted uppercase font-bold flex items-center gap-1">
                     Rutas
-                    <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
+                    <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado." />
                   </p>
                   <p className="text-xl font-black text-white">
                     {stats.rutasCompletadas}/{stats.totalRutas}
@@ -1089,13 +1046,13 @@ export default function AnalisisRutas() {
             <div
               key={idx}
               className={`p-4 rounded-xl border ${insight.tipo.includes('positivo') ? 'bg-green-500/10 border-green-500/30' :
-                  insight.tipo.includes('negativo') ? 'bg-red-500/10 border-red-500/30' :
-                    'bg-blue-500/10 border-blue-500/30'
+                insight.tipo.includes('negativo') ? 'bg-red-500/10 border-red-500/30' :
+                  'bg-blue-500/10 border-blue-500/30'
                 }`}
             >
               <p className={`font-bold text-sm ${insight.tipo.includes('positivo') ? 'text-green-400' :
-                  insight.tipo.includes('negativo') ? 'text-red-400' :
-                    'text-blue-400'
+                insight.tipo.includes('negativo') ? 'text-red-400' :
+                  'text-blue-400'
                 }`}>
                 {insight.titulo}
               </p>
@@ -1113,7 +1070,7 @@ export default function AnalisisRutas() {
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               <Clock size={20} />
               Tiempo de Ruta: Esta Semana vs Anterior
-              <Tooltip content="Comparación del tiempo total de ruta por día entre esta semana y la anterior, usando los mismos días para un análisis justo." />
+              <Tooltip content="Comparación del tiempo total de ruta por día entre esta semana y la anterior." />
             </h3>
             <p className="text-text-muted text-xs mb-4">
               Comparando tiempo total de ruta entre semana actual y semana anterior
@@ -1141,7 +1098,7 @@ export default function AnalisisRutas() {
             <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
               <TrendingUp size={20} />
               Eficiencia Diaria vs Mejor Tiempo Histórico
-              <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado. Un porcentaje alto indica mejor rendimiento." />
+              <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado." />
             </h3>
             <p className="text-text-muted text-xs mb-4">
               Qué tan cerca estuvo cada día de su mejor tiempo registrado
@@ -1184,7 +1141,6 @@ export default function AnalisisRutas() {
                         />
                       ))}
                     </Bar>
-                    {/* Reference line at 85% */}
                     <ReferenceLine y={85} stroke="#22c55e" strokeDasharray="4 2" label={{ value: '85%', fill: '#22c55e', fontSize: 10, position: 'insideTopRight' }} />
                     <ReferenceLine y={70} stroke="#eab308" strokeDasharray="4 2" label={{ value: '70%', fill: '#eab308', fontSize: 10, position: 'insideTopRight' }} />
                   </BarChart>
@@ -1217,7 +1173,7 @@ export default function AnalisisRutas() {
         </Card>
       </div>
 
-      {/* Driver Performance */}
+      {/* Driver Performance Table */}
       <Card className="bg-surface border border-surface-light">
         <CardContent className="p-4">
           <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
@@ -1241,43 +1197,43 @@ export default function AnalisisRutas() {
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
                         Eficiencia
-                        <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado. Un porcentaje alto indica mejor rendimiento." />
+                        <Tooltip content="Mide qué tan cerca estuvo cada día de tu mejor tiempo registrado." />
                       </span>
                     </th>
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
                         Visitas
-                        <Tooltip content="Total de paradas realizadas en todo el periodo. Incluye todas las visitas, incluso si se repite el mismo local." />
+                        <Tooltip content="Total de paradas realizadas en todo el periodo." />
                       </span>
                     </th>
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
                         Visitas Extra
-                        <Tooltip content="Número de paradas adicionales generadas por regresos o incidencias en ruta." />
+                        <Tooltip content="Número de paradas adicionales generadas por regresos." />
                       </span>
                     </th>
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
                         Kilometraje
-                        <Tooltip content="Total de kilómetros recorridos calculados por la diferencia entre odómetro inicial y final de cada ruta." />
+                        <Tooltip content="Total de kilómetros recorridos." />
                       </span>
                     </th>
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
                         Asistencia
-                        <Tooltip content="Días con rutas registradas / Total días laborables (sin contar días de descanso) desde tu fecha de ingreso." />
+                        <Tooltip content="Días con rutas registradas / Total días laborables." />
                       </span>
                     </th>
                     <th className="text-center py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-center">
                         Rutas
-                        <Tooltip content="Cantidad de rutas completadas correctamente sobre el total registrado. Garantiza que los datos sean completos y confiables." />
+                        <Tooltip content="Cantidad de rutas completadas." />
                       </span>
                     </th>
                     <th className="text-right py-2 px-3">
                       <span className="inline-flex items-center gap-1 justify-end">
                         T. Promedio
-                        <Tooltip content="Total acumulado de horas trabajadas desde el inicio del registro. No es una comparación, solo un resumen general." />
+                        <Tooltip content="Total acumulado de horas trabajadas." />
                       </span>
                     </th>
                   </tr>
@@ -1344,27 +1300,26 @@ export default function AnalisisRutas() {
             </div>
           )}
 
-          {/* Legend */}
           <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-surface-light/50 text-xs text-text-muted">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-green-500"></span> ≥85% Eficiente
-              <Tooltip content="Excelente rendimiento. El chofer completó sus rutas en tiempo récord." />
+              <Tooltip content="Excelente rendimiento." />
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-yellow-500"></span> 70–85% Aceptable
-              <Tooltip content="Rendimiento normal, dentro de los parámetros esperados." />
+              <Tooltip content="Rendimiento normal." />
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-red-500"></span> &lt;70% Ineficiente
-              <Tooltip content="Rendimiento bajo. Las rutas tomaron más tiempo de lo esperado." />
+              <Tooltip content="Rendimiento bajo." />
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-slate-500"></span> N/D = Sin historial
-              <Tooltip content="No hay suficientes datos históricos para calcular la eficiencia." />
+              <Tooltip content="No hay suficientes datos históricos." />
             </span>
             <span className="ml-auto flex items-center gap-1.5">
               <RefreshCw size={10} className="text-red-400" /> Visitas Extra = regresos
-              <Tooltip content="Número de paradas adicionales generadas por regresos o incidencias en ruta." />
+              <Tooltip content="Paradas adicionales por regresos." />
             </span>
           </div>
         </CardContent>
@@ -1378,7 +1333,7 @@ export default function AnalisisRutas() {
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Calendar className="text-orange-400" size={20} />
                 Gestión de Asistencia Manual
-                <Tooltip content="Registro manual de inasistencias, permisos médicos o días trabajados extra. Estas prevalecen sobre el cálculo automático." />
+                <Tooltip content="Registro manual de inasistencias, permisos médicos o días trabajados extra." />
               </h2>
             </div>
             <Button onClick={() => {
@@ -1398,132 +1353,132 @@ export default function AnalisisRutas() {
                   <th className="p-3">Estado</th>
                   <th className="p-3">Observaciones</th>
                   <th className="p-3 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {asistencia.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-text-muted">
-                      No hay registros manuales en este periodo.
-                    </td>
-                  </tr>
-                ) : (
-                  asistencia.map((f: any) => (
-                    <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
-                      <td className="p-3 border-t border-surface-light">
-                        <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
-                      </td>
-                      <td className="p-3 border-t border-surface-light text-text-muted">
-                        {formatFriendlyDate(f.fecha)}
-                      </td>
-                      <td className="p-3 border-t border-surface-light">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
-                            f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
-                              f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
-                                'bg-purple-500/20 text-purple-400'
-                          }`}>
-                          {f.estado || 'falta'}
-                        </span>
-                      </td>
-                      <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
-                        {f.observaciones || '-'}
-                      </td>
-                      <td className="p-3 border-t border-surface-light text-right">
-                        <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Modal Registrar Asistencia Manual */}
-      {showAsistenciaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-surface border border-surface-light rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-surface-light flex items-center gap-3">
-              <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
-                <AlertCircle size={20} />
+                  </thead>
+                  <tbody className="text-sm">
+                    {asistencia.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-text-muted">
+                          No hay registros manuales en este periodo.
+                        </td>
+                      </tr>
+                    ) : (
+                      asistencia.map((f: any) => (
+                        <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
+                          <td className="p-3 border-t border-surface-light">
+                            <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
+                          </td>
+                          <td className="p-3 border-t border-surface-light text-text-muted">
+                            {formatFriendlyDate(f.fecha)}
+                          </td>
+                          <td className="p-3 border-t border-surface-light">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
+                              f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
+                                f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
+                                  'bg-purple-500/20 text-purple-400'
+                              }`}>
+                              {f.estado || 'falta'}
+                            </span>
+                          </td>
+                          <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
+                            {f.observaciones || '-'}
+                          </td>
+                          <td className="p-3 border-t border-surface-light text-right">
+                            <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <h3 className="text-lg font-bold text-white">
-                Registrar Asistencia Manual
-              </h3>
-            </div>
-            <div className="p-6 space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Chofer</label>
-                <select
-                  className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
-                  value={nuevaAsistencia.id_chofer || ''}
-                  onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, id_chofer: e.target.value })}
-                >
-                  <option value="">Seleccione chofer...</option>
-                  {choferes.map(c => (
-                    <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
-                  ))}
-                </select>
-              </div>
+            </CardContent>
+          </Card>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Fecha</label>
-                  <input
-                    type="date"
-                    className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={nuevaAsistencia.fecha}
-                    onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, fecha: e.target.value })}
-                    max={format(new Date(), 'yyyy-MM-dd')}
-                  />
+          {/* Modal Registrar Asistencia Manual */}
+          {showAsistenciaModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-surface border border-surface-light rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+                <div className="p-4 border-b border-surface-light flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
+                    <AlertCircle size={20} />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    Registrar Asistencia Manual
+                  </h3>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Estado</label>
-                  <select
-                    className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
-                    value={nuevaAsistencia.estado}
-                    onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, estado: e.target.value as any })}
-                  >
-                    <option value="falta">Falta</option>
-                    <option value="permiso">Permiso</option>
-                    <option value="trabajo">Trabajo Extra</option>
-                    <option value="descanso">Descanso</option>
-                  </select>
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Chofer</label>
+                    <select
+                      className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                      value={nuevaAsistencia.id_chofer || ''}
+                      onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, id_chofer: e.target.value })}
+                    >
+                      <option value="">Seleccione chofer...</option>
+                      {choferes.map(c => (
+                        <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Fecha</label>
+                      <input
+                        type="date"
+                        className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                        value={nuevaAsistencia.fecha}
+                        onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, fecha: e.target.value })}
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Estado</label>
+                      <select
+                        className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                        value={nuevaAsistencia.estado}
+                        onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, estado: e.target.value as any })}
+                      >
+                        <option value="falta">Falta</option>
+                        <option value="permiso">Permiso</option>
+                        <option value="trabajo">Trabajo Extra</option>
+                        <option value="descanso">Descanso</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Observaciones</label>
+                    <textarea
+                      className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] resize-none"
+                      placeholder="Ej. Descanso médico certificado, cambió de turno, etc."
+                      value={nuevaAsistencia.observaciones || ''}
+                      onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, observaciones: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="secondary" className="flex-1 py-3" onClick={() => setShowAsistenciaModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button className="flex-1 bg-orange-600 hover:bg-orange-700 py-3" onClick={handleSaveAsistencia}>
+                      Guardar
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Observaciones</label>
-                <textarea
-                  className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] resize-none"
-                  placeholder="Ej. Descanso médico certificado, cambió de turno, etc."
-                  value={nuevaAsistencia.observaciones || ''}
-                  onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, observaciones: e.target.value })}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button variant="secondary" className="flex-1 py-3" onClick={() => setShowAsistenciaModal(false)}>
-                  Cancelar
-                </Button>
-                <Button className="flex-1 bg-orange-600 hover:bg-orange-700 py-3" onClick={handleSaveAsistencia}>
-                  Guardar
-                </Button>
-              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center p-12">
-          <div className="text-text-muted">Loading analytics...</div>
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center p-12">
+              <div className="text-text-muted">Cargando análisis...</div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  );
+        );
 }
