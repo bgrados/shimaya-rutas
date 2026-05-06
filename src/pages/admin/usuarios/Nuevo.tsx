@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Coffee, Truck } from 'lucide-react';
 
 export default function NuevoUsuario() {
   const navigate = useNavigate();
@@ -12,10 +12,29 @@ export default function NuevoUsuario() {
   const [email, setEmail] = useState('');
   const [rol, setRol] = useState('chofer');
   const [telefono, setTelefono] = useState('');
+  const [placa, setPlaca] = useState('');
   const [password, setPassword] = useState('');
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // Días de descanso para choferes
+  const diasSemana = [
+    { key: 'lunes', label: 'Lunes' },
+    { key: 'martes', label: 'Martes' },
+    { key: 'miercoles', label: 'Miércoles' },
+    { key: 'jueves', label: 'Jueves' },
+    { key: 'viernes', label: 'Viernes' },
+    { key: 'sabado', label: 'Sábado' },
+    { key: 'domingo', label: 'Domingo' },
+  ];
+  const [diasDescanso, setDiasDescanso] = useState<string[]>([]);
+
+  const toggleDiaDescanso = (dia: string) => {
+    setDiasDescanso(prev =>
+      prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +42,7 @@ export default function NuevoUsuario() {
       setError('Nombre, correo y contraseña son obligatorios.');
       return;
     }
-    
+
     if (password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.');
       return;
@@ -40,24 +59,12 @@ export default function NuevoUsuario() {
         .select('id_usuario')
         .eq('email', emailLower)
         .maybeSingle();
-      
+
       if (existing) {
         setError('Este email ya está registrado.');
         setLoadingSubmit(false);
         return;
       }
-
-      try {
-        const { data: existingAuth } = await supabase.auth.admin.getUserByEmail(emailLower);
-        if (existingAuth?.user) {
-          setError('Este email ya está registrado en Auth. Usa otro correo o recupera la contraseña.');
-          setLoadingSubmit(false);
-          return;
-        }
-      } catch (adminErr) {
-        // Admin check not available, continue with signup
-      }
-
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: emailLower,
@@ -71,32 +78,43 @@ export default function NuevoUsuario() {
         throw new Error(authError.message);
       }
 
-
       const userId = authData.user?.id;
-      
+
       if (!userId) {
-        throw new Error('No se pudo obtener el ID del usuario. El email ya podría estar registrado.');
+        throw new Error('No se pudo obtener el ID del usuario.');
       }
 
+      // Preparar payload según el rol
+      const payload: any = {
+        id_usuario: userId,
+        nombre: nombre.trim(),
+        email: emailLower,
+        rol,
+        telefono: telefono?.trim() || null,
+        activo: true
+      };
+
+      // Agregar placa solo si es chofer
+      if (rol === 'chofer' && placa.trim()) {
+        payload.placa_camion = placa.trim().toUpperCase();
+      }
+
+      // Agregar días de descanso solo si es chofer
+      if (rol === 'chofer' && diasDescanso.length > 0) {
+        payload.dias_descanso = diasDescanso;
+      }
 
       const { error: dbError } = await supabase
         .from('usuarios')
-        .insert({
-          id_usuario: userId,
-          nombre: nombre.trim(),
-          email: emailLower,
-          rol,
-          telefono: telefono?.trim() || null,
-          activo: true
-        });
+        .insert(payload);
 
       if (dbError) {
         try {
           await supabase.auth.admin.deleteUser(userId);
         } catch (cleanupError) {
-          // Cleanup failed, user may need manual removal
+          // Cleanup failed
         }
-        
+
         if (dbError.message.includes('duplicate')) {
           throw new Error('El usuario ya existe en la base de datos.');
         }
@@ -104,11 +122,11 @@ export default function NuevoUsuario() {
       }
 
       setSuccess(true);
-      
+
       setTimeout(() => {
         navigate('/admin/usuarios');
       }, 2000);
-      
+
     } catch (err: any) {
       setError(err.message || 'Error desconocido');
     } finally {
@@ -132,7 +150,7 @@ export default function NuevoUsuario() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold text-white mb-6">Agregar Nuevo Usuario</h1>
-      
+
       {error && <div className="bg-red-500/10 border border-red-500 text-red-500 p-4 rounded-lg mb-6">{error}</div>}
 
       <Card>
@@ -144,7 +162,7 @@ export default function NuevoUsuario() {
               onChange={e => setNombre(e.target.value)}
               required
             />
-            
+
             <Input
               label="Correo electrónico"
               type="email"
@@ -155,7 +173,7 @@ export default function NuevoUsuario() {
 
             <div>
               <label className="block text-sm font-medium text-text-muted mb-1">Rol</label>
-              <select 
+              <select
                 className="w-full bg-background border border-surface-light rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none transition-colors"
                 value={rol}
                 onChange={e => setRol(e.target.value)}
@@ -173,6 +191,52 @@ export default function NuevoUsuario() {
               value={telefono}
               onChange={e => setTelefono(e.target.value)}
             />
+
+            {/* Campos solo para choferes */}
+            {rol === 'chofer' && (
+              <>
+                <Input
+                  label="Placa del Camión"
+                  value={placa}
+                  onChange={e => setPlaca(e.target.value)}
+                  placeholder="Ej: ABC-123"
+                  icon={<Truck size={16} />}
+                />
+
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-2 uppercase tracking-tighter flex items-center gap-1">
+                    <Coffee size={12} />
+                    Días de Descanso
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {diasSemana.map(dia => (
+                      <button
+                        key={dia.key}
+                        type="button"
+                        onClick={() => toggleDiaDescanso(dia.key)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${diasDescanso.includes(dia.key)
+                          ? 'bg-blue-500/30 text-blue-400 border border-blue-500/50'
+                          : 'bg-surface-light/50 text-text-muted border border-surface-light hover:border-white/20'
+                          }`}
+                      >
+                        {dia.label}
+                      </button>
+                    ))}
+                  </div>
+                  {diasDescanso.length > 0 && (
+                    <p className="text-[10px] text-blue-400 mt-2">
+                      📅 Descansa: {diasDescanso.map(d => {
+                        const dia = diasSemana.find(dd => dd.key === d);
+                        return dia?.label;
+                      }).join(', ')}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-text-muted mt-1">
+                    Selecciona los días que el chofer NO trabajará
+                  </p>
+                </div>
+              </>
+            )}
 
             <Input
               label="Contraseña Inicial"
