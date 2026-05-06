@@ -1115,6 +1115,41 @@ export default function Viaje() {
     }
   }, [ruta?.id_ruta, ruta?.estado]);
 
+  const [actionLoading, setActionLoading] = useState(false);
+  const [isEditingDestino, setIsEditingDestino] = useState(false);
+  const [destinoEditado, setDestinoEditado] = useState('');
+  const [isSavingDestino, setIsSavingDestino] = useState(false);
+
+  const [viewingGuias, setViewingGuias] = useState<GuiaRemision[] | null>(null);
+  const [currentGuiaIndex, setCurrentGuiaIndex] = useState(0);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [searchTermGuias, setSearchTermGuias] = useState('');
+
+  const handleSaveDestino = async (idBitacora: string) => {
+    if (!destinoEditado.trim()) return;
+    setIsSavingDestino(true);
+    try {
+      const { error } = await supabase
+        .from('viajes_bitacora')
+        .update({ destino_nombre: destinoEditado.trim() })
+        .eq('id_bitacora', idBitacora);
+
+      if (error) throw error;
+
+      setBitacora(bitacora.map(b =>
+        b.id_bitacora === idBitacora
+          ? { ...b, destino_nombre: destinoEditado.trim() }
+          : b
+      ));
+      setIsEditingDestino(false);
+      showToast('success', 'Destino actualizado');
+    } catch (err: any) {
+      showToast('error', err.message);
+    } finally {
+      setIsSavingDestino(false);
+    }
+  };
+
   const handleCreateViaje = async () => {
     if (esDiaDescanso) {
       showToast('Hoy es tu día de descanso. No puedes iniciar rutas.', 'error');
@@ -1196,10 +1231,8 @@ export default function Viaje() {
       const { error: insertError } = await supabase.from('locales_ruta').insert(localesRuta);
       if (insertError) throw insertError;
 
-      // Cargar la ruta recién creada y mostrar bitácora
       await loadCurrentRuta();
 
-      // Limpiar el formulario
       setSelectedRutaBase('');
       setFotoKmInicio(null);
       setKmInicio('');
@@ -1258,41 +1291,6 @@ export default function Viaje() {
     }
   }, [tramoEnProgreso, bitacora.length, localesRegistrados.length]);
 
-  const [actionLoading, setActionLoading] = useState(false);
-  const [isEditingDestino, setIsEditingDestino] = useState(false);
-  const [destinoEditado, setDestinoEditado] = useState('');
-  const [isSavingDestino, setIsSavingDestino] = useState(false);
-
-  const [viewingGuias, setViewingGuias] = useState<GuiaRemision[] | null>(null);
-  const [currentGuiaIndex, setCurrentGuiaIndex] = useState(0);
-  const [zoomScale, setZoomScale] = useState(1);
-  const [searchTermGuias, setSearchTermGuias] = useState('');
-
-  const handleSaveDestino = async (idBitacora: string) => {
-    if (!destinoEditado.trim()) return;
-    setIsSavingDestino(true);
-    try {
-      const { error } = await supabase
-        .from('viajes_bitacora')
-        .update({ destino_nombre: destinoEditado.trim() })
-        .eq('id_bitacora', idBitacora);
-
-      if (error) throw error;
-
-      setBitacora(bitacora.map(b =>
-        b.id_bitacora === idBitacora
-          ? { ...b, destino_nombre: destinoEditado.trim() }
-          : b
-      ));
-      setIsEditingDestino(false);
-      showToast('success', 'Destino actualizado');
-    } catch (err: any) {
-      showToast('error', err.message);
-    } finally {
-      setIsSavingDestino(false);
-    }
-  };
-
   const handleRegistrarSalida = async () => {
     if (esDiaDescanso) {
       showToast('Hoy es tu día de descanso.', 'error');
@@ -1346,7 +1344,6 @@ export default function Viaje() {
         }
         if (bitacora.length === 0) {
           await supabase.from('rutas').update({ estado: 'en_progreso', hora_salida_planta: data.hora_salida }).eq('id_ruta', ruta.id_ruta);
-          // Actualizar estado local
           setRuta(prev => prev ? { ...prev, estado: 'en_progreso', hora_salida_planta: data.hora_salida } : null);
         }
         const normalizar = (s: string) => (s || '').trim().toLowerCase();
@@ -1556,7 +1553,6 @@ export default function Viaje() {
     return r.fecha === today;
   };
 
-  // 🔥 CAMBIO IMPORTANTE: Mostrar bitácora también para rutas pendientes
   const mostrarRuta = ruta && (ruta.estado === 'pendiente' || ruta.estado !== 'finalizada' || esRutaDeHoy(ruta));
 
   if (!mostrarRuta) {
@@ -1683,7 +1679,6 @@ export default function Viaje() {
         </div>
       </div>
 
-      {/* Mostrar botón de iniciar viaje si la ruta está pendiente y no hay bitácora */}
       {ruta.estado === 'pendiente' && bitacora.length === 0 && (
         <Card className="bg-yellow-500/10 border-2 border-yellow-500/50 shadow-2xl overflow-hidden animate-pulse">
           <CardContent className="p-8 text-center">
@@ -1694,18 +1689,52 @@ export default function Viaje() {
             <p className="text-text-muted mb-6 text-sm">Ya puedes iniciar tu viaje desde la planta.</p>
             <Button
               onClick={() => {
-                // Forzar recarga para que aparezca el selector de destino
-                loadCurrentRuta();
+                const iniciarPrimerTramo = async () => {
+                  setActionLoading(true);
+                  try {
+                    const primerDestino = locales.length > 0 ? locales[0].nombre : 'Primer destino';
+                    const { data, error } = await supabase
+                      .from('viajes_bitacora')
+                      .insert([{
+                        id_ruta: ruta.id_ruta,
+                        id_chofer: profile?.id_usuario,
+                        origen_nombre: 'Planta',
+                        destino_nombre: primerDestino,
+                        hora_salida: nowPeru(),
+                      }])
+                      .select()
+                      .single();
+
+                    if (!error && data) {
+                      await supabase.from('rutas').update({
+                        estado: 'en_progreso',
+                        hora_salida_planta: data.hora_salida
+                      }).eq('id_ruta', ruta.id_ruta);
+
+                      setRuta(prev => prev ? { ...prev, estado: 'en_progreso', hora_salida_planta: data.hora_salida } : null);
+                      setBitacora([data as ViajeBitacora]);
+                      setNuevoDestino(primerDestino);
+                      showToast('success', 'Viaje iniciado correctamente');
+                    } else if (error) {
+                      showToast('error', 'Error al iniciar viaje: ' + error.message);
+                    }
+                  } catch (err: any) {
+                    showToast('error', err.message);
+                  } finally {
+                    setActionLoading(false);
+                  }
+                };
+                iniciarPrimerTramo();
               }}
+              disabled={actionLoading}
               className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold px-8 py-6 text-lg"
             >
-              INICIAR VIAJE →
+              {actionLoading ? 'INICIANDO...' : 'INICIAR VIAJE →'}
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Resto de la UI (GPS, tramo en progreso, etc.) se muestra normal */}
       {ruta.estado !== 'pendiente' && (
         <>
           {ruta?.estado === 'en_progreso' && !esHistorial && (
@@ -2549,7 +2578,7 @@ export default function Viaje() {
                         >
                           <Camera size={24} />
                           <span className="text-xs font-bold uppercase">Tomar Foto del Odómetro</span>
-                          <span className="text-[10px] text-text-muted">El número se detecta automáticamente (mejor en horizontal)</span>
+                          <span className="text-[10px] text-text-muted">El número se detecta automáticamente</span>
                         </button>
                       ) : (
                         <div className="relative group">
