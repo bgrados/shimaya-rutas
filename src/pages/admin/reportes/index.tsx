@@ -308,22 +308,47 @@ export default function Reportes() {
     try {
       const { from, to } = getRange(period, selectedDate);
 
-      console.log(`[Combustible] Filtrando por fecha: ${from} a ${to}`);
+      console.log(`[Combustible] Filtro de fechas (Rutas): ${from} a ${to}`);
 
+      // PASO 1: Obtener las rutas dentro del rango de fechas
+      let rutasQuery = supabase
+        .from('rutas')
+        .select('id_ruta')
+        .gte('fecha', from)
+        .lte('fecha', to);
+
+      if (filterChofer) {
+        rutasQuery = rutasQuery.eq('id_chofer', filterChofer);
+      }
+
+      const { data: rutasData, error: rutasError } = await rutasQuery;
+
+      if (rutasError) {
+        console.error('[Combustible] Error obteniendo rutas:', rutasError);
+        throw rutasError;
+      }
+
+      const rutaIds = rutasData?.map(r => r.id_ruta) || [];
+      console.log(`[Combustible] Rutas encontradas: ${rutaIds.length}`);
+
+      if (rutaIds.length === 0) {
+        setGastos([]);
+        setFotosCombustible({});
+        setCombustibleLoading(false);
+        return;
+      }
+
+      // PASO 2: Obtener los gastos de esas rutas
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
-        .eq('fecha', from)  // 🔥 AHORA SOLO LA FECHA EXACTA
-        .order('fecha', { ascending: false });
-
-      if (filterChofer) {
-        query = query.eq('id_chofer', filterChofer);
-      }
+        .in('id_ruta', rutaIds)
+        .order('created_at', { ascending: false });
 
       const { data, error } = await query;
 
       if (error) {
-        console.error('[Combustible] Error en consulta:', error);
+        console.error('[Combustible] Error:', error);
         throw error;
       }
 
