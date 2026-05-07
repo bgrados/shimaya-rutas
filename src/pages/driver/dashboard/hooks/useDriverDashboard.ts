@@ -157,12 +157,22 @@ export function useDriverDashboard() {
       const diasDescanso = profile.dias_descanso || [];
       const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
       const hoyIndice = new Date().getDay();
+      let proximoDia: string | null = null;
+      let diasHasta = 7;
+
       for (let i = 1; i <= 7; i++) {
         const diaNombre = diasSemana[(hoyIndice + i) % 7];
         if (diasDescanso.includes(diaNombre)) {
-          setProximoDescanso(`${diaNombre} (en ${i} día${i !== 1 ? 's' : ''})`);
+          proximoDia = diaNombre;
+          diasHasta = i;
           break;
         }
+      }
+
+      if (proximoDia) {
+          setProximoDescanso(`${proximoDia} (en ${diasHasta} día${diasHasta !== 1 ? 's' : ''})`);
+      } else {
+          setProximoDescanso('Sin descanso programado');
       }
 
       // 5. Excepciones
