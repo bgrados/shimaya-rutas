@@ -2,15 +2,15 @@ import React from 'react';
 import { ActiveTripHeader } from './ActiveTripHeader';
 import { GpsMonitor } from './GpsMonitor';
 import { TripStatusCard } from './TripStatusCard';
-import { BitacoraList } from '../../../../components/BitacoraList';
-import { LocalList } from '../../../../components/LocalList';
-import { ModalEvidencia } from '../../../../components/ModalEvidencia';
-import { ModalFirma } from '../../../../components/ModalFirma';
-import { ModalKilometraje } from '../../../../components/ModalKilometraje';
-import { ModalNotas } from '../../../../components/ModalNotas';
-import { ModalGastos } from '../../../../components/ModalGastos';
-import { ModalCombustible } from '../../../../components/ModalCombustible';
+import { BitacoraList } from './BitacoraList';
+import { LocalList } from './LocalList';
+import { ModalEvidencia } from './ModalEvidencia';
+import { ModalKilometraje } from './ModalKilometraje';
+import { ModalNotas } from './ModalNotas';
+import RegistrarCombustible from '../../combustible/Registrar';
 import { ImageModal } from '../../../../components/ui/ImageModal';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { X } from 'lucide-react';
 import type { Ruta, ViajeBitacora } from '../../../../types';
 
 interface ActiveTripViewProps {
@@ -76,6 +76,8 @@ export function ActiveTripView({
   handlers,
   state
 }: ActiveTripViewProps) {
+  const { profile } = useAuth();
+  
   return (
     <div className="p-4 space-y-6 max-w-lg mx-auto pb-32">
       <ActiveTripHeader
@@ -120,9 +122,9 @@ export function ActiveTripView({
             modals.setShowFirma(true);
           }}
           onViewPhotos={(photos) => {
-             // photos is array of strings
-             // but ImageModal needs gallery
-             // We'll handle this in the parent for now or pass gallery logic
+            // photos is array of strings
+            // but ImageModal needs gallery
+            // We'll handle this in the parent for now or pass gallery logic
           }}
         />
       </div>

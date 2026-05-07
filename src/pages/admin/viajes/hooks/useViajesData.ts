@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 import { format } from 'date-fns';
-import type { Ruta, Usuario, ViajeBitacora, LocalRuta } from '../../../types';
+import type { Ruta, Usuario, ViajeBitacora, LocalRuta } from '../../../../types';
 
 export type RutaConDetalle = Ruta & { chofer?: Usuario, bitacora?: ViajeBitacora[], locales?: LocalRuta[] };
 
