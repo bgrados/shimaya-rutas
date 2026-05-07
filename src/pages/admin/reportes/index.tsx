@@ -638,9 +638,9 @@ export default function Reportes() {
             <p style="font-size: 13px; font-weight: bold; color: #1e293b; margin-bottom: 12px;">📸 FOTOS DE EVIDENCIA (${allFotos.length})</p>
             <div style="display: flex; flex-wrap: wrap; gap: 12px;">
               ${allFotos.map(foto => `
-                <div style="width: 120px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
-                  <img src="${foto.url}" style="width: 100%; height: 100px; object-fit: cover;" />
-                  <div style="padding: 6px; font-size: 10px; text-align: center; background: white;">${foto.localName}</div>
+                <div class="photo-card" onclick="window.open('${foto.url}', '_blank')">
+                  <img src="${foto.url}" style="width: 100%; height: 150px; object-fit: cover;" />
+                  <div style="padding: 6px; font-size: 10px; text-align: center; background: white; font-weight: bold;">${foto.localName}</div>
                 </div>
               `).join('')}
             </div>
@@ -715,10 +715,17 @@ export default function Reportes() {
         .subtitle { color: #64748b; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
         button { background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
         .footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 30px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+        .close-btn { position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; z-index: 9999; }
+        .photo-card { width: 180px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; cursor: pointer; transition: transform 0.2s; }
+        .photo-card:hover { transform: scale(1.05); }
+        @media (max-width: 600px) {
+          .photo-card { width: 45%; }
+        }
       </style>
     </head>
     <body>
-      <button class="no-print" onclick="window.print();" style="margin-bottom:20px;">🖨️ Imprimir / Guardar PDF</button>
+      <button class="close-btn no-print" onclick="window.close();">✕ Cerrar</button>
+      <button class="no-print" onclick="window.print();" style="margin-bottom:20px; background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">🖨️ Imprimir / Guardar PDF</button>
       <h1>🚛 SHIMAYA RUTAS</h1>
       <div class="subtitle">📅 Período: ${rangoLabel} ${filterChofer ? `| 👤 Chofer: ${choferNombre}` : ''}</div>
       ${routesHTML}
