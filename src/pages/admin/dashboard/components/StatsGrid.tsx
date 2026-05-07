@@ -1,7 +1,7 @@
 import React from 'react';
 import { Truck, CheckCircle, MapPin, Users, Fuel, Car, Route, DollarSign } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/Card';
-import { Tooltip } from '../../../components/ui/Tooltip';
+import { Card, CardContent } from '../../../../components/ui/Card';
+import { Tooltip } from '../../../../components/ui/Tooltip';
 
 interface Stats {
   rutasActivas: number;

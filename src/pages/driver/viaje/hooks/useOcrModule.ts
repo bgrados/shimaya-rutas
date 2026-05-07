@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useToast } from '../../../components/ui/Toast';
+import { useToast } from '../../../../components/ui/Toast';
 import { corregirOrientacionImagenDesdeDataUrl, preprocesarImagenOcr } from '../utils/imageUtils';
 
 export function useOcrModule() {

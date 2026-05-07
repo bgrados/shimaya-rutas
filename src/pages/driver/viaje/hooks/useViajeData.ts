@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../../lib/supabase';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useToast } from '../../../components/ui/Toast';
+import { supabase } from '../../../../lib/supabase';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useToast } from '../../../../components/ui/Toast';
 import { format } from 'date-fns';
-import { nowPeru } from '../../../lib/timezone';
-import type { Ruta, LocalRuta, ViajeBitacora } from '../../../types';
+import { nowPeru } from '../../../../lib/timezone';
+import type { Ruta, LocalRuta, ViajeBitacora } from '../../../../types';
 
 export function useViajeData() {
   const { profile } = useAuth();

@@ -1,6 +1,6 @@
 import { Calendar, Filter, Users, Fuel, Truck, MapPin, X, FileDown } from 'lucide-react';
-import { Button } from '../../../ui/Button';
-import { Card, CardContent } from '../../../ui/Card';
+import { Button } from '../../../../components/ui/Button';
+import { Card, CardContent } from '../../../../components/ui/Card';
 
 interface ReportFiltersProps {
   reportType: 'rutas' | 'combustible' | 'peajes' | 'otros';

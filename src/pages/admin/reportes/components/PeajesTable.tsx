@@ -1,6 +1,6 @@
 import { MapPin, Download, Trash2, Image } from 'lucide-react';
-import { Card, CardContent } from '../../../ui/Card';
-import { Button } from '../../../ui/Button';
+import { Card, CardContent } from '../../../../components/ui/Card';
+import { Button } from '../../../../components/ui/Button';
 import { formatFriendlyDate } from '../../../../lib/timezone';
 
 interface PeajesTableProps {

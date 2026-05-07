@@ -1,8 +1,8 @@
 import React from 'react';
 import { Calendar, UserCheck, UserX } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from '../../../components/ui/Card';
-import { Tooltip } from '../../../components/ui/Tooltip';
+import { Card, CardContent } from '../../../../components/ui/Card';
+import { Tooltip } from '../../../../components/ui/Tooltip';
 
 interface EstadoChofer {
   id: string;

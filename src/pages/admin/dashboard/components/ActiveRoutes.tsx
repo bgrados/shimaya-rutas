@@ -1,8 +1,8 @@
 import React from 'react';
 import { Truck, AlertCircle, ChevronDown, ChevronUp, Clock, MapPin, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from '../../../components/ui/Card';
-import { Tooltip } from '../../../components/ui/Tooltip';
+import { Card, CardContent } from '../../../../components/ui/Card';
+import { Tooltip } from '../../../../components/ui/Tooltip';
 import { format } from 'date-fns';
 
 interface RutaEnProgreso {

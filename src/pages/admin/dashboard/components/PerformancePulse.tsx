@@ -1,6 +1,6 @@
 import React from 'react';
 import { Activity } from 'lucide-react';
-import { Tooltip } from '../../../components/ui/Tooltip';
+import { Tooltip } from '../../../../components/ui/Tooltip';
 
 interface PerformancePulseProps {
   rendimiento: {

@@ -1,5 +1,5 @@
-import { Card, CardContent } from '../../../ui/Card';
-import { Button } from '../../../ui/Button';
+import { Card, CardContent } from '../../../../components/ui/Card';
+import { Button } from '../../../../components/ui/Button';
 import { Search, MapPin, Truck, Clock, CheckCircle2, Calendar, Download, Edit2, Check, X, Trash2, Image as ImageIcon } from 'lucide-react';
 import { formatFriendlyDate } from '../../../../lib/timezone';
 import { format, differenceInMinutes } from 'date-fns';

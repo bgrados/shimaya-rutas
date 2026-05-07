@@ -4,7 +4,7 @@ import { ActiveTripView } from './viaje/components/ActiveTripView';
 import { RutaSelector } from './viaje/components/RutaSelector';
 import { FinishedTripView } from './viaje/components/FinishedTripView';
 import { Loader2 } from 'lucide-react';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { generarResumenWhatsApp } from './viaje/utils/whatsappUtils';
 
 export default function Viaje() {

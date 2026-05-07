@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { LocalRuta, ViajeBitacora } from '../../../types';
+import type { LocalRuta, ViajeBitacora } from '../../../../types';
 
 interface GpsOptions {
   RADIO_BASE: number;

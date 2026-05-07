@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 import { format } from 'date-fns';
 import { getRange } from '../utils';
-import type { Ruta, GastoCombustible, FotoVisita, LocalRuta, ViajeBitacora } from '../../../types';
+import type { Ruta, GastoCombustible, FotoVisita, LocalRuta, ViajeBitacora } from '../../../../types';
 
 export type Period = 'diario' | 'semanal' | 'mensual';
 

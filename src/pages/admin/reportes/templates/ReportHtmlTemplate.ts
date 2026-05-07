@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { formatFriendlyDate } from '../../../lib/timezone';
+import { formatFriendlyDate } from '../../../../lib/timezone';
 import { formatMins } from '../utils';
 
 export function generateReportHtml(params: {
