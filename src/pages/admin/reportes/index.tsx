@@ -612,9 +612,13 @@ export default function Reportes() {
 
   const handleGeneratePDF = () => {
     setGenerating(true);
+
+    // Generar HTML para cada ruta (FOTOS AL FINAL, DESPUÉS DE LA TABLA)
     const rows = rutas.map(r => {
       const bits = r.bitacora || [];
       const estadoBadge = r.estado === 'finalizada' ? '#22c55e' : r.estado === 'en_progreso' ? '#3b82f6' : '#eab308';
+
+      // Generar tabla de tramos
       const paradas = bits.map((b: any, i: number) => {
         const transito = b.hora_salida && b.hora_llegada
           ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
@@ -622,131 +626,140 @@ export default function Reportes() {
         const permanencia = b.hora_llegada && nextBit?.hora_salida
           ? differenceInMinutes(new Date(nextBit.hora_salida), new Date(b.hora_llegada)) : null;
         return `<tr>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : '⏳'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
-          <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
-         </tr>`;
+        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : '⏳'}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
+      </tr>`;
       }).join('');
 
-      return `<div style="page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-        <div style="background:#1e293b;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <strong style="font-size:14px;">🚛 ${r.nombre}</strong>
-            <span style="margin-left:10px;font-size:12px;opacity:0.6;">${r.placa || 'Sin placa'}</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span style="font-size:12px;opacity:0.7;">📅 ${r.fecha ? formatFriendlyDate(r.fecha) : '-'}</span>
-            <span style="background:${estadoBadge}22;color:${estadoBadge};padding:2px 10px;border-radius:20px;font-size:11px;font-weight:bold;border:1px solid ${estadoBadge}44;">${r.estado?.replace('_', ' ').toUpperCase()}</span>
-          </div>
-        </div>
-        <div style="padding:8px 16px;background:#f8fafc;font-size:12px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;">
-          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${format(new Date(r.hora_salida_planta), 'HH:mm')}</strong></span>` : ''}
-          ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${format(new Date(r.horaLlegadaReal), 'HH:mm')}</strong></span>` : ''}
-          ${r.durationMin ? `<span>⏱ Duración total: <strong>${formatMins(r.durationMin)}</strong></span>` : ''}
-        </div>
-        ${bits.length > 0 ? `
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead><tr style="background:#f1f5f9;">
-            <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">#</th>
-            <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Tramo</th>
-            <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Salida</th>
-            <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Llegada</th>
-            <th style="padding:6px 8px;text-align:left;color:#475569;font-weight:600;">Tránsito</th>
-            <th style="padding:6px 8px;text-align:left;color:#f59e0b;font-weight:600;">Permanencia</th>
-          </tr></thead>
-          <tbody>${paradas}</tbody>
-        </tr>` :
-          '<p style="padding:10px 16px;color:#94a3b8;font-size:12px;font-style:italic;margin:0;">Sin movimientos registrados</p>'}
-        ${incluirFotosEnPDF && (r.localesRuta || []).length > 0 ? (() => {
-          const allFotos: { url: string; localName: string }[] = [];
-          (r.localesRuta || []).forEach((local: any) => {
-            const fotos = fotosPorLocal[local.id_local_ruta] || [];
-            fotos.forEach((f: any) => {
-              allFotos.push({ url: f.foto_url, localName: local.nombre || 'Local' });
-            });
+      // Generar fotos de evidencia de esta ruta (DEBAJO DE LA TABLA)
+      let fotosHTML = '';
+      if (incluirFotosEnPDF && r.localesRuta && r.localesRuta.length > 0) {
+        const allFotos: { url: string; localName: string }[] = [];
+        r.localesRuta.forEach((local: any) => {
+          const fotos = fotosPorLocal[local.id_local_ruta] || [];
+          fotos.forEach((f: any) => {
+            allFotos.push({ url: f.foto_url, localName: local.nombre || 'Local' });
           });
+        });
 
-          if (allFotos.length === 0) return '';
-
-          return `<div style="padding:15px; background:#fff; border-top:1px solid #e2e8f0;">
-            <p style="font-size:12px; font-weight:bold; color:#1e293b; margin:0 0 10px 0; border-bottom:2px solid #3b82f6; display:inline-block;">📸 EVIDENCIAS FOTOGRÁFICAS</p>
-            <div style="width:100%;">
-              ${allFotos.map(f => `
-                <div style="width:48.5%; display:inline-block; vertical-align:top; margin-right:1%; margin-bottom:12px; break-inside:avoid; border:1px solid #f1f5f9; border-radius:8px; overflow:hidden; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-                  <img src="${f.url}" style="width:100%; height:160px; object-fit:cover; display:block;" />
-                  <div style="padding:6px 8px; background:#f8fafc; border-top:1px solid #f1f5f9;">
-                    <p style="font-size:10px; color:#475569; font-weight:600; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📍 ${f.localName}</p>
-                  </div>
+        if (allFotos.length > 0) {
+          fotosHTML = `
+          <div style="padding: 15px; background: #fff; border-top: 1px solid #e2e8f0; margin-top: 10px;">
+            <p style="font-size: 12px; font-weight: bold; color: #1e293b; margin-bottom: 10px;">
+              📸 Fotos de evidencia (${allFotos.length})
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+              ${allFotos.map(foto => `
+                <div style="width: 100px; height: 100px; background: #f1f5f9; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+                  <img src="${foto.url}" style="width: 100%; height: 100%; object-fit: cover;" />
+                  <div style="font-size: 9px; text-align: center; padding: 2px; background: #f8fafc;">${foto.localName}</div>
                 </div>
               `).join('')}
             </div>
-          </div>`;
-        })() : ''}
-      </div>`;
+          </div>
+        `;
+        }
+      }
+
+      // Título personalizado con el nombre de la ruta
+      const tituloRuta = r.nombre || 'Ruta sin nombre';
+      const fechaFormateada = r.fecha ? formatFriendlyDate(r.fecha) : 'Fecha no disponible';
+
+      return `<div style="page-break-inside: avoid; margin-bottom: 30px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
+      <!-- ENCABEZADO DE LA RUTA -->
+      <div style="background: #1e293b; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong style="font-size: 16px;">🚛 REPORTE DE RUTA: ${tituloRuta.toUpperCase()}</strong>
+          <div style="font-size: 11px; opacity: 0.7; margin-top: 4px;">📅 ${fechaFormateada} | ${r.placa ? `🚛 Placa: ${r.placa}` : ''}</div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="background: ${estadoBadge}22; color: ${estadoBadge}; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid ${estadoBadge}44;">
+            ${r.estado?.replace('_', ' ').toUpperCase()}
+          </span>
+        </div>
+      </div>
+      
+      <!-- INFORMACIÓN GENERAL DE LA RUTA -->
+      <div style="padding: 10px 16px; background: #f8fafc; font-size: 12px; color: #64748b; display: flex; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid #e2e8f0;">
+        ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${format(new Date(r.hora_salida_planta), 'HH:mm')}</strong></span>` : ''}
+        ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${format(new Date(r.horaLlegadaReal), 'HH:mm')}</strong></span>` : ''}
+        ${r.durationMin ? `<span>⏱ Duración total: <strong>${formatMins(r.durationMin)}</strong></span>` : ''}
+      </div>
+      
+      <!-- TABLA DE TRAMOS -->
+      ${bits.length > 0 ? `
+        <div style="padding: 0 16px;">
+          <p style="font-size: 12px; font-weight: bold; color: #1e293b; margin: 12px 0 8px;">📋 TRAMOS DE LA RUTA</p>
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background: #f1f5f9;">
+                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">#</th>
+                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Tramo</th>
+                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Salida</th>
+                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Llegada</th>
+                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Tránsito</th>
+                <th style="padding: 6px 8px; text-align: left; color: #f59e0b; font-weight: 600;">Permanencia</th>
+              </tr>
+            </thead>
+            <tbody>${paradas}</tbody>
+          </table>
+        </div>
+      ` : '<p style="padding: 10px 16px; color: #94a3b8; font-size: 12px; font-style: italic; margin: 0;">Sin movimientos registrados</p>'}
+      
+      <!-- FOTOS DE EVIDENCIA (AL FINAL) -->
+      ${fotosHTML}
+    </div>`;
     }).join('');
 
-    const filtrosTexto = [
-      filterChofer ? `Chofer: ${choferNombre}` : '',
-      filterRutaNombre ? `Ruta: ${filterRutaNombre}` : '',
-    ].filter(Boolean).join(' · ') || 'Todos los registros';
+    // HTML completo del reporte
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Reporte de Rutas - Shimaya</title>
+      <style>
+        @media print {
+          body { margin: 0; padding: 15px; }
+          .no-print { display: none; }
+        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #fff; }
+        h1 { color: #1e293b; font-size: 24px; margin-bottom: 5px; }
+        .subtitle { color: #64748b; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        button { background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
+        .footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 30px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <button class="no-print" onclick="window.print();" style="margin-bottom:20px;">🖨️ Imprimir / Guardar PDF</button>
+      
+      <h1>🚛 SHIMAYA RUTAS</h1>
+      <div class="subtitle">
+        📅 Período: ${rangoLabel} ${filterChofer ? `| 👤 Chofer: ${choferNombre}` : ''} | 📊 Total rutas: ${rutas.length}
+      </div>
+      
+      ${rows}
+      
+      <div class="footer">
+        Reporte generado desde Shimaya Rutas · ${format(new Date(), 'dd/MM/yyyy HH:mm')}
+      </div>
+    </body>
+    </html>
+  `;
 
-    const html = `<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="UTF-8"><title>Reporte Shimaya – ${rangoLabel}</title>
-<style>
-  @media print { @page { margin: 18mm 15mm; } button { display: none !important; } }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: white; }
-  .header { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); color: white; padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; }
-  .header-title { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; margin: 0; }
-  .header-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; text-transform: capitalize; }
-  .badge-row { display: flex; gap: 10px; padding: 12px 28px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
-  .badge { display: flex; flex-direction: column; align-items: center; padding: 8px 18px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
-  .badge-val { font-size: 22px; font-weight: 900; color: #0f172a; }
-  .badge-lbl { font-size: 10px; color: #64748b; margin-top: 2px; }
-  .filter-bar { padding: 8px 28px; background: #fffbeb; border-bottom: 1px solid #fde68a; font-size: 12px; color: #92400e; }
-  .content { padding: 20px 28px; }
-  .footer { text-align: center; color: #94a3b8; font-size: 11px; padding: 16px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
-  .print-btn { position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
-  .close-btn { position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; z-index: 9999; }
-</style>
-</head>
-<body>
-<button class="close-btn" onclick="if(window.opener){window.close();}else{history.back();}">✕ Cerrar</button>
-<div class="header">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div>
-      <p class="header-title">SHIMAYA RUTAS & LOGÍSTICA</p>
-      <p class="header-sub">📋 Reporte ${period.charAt(0).toUpperCase() + period.slice(1)} · ${rangoLabel}</p>
-    </div>
-  </div>
-  <div style="font-size:11px;opacity:0.5;text-align:right;">Generado:<br>${format(new Date(), "dd/MM/yyyy HH:mm")}</div>
-</div>
-
-${filtrosTexto !== 'Todos los registros' ? `<div class="filter-bar">🔍 Filtros aplicados: <strong>${filtrosTexto}</strong></div>` : ''}
-
-<div class="badge-row">
-  <div class="badge"><span class="badge-val">${totalRutas}</span><span class="badge-lbl">Total Rutas</span></div>
-  <div class="badge"><span class="badge-val" style="color:#22c55e;">${finalizadas}</span><span class="badge-lbl">Finalizadas</span></div>
-  <div class="badge"><span class="badge-val" style="color:#3b82f6;">${enProgreso}</span><span class="badge-lbl">En Progreso</span></div>
-  <div class="badge"><span class="badge-val" style="color:#eab308;">${pendientes}</span><span class="badge-lbl">Pendientes</span></div>
-</div>
-
-<div class="content">
-  ${rows || '<p style="color:#94a3b8;text-align:center;padding:40px;font-style:italic;">No hay rutas que coincidan con el filtro seleccionado.</p>'}
-</div>
-<div class="footer">Shimaya Rutas © ${new Date().getFullYear()} — Este reporte es de uso interno<br/><span style="font-size:10px;color:#94a3b8;">Desarrollado por BGD</span></div>
-<button class="print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
-</body></html>`;
-
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-    }
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_rutas_${format(new Date(), 'yyyy-MM-dd')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     setGenerating(false);
   };
 
