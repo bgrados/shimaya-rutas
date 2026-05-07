@@ -727,15 +727,12 @@ export default function Reportes() {
     </html>
   `;
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporte_rutas_${format(new Date(), 'yyyy-MM-dd')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+    }
     } catch (err) {
       console.error('Error generating PDF:', err);
       alert('Error al generar el reporte');
