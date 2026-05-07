@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -164,6 +164,11 @@ export default function AnalisisRutas() {
     return format(d, 'yyyy-MM-dd');
   });
   const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
+
+  // ✅ Estados temporales para el debounce (para evitar recargas mientras se escribe)
+  const [tempFechaInicio, setTempFechaInicio] = useState<string>(fechaInicio);
+  const [tempFechaFin, setTempFechaFin] = useState<string>(fechaFin);
+
   const [choferFilter, setChoferFilter] = useState<string>('todos');
   const [choferes, setChoferes] = useState<{ id_usuario: string; nombre: string; dias_descanso: string[]; fecha_ingreso: string | null }[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaChofer[]>([]);
@@ -174,6 +179,9 @@ export default function AnalisisRutas() {
   });
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+
+  // ✅ Ref para el debounce
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const nowObj = new Date();
@@ -548,14 +556,16 @@ export default function AnalisisRutas() {
     setInsights(newInsights);
   };
 
-  // ✅ CORRECCIÓN 1: Cargar choferes solo una vez al inicio
+  // ✅ Cargar choferes solo una vez al inicio
   useEffect(() => {
     loadChoferes();
   }, []);
 
-  // ✅ CORRECCIÓN 2: Cargar datos cuando cambien fechas o chofer
+  // ✅ Cargar datos cuando cambien fechas o chofer (con debounce implícito)
   useEffect(() => {
-    loadData();
+    if (fechaInicio && fechaFin) {
+      loadData();
+    }
   }, [fechaInicio, fechaFin, choferFilter]);
 
   const loadChoferes = async () => {
@@ -594,17 +604,42 @@ export default function AnalisisRutas() {
     }
   };
 
-  // ✅ CORRECCIÓN 3: Función loadData completamente corregida
+  // ✅ Manejar cambio de fecha inicio con debounce
+  const handleFechaInicioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setTempFechaInicio(newValue);
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setFechaInicio(newValue);
+    }, 500);
+  };
+
+  // ✅ Manejar cambio de fecha fin con debounce
+  const handleFechaFinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setTempFechaFin(newValue);
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setFechaFin(newValue);
+    }, 500);
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      // Usar rango horario completo con zona horaria de Perú (UTC-5)
       const inicio = `${fechaInicio}T00:00:00-05:00`;
       const fin = `${fechaFin}T23:59:59-05:00`;
 
       console.log(`[Analisis] Filtro fechas: ${inicio} hasta ${fin}`);
 
-      // Consulta de rutas con rango horario completo
       let query = supabase
         .from('rutas')
         .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
@@ -620,7 +655,6 @@ export default function AnalisisRutas() {
 
       if (rutasError) throw rutasError;
 
-      // Obtener mejores tiempos históricos para calcular eficiencia
       const { data: allRutas } = await supabase
         .from('rutas')
         .select('fecha, hora_salida_planta, hora_llegada_planta, estado')
@@ -642,7 +676,6 @@ export default function AnalisisRutas() {
       });
       setMejorTiempoPorDia(mejoresValidados);
 
-      // Cargar asistencia manual
       const { data: fData } = await supabase
         .from('asistencia_chofer')
         .select('*, usuarios(nombre)')
@@ -656,7 +689,6 @@ export default function AnalisisRutas() {
         })));
       }
 
-      // Obtener datos de bitácora
       const { data: bitacoraData, error: bitacoraError } = await supabase
         .from('viajes_bitacora')
         .select('id_ruta, destino_nombre, hora_llegada')
@@ -758,16 +790,16 @@ export default function AnalisisRutas() {
             <Calendar size={16} className="text-text-muted" />
             <input
               type="date"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
+              value={tempFechaInicio}
+              onChange={handleFechaInicioChange}
               max={format(new Date(), 'yyyy-MM-dd')}
               className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
             />
             <span className="text-text-muted">–</span>
             <input
               type="date"
-              value={fechaFin}
-              onChange={(e) => setFechaFin(e.target.value)}
+              value={tempFechaFin}
+              onChange={handleFechaFinChange}
               max={format(new Date(), 'yyyy-MM-dd')}
               className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
             />
@@ -1247,7 +1279,7 @@ export default function AnalisisRutas() {
                         <Tooltip content="Total acumulado de horas trabajadas." />
                       </span>
                     </th>
-                  </table>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-light/30">
                   {rendimientoChoferes.map((c, idx) => {
