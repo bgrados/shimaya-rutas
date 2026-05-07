@@ -741,7 +741,7 @@ export default function Reportes() {
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastosCombustible.forEach(gasto => {
-      const fecha = gasto.fecha ? format(new Date(gasto.fecha), 'yyyy-MM-dd') : 'sin fecha';
+      const fecha = gasto.fecha ? formatFriendlyDate(gasto.fecha, 'yyyy-MM-dd') : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });
@@ -801,7 +801,7 @@ export default function Reportes() {
       const estadoColor = gasto.estado === 'confirmado' ? '#22c55e' : gasto.estado === 'pendiente' ? '#eab308' : '#ef4444';
 
       return `<tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:8px;color:#475569;">${gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : '-'}</td>
+        <td style="padding:8px;color:#475569;">${gasto.fecha ? formatFriendlyDate(gasto.fecha) : '-'}</td>
         <td style="padding:8px;font-weight:600;color:#1e293b;">${gasto.chofer_nombre || '-'}</td>
         <td style="padding:8px;color:#475569;">${gasto.ruta_nombre || '-'}</td>
         <td style="padding:8px;text-align:center;"><span style="background:${estadoColor}22;color:${estadoColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">${estadoIcon}</span></td>
@@ -883,7 +883,7 @@ export default function Reportes() {
 
     const peajesHTML = peajesFiltrados.map((gasto: any) => {
       const tipoLabel = gasto.tipo_combustible === 'peaje_compromiso' ? 'Compromiso' : 'Pagado';
-      const fechaMostrar = gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : '-';
+      const fechaMostrar = gasto.fecha ? formatFriendlyDate(gasto.fecha) : '-';
       const fotoHTML = gasto.foto_url ? `<br><img src="${gasto.foto_url}" style="max-height:80px;border-radius:4px;margin-top:4px;">` : '';
 
       return `<tr style="border-bottom:1px solid #f1f5f9;">
@@ -1636,9 +1636,8 @@ export default function Reportes() {
                         <div key={gasto.id_gasto} className="flex items-center justify-between text-sm bg-surface-light/30 p-2 rounded ml-6">
                           <div className="flex items-center gap-2">
                             <Calendar size={14} className="text-text-muted" />
-                            <span className="text-text-muted">
-                              {gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : '-'}
-                            </span>
+                            <span className="text-text-muted">📅</span>
+                            {gasto.fecha ? formatFriendlyDate(gasto.fecha) : '-'}
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${gasto.tipo_combustible === 'glp' ? 'bg-green-500/20 text-green-400' :
                               gasto.tipo_combustible === 'gasolina' ? 'bg-blue-500/20 text-blue-400' :
                                 'bg-orange-500/20 text-orange-400'
@@ -1812,7 +1811,7 @@ export default function Reportes() {
                               />
                             ) : (
                               <span className="text-white text-xs">
-                                {gasto.fecha ? format(new Date(gasto.fecha), 'dd/MM/yyyy') : (gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-')}
+                                {gasto.fecha ? formatFriendlyDate(gasto.fecha) : (gasto.created_at ? format(new Date(gasto.created_at), 'dd/MM/yyyy') : '-')}
                               </span>
                             )}
                           </td>
