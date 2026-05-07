@@ -613,29 +613,29 @@ export default function Reportes() {
   const handleGeneratePDF = () => {
     setGenerating(true);
 
-    // Generar HTML para cada ruta (FOTOS AL FINAL, DESPUÉS DE LA TABLA)
+    // Generar HTML para cada ruta
     const rows = rutas.map(r => {
       const bits = r.bitacora || [];
       const estadoBadge = r.estado === 'finalizada' ? '#22c55e' : r.estado === 'en_progreso' ? '#3b82f6' : '#eab308';
 
-      // Generar tabla de tramos
+      // TABLA DE TRAMOS
       const paradas = bits.map((b: any, i: number) => {
         const transito = b.hora_salida && b.hora_llegada
           ? differenceInMinutes(new Date(b.hora_llegada), new Date(b.hora_salida)) : null;
         const nextBit = bits[i + 1];
         const permanencia = b.hora_llegada && nextBit?.hora_salida
           ? differenceInMinutes(new Date(nextBit.hora_salida), new Date(b.hora_llegada)) : null;
-        return `<tr>
-        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;">${i + 1}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : '⏳'}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
+        return `<table>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;">${i + 1}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;">${b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;">${b.hora_llegada ? format(new Date(b.hora_llegada), 'HH:mm') : '⏳'}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;font-weight:bold;color:#4f46e5;">${transito !== null ? transito + ' min' : '-'}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;font-weight:bold;color:#f59e0b;">${permanencia !== null ? permanencia + ' min' : '-'}</td>
       </tr>`;
       }).join('');
 
-      // Generar fotos de evidencia de esta ruta (DEBAJO DE LA TABLA)
+      // FOTOS (se generan pero se colocan AL FINAL, después de la tabla)
       let fotosHTML = '';
       if (incluirFotosEnPDF && r.localesRuta && r.localesRuta.length > 0) {
         const allFotos: { url: string; localName: string }[] = [];
@@ -648,15 +648,13 @@ export default function Reportes() {
 
         if (allFotos.length > 0) {
           fotosHTML = `
-          <div style="padding: 15px; background: #fff; border-top: 1px solid #e2e8f0; margin-top: 10px;">
-            <p style="font-size: 12px; font-weight: bold; color: #1e293b; margin-bottom: 10px;">
-              📸 Fotos de evidencia (${allFotos.length})
-            </p>
-            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+          <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+            <p style="font-size: 13px; font-weight: bold; color: #1e293b; margin-bottom: 12px;">📸 FOTOS DE EVIDENCIA (${allFotos.length})</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
               ${allFotos.map(foto => `
-                <div style="width: 100px; height: 100px; background: #f1f5f9; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
-                  <img src="${foto.url}" style="width: 100%; height: 100%; object-fit: cover;" />
-                  <div style="font-size: 9px; text-align: center; padding: 2px; background: #f8fafc;">${foto.localName}</div>
+                <div style="width: 120px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
+                  <img src="${foto.url}" style="width: 100%; height: 100px; object-fit: cover;" />
+                  <div style="padding: 6px; font-size: 10px; text-align: center; background: white;">${foto.localName}</div>
                 </div>
               `).join('')}
             </div>
@@ -665,57 +663,56 @@ export default function Reportes() {
         }
       }
 
-      // Título personalizado con el nombre de la ruta
-      const tituloRuta = r.nombre || 'Ruta sin nombre';
-      const fechaFormateada = r.fecha ? formatFriendlyDate(r.fecha) : 'Fecha no disponible';
-
-      return `<div style="page-break-inside: avoid; margin-bottom: 30px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
-      <!-- ENCABEZADO DE LA RUTA -->
-      <div style="background: #1e293b; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <strong style="font-size: 16px;">🚛 REPORTE DE RUTA: ${tituloRuta.toUpperCase()}</strong>
-          <div style="font-size: 11px; opacity: 0.7; margin-top: 4px;">📅 ${fechaFormateada} | ${r.placa ? `🚛 Placa: ${r.placa}` : ''}</div>
+      // ESTRUCTURA CORRECTA: 
+      // 1. TÍTULO DE RUTA
+      // 2. TABLA DE TRAMOS
+      // 3. FOTOS (AL FINAL)
+      return `
+      <div style="page-break-inside: avoid; margin-bottom: 30px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <!-- TÍTULO DE LA RUTA -->
+        <div style="background: #1e293b; color: white; padding: 12px 16px;">
+          <div style="font-size: 16px; font-weight: bold;">🚛 REPORTE DE RUTA: ${(r.nombre || 'SIN NOMBRE').toUpperCase()}</div>
+          <div style="font-size: 11px; opacity: 0.7; margin-top: 4px;">
+            📅 ${r.fecha ? formatFriendlyDate(r.fecha) : 'Fecha no disponible'} 
+            ${r.placa ? `| 🚛 Placa: ${r.placa}` : ''}
+            | Estado: ${r.estado?.replace('_', ' ') || 'Desconocido'}
+          </div>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <span style="background: ${estadoBadge}22; color: ${estadoBadge}; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid ${estadoBadge}44;">
-            ${r.estado?.replace('_', ' ').toUpperCase()}
-          </span>
+        
+        <!-- INFORMACIÓN GENERAL -->
+        <div style="padding: 10px 16px; background: #f8fafc; font-size: 12px; display: flex; gap: 20px; border-bottom: 1px solid #e2e8f0;">
+          ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${format(new Date(r.hora_salida_planta), 'HH:mm')}</strong></span>` : ''}
+          ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${format(new Date(r.horaLlegadaReal), 'HH:mm')}</strong></span>` : ''}
+          ${r.durationMin ? `<span>⏱ Duración total: <strong>${formatMins(r.durationMin)}</strong></span>` : ''}
         </div>
+        
+        <!-- TABLA DE TRAMOS (VIAJES BITÁCORA) - VA PRIMERO -->
+        <div style="padding: 16px;">
+          <p style="font-size: 13px; font-weight: bold; color: #1e293b; margin-bottom: 10px;">📋 TRAMOS DE LA RUTA</p>
+          ${bits.length > 0 ? `
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 8px; text-align: left;">#</th>
+                  <th style="padding: 8px; text-align: left;">Tramo</th>
+                  <th style="padding: 8px; text-align: left;">Salida</th>
+                  <th style="padding: 8px; text-align: left;">Llegada</th>
+                  <th style="padding: 8px; text-align: left;">Tránsito</th>
+                  <th style="padding: 8px; text-align: left;">Permanencia</th>
+                </tr>
+              </thead>
+              <tbody>${paradas}</tbody>
+            </table>
+          ` : '<p style="color: #94a3b8; font-style: italic;">Sin movimientos registrados</p>'}
+        </div>
+        
+        <!-- FOTOS DE EVIDENCIA - VA AL FINAL, DESPUÉS DE LA TABLA -->
+        ${fotosHTML}
       </div>
-      
-      <!-- INFORMACIÓN GENERAL DE LA RUTA -->
-      <div style="padding: 10px 16px; background: #f8fafc; font-size: 12px; color: #64748b; display: flex; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid #e2e8f0;">
-        ${r.hora_salida_planta ? `<span>🕐 Salida planta: <strong>${format(new Date(r.hora_salida_planta), 'HH:mm')}</strong></span>` : ''}
-        ${r.horaLlegadaReal ? `<span>🏁 Llegada planta: <strong>${format(new Date(r.horaLlegadaReal), 'HH:mm')}</strong></span>` : ''}
-        ${r.durationMin ? `<span>⏱ Duración total: <strong>${formatMins(r.durationMin)}</strong></span>` : ''}
-      </div>
-      
-      <!-- TABLA DE TRAMOS -->
-      ${bits.length > 0 ? `
-        <div style="padding: 0 16px;">
-          <p style="font-size: 12px; font-weight: bold; color: #1e293b; margin: 12px 0 8px;">📋 TRAMOS DE LA RUTA</p>
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-            <thead>
-              <tr style="background: #f1f5f9;">
-                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">#</th>
-                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Tramo</th>
-                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Salida</th>
-                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Llegada</th>
-                <th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 600;">Tránsito</th>
-                <th style="padding: 6px 8px; text-align: left; color: #f59e0b; font-weight: 600;">Permanencia</th>
-              </tr>
-            </thead>
-            <tbody>${paradas}</tbody>
-          </table>
-        </div>
-      ` : '<p style="padding: 10px 16px; color: #94a3b8; font-size: 12px; font-style: italic; margin: 0;">Sin movimientos registrados</p>'}
-      
-      <!-- FOTOS DE EVIDENCIA (AL FINAL) -->
-      ${fotosHTML}
-    </div>`;
+    `;
     }).join('');
 
-    // HTML completo del reporte
+    // HTML COMPLETO
     const html = `
     <!DOCTYPE html>
     <html>
@@ -736,17 +733,10 @@ export default function Reportes() {
     </head>
     <body>
       <button class="no-print" onclick="window.print();" style="margin-bottom:20px;">🖨️ Imprimir / Guardar PDF</button>
-      
       <h1>🚛 SHIMAYA RUTAS</h1>
-      <div class="subtitle">
-        📅 Período: ${rangoLabel} ${filterChofer ? `| 👤 Chofer: ${choferNombre}` : ''} | 📊 Total rutas: ${rutas.length}
-      </div>
-      
+      <div class="subtitle">📅 Período: ${rangoLabel} ${filterChofer ? `| 👤 Chofer: ${choferNombre}` : ''}</div>
       ${rows}
-      
-      <div class="footer">
-        Reporte generado desde Shimaya Rutas · ${format(new Date(), 'dd/MM/yyyy HH:mm')}
-      </div>
+      <div class="footer">Reporte generado desde Shimaya Rutas · ${format(new Date(), 'dd/MM/yyyy HH:mm')}</div>
     </body>
     </html>
   `;
