@@ -595,9 +595,12 @@ export default function Reportes() {
 
   const handleGeneratePDF = () => {
     setGenerating(true);
+    try {
+      const choferNombre = filterChofer ? choferes.find(c => c.id_usuario === filterChofer)?.nombre : '';
+      const rangoLabel = getPeriodoLabel();
 
-    // Generar HTML para cada ruta
-    const rows = rutas.map(r => {
+      // Generar HTML para cada ruta
+      const routesHTML = rutas.map(r => {
       const bits = r.bitacora || [];
       const estadoBadge = r.estado === 'finalizada' ? '#22c55e' : r.estado === 'en_progreso' ? '#3b82f6' : '#eab308';
 
@@ -733,7 +736,12 @@ export default function Reportes() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    setGenerating(false);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Error al generar el reporte');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
