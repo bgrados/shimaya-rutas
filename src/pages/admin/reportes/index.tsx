@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { FileDown, Download, Truck, Clock, MapPin, CheckCircle2, Calendar, Filter, X, Share2, Fuel, Download as DownloadIcon, Trash2, Edit2, Check, Image, Users } from 'lucide-react';
 import { format, differenceInMinutes, endOfWeek, startOfMonth, endOfMonth, startOfWeek, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatFriendlyDate } from '../../../lib/timezone';
+import { formatFriendlyDate, formatPeru } from '../../../lib/timezone';
 import JSZip from 'jszip';
 import { ImageModal } from '../../../components/ui/ImageModal';
 
@@ -210,13 +210,15 @@ export default function Reportes() {
   async function loadData() {
     setLoading(true);
     try {
-      const { from, to } = getRange(period, selectedDate);
+      // Usar rangos con zona horaria de Perú (UTC-5) para evitar el desfase
+      const fromPeru = `${from}T00:00:00-05:00`;
+      const toPeru = `${to}T23:59:59-05:00`;
 
       let query = supabase
         .from('rutas')
         .select('*')
-        .gte('fecha', from)
-        .lte('fecha', to)
+        .gte('fecha', fromPeru)
+        .lte('fecha', toPeru)
         .order('fecha', { ascending: false });
 
       if (filterChofer) {
@@ -300,22 +302,23 @@ export default function Reportes() {
     }
   }
 
-  // ============================================================
-  // FUNCIÓN CORREGIDA DEFINITIVA - Usa eq() en lugar de gte/lte
-  // ============================================================
   async function loadCombustible() {
     setCombustibleLoading(true);
     try {
       const { from, to } = getRange(period, selectedDate);
 
-      console.log(`[Combustible] Filtro de fechas (Rutas): ${from} a ${to}`);
+      // Usar rangos con zona horaria de Perú (UTC-5) para evitar el desfase
+      const fromPeru = `${from}T00:00:00-05:00`;
+      const toPeru = `${to}T23:59:59-05:00`;
 
-      // PASO 1: Obtener las rutas dentro del rango de fechas
+      console.log(`[Combustible] Filtro de fechas (Peru): ${fromPeru} a ${toPeru}`);
+
+      // PASO 1: Obtener las rutas dentro del rango de fechas usando el rango con zona horaria
       let rutasQuery = supabase
         .from('rutas')
         .select('id_ruta')
-        .gte('fecha', from)
-        .lte('fecha', to);
+        .gte('fecha', fromPeru)
+        .lte('fecha', toPeru);
 
       if (filterChofer) {
         rutasQuery = rutasQuery.eq('id_chofer', filterChofer);
@@ -385,7 +388,8 @@ export default function Reportes() {
 
     filtered = filtered.filter(g => {
       const fechaRaw = g.fecha || (g as any).created_at || '';
-      const fechaGasto = fechaRaw.toString().split('T')[0];
+      // Convertir a fecha de Perú (UTC-5) para evitar el desfase de 1 día
+      const fechaGasto = formatPeru(fechaRaw, 'yyyy-MM-dd');
       return fechaGasto >= from && fechaGasto <= to;
     });
 
@@ -625,7 +629,7 @@ export default function Reportes() {
         const nextBit = bits[i + 1];
         const permanencia = b.hora_llegada && nextBit?.hora_salida
           ? differenceInMinutes(new Date(nextBit.hora_salida), new Date(b.hora_llegada)) : null;
-        return `<table>
+        return `<tr>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;">${i + 1}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;font-weight:600;">${b.origen_nombre || '-'} → ${b.destino_nombre || '-'}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;">${b.hora_salida ? format(new Date(b.hora_salida), 'HH:mm') : '-'}</td>
