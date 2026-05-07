@@ -210,6 +210,7 @@ export default function Reportes() {
   async function loadData() {
     setLoading(true);
     try {
+      const { from, to } = getRange(period, selectedDate);
       // Usar rangos con zona horaria de Perú (UTC-5) para evitar el desfase
       const fromPeru = `${from}T00:00:00-05:00`;
       const toPeru = `${to}T23:59:59-05:00`;
@@ -313,40 +314,19 @@ export default function Reportes() {
 
       console.log(`[Combustible] Filtro de fechas (Peru): ${fromPeru} a ${toPeru}`);
 
-      // PASO 1: Obtener las rutas dentro del rango de fechas usando el rango con zona horaria
-      let rutasQuery = supabase
-        .from('rutas')
-        .select('id_ruta')
-        .gte('fecha', fromPeru)
-        .lte('fecha', toPeru);
-
-      if (filterChofer) {
-        rutasQuery = rutasQuery.eq('id_chofer', filterChofer);
-      }
-
-      const { data: rutasData, error: rutasError } = await rutasQuery;
-
-      if (rutasError) {
-        console.error('[Combustible] Error obteniendo rutas:', rutasError);
-        throw rutasError;
-      }
-
-      const rutaIds = rutasData?.map(r => r.id_ruta) || [];
-      console.log(`[Combustible] Rutas encontradas: ${rutaIds.length}`);
-
-      if (rutaIds.length === 0) {
-        setGastos([]);
-        setFotosCombustible({});
-        setCombustibleLoading(false);
-        return;
-      }
-
-      // PASO 2: Obtener los gastos de esas rutas
+      // MODIFICACIÓN: Consultar directamente los gastos por su propia fecha
+      // Esto es más preciso que filtrar rutas primero, ya que captura gastos de rutas 
+      // que pueden haber empezado el día anterior pero registraron gastos hoy.
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
-        .in('id_ruta', rutaIds)
-        .order('created_at', { ascending: false });
+        .gte('fecha', fromPeru)
+        .lte('fecha', toPeru)
+        .order('fecha', { ascending: false });
+
+      if (filterChofer) {
+        query = query.eq('id_chofer', filterChofer);
+      }
 
       const { data, error } = await query;
 
