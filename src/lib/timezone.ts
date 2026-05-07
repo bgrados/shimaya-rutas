@@ -26,7 +26,10 @@ export function formatGroupDatePdf(fechaStr: string): string {
 export function formatFriendlyDate(fechaStr: string | null | undefined): string {
   if (!fechaStr) return '-';
   try {
-    const dateToFormat = fechaStr.includes('T') ? new Date(fechaStr) : toDate(fechaStr + 'T00:00:00', { timeZone: TIMEZONE });
+    // BUG FIX: Nunca usar new Date(fechaStr) directamente porque el navegador resta horas si tiene 'T' o 'Z'
+    // Forzamos a que se interprete en la zona horaria de Lima
+    const cleanDate = fechaStr.includes('T') ? fechaStr.split('T')[0] : fechaStr;
+    const dateToFormat = toDate(cleanDate + 'T12:00:00', { timeZone: TIMEZONE });
     return formatInTimeZone(dateToFormat, TIMEZONE, "d MMM, yyyy", { locale: es });
   } catch (e) {
     return fechaStr;

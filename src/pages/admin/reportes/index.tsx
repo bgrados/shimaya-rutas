@@ -213,6 +213,7 @@ export default function Reportes() {
     try {
       const { from, to } = getRange(period, selectedDate);
       // Usar rangos con zona horaria de Perú (UTC-5) para evitar el desfase
+      // Si la columna es TIMESTAMPTZ, esto asegura que el rango empiece exactamente a las 00:00 de Lima
       const fromPeru = `${from}T00:00:00-05:00`;
       const toPeru = `${to}T23:59:59-05:00`;
 
@@ -313,11 +314,8 @@ export default function Reportes() {
       const fromPeru = `${from}T00:00:00-05:00`;
       const toPeru = `${to}T23:59:59-05:00`;
 
-      console.log(`[Combustible] Filtro de fechas (Peru): ${fromPeru} a ${toPeru}`);
+      console.log(`[Combustible] Consultando rango Lima: ${fromPeru} a ${toPeru}`);
 
-      // MODIFICACIÓN: Consultar directamente los gastos por su propia fecha
-      // Esto es más preciso que filtrar rutas primero, ya que captura gastos de rutas 
-      // que pueden haber empezado el día anterior pero registraron gastos hoy.
       let query = supabase
         .from('gastos_combustible')
         .select('*, usuarios(nombre), rutas(nombre, fecha)')
@@ -671,7 +669,7 @@ export default function Reportes() {
           ${r.durationMin ? `<span>⏱ Duración total: <strong>${formatMins(r.durationMin)}</strong></span>` : ''}
         </div>
         
-        <!-- TABLA DE TRAMOS (VIAJES BITÁCORA) - VA PRIMERO -->
+        <!-- TABLA DE TRAMOS (VIAJES BITÁCORA) -->
         <div style="padding: 16px;">
           <p style="font-size: 13px; font-weight: bold; color: #1e293b; margin-bottom: 10px;">📋 TRAMOS DE LA RUTA</p>
           ${bits.length > 0 ? `
@@ -691,8 +689,8 @@ export default function Reportes() {
           ` : '<p style="color: #94a3b8; font-style: italic;">Sin movimientos registrados</p>'}
         </div>
         
-        <!-- FOTOS DE EVIDENCIA - VA AL FINAL, DESPUÉS DE LA TABLA -->
-        ${fotosHTML}
+        <!-- SECCIÓN DE FOTOS (AL FINAL DEL BLOQUE DE RUTA) -->
+        ${fotosHTML ? `<div style="border-top: 1px solid #e2e8f0;">${fotosHTML}</div>` : ''}
       </div>
     `;
     }).join('');
