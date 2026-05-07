@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useViajeIntegration } from './hooks/useViajeIntegration';
-import { ActiveTripView } from './components/ActiveTripView';
-import { RutaSelector } from './components/RutaSelector';
-import { FinishedTripView } from './components/FinishedTripView';
+import { useViajeIntegration } from './viaje/hooks/useViajeIntegration';
+import { ActiveTripView } from './viaje/components/ActiveTripView';
+import { RutaSelector } from './viaje/components/RutaSelector';
+import { FinishedTripView } from './viaje/components/FinishedTripView';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { generarResumenWhatsApp } from './utils/whatsappUtils';
+import { generarResumenWhatsApp } from './viaje/utils/whatsappUtils';
 
 export default function Viaje() {
   const { profile } = useAuth();
