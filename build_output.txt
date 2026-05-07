@@ -1,0 +1,83 @@
+
+> app@0.0.0 build
+> vite build
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+vite v5.4.11 building for production...
+transforming...
+✓ 45 modules transformed.
+x Build failed in 466ms
+error during build:
+[vite-plugin-pwa:build] [plugin vite-plugin-pwa:build] src/pages/admin/analisis/index.tsx (1423:24): There was an error during the build:
+  Transform failed with 6 errors:
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1423:24: ERROR: Unexpected closing "tr" tag does not match opening "table" tag
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1425:43: ERROR: The character ">" is not valid inside a JSX element
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1452:17: ERROR: The character "}" is not valid inside a JSX element
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1453:22: ERROR: Unexpected closing "tbody" tag does not match opening "td" tag
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1454:20: ERROR: Unexpected closing "table" tag does not match opening "tr" tag
+...
+Additionally, handling the error in the 'buildEnd' hook caused the following error:
+  Transform failed with 6 errors:
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1423:24: ERROR: Unexpected closing "tr" tag does not match opening "table" tag
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1425:43: ERROR: The character ">" is not valid inside a JSX element
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1452:17: ERROR: The character "}" is not valid inside a JSX element
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1453:22: ERROR: Unexpected closing "tbody" tag does not match opening "td" tag
+/Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1454:20: ERROR: Unexpected closing "table" tag does not match opening "tr" tag
+...
+file: /Users/bengrados/Downloads/shimaya rutas/src/pages/admin/analisis/index.tsx:1423:24
+
+Unexpected closing "tr" tag does not match opening "table" tag
+1421|                        No hay registros manuales en este periodo.
+1422|                        <table>
+1423|                        </tr>
+   |                          ^
+1424|                        ) : (
+1425|                    asistencia.map((f: any) => (
+
+The character ">" is not valid inside a JSX element
+1423|                        </tr>
+1424|                        ) : (
+1425|                    asistencia.map((f: any) => (
+   |                                             ^
+1426|                        <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
+1427|                          <td className="p-3 border-t border-surface-light">
+
+The character "}" is not valid inside a JSX element
+1450|                        </tr>
+1451|                        ))
+1452|                  )}
+   |                   ^
+1453|                      </tbody>
+1454|                    </table>
+
+Unexpected closing "tbody" tag does not match opening "td" tag
+1451|                        ))
+1452|                  )}
+1453|                      </tbody>
+   |                        ^
+1454|                    </table>
+1455|            </div>
+
+Unexpected closing "table" tag does not match opening "tr" tag
+1452|                  )}
+1453|                      </tbody>
+1454|                    </table>
+   |                      ^
+1455|            </div>
+1456|              </CardContent>
+
+Unterminated regular expression
+1453|                      </tbody>
+1454|                    </table>
+1455|            </div>
+   |                  ^
+1456|              </CardContent>
+1457|            </Card>
+
+    at getRollupError (file:///Users/bengrados/Downloads/shimaya%20rutas/node_modules/vite/node_modules/rollup/dist/es/shared/parseAst.js:406:41)
+    at file:///Users/bengrados/Downloads/shimaya%20rutas/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:23522:39
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async catchUnfinishedHookActions (file:///Users/bengrados/Downloads/shimaya%20rutas/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:22980:16)
+    at async rollupInternal (file:///Users/bengrados/Downloads/shimaya%20rutas/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:23505:5)
+    at async build (file:///Users/bengrados/Downloads/shimaya%20rutas/node_modules/vite/dist/node/chunks/dep-CB_7IfJ-.js:65443:14)
+    at async CAC.<anonymous> (file:///Users/bengrados/Downloads/shimaya%20rutas/node_modules/vite/dist/node/cli.js:828:5)

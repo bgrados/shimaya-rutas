@@ -1419,42 +1419,43 @@ export default function AnalisisRutas() {
                   <tr>
                     <td colSpan={5} className="p-8 text-center text-text-muted">
                       No hay registros manuales en este periodo.
-                      <table>
-                      </tr>
-                      ) : (
+                    </td>
+                  </tr>
+                ) : (
                   asistencia.map((f: any) => (
-                      <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
-                        <td className="p-3 border-t border-surface-light">
-                          <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
-                        </td>
-                        <td className="p-3 border-t border-surface-light text-text-muted">
-                          {formatFriendlyDate(f.fecha)}
-                        </td>
-                        <td className="p-3 border-t border-surface-light">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
-                            f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
-                              f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
-                                'bg-purple-500/20 text-purple-400'
-                            }`}>
-                            {f.estado || 'falta'}
-                          </span>
-                        </td>
-                        <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
-                          {f.observaciones || '-'}
-                        </td>
-                        <td className="p-3 border-t border-surface-light text-right">
-                          <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                      ))
+                    <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
+                      <td className="p-3 border-t border-surface-light">
+                        <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
+                      </td>
+                      <td className="p-3 border-t border-surface-light text-text-muted">
+                        {formatFriendlyDate(f.fecha)}
+                      </td>
+                      <td className="p-3 border-t border-surface-light">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                          f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
+                          f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
+                          f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
+                          'bg-purple-500/20 text-purple-400'
+                        }`}>
+                          {f.estado || 'falta'}
+                        </span>
+                      </td>
+                      <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
+                        {f.observaciones || '-'}
+                      </td>
+                      <td className="p-3 border-t border-surface-light text-right">
+                        <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
-                    </tbody>
-                  </table>
+              </tbody>
+            </table>
           </div>
-            </CardContent>
-          </Card>
+        </CardContent>
+      </Card>
 
           {showAsistenciaModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
