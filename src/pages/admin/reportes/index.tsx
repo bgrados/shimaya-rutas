@@ -639,7 +639,7 @@ export default function Reportes() {
             <div style="display: flex; flex-wrap: wrap; gap: 12px;">
               ${allFotos.map(foto => `
                 <div class="photo-card" onclick="openGallery('${foto.url}')">
-                  <img src="${foto.url}" style="width: 100%; height: 150px; object-fit: cover;" />
+                  <img src="${foto.url}" data-caption="${foto.localName}" style="width: 100%; height: 150px; object-fit: cover;" />
                   <div style="padding: 6px; font-size: 10px; text-align: center; background: white; font-weight: bold;">${foto.localName}</div>
                 </div>
               `).join('')}
@@ -729,21 +729,25 @@ export default function Reportes() {
         .gallery-btn:hover { background: rgba(255,255,255,0.3); }
         .gallery-close { position: absolute; top: 20px; right: 20px; color: white; font-size: 35px; cursor: pointer; font-weight: bold; background: none; border: none; }
         .gallery-counter { position: absolute; bottom: 20px; color: white; font-size: 14px; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; }
+        .gallery-caption { position: absolute; top: 70px; color: white; font-size: 18px; font-weight: bold; text-align: center; width: 100%; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
       </style>
       <script>
         let currentImages = [];
         let currentIndex = 0;
         function openGallery(url) {
-          currentImages = Array.from(document.querySelectorAll('.photo-card img')).map(img => img.src);
-          currentIndex = currentImages.indexOf(url);
+          const allImgs = Array.from(document.querySelectorAll('.photo-card img'));
+          currentImages = allImgs.map(img => ({ src: img.src, caption: img.getAttribute('data-caption') }));
+          currentIndex = currentImages.findIndex(img => img.src === url);
           if (currentIndex === -1) currentIndex = 0;
           updateGallery();
           document.getElementById('galleryModal').style.display = 'flex';
           document.body.style.overflow = 'hidden';
         }
         function updateGallery() {
-          document.getElementById('galleryImg').src = currentImages[currentIndex];
+          const item = currentImages[currentIndex];
+          document.getElementById('galleryImg').src = item.src;
           document.getElementById('galleryCount').innerText = (currentIndex + 1) + ' / ' + currentImages.length;
+          document.getElementById('galleryCaption').innerText = item.caption || '';
         }
         function nextImg(e) { if(e) e.stopPropagation(); currentIndex = (currentIndex + 1) % currentImages.length; updateGallery(); }
         function prevImg(e) { if(e) e.stopPropagation(); currentIndex = (currentIndex - 1 + currentImages.length) % currentImages.length; updateGallery(); }
@@ -760,6 +764,7 @@ export default function Reportes() {
     <body>
       <div id="galleryModal" onclick="closeGallery()">
         <button class="gallery-close" onclick="closeGallery()">✕</button>
+        <div id="galleryCaption" class="gallery-caption"></div>
         <div class="gallery-nav">
           <button class="gallery-btn" onclick="prevImg(event)">‹</button>
           <button class="gallery-btn" onclick="nextImg(event)">›</button>
