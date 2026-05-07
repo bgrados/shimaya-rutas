@@ -165,9 +165,13 @@ export default function AnalisisRutas() {
   });
   const [fechaFin, setFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
 
-  // ✅ Estados temporales para el debounce (para evitar recargas mientras se escribe)
-  const [tempFechaInicio, setTempFechaInicio] = useState<string>(fechaInicio);
-  const [tempFechaFin, setTempFechaFin] = useState<string>(fechaFin);
+  // Estados temporales para el debounce (para evitar recargas mientras se escribe)
+  const [tempFechaInicio, setTempFechaInicio] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 20);
+    return format(d, 'yyyy-MM-dd');
+  });
+  const [tempFechaFin, setTempFechaFin] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
 
   const [choferFilter, setChoferFilter] = useState<string>('todos');
   const [choferes, setChoferes] = useState<{ id_usuario: string; nombre: string; dias_descanso: string[]; fecha_ingreso: string | null }[]>([]);
@@ -180,7 +184,7 @@ export default function AnalisisRutas() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  // ✅ Ref para el debounce
+  // Ref para el debounce
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -556,12 +560,12 @@ export default function AnalisisRutas() {
     setInsights(newInsights);
   };
 
-  // ✅ Cargar choferes solo una vez al inicio
+  // Cargar choferes solo una vez al inicio
   useEffect(() => {
     loadChoferes();
   }, []);
 
-  // ✅ Cargar datos cuando cambien fechas o chofer (con debounce implícito)
+  // Cargar datos cuando cambien fechas o chofer (con debounce implícito)
   useEffect(() => {
     if (fechaInicio && fechaFin) {
       loadData();
@@ -604,7 +608,7 @@ export default function AnalisisRutas() {
     }
   };
 
-  // ✅ Manejar cambio de fecha inicio con debounce
+  // Manejar cambio de fecha inicio con debounce y validación
   const handleFechaInicioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setTempFechaInicio(newValue);
@@ -613,12 +617,15 @@ export default function AnalisisRutas() {
       clearTimeout(debounceTimer.current);
     }
 
-    debounceTimer.current = setTimeout(() => {
-      setFechaInicio(newValue);
-    }, 500);
+    // Solo actualizar si el valor no está vacío y tiene formato válido (YYYY-MM-DD)
+    if (newValue && newValue.length === 10) {
+      debounceTimer.current = setTimeout(() => {
+        setFechaInicio(newValue);
+      }, 500);
+    }
   };
 
-  // ✅ Manejar cambio de fecha fin con debounce
+  // Manejar cambio de fecha fin con debounce y validación
   const handleFechaFinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setTempFechaFin(newValue);
@@ -627,12 +634,22 @@ export default function AnalisisRutas() {
       clearTimeout(debounceTimer.current);
     }
 
-    debounceTimer.current = setTimeout(() => {
-      setFechaFin(newValue);
-    }, 500);
+    // Solo actualizar si el valor no está vacío y tiene formato válido (YYYY-MM-DD)
+    if (newValue && newValue.length === 10) {
+      debounceTimer.current = setTimeout(() => {
+        setFechaFin(newValue);
+      }, 500);
+    }
   };
 
   const loadData = async () => {
+    // Validación: Si las fechas están vacías, no hacer la consulta
+    if (!fechaInicio || !fechaFin) {
+      console.log('Fechas no válidas:', { fechaInicio, fechaFin });
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const inicio = `${fechaInicio}T00:00:00-05:00`;
@@ -790,7 +807,7 @@ export default function AnalisisRutas() {
             <Calendar size={16} className="text-text-muted" />
             <input
               type="date"
-              value={tempFechaInicio}
+              value={tempFechaInicio || fechaInicio || ''}
               onChange={handleFechaInicioChange}
               max={format(new Date(), 'yyyy-MM-dd')}
               className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
@@ -798,7 +815,7 @@ export default function AnalisisRutas() {
             <span className="text-text-muted">–</span>
             <input
               type="date"
-              value={tempFechaFin}
+              value={tempFechaFin || fechaFin || ''}
               onChange={handleFechaFinChange}
               max={format(new Date(), 'yyyy-MM-dd')}
               className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
@@ -1402,117 +1419,117 @@ export default function AnalisisRutas() {
                   <tr>
                     <td colSpan={5} className="p-8 text-center text-text-muted">
                       No hay registros manuales en este periodo.
-                    </td>
-                  </tr>
-                ) : (
+                      <table>
+                      </tr>
+                      ) : (
                   asistencia.map((f: any) => (
-                    <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
-                      <td className="p-3 border-t border-surface-light">
-                        <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
-                      </td>
-                      <td className="p-3 border-t border-surface-light text-text-muted">
-                        {formatFriendlyDate(f.fecha)}
-                      </td>
-                      <td className="p-3 border-t border-surface-light">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
-                          f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
-                            f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
-                              'bg-purple-500/20 text-purple-400'
-                          }`}>
-                          {f.estado || 'falta'}
-                        </span>
-                      </td>
-                      <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
-                        {f.observaciones || '-'}
-                      </td>
-                      <td className="p-3 border-t border-surface-light text-right">
-                        <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                      <tr key={f.id} className="hover:bg-surface-light/10 transition-colors">
+                        <td className="p-3 border-t border-surface-light">
+                          <span className="font-bold text-white">{f.usuario_nombre || 'Desconocido'}</span>
+                        </td>
+                        <td className="p-3 border-t border-surface-light text-text-muted">
+                          {formatFriendlyDate(f.fecha)}
+                        </td>
+                        <td className="p-3 border-t border-surface-light">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${f.estado === 'falta' ? 'bg-red-500/20 text-red-400' :
+                            f.estado === 'trabajo' ? 'bg-green-500/20 text-green-400' :
+                              f.estado === 'descanso' ? 'bg-yellow-500/20 text-yellow-500' :
+                                'bg-purple-500/20 text-purple-400'
+                            }`}>
+                            {f.estado || 'falta'}
+                          </span>
+                        </td>
+                        <td className="p-3 border-t border-surface-light text-text-muted text-xs truncate max-w-xs">
+                          {f.observaciones || '-'}
+                        </td>
+                        <td className="p-3 border-t border-surface-light text-right">
+                          <button onClick={() => handleDeleteAsistencia(f.id)} className="text-red-400 hover:text-red-300 p-1">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                      ))
                 )}
-              </tbody>
-            </table>
+                    </tbody>
+                  </table>
           </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {showAsistenciaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-surface border border-surface-light rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-surface-light flex items-center gap-3">
-              <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
-                <AlertCircle size={20} />
-              </div>
-              <h3 className="text-lg font-bold text-white">
-                Registrar Asistencia Manual
-              </h3>
-            </div>
-            <div className="p-6 space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Chofer</label>
-                <select
-                  className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
-                  value={nuevaAsistencia.id_chofer || ''}
-                  onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, id_chofer: e.target.value })}
-                >
-                  <option value="">Seleccione chofer...</option>
-                  {choferes.map(c => (
-                    <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Fecha</label>
-                  <input
-                    type="date"
-                    className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={nuevaAsistencia.fecha}
-                    onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, fecha: e.target.value })}
-                    max={format(new Date(), 'yyyy-MM-dd')}
-                  />
+          {showAsistenciaModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-surface border border-surface-light rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+                <div className="p-4 border-b border-surface-light flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
+                    <AlertCircle size={20} />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    Registrar Asistencia Manual
+                  </h3>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Estado</label>
-                  <select
-                    className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
-                    value={nuevaAsistencia.estado}
-                    onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, estado: e.target.value as any })}
-                  >
-                    <option value="falta">Falta</option>
-                    <option value="permiso">Permiso</option>
-                    <option value="trabajo">Trabajo Extra</option>
-                    <option value="descanso">Descanso</option>
-                  </select>
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Chofer</label>
+                    <select
+                      className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                      value={nuevaAsistencia.id_chofer || ''}
+                      onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, id_chofer: e.target.value })}
+                    >
+                      <option value="">Seleccione chofer...</option>
+                      {choferes.map(c => (
+                        <option key={c.id_usuario} value={c.id_usuario}>{c.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Fecha</label>
+                      <input
+                        type="date"
+                        className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                        value={nuevaAsistencia.fecha}
+                        onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, fecha: e.target.value })}
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Estado</label>
+                      <select
+                        className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                        value={nuevaAsistencia.estado}
+                        onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, estado: e.target.value as any })}
+                      >
+                        <option value="falta">Falta</option>
+                        <option value="permiso">Permiso</option>
+                        <option value="trabajo">Trabajo Extra</option>
+                        <option value="descanso">Descanso</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Observaciones</label>
+                    <textarea
+                      className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] resize-none"
+                      placeholder="Ej. Descanso médico certificado, cambió de turno, etc."
+                      value={nuevaAsistencia.observaciones || ''}
+                      onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, observaciones: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="secondary" className="flex-1 py-3" onClick={() => setShowAsistenciaModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button className="flex-1 bg-orange-600 hover:bg-orange-700 py-3" onClick={handleSaveAsistencia}>
+                      Guardar
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Observaciones</label>
-                <textarea
-                  className="w-full bg-surface-light/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] resize-none"
-                  placeholder="Ej. Descanso médico certificado, cambió de turno, etc."
-                  value={nuevaAsistencia.observaciones || ''}
-                  onChange={e => setNuevaAsistencia({ ...nuevaAsistencia, observaciones: e.target.value })}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button variant="secondary" className="flex-1 py-3" onClick={() => setShowAsistenciaModal(false)}>
-                  Cancelar
-                </Button>
-                <Button className="flex-1 bg-orange-600 hover:bg-orange-700 py-3" onClick={handleSaveAsistencia}>
-                  Guardar
-                </Button>
-              </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
-  );
+        );
 }
