@@ -108,7 +108,7 @@ export function RutaSelector({
                     <option value="" disabled>Elige tu ruta...</option>
                     {rutasBase.map(r => (
                       <option key={r.id_ruta_base} value={r.id_ruta_base} className="bg-surface text-white">
-                        {r.nombre} ({r.locales_count} paradas)
+                        {r.nombre}
                       </option>
                     ))}
                   </select>

@@ -52,7 +52,7 @@ export function useViajeData() {
   const loadRutasBase = useCallback(async () => {
     setLoadingRutasBase(true);
     try {
-      const { data } = await supabase.from('rutas_base').select('*').eq('activa', true).order('nombre', { ascending: true });
+      const { data } = await supabase.from('rutas_base').select('*').eq('activo', true).order('nombre', { ascending: true });
       setRutasBase(data || []);
     } finally {
       setLoadingRutasBase(false);
