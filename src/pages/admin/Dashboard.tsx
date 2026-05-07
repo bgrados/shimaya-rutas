@@ -9,6 +9,12 @@ import { formatHoraPeru } from '../../lib/timezone';
 import { toDate } from 'date-fns-tz';
 import { Link } from 'react-router-dom';
 
+// New Components
+import { PerformancePulse } from './dashboard/components/PerformancePulse';
+import { StatsGrid } from './dashboard/components/StatsGrid';
+import { ChoferesStatus } from './dashboard/components/ChoferesStatus';
+import { ActiveRoutes } from './dashboard/components/ActiveRoutes';
+
 interface Stats {
     rutasActivas: number;
     rutasPendientes: number;
@@ -139,7 +145,6 @@ export default function Dashboard() {
         }, 15000);
 
         try {
-            // 🔧 CORRECCIÓN: Usar new Date() en lugar de nowPeru()
             const nowPeru = new Date();
             const hoyStr = format(nowPeru, 'yyyy-MM-dd');
             const inicioSemana = new Date(nowPeru);
@@ -213,7 +218,6 @@ export default function Dashboard() {
             const todosChoferes = todosChoferesRes.data || [];
 
             const choferesConEstado: EstadoChofer[] = todosChoferes.map((c: any) => {
-                //const descansoNormalNumerico = (c.dias_descanso || [])[0] || 'ninguno';
                 const diasDescansoArray = c.dias_descanso || [];
                 const descansoNormalNumerico = diasDescansoArray.length > 0 ? diasDescansoArray[0] : 'ninguno';
                 const descansoNormal = diasMap[descansoNormalNumerico] || descansoNormalNumerico;
@@ -506,394 +510,44 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {rendimiento && (
-                <div className={`p-4 rounded-2xl border-2 flex items-center justify-between gap-4 ${rendimiento.diferenciaPct === null ? 'bg-surface border-surface-light' :
-                    rendimiento.diferenciaPct <= -5 ? 'bg-green-500/10 border-green-500/40' :
-                        rendimiento.diferenciaPct >= 10 ? 'bg-red-500/10 border-red-500/40' :
-                            'bg-yellow-500/10 border-yellow-500/40'
-                    }`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`p-3 rounded-xl ${rendimiento.diferenciaPct === null ? 'bg-surface-light' :
-                            rendimiento.diferenciaPct <= -5 ? 'bg-green-500/20' :
-                                rendimiento.diferenciaPct >= 10 ? 'bg-red-500/20' : 'bg-yellow-500/20'
-                            }`}>
-                            <Activity size={22} className={
-                                rendimiento.diferenciaPct === null ? 'text-text-muted' :
-                                    rendimiento.diferenciaPct <= -5 ? 'text-green-400' :
-                                        rendimiento.diferenciaPct >= 10 ? 'text-red-400' : 'text-yellow-400'
-                            } />
-                        </div>
-                        <div>
-                            <p className="text-xs text-text-muted uppercase font-bold flex items-center gap-1">
-                                Pulso del día — {rendimiento.label}
-                                <Tooltip content={`Compara el tiempo promedio de las rutas finalizadas hoy vs el promedio histórico de los últimos 30 días para este mismo día de la semana (${rendimiento.rutasConDatos} rutas de referencia).`} />
-                            </p>
-                            {rendimiento.tiempoHoyMinutos > 0 ? (
-                                <div className="flex items-baseline gap-2 flex-wrap">
-                                    <span className="text-2xl font-black text-white">{formatMins(rendimiento.tiempoHoyMinutos)}</span>
-                                    {rendimiento.promedioHistoricoMinutos > 0 && (
-                                        <>
-                                            <span className="text-text-muted text-sm">vs promedio {formatMins(rendimiento.promedioHistoricoMinutos)}</span>
-                                            {rendimiento.diferenciaPct !== null && (
-                                                <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${rendimiento.diferenciaPct <= -5 ? 'text-green-400 bg-green-500/10' :
-                                                    rendimiento.diferenciaPct >= 10 ? 'text-red-400 bg-red-500/10' :
-                                                        'text-yellow-400 bg-yellow-500/10'
-                                                    }`}>
-                                                    {rendimiento.diferenciaPct > 0 ? '+' : ''}{rendimiento.diferenciaPct}%
-                                                </span>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-white font-bold">Sin rutas finalizadas aún hoy</p>
-                            )}
-                            <p className="text-text-muted text-xs mt-0.5">
-                                {rendimiento.diferenciaPct === null ? 'Sin datos históricos suficientes para comparar' :
-                                    rendimiento.diferenciaPct <= -5 ? '✅ Rutas más rápidas que el promedio' :
-                                        rendimiento.diferenciaPct >= 10 ? '⚠️ Rutas más lentas que el promedio' :
-                                            '↔️ Rendimiento dentro del rango normal'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="hidden md:flex flex-col items-center text-center min-w-[80px]">
-                        <span className="text-3xl">
-                            {rendimiento.diferenciaPct === null ? '📊' :
-                                rendimiento.diferenciaPct <= -5 ? '🚀' :
-                                    rendimiento.diferenciaPct >= 10 ? '🐢' : '✅'}
-                        </span>
-                        <span className="text-xs text-text-muted mt-1">{rendimiento.rutasConDatos} refs.</span>
-                    </div>
-                </div>
-            )}
+            <PerformancePulse rendimiento={rendimiento} />
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-blue-500/30">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-500/20 rounded-lg">
-                                <Truck className="text-blue-400" size={20} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-blue-300 uppercase font-bold flex items-center gap-1">
-                                    Rutas Activas <Tooltip content="Rutas en ejecución ahora mismo." />
-                                </p>
-                                <p className="text-2xl font-black text-white">{stats.rutasActivas}</p>
-                                {stats.rutasPendientes > 0 && (
-                                    <p className="text-xs text-yellow-400">{stats.rutasPendientes} pendientes</p>
-                                )}
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+            <StatsGrid stats={stats} />
 
-                <Card className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-green-500/20 rounded-lg">
-                                <CheckCircle className="text-green-400" size={20} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-green-300 uppercase font-bold flex items-center gap-1">
-                                    Finalizadas <Tooltip content="Rutas completadas correctamente hoy." />
-                                </p>
-                                <p className="text-2xl font-black text-white">{stats.rutasFinalizadas}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border-purple-500/30">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-500/20 rounded-lg">
-                                <MapPin className="text-purple-400" size={20} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-purple-300 uppercase font-bold flex items-center gap-1">
-                                    Visitas Hoy <Tooltip content="Visitas completadas sobre el total programado hoy." />
-                                </p>
-                                <p className="text-2xl font-black text-white">{stats.visitasCompletadas}</p>
-                                {stats.localesVisitados > 0 && (
-                                    <p className="text-xs text-purple-400/70">{stats.localesVisitados} programadas</p>
-                                )}
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className={`bg-gradient-to-br ${stats.choferesEnRuta > 0 ? 'from-primary/20 to-primary/10 border-primary/30' : 'from-surface-light/20 to-surface-light/10 border-surface-light/30'}`}>
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${stats.choferesEnRuta > 0 ? 'bg-primary/20' : 'bg-surface-light/30'}`}>
-                                <Users className={stats.choferesEnRuta > 0 ? 'text-primary' : 'text-text-muted'} size={20} />
-                            </div>
-                            <div>
-                                <p className={`text-xs uppercase font-bold flex items-center gap-1 ${stats.choferesEnRuta > 0 ? 'text-primary' : 'text-text-muted'}`}>
-                                    Choferes <Tooltip content="En ruta / total. Muestra disponibles y en descanso." />
-                                </p>
-                                <p className={`text-2xl font-black ${stats.choferesEnRuta > 0 ? 'text-white' : 'text-text-muted'}`}>
-                                    {stats.choferesEnRuta}/{stats.totalChoferes}
-                                </p>
-                                <p className="text-[10px] text-text-muted">
-                                    {stats.choferesDisponibles} disp · {stats.choferesDescanso} desc
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ChoferesStatus estadoChoferes={estadoChoferes} />
+                <ActiveRoutes 
+                    rutasPorChofer={rutasPorChofer} 
+                    expandedChoferes={expandedChoferes} 
+                    toggleExpand={toggleExpand} 
+                />
             </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-yellow-500/30">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-yellow-500/20 rounded-lg">
-                                <Fuel className="text-yellow-400" size={20} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-yellow-300 uppercase font-bold flex items-center gap-1">
-                                    Combustible Hoy <Tooltip content="Total gastado en combustible hoy." />
-                                </p>
-                                <p className="text-2xl font-black text-white">S/ {stats.gastoCombustibleDia.toFixed(2)}</p>
-                                <p className="text-xs text-yellow-400/60">Sem: S/ {stats.gastoCombustibleSemana.toFixed(2)}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-blue-500/10 border border-blue-500/30">
-                    <CardContent className="p-4 flex items-center gap-3">
-                        <div className="p-2 bg-blue-500/20 rounded-lg">
-                            <Car className="text-blue-400" size={20} />
-                        </div>
-                        <div>
-                            <p className="text-xs text-blue-300 uppercase font-bold flex items-center gap-1">
-                                Otros Hoy <Tooltip content="Gastos adicionales como estacionamiento u otros." />
-                            </p>
-                            <p className="text-2xl font-black text-white">S/ {stats.gastoOtrosDia.toFixed(2)}</p>
-                            <p className="text-xs text-blue-400/60">Sem: S/ {stats.gastoOtrosSemana.toFixed(2)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-orange-500/10 border border-orange-500/30">
-                    <CardContent className="p-4 flex items-center gap-3">
-                        <div className="p-2 bg-orange-500/20 rounded-lg">
-                            <Route className="text-orange-400" size={20} />
-                        </div>
-                        <div>
-                            <p className="text-xs text-orange-300 uppercase font-bold flex items-center gap-1">
-                                Peajes Hoy <Tooltip content="Peajes calculados automáticamente según configuración de rutas finalizadas hoy." />
-                            </p>
-                            <p className="text-2xl font-black text-white">S/ {stats.peajeDia.toFixed(2)}</p>
-                            <p className="text-xs text-orange-400/60">Sem: S/ {stats.peajeSemana.toFixed(2)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-teal-500/20 to-teal-600/10 border-teal-500/30">
-                    <CardContent className="p-4 flex items-center gap-3">
-                        <div className="p-2 bg-teal-500/20 rounded-lg">
-                            <DollarSign className="text-teal-400" size={20} />
-                        </div>
-                        <div>
-                            <p className="text-xs text-teal-300 uppercase font-bold flex items-center gap-1">
-                                Total Gastos Operativos <Tooltip content="Suma de combustible + otros gastos + peajes del día." />
-                            </p>
-                            <p className="text-2xl font-black text-white">S/ {stats.totalGastosOperativosHoy.toFixed(2)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card>
-                <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Calendar className="text-primary" size={20} />
-                            Estado de Choferes Hoy
-                            <Tooltip content="Muestra qué choferes están trabajando, en descanso fijo o con excepción semanal." />
-                        </h2>
-                        <Link to="/admin/usuarios" className="text-primary text-sm hover:underline">Gestionar</Link>
-                    </div>
-
-                    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-                        {estadoChoferes.map(chofer => (
-                            <div key={chofer.id} className="flex items-center justify-between p-3 bg-surface-light/20 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-2 h-2 rounded-full ${chofer.enRuta ? 'bg-green-500 animate-pulse' :
-                                        chofer.descansaHoy ? 'bg-red-500' : 'bg-blue-500'
-                                        }`} />
-                                    <span className="text-white font-medium">{chofer.nombre}</span>
-                                    {chofer.descansaHoy ? (
-                                        <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                            <UserX size={12} /> Descanso
-                                        </span>
-                                    ) : chofer.enRuta ? (
-                                        <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                            <UserCheck size={12} /> En ruta
-                                        </span>
-                                    ) : (
-                                        <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                            <UserCheck size={12} /> Disponible
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-text-muted text-xs">
-                                        {chofer.descansaHoy ? (
-                                            <span className="flex items-center gap-1">
-                                                {chofer.motivo}
-                                            </span>
-                                        ) : (
-                                            `Descanso normal: ${chofer.descansoNormal}`
-                                        )}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-3 pt-3 border-t border-white/10 flex gap-4 text-xs text-text-muted">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> En ruta</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Disponible</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> En descanso</span>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Truck className="text-primary" size={20} />
-                            Rutas en Progreso
-                            <Tooltip content="Rutas actualmente en ejecución. Si un chofer tiene múltiples rutas, se muestran todas." />
-                        </h2>
-                        <Link to="/admin/rutas" className="text-primary text-sm hover:underline">Ver todas</Link>
-                    </div>
-
-                    {Object.keys(rutasPorChofer).length === 0 ? (
-                        <div className="text-center py-8 text-text-muted">
-                            <AlertCircle className="mx-auto mb-2 opacity-50" size={32} />
-                            <p>No hay rutas en progreso</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {Object.entries(rutasPorChofer).map(([choferId, { nombre, placa, rutas }]) => {
-                                const totalV = rutas.reduce((s, r) => s + r.visitas_totales, 0);
-                                const completadasV = rutas.reduce((s, r) => s + r.visitas_completadas, 0);
-                                const pctGeneral = getProgreso(completadasV, totalV);
-                                const isExpanded = expandedChoferes.has(choferId);
-                                const tieneMultiplesRutas = rutas.length > 1;
-
-                                return (
-                                    <div key={choferId} className="bg-surface-light/30 rounded-lg overflow-hidden">
-                                        <div
-                                            className="p-4 cursor-pointer hover:bg-surface-light/50 transition-colors"
-                                            onClick={() => tieneMultiplesRutas && toggleExpand(choferId)}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <p className="text-white font-bold">{nombre}</p>
-                                                        {tieneMultiplesRutas && (
-                                                            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                                                                {rutas.length} rutas
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-text-muted text-sm">{placa}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-primary font-black text-xl">{pctGeneral}%</p>
-                                                    <p className="text-text-muted text-xs">{completadasV}/{totalV} visitas</p>
-                                                </div>
-                                                {tieneMultiplesRutas && (
-                                                    <div className="ml-3">
-                                                        {isExpanded ? <ChevronUp size={20} className="text-text-muted" /> : <ChevronDown size={20} className="text-text-muted" />}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="w-full bg-surface rounded-full h-2 mt-2">
-                                                <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${pctGeneral}%` }} />
-                                            </div>
-                                        </div>
-
-                                        {tieneMultiplesRutas && isExpanded && (
-                                            <div className="border-t border-white/10 bg-black/20 p-3 space-y-3">
-                                                <p className="text-xs text-text-muted px-2 uppercase font-bold">Detalle por ruta:</p>
-                                                {rutas.map((ruta, idx) => {
-                                                    const pctRuta = getProgreso(ruta.visitas_completadas, ruta.visitas_totales);
-                                                    return (
-                                                        <div key={ruta.id_ruta} className="bg-surface/30 rounded-lg p-3">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <div>
-                                                                    <p className="text-white text-sm font-bold flex items-center gap-2">
-                                                                        {ruta.nombre}
-                                                                        <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                                                                            Ruta {idx + 1}
-                                                                        </span>
-                                                                    </p>
-                                                                    {ruta.hora_salida && (
-                                                                        <p className="text-text-muted text-xs">Salida: {formatHoraPeru(ruta.hora_salida)}</p>
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-right">
-                                                                    <p className="text-primary font-bold">{pctRuta}%</p>
-                                                                    <p className="text-text-muted text-[10px]">{ruta.visitas_completadas}/{ruta.visitas_totales}</p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="w-full bg-surface rounded-full h-1.5">
-                                                                <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${pctRuta}%` }} />
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-
-                                        {!tieneMultiplesRutas && rutas[0] && (
-                                            <div className="px-4 pb-4 pt-0">
-                                                <p className="text-text-muted text-xs flex items-center gap-2">
-                                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary"></span>
-                                                    Ruta: {rutas[0].nombre}
-                                                    {rutas[0].hora_salida && ` · Salida: ${formatHoraPeru(rutas[0].hora_salida)}`}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
 
             {topChoferes.length > 0 && (
-                <Card>
-                    <CardContent className="p-4">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                <Card className="border-surface-light/50 bg-surface/30 backdrop-blur-md">
+                    <CardContent className="p-5">
+                        <h2 className="text-lg font-black text-white italic uppercase tracking-tighter flex items-center gap-2 mb-6">
                             <TrendingUp className="text-yellow-400" size={20} />
                             Top Gastos de Semana
                             <Tooltip content="Distribución de gastos de la semana por categoría." />
                         </h2>
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {topChoferes.map((c, i) => (
-                                <div key={i} className="flex items-center justify-between p-2 bg-surface-light/30 rounded-lg">
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-lg font-bold ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-text-muted'}`}>
+                                <div key={i} className="flex items-center justify-between p-4 bg-background/50 rounded-2xl border border-white/5 hover:border-primary/20 transition-all group">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-xl font-black italic ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-text-muted'}`}>
                                             #{i + 1}
                                         </span>
-                                        <span className="text-white">{c.chofer_nombre}</span>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded ${c.tipo === 'otros' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
-                                            {c.tipo === 'otros' ? 'Otros' : 'Combustible'}
-                                        </span>
+                                        <div>
+                                            <span className="text-white font-black italic uppercase text-sm">{c.chofer_nombre}</span>
+                                            <p className={`text-[10px] font-black uppercase mt-0.5 ${c.tipo === 'otros' ? 'text-blue-400' : 'text-green-400'}`}>
+                                                {c.tipo === 'otros' ? 'Otros Gastos' : 'Combustible'}
+                                            </p>
+                                        </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-green-400 font-bold">S/ {c.total_gasto.toFixed(2)}</p>
-                                        <p className="text-text-muted text-xs">{c.cargas} {c.tipo === 'otros' ? 'pagos' : 'cargas'}</p>
+                                        <p className="text-white font-black italic text-lg">S/ {c.total_gasto.toFixed(2)}</p>
+                                        <p className="text-text-muted text-[10px] font-bold uppercase">{c.cargas} {c.tipo === 'otros' ? 'operaciones' : 'cargas'}</p>
                                     </div>
                                 </div>
                             ))}
@@ -902,25 +556,32 @@ export default function Dashboard() {
                 </Card>
             )}
 
-            <Card>
-                <CardContent className="p-4">
-                    <h2 className="text-lg font-bold text-white mb-4">Accesos Rápidos</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <Link to="/admin/rutas/nueva" className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-center hover:bg-blue-500/20 transition-colors">
-                            <p className="text-blue-400 font-medium text-sm">Nueva Ruta</p>
-                        </Link>
-                        <Link to="/admin/combustible" className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-center hover:bg-yellow-500/20 transition-colors">
-                            <p className="text-yellow-400 font-medium text-sm">Revisar Combustible</p>
-                        </Link>
-                        <Link to="/admin/usuarios" className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-center hover:bg-green-500/20 transition-colors">
-                            <p className="text-green-400 font-medium text-sm">Choferes</p>
-                        </Link>
-                        <Link to="/admin/reportes" className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg text-center hover:bg-purple-500/20 transition-colors">
-                            <p className="text-purple-400 font-medium text-sm">Reportes</p>
-                        </Link>
+            <Card className="border-surface-light/50 bg-surface/30 backdrop-blur-md">
+                <CardContent className="p-5">
+                    <h2 className="text-lg font-black text-white italic uppercase tracking-tighter mb-6">Accesos Rápidos</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <QuickLink to="/admin/rutas/nueva" label="Nueva Ruta" color="blue" />
+                        <QuickLink to="/admin/combustible" label="Combustible" color="yellow" />
+                        <QuickLink to="/admin/usuarios" label="Choferes" color="green" />
+                        <QuickLink to="/admin/reportes" label="Reportes" color="purple" />
                     </div>
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+function QuickLink({ to, label, color }: { to: string, label: string, color: string }) {
+    const colors: Record<string, string> = {
+        blue: 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20',
+        yellow: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20',
+        green: 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20',
+        purple: 'bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20'
+    };
+
+    return (
+        <Link to={to} className={`p-4 border rounded-2xl text-center transition-all group ${colors[color]}`}>
+            <p className="font-black italic uppercase tracking-widest text-xs group-hover:scale-105 transition-transform">{label}</p>
+        </Link>
     );
 }
