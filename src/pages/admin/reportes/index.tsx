@@ -718,7 +718,7 @@ export default function Reportes() {
       <button class="no-print" onclick="window.print();" style="margin-bottom:20px;">🖨️ Imprimir / Guardar PDF</button>
       <h1>🚛 SHIMAYA RUTAS</h1>
       <div class="subtitle">📅 Período: ${rangoLabel} ${filterChofer ? `| 👤 Chofer: ${choferNombre}` : ''}</div>
-      ${rows}
+      ${routesHTML}
       <div class="footer">Reporte generado desde Shimaya Rutas · ${format(new Date(), 'dd/MM/yyyy HH:mm')}</div>
     </body>
     </html>
