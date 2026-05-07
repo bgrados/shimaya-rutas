@@ -71,20 +71,83 @@ export function useDriverDashboard() {
       const hoyStr = format(new Date(), 'yyyy-MM-dd');
       const inicioSemana = new Date();
       const dia = inicioSemana.getDay();
-      inicioSemana.setDate(inicioSemana.getDate() + (dia === 0 ? -6 : 1 - dia));
+      const diffLunes = dia === 0 ? -6 : 1 - dia;
+      inicioSemana.setDate(inicioSemana.getDate() + diffLunes);
       const inicioSemanaStr = format(inicioSemana, 'yyyy-MM-dd');
+      const finSemanaStr = format(new Date(), 'yyyy-MM-dd');
 
       // 1. Ruta activa
-      const { data: rutaActivaData } = await supabase.from('rutas').select('*').eq('id_chofer', profile.id_usuario).in('estado', ['pendiente', 'en_progreso']).maybeSingle();
+      const { data: rutaActivaData } = await supabase.from('rutas').select('*').eq('id_chofer', profile.id_usuario).in('estado', ['pendiente', 'en_progreso']).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (rutaActivaData) {
         const { count } = await supabase.from('viajes_bitacora').select('*', { count: 'exact', head: true }).eq('id_ruta', rutaActivaData.id_ruta).not('hora_llegada', 'is', null);
         setRutaActiva({ ...rutaActivaData, visitas_realizadas: count || 0 });
-      } else setRutaActiva(null);
+      } else {
+        setRutaActiva(null);
+      }
 
-      // 2. Últimas rutas y stats
-      const { data: ultimas } = await supabase.from('rutas').select('*').eq('id_chofer', profile.id_usuario).eq('estado', 'finalizada').order('fecha', { ascending: false }).limit(5);
-      // ... (Simplified logic for stats calculation based on DashboardConductor.tsx)
-      setUltimasRutas(ultimas || []);
+      // 2. Últimas 5 rutas finalizadas
+      const { data: rutasData } = await supabase.from('rutas').select('*').eq('id_chofer', profile.id_usuario).eq('estado', 'finalizada').order('fecha', { ascending: false }).limit(5);
+      if (rutasData) {
+        const rutasConVisitas = await Promise.all(rutasData.map(async (r) => {
+            const { count: visitas } = await supabase.from('viajes_bitacora').select('*', { count: 'exact', head: true }).eq('id_ruta', r.id_ruta).not('hora_llegada', 'is', null);
+            let duracion = 0;
+            if (r.hora_salida_planta && r.hora_llegada_planta) duracion = Math.round((new Date(r.hora_llegada_planta).getTime() - new Date(r.hora_salida_planta).getTime()) / 60000);
+            let km = 0;
+            if (r.km_inicio && r.km_fin && r.km_fin > r.km_inicio) km = r.km_fin - r.km_inicio;
+            return { ...r, duracion_min: duracion, km_recorridos: km, visitas_realizadas: visitas || 0 };
+        }));
+        setUltimasRutas(rutasConVisitas);
+      } else {
+        setUltimasRutas([]);
+      }
+
+      // 4. Estadísticas de hoy
+      const { data: rutasHoy } = await supabase.from('rutas').select('*').eq('id_chofer', profile.id_usuario).eq('fecha', hoyStr).eq('estado', 'finalizada');
+      let kmHoy = 0, tiempoHoy = 0, visitasHoy = 0;
+      if (rutasHoy) {
+          for (const r of rutasHoy) {
+              if (r.km_inicio && r.km_fin && r.km_fin > r.km_inicio) kmHoy += (r.km_fin - r.km_inicio);
+              if (r.hora_salida_planta && r.hora_llegada_planta) tiempoHoy += Math.round((new Date(r.hora_llegada_planta).getTime() - new Date(r.hora_salida_planta).getTime()) / 60000);
+              const { count: vis } = await supabase.from('viajes_bitacora').select('*', { count: 'exact', head: true }).eq('id_ruta', r.id_ruta).not('hora_llegada', 'is', null);
+              visitasHoy += vis || 0;
+          }
+      }
+
+      // 5. Estadísticas de la semana
+      const { data: rutasSemanaActual } = await supabase.from('rutas').select('*').eq('id_chofer', profile.id_usuario).eq('estado', 'finalizada').gte('fecha', inicioSemanaStr).lte('fecha', finSemanaStr);
+      const semanaAnteriorInicio = new Date(inicioSemana);
+      semanaAnteriorInicio.setDate(semanaAnteriorInicio.getDate() - 7);
+      const semanaAnteriorFin = new Date(finSemanaStr);
+      semanaAnteriorFin.setDate(semanaAnteriorFin.getDate() - 7);
+      
+      const { data: rutasSemanaAnterior } = await supabase.from('rutas').select('*').eq('id_chofer', profile.id_usuario).eq('estado', 'finalizada').gte('fecha', format(semanaAnteriorInicio, 'yyyy-MM-dd')).lte('fecha', format(semanaAnteriorFin, 'yyyy-MM-dd'));
+
+      let horasActual = 0, rutasCompletadas = 0;
+      (rutasSemanaActual || []).forEach(r => {
+          if (r.hora_salida_planta && r.hora_llegada_planta) {
+              horasActual += Math.round((new Date(r.hora_llegada_planta).getTime() - new Date(r.hora_salida_planta).getTime()) / 3600000);
+              rutasCompletadas++;
+          }
+      });
+
+      let horasAnterior = 0;
+      (rutasSemanaAnterior || []).forEach(r => {
+          if (r.hora_salida_planta && r.hora_llegada_planta) {
+              horasAnterior += Math.round((new Date(r.hora_llegada_planta).getTime() - new Date(r.hora_salida_planta).getTime()) / 3600000);
+          }
+      });
+
+      const porcentajeCambio = horasAnterior > 0 ? Math.round(((horasActual - horasAnterior) / horasAnterior) * 100) : null;
+
+      setStats({
+          km_hoy: kmHoy,
+          visitas_hoy: visitasHoy,
+          tiempo_hoy_min: tiempoHoy,
+          rutas_completadas_semana: rutasCompletadas,
+          horas_semana_actual: horasActual,
+          horas_semana_anterior: horasAnterior,
+          porcentaje_cambio: porcentajeCambio
+      });
 
       // 3. Pendientes
       const pendientes = await cargarRutasPendientes(profile.id_usuario);
