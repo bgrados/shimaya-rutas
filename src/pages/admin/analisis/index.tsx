@@ -295,7 +295,6 @@ export default function AnalisisRutas() {
           id_usuario: c.id,
           nombre: c.nombre,
           fecha_ingreso: fechaInicioChofer,
-          dia_descanso: diaDescansoNum
         };
 
         const asist = calcularAsistenciaMensual({
@@ -549,10 +548,15 @@ export default function AnalisisRutas() {
     setInsights(newInsights);
   };
 
+  // ✅ CORRECCIÓN 1: Cargar choferes solo una vez al inicio
+  useEffect(() => {
+    loadChoferes();
+  }, []);
+
+  // ✅ CORRECCIÓN 2: Cargar datos cuando cambien fechas o chofer
   useEffect(() => {
     loadData();
-    loadChoferes();
-  }, [fechaInicio, fechaFin]);
+  }, [fechaInicio, fechaFin, choferFilter]);
 
   const loadChoferes = async () => {
     const { data } = await supabase.from('usuarios')
@@ -590,9 +594,33 @@ export default function AnalisisRutas() {
     }
   };
 
+  // ✅ CORRECCIÓN 3: Función loadData completamente corregida
   const loadData = async () => {
     setLoading(true);
     try {
+      // Usar rango horario completo con zona horaria de Perú (UTC-5)
+      const inicio = `${fechaInicio}T00:00:00-05:00`;
+      const fin = `${fechaFin}T23:59:59-05:00`;
+
+      console.log(`[Analisis] Filtro fechas: ${inicio} hasta ${fin}`);
+
+      // Consulta de rutas con rango horario completo
+      let query = supabase
+        .from('rutas')
+        .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
+        .gte('fecha', inicio)
+        .lte('fecha', fin)
+        .order('fecha', { ascending: false });
+
+      if (choferFilter !== 'todos') {
+        query = query.eq('id_chofer', choferFilter);
+      }
+
+      const { data: rutasData, error: rutasError } = await query;
+
+      if (rutasError) throw rutasError;
+
+      // Obtener mejores tiempos históricos para calcular eficiencia
       const { data: allRutas } = await supabase
         .from('rutas')
         .select('fecha, hora_salida_planta, hora_llegada_planta, estado')
@@ -614,22 +642,12 @@ export default function AnalisisRutas() {
       });
       setMejorTiempoPorDia(mejoresValidados);
 
-      const inicioMes = new Date().toISOString().substring(0, 7) + '-01';
-      const fechaInicioQuery = fechaInicio < inicioMes ? fechaInicio : inicioMes;
-      const { data: rutasData, error: rutasError } = await supabase
-        .from('rutas')
-        .select('*, usuarios!rutas_id_chofer_fkey(nombre)')
-        .gte('fecha', fechaInicioQuery)
-        .lte('fecha', fechaFin)
-        .order('fecha', { ascending: false });
-
-      if (rutasError) throw rutasError;
-
+      // Cargar asistencia manual
       const { data: fData } = await supabase
         .from('asistencia_chofer')
         .select('*, usuarios(nombre)')
-        .gte('fecha', fechaInicioQuery)
-        .lte('fecha', fechaFin);
+        .gte('fecha', inicio)
+        .lte('fecha', fin);
 
       if (fData) {
         setAsistencia(fData.map((f: any) => ({
@@ -638,6 +656,7 @@ export default function AnalisisRutas() {
         })));
       }
 
+      // Obtener datos de bitácora
       const { data: bitacoraData, error: bitacoraError } = await supabase
         .from('viajes_bitacora')
         .select('id_ruta, destino_nombre, hora_llegada')
@@ -741,6 +760,7 @@ export default function AnalisisRutas() {
               type="date"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
+              max={format(new Date(), 'yyyy-MM-dd')}
               className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
             />
             <span className="text-text-muted">–</span>
@@ -748,6 +768,7 @@ export default function AnalisisRutas() {
               type="date"
               value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
+              max={format(new Date(), 'yyyy-MM-dd')}
               className="bg-background border border-surface-light rounded-lg px-3 py-2 text-white text-sm"
             />
             <span className="text-text-muted text-xs italic">Período personalizado para los gráficos de abajo</span>
@@ -1226,7 +1247,7 @@ export default function AnalisisRutas() {
                         <Tooltip content="Total acumulado de horas trabajadas." />
                       </span>
                     </th>
-                  </tr>
+                  </table>
                 </thead>
                 <tbody className="divide-y divide-surface-light/30">
                   {rendimientoChoferes.map((c, idx) => {
