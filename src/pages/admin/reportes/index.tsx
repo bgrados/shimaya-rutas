@@ -638,7 +638,7 @@ export default function Reportes() {
             <p style="font-size: 13px; font-weight: bold; color: #1e293b; margin-bottom: 12px;">📸 FOTOS DE EVIDENCIA (${allFotos.length})</p>
             <div style="display: flex; flex-wrap: wrap; gap: 12px;">
               ${allFotos.map(foto => `
-                <div class="photo-card" onclick="window.open('${foto.url}', '_blank')">
+                <div class="photo-card" onclick="openGallery('${foto.url}')">
                   <img src="${foto.url}" style="width: 100%; height: 150px; object-fit: cover;" />
                   <div style="padding: 6px; font-size: 10px; text-align: center; background: white; font-weight: bold;">${foto.localName}</div>
                 </div>
@@ -721,9 +721,52 @@ export default function Reportes() {
         @media (max-width: 600px) {
           .photo-card { width: 45%; }
         }
+        /* GALLERY STYLES */
+        #galleryModal { display: none; position: fixed; z-index: 20000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .gallery-content { max-width: 95%; max-height: 85%; object-fit: contain; border-radius: 4px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        .gallery-nav { position: absolute; top: 50%; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; transform: translateY(-50%); }
+        .gallery-btn { background: rgba(255,255,255,0.1); color: white; border: none; width: 50px; height: 50px; cursor: pointer; border-radius: 50%; font-size: 24px; display: flex; align-items: center; justify-content: center; transition: background 0.3s; }
+        .gallery-btn:hover { background: rgba(255,255,255,0.3); }
+        .gallery-close { position: absolute; top: 20px; right: 20px; color: white; font-size: 35px; cursor: pointer; font-weight: bold; background: none; border: none; }
+        .gallery-counter { position: absolute; bottom: 20px; color: white; font-size: 14px; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; }
       </style>
+      <script>
+        let currentImages = [];
+        let currentIndex = 0;
+        function openGallery(url) {
+          currentImages = Array.from(document.querySelectorAll('.photo-card img')).map(img => img.src);
+          currentIndex = currentImages.indexOf(url);
+          if (currentIndex === -1) currentIndex = 0;
+          updateGallery();
+          document.getElementById('galleryModal').style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+        }
+        function updateGallery() {
+          document.getElementById('galleryImg').src = currentImages[currentIndex];
+          document.getElementById('galleryCount').innerText = (currentIndex + 1) + ' / ' + currentImages.length;
+        }
+        function nextImg(e) { if(e) e.stopPropagation(); currentIndex = (currentIndex + 1) % currentImages.length; updateGallery(); }
+        function prevImg(e) { if(e) e.stopPropagation(); currentIndex = (currentIndex - 1 + currentImages.length) % currentImages.length; updateGallery(); }
+        function closeGallery() { document.getElementById('galleryModal').style.display = 'none'; document.body.style.overflow = 'auto'; }
+        document.addEventListener('keydown', (e) => {
+          if (document.getElementById('galleryModal').style.display === 'flex') {
+            if (e.key === 'ArrowRight') nextImg();
+            if (e.key === 'ArrowLeft') prevImg();
+            if (e.key === 'Escape') closeGallery();
+          }
+        });
+      </script>
     </head>
     <body>
+      <div id="galleryModal" onclick="closeGallery()">
+        <button class="gallery-close" onclick="closeGallery()">✕</button>
+        <div class="gallery-nav">
+          <button class="gallery-btn" onclick="prevImg(event)">‹</button>
+          <button class="gallery-btn" onclick="nextImg(event)">›</button>
+        </div>
+        <img id="galleryImg" class="gallery-content" src="" onclick="event.stopPropagation()">
+        <div id="galleryCount" class="gallery-counter"></div>
+      </div>
       <button class="close-btn no-print" onclick="window.close();">✕ Cerrar</button>
       <button class="no-print" onclick="window.print();" style="margin-bottom:20px; background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">🖨️ Imprimir / Guardar PDF</button>
       <h1>🚛 SHIMAYA RUTAS</h1>
