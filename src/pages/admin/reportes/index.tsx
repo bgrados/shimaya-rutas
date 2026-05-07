@@ -739,7 +739,7 @@ export default function Reportes() {
   const gastosAgrupadosPorFecha = (): GrupoFecha[] => {
     const grupos: Record<string, GastoCombustible[]> = {};
     gastosCombustible.forEach(gasto => {
-      const fecha = gasto.fecha ? formatFriendlyDate(gasto.fecha, 'yyyy-MM-dd') : 'sin fecha';
+      const fecha = gasto.fecha ? formatPeru(gasto.fecha, 'yyyy-MM-dd') : 'sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(gasto);
     });
