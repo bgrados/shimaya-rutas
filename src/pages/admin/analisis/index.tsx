@@ -9,7 +9,6 @@ import {
   MapPin, DollarSign
 } from 'lucide-react';
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { toDate } from 'date-fns-tz';
 import { formatFriendlyDate } from '../../../lib/timezone';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -201,15 +200,28 @@ export default function AnalisisRutas() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">📈 Rutas vs Visitas vs Peajes</h3><ResponsiveContainer width="100%" height={250}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="dia" stroke="#94a3b8" fontSize={12} /><YAxis yAxisId="left" stroke="#94a3b8" fontSize={12} /><YAxis yAxisId="right" orientation="right" stroke="#f59e0b" fontSize={12} /><RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} /><Legend /><Bar yAxisId="left" dataKey="rutas" name="Rutas" fill="#6366f1" /><Bar yAxisId="left" dataKey="visitas" name="Visitas" fill="#22c55e" /><Bar yAxisId="right" dataKey="peajes" name="Peajes (S/)" fill="#f59e0b" /></BarChart></ResponsiveContainer></CardContent></Card>
 
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">🛣️ Peajes por Chofer</h3>{peajesPorChofer.length === 0 ? (<p className="text-gray-400 text-center py-8">Sin datos</p>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Peajes (cant)</th><th className="text-center py-2 px-2">Peaje estimado</th></tr></thead><tbody>{peajesPorChofer.map((c, i) => (<tr key={i} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{c.nombre}<td><td className="py-2 px-2 text-center text-gray-300">{c.cantidad} peajes</td>
-<td className="py-2 px-2 text-center text-gray-300">S/ {c.calculado.toFixed(2)}</td>
-</tr>
-))}
-</tbody>
-</table>
-</div>)}
-</CardContent>
-</Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">🛣️ Peajes por Chofer</h3>
+          {peajesPorChofer.length === 0 ? (<p className="text-gray-400 text-center py-8">Sin datos</p>) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-gray-700"><tr className="text-gray-400">
+                  <th className="text-left py-2 px-2">Chofer</th>
+                  <th className="text-center py-2 px-2">Peajes (cant)</th>
+                  <th className="text-center py-2 px-2">Peaje estimado</th>
+                </table></thead>
+                <tbody>
+                  {peajesPorChofer.map((c, i) => (
+                    <tr key={i} className="border-b border-gray-700/50">
+                      <td className="py-2 px-2 text-white">{c.nombre}</td>
+                      <td className="py-2 px-2 text-center text-gray-300">{c.cantidad} peajes</td>
+                      <td className="py-2 px-2 text-center text-gray-300">S/ {c.calculado.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent></Card>
       </div>
 
       <Card className="bg-gray-800/50 border-gray-700">
@@ -220,17 +232,15 @@ export default function AnalisisRutas() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="border-b border-gray-700">
-                  <tr className="text-gray-400">
-                    <th className="text-left py-2 px-2">Ruta</th>
-                    <th className="text-left py-2 px-2">Chofer</th>
-                    <th className="text-center py-2 px-2">Fecha</th>
-                    <th className="text-center py-2 px-2">Visitas</th>
-                    <th className="text-center py-2 px-2">KM</th>
-                    <th className="text-center py-2 px-2">Peajes (cant)</th>
-                    <th className="text-center py-2 px-2">Peaje (S/)</th>
-                  </tr>
-                </thead>
+                <thead className="border-b border-gray-700"><tr className="text-gray-400">
+                  <th className="text-left py-2 px-2">Ruta</th>
+                  <th className="text-left py-2 px-2">Chofer</th>
+                  <th className="text-center py-2 px-2">Fecha</th>
+                  <th className="text-center py-2 px-2">Visitas</th>
+                  <th className="text-center py-2 px-2">KM</th>
+                  <th className="text-center py-2 px-2">Peajes (cant)</th>
+                  <th className="text-center py-2 px-2">Peaje (S/)</th>
+                </tr></thead>
                 <tbody>
                   {rutas.map(r => (
                     <tr key={r.id_ruta} className="border-b border-gray-700/50">
