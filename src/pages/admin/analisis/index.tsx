@@ -3,7 +3,11 @@ import { supabase } from '../../../lib/supabase';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Tooltip } from '../../../components/ui/Tooltip';
-import { BarChart3, TrendingUp, Clock, Target, Truck, Calendar, Filter, ChevronDown, ChevronUp, MapPin, DollarSign } from 'lucide-react';
+import {
+  BarChart3, TrendingUp, Clock, Target, Truck,
+  Calendar, Filter, ChevronDown, ChevronUp,
+  MapPin, DollarSign
+} from 'lucide-react';
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { formatFriendlyDate } from '../../../lib/timezone';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -45,28 +49,69 @@ export default function AnalisisRutas() {
       const inicio = `${from}T00:00:00-05:00`;
       const fin = `${to}T23:59:59-05:00`;
 
-      let query = supabase.from('rutas').select('*, usuarios!rutas_id_chofer_fkey(nombre)').gte('fecha', inicio).lte('fecha', fin).eq('estado', 'finalizada');
+      // 1. Obtener rutas finalizadas con join a rutas_base
+      let query = supabase
+        .from('rutas')
+        .select(`
+          id_ruta,
+          nombre,
+          fecha,
+          estado,
+          id_chofer,
+          km_inicio,
+          km_fin,
+          usuarios!rutas_id_chofer_fkey (nombre),
+          rutas_base!rutas_id_ruta_base_fkey (cantidad_peajes, costo_peaje)
+        `)
+        .gte('fecha', inicio)
+        .lte('fecha', fin)
+        .eq('estado', 'finalizada');
+      
       if (filterChofer) query = query.eq('id_chofer', filterChofer);
 
-      const { data, error } = await query;
+      const { data: rutasData, error } = await query;
       if (error) throw error;
 
-      const processed = (data || []).map(r => {
-        const km = (r.km_fin || 0) - (r.km_inicio || 0);
-        const peaje_calculado = (r.cantidad_peajes || 0) * (r.costo_peaje || 0);
-        return {
-          id_ruta: r.id_ruta,
-          nombre: r.nombre,
-          fecha: r.fecha,
-          chofer_nombre: r.usuarios?.nombre,
-          visitas_realizadas: r.visitas_realizadas || 0,
-          km_recorridos: km > 0 ? km : 0,
-          peaje_calculado: peaje_calculado || 0
-        };
-      });
-      setRutas(processed);
+      if (rutasData && rutasData.length > 0) {
+        const ids = rutasData.map(r => r.id_ruta);
+
+        // 2. Contar visitas (excluyendo retorno a planta)
+        // Usamos `neq` con una lista de posibles nombres de planta
+        const { data: bitacoraData } = await supabase
+          .from('viajes_bitacora')
+          .select('id_ruta')
+          .in('id_ruta', ids)
+          .not('destino_nombre', 'eq', 'Planta')
+          .not('destino_nombre', 'eq', 'planta')
+          .not('destino_nombre', 'eq', 'PLANTA');
+
+        const visitasPorRuta = {};
+        (bitacoraData || []).forEach(b => {
+          visitasPorRuta[b.id_ruta] = (visitasPorRuta[b.id_ruta] || 0) + 1;
+        });
+
+        // 3. Procesar cada ruta
+        const processed = rutasData.map(r => {
+          const km = (r.km_fin || 0) - (r.km_inicio || 0);
+          const rb = r.rutas_base || { cantidad_peajes: 0, costo_peaje: 0 };
+          const peaje = (rb.cantidad_peajes || 0) * (rb.costo_peaje || 0);
+
+          return {
+            id_ruta: r.id_ruta,
+            nombre: r.nombre,
+            fecha: r.fecha,
+            chofer_nombre: r.usuarios?.nombre,
+            visitas_realizadas: visitasPorRuta[r.id_ruta] || 0,
+            km_recorridos: km > 0 ? km : 0,
+            peaje_calculado: peaje
+          };
+        });
+        setRutas(processed);
+      } else {
+        setRutas([]);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Error loading analytics:', err);
     } finally {
       setLoading(false);
     }
@@ -76,14 +121,15 @@ export default function AnalisisRutas() {
   const rangoLabel = period === 'diario' ? formatFriendlyDate(from) : `${formatFriendlyDate(from)} al ${formatFriendlyDate(to)}`;
   const choferNombre = filterChofer ? choferes.find(c => c.id_usuario === filterChofer)?.nombre || '' : '';
 
-  const stats = {
-    totalRutas: rutas.length,
-    totalVisitas: rutas.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0),
-    totalKm: rutas.reduce((sum, r) => sum + (r.km_recorridos || 0), 0),
-    totalPeaje: rutas.reduce((sum, r) => sum + (r.peaje_calculado || 0), 0)
-  };
+  const stats = useMemo(() => {
+    const totalRutas = rutas.length;
+    const totalVisitas = rutas.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
+    const totalKm = rutas.reduce((sum, r) => sum + (r.km_recorridos || 0), 0);
+    const totalPeaje = rutas.reduce((sum, r) => sum + (r.peaje_calculado || 0), 0);
+    return { totalRutas, totalVisitas, totalKm, totalPeaje };
+  }, [rutas]);
 
-  const peajesPorChofer = () => {
+  const peajesPorChofer = useMemo(() => {
     const map = {};
     rutas.forEach(r => {
       if (!r.chofer_nombre) return;
@@ -91,7 +137,20 @@ export default function AnalisisRutas() {
       map[r.chofer_nombre].total += r.peaje_calculado;
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
-  };
+  }, [rutas]);
+
+  const chartData = useMemo(() => {
+    const diasMap = {};
+    rutas.forEach(r => {
+      if (!r.fecha) return;
+      const dia = format(new Date(r.fecha), 'dd/MM');
+      if (!diasMap[dia]) diasMap[dia] = { dia, rutas: 0, visitas: 0, peajes: 0 };
+      diasMap[dia].rutas += 1;
+      diasMap[dia].visitas += r.visitas_realizadas;
+      diasMap[dia].peajes += r.peaje_calculado;
+    });
+    return Object.values(diasMap).slice(-7);
+  }, [rutas]);
 
   if (loading) return <div className="text-center py-20 text-gray-400">Cargando análisis...</div>;
 
@@ -112,21 +171,39 @@ export default function AnalisisRutas() {
             ))}
           </div>
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" />
+          <button onClick={() => setShowFilters(!showFilters)} className="bg-gray-800 px-3 py-2 rounded-lg text-gray-400 hover:text-white">
+            {showFilters ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="flex gap-4 bg-gray-800/50 p-4 rounded-xl">
+          <div className="flex gap-2 items-center"><Calendar size={16} className="text-gray-400" /><span className="text-gray-400 text-sm">Período:</span></div>
+          <div className="flex gap-2">
+            <button onClick={() => setPeriod('diario')} className={`px-3 py-1 rounded ${period === 'diario' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>Diario</button>
+            <button onClick={() => setPeriod('semanal')} className={`px-3 py-1 rounded ${period === 'semanal' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>Semanal</button>
+            <button onClick={() => setPeriod('mensual')} className={`px-3 py-1 rounded ${period === 'mensual' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>Mensual</button>
+          </div>
+        </div>
+      )}
 
       <p className="text-sm text-gray-400">📅 Período: <span className="text-blue-400">{rangoLabel}</span>{filterChofer && ` · 👤 Chofer: ${choferNombre}`}</p>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-blue-500/20 rounded-full"><Truck className="text-blue-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalRutas}</p><p className="text-gray-400 text-sm">Rutas</p></div></CardContent></Card>
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-green-500/20 rounded-full"><Target className="text-green-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalVisitas}</p><p className="text-gray-400 text-sm">Visitas</p></div></CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-blue-500/20 rounded-full"><Truck className="text-blue-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalRutas}</p><p className="text-gray-400 text-sm">Rutas finalizadas</p></div></CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-green-500/20 rounded-full"><Target className="text-green-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalVisitas}</p><p className="text-gray-400 text-sm">Visitas reales</p></div></CardContent></Card>
         <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-orange-500/20 rounded-full"><MapPin className="text-orange-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalKm} km</p><p className="text-gray-400 text-sm">Kilómetros</p></div></CardContent></Card>
         <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-green-500/20 rounded-full"><DollarSign className="text-green-400" /></div><div><p className="text-3xl font-bold text-white">S/ {stats.totalPeaje.toFixed(2)}</p><p className="text-gray-400 text-sm">Peajes estimados</p></div></CardContent></Card>
       </div>
 
-      <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">🛣️ Peajes por Chofer</h3>{peajesPorChofer().length === 0 ? (<p className="text-gray-400 text-center py-8">Sin datos</p>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Total Peaje (S/)</th></tr></thead><tbody>{peajesPorChofer().map((c, i) => (<tr key={i} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{c.nombre}</td><td className="py-2 px-2 text-center text-green-400">S/ {c.total.toFixed(2)}</td></tr>))}</tbody></table></div>)}</CardContent></Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">📈 Evolución Diaria</h3><ResponsiveContainer width="100%" height={250}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="dia" stroke="#94a3b8" fontSize={12} /><YAxis yAxisId="left" stroke="#94a3b8" fontSize={12} /><YAxis yAxisId="right" orientation="right" stroke="#f59e0b" fontSize={12} /><RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} /><Legend /><Bar yAxisId="left" dataKey="rutas" name="Rutas" fill="#6366f1" /><Bar yAxisId="left" dataKey="visitas" name="Visitas" fill="#22c55e" /><Bar yAxisId="right" dataKey="peajes" name="Peajes (S/)" fill="#f59e0b" /></BarChart></ResponsiveContainer></CardContent></Card>
 
-      <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">📋 Detalle de Rutas</h3>{rutas.length === 0 ? (<p className="text-gray-400 text-center py-8">No hay rutas</p>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Ruta</th><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Fecha</th><th className="text-center py-2 px-2">Visitas</th><th className="text-center py-2 px-2">KM</th><th className="text-center py-2 px-2">Peaje (S/)</th></tr></thead><tbody>{rutas.map(r => (<tr key={r.id_ruta} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{r.nombre}</td><td className="py-2 px-2 text-gray-300">{r.chofer_nombre || '-'}</td><td className="py-2 px-2 text-center text-gray-300">{formatFriendlyDate(r.fecha)}</td><td className="py-2 px-2 text-center text-gray-300">{r.visitas_realizadas}</td><td className="py-2 px-2 text-center text-gray-300">{r.km_recorridos} km</td><td className="py-2 px-2 text-center text-green-400">S/ {r.peaje_calculado.toFixed(2)}</td></tr>))}</tbody></table></div>)}</CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">🛣️ Peajes por Chofer</h3>{peajesPorChofer.length === 0 ? (<p className="text-gray-400 text-center py-8">Sin datos</p>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Total Peaje (S/)</th></tr></thead><tbody>{peajesPorChofer.map((c, i) => (<tr key={i} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{c.nombre}</td><td className="py-2 px-2 text-center text-green-400">S/ {c.total.toFixed(2)}</td></tr>))}</tbody></table></div>)}</CardContent></Card>
+      </div>
+
+      <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">📋 Detalle de Rutas</h3>{rutas.length === 0 ? (<p className="text-gray-400 text-center py-8">No hay rutas en el período</p>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Ruta</th><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Fecha</th><th className="text-center py-2 px-2">Visitas</th><th className="text-center py-2 px-2">KM</th><th className="text-center py-2 px-2">Peaje (S/)</th></tr></thead><tbody>{rutas.map(r => (<tr key={r.id_ruta} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{r.nombre}</td><td className="py-2 px-2 text-gray-300">{r.chofer_nombre || '-'}</td><td className="py-2 px-2 text-center text-gray-300">{formatFriendlyDate(r.fecha)}</td><td className="py-2 px-2 text-center text-gray-300">{r.visitas_realizadas}</td><td className="py-2 px-2 text-center text-gray-300">{r.km_recorridos} km</td><td className="py-2 px-2 text-center text-green-400">S/ {r.peaje_calculado.toFixed(2)}</td></tr>))}</tbody></table></div>)}</CardContent></Card>
     </div>
   );
 }
