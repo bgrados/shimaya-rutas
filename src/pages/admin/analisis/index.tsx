@@ -9,13 +9,13 @@ import {
   MapPin, DollarSign
 } from 'lucide-react';
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { toDate } from 'date-fns-tz';
 import { formatFriendlyDate } from '../../../lib/timezone';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 type Period = 'diario' | 'semanal' | 'mensual';
 
-interface RutaConPeaje {
+interface RutaConInfo {
   id_ruta: string;
   nombre: string;
   fecha: string;
@@ -24,7 +24,8 @@ interface RutaConPeaje {
   chofer_nombre?: string;
   visitas_realizadas: number;
   km_recorridos: number;
-  peaje_total: number;
+  cantidad_peajes: number;
+  peaje_calculado: number;
 }
 
 export default function AnalisisRutas() {
@@ -32,13 +33,22 @@ export default function AnalisisRutas() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [filterChofer, setFilterChofer] = useState('');
   const [loading, setLoading] = useState(true);
-  const [rutas, setRutas] = useState<RutaConPeaje[]>([]);
+  const [rutas, setRutas] = useState<RutaConInfo[]>([]);
   const [choferes, setChoferes] = useState<{ id_usuario: string; nombre: string }[]>([]);
-  const [rutasBase, setRutasBase] = useState<{ id_ruta_base: string; cantidad_peajes?: number; costo_peaje?: number }[]>([]);
+  const [rutasBase, setRutasBase] = useState<Record<string, { cantidad_peajes: number; costo_peaje: number }>>({});
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     supabase.from('usuarios').select('id_usuario, nombre').eq('rol', 'chofer').eq('activo', true).then(r => r.data && setChoferes(r.data));
-    supabase.from('rutas_base').select('id_ruta_base, cantidad_peajes, costo_peaje').then(r => r.data && setRutasBase(r.data));
+    supabase.from('rutas_base').select('id_ruta_base, cantidad_peajes, costo_peaje').then(r => {
+      if (r.data) {
+        const map: Record<string, { cantidad_peajes: number; costo_peaje: number }> = {};
+        r.data.forEach((rb: any) => {
+          map[rb.id_ruta_base] = { cantidad_peajes: rb.cantidad_peajes || 0, costo_peaje: rb.costo_peaje || 0 };
+        });
+        setRutasBase(map);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -74,41 +84,45 @@ export default function AnalisisRutas() {
       const { data: rutasData, error } = await query;
       if (error) throw error;
 
-      let peajesQuery = supabase
-        .from('gastos_combustible')
-        .select('id_ruta, monto, tipo_combustible')
-        .in('tipo_combustible', ['peaje', 'peaje_compromiso'])
-        .gte('fecha', inicio)
-        .lte('fecha', fin);
-      if (filterChofer) peajesQuery = peajesQuery.eq('id_chofer', filterChofer);
+      if (rutasData && rutasData.length > 0) {
+        const ids = rutasData.map(r => r.id_ruta);
 
-      const { data: peajesData } = await peajesQuery;
+        const { data: bitacoraData } = await supabase
+          .from('viajes_bitacora')
+          .select('id_ruta')
+          .in('id_ruta', ids)
+          .neq('destino_nombre', 'Planta');
 
-      const peajesPorRuta: Record<string, number> = {};
-      (peajesData || []).forEach((p: any) => {
-        if (p.id_ruta) peajesPorRuta[p.id_ruta] = (peajesPorRuta[p.id_ruta] || 0) + (p.monto || 0);
-      });
+        const visitasPorRuta: Record<string, number> = {};
+        (bitacoraData || []).forEach((b: any) => {
+          visitasPorRuta[b.id_ruta] = (visitasPorRuta[b.id_ruta] || 0) + 1;
+        });
 
-      const processed = (rutasData || []).map((r: any) => {
-        const rutaBase = rutasBase.find(rb => rb.id_ruta_base === r.id_ruta_base);
-        const km = (r.km_fin || 0) - (r.km_inicio || 0);
-        const peaje_calculado = rutaBase ? (rutaBase.cantidad_peajes || 0) * (rutaBase.costo_peaje || 0) : 0;
-        return {
-          id_ruta: r.id_ruta,
-          nombre: r.nombre,
-          fecha: r.fecha,
-          estado: r.estado,
-          id_chofer: r.id_chofer,
-          chofer_nombre: r.usuarios?.nombre,
-          visitas_realizadas: r.visitas_realizadas || 0,
-          km_recorridos: km > 0 ? km : 0,
-          peaje_calculado,
-          peaje_real: peajesPorRuta[r.id_ruta] || 0
-        };
-      });
-      setRutas(processed);
+        const processed = rutasData.map((r: any) => {
+          const km = (r.km_fin || 0) - (r.km_inicio || 0);
+          const cfg = rutasBase[r.id_ruta_base] || { cantidad_peajes: 0, costo_peaje: 0 };
+          const cantidad_peajes = cfg.cantidad_peajes;
+          const peaje_calculado = cantidad_peajes * cfg.costo_peaje;
+
+          return {
+            id_ruta: r.id_ruta,
+            nombre: r.nombre,
+            fecha: r.fecha,
+            estado: r.estado,
+            id_chofer: r.id_chofer,
+            chofer_nombre: r.usuarios?.nombre,
+            visitas_realizadas: visitasPorRuta[r.id_ruta] || 0,
+            km_recorridos: km > 0 ? km : 0,
+            cantidad_peajes,
+            peaje_calculado
+          };
+        });
+        setRutas(processed);
+      } else {
+        setRutas([]);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Error loading analytics:', err);
     } finally {
       setLoading(false);
     }
@@ -122,21 +136,34 @@ export default function AnalisisRutas() {
     const totalRutas = rutas.length;
     const totalVisitas = rutas.reduce((sum, r) => sum + (r.visitas_realizadas || 0), 0);
     const totalKm = rutas.reduce((sum, r) => sum + (r.km_recorridos || 0), 0);
+    const totalPeajesCantidad = rutas.reduce((sum, r) => sum + (r.cantidad_peajes || 0), 0);
     const totalPeajeCalculado = rutas.reduce((sum, r) => sum + (r.peaje_calculado || 0), 0);
-    const totalPeajeReal = rutas.reduce((sum, r) => sum + (r.peaje_real || 0), 0);
-    return { totalRutas, totalVisitas, totalKm, totalPeajeCalculado, totalPeajeReal };
+    return { totalRutas, totalVisitas, totalKm, totalPeajesCantidad, totalPeajeCalculado };
   }, [rutas]);
 
   const peajesPorChofer = useMemo(() => {
-    const choferMap: Record<string, { nombre: string; calculado: number; real: number }> = {};
+    const choferMap: Record<string, { nombre: string; cantidad: number; calculado: number }> = {};
     rutas.forEach(r => {
       if (!r.id_chofer) return;
       const nombre = r.chofer_nombre || 'Sin nombre';
-      if (!choferMap[r.id_chofer]) choferMap[r.id_chofer] = { nombre, calculado: 0, real: 0 };
+      if (!choferMap[r.id_chofer]) choferMap[r.id_chofer] = { nombre, cantidad: 0, calculado: 0 };
+      choferMap[r.id_chofer].cantidad += r.cantidad_peajes;
       choferMap[r.id_chofer].calculado += r.peaje_calculado;
-      choferMap[r.id_chofer].real += r.peaje_real;
     });
-    return Object.values(choferMap).sort((a, b) => b.real - a.real);
+    return Object.values(choferMap).sort((a, b) => b.calculado - a.calculado);
+  }, [rutas]);
+
+  const chartData = useMemo(() => {
+    const diasMap: Record<string, { dia: string; rutas: number; visitas: number; peajes: number }> = {};
+    rutas.forEach(r => {
+      if (!r.fecha) return;
+      const dia = format(new Date(r.fecha), 'dd/MM');
+      if (!diasMap[dia]) diasMap[dia] = { dia, rutas: 0, visitas: 0, peajes: 0 };
+      diasMap[dia].rutas += 1;
+      diasMap[dia].visitas += r.visitas_realizadas || 0;
+      diasMap[dia].peajes += r.peaje_calculado;
+    });
+    return Object.values(diasMap).slice(-7);
   }, [rutas]);
 
   if (loading) return <div className="text-center py-20 text-gray-400">Cargando análisis...</div>;
@@ -164,18 +191,64 @@ export default function AnalisisRutas() {
       <p className="text-sm text-gray-400">📅 Período: <span className="text-blue-400">{rangoLabel}</span>{filterChofer && ` · 👤 Chofer: ${choferNombre}`}</p>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-blue-500/20 rounded-full"><Truck className="text-blue-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalRutas}</p><p className="text-gray-400 text-sm">Rutas <Tooltip content="Total de rutas finalizadas en el período" /></p></div></CardContent></Card>
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-green-500/20 rounded-full"><Target className="text-green-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalVisitas}</p><p className="text-gray-400 text-sm">Visitas <Tooltip content="Total de paradas realizadas" /></p></div></CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-blue-500/20 rounded-full"><Truck className="text-blue-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalRutas}</p><p className="text-gray-400 text-sm">Rutas finalizadas <Tooltip content="Total de rutas completadas en el período" /></p></div></CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-green-500/20 rounded-full"><Target className="text-green-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalVisitas}</p><p className="text-gray-400 text-sm">Visitas reales <Tooltip content="Paradas en locales (excluye retorno a planta)" /></p></div></CardContent></Card>
         <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-orange-500/20 rounded-full"><MapPin className="text-orange-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalKm} km</p><p className="text-gray-400 text-sm">Kilómetros <Tooltip content="Kilómetros recorridos (km_fin - km_inicio)" /></p></div></CardContent></Card>
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-blue-500/20 rounded-full"><DollarSign className="text-blue-400" /></div><div><p className="text-3xl font-bold text-white">S/ {stats.totalPeajeCalculado.toFixed(2)}</p><p className="text-gray-400 text-sm">Peajes Calc. <Tooltip content="Peajes estimados según rutas base" /></p></div></CardContent></Card>
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-green-500/20 rounded-full"><DollarSign className="text-green-400" /></div><div><p className="text-3xl font-bold text-white">S/ {stats.totalPeajeReal.toFixed(2)}</p><p className="text-gray-400 text-sm">Peajes Real <Tooltip content="Peajes realmente pagados (con ticket)" /></p></div></CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-indigo-500/20 rounded-full"><DollarSign className="text-indigo-400" /></div><div><p className="text-3xl font-bold text-white">{stats.totalPeajesCantidad}</p><p className="text-gray-400 text-sm">Peajes cruzados <Tooltip content="Suma de la cantidad de peajes definidos en las rutas base" /></p></div></CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-5 flex items-center gap-4"><div className="p-3 bg-green-500/20 rounded-full"><DollarSign className="text-green-400" /></div><div><p className="text-3xl font-bold text-white">S/ {stats.totalPeajeCalculado.toFixed(2)}</p><p className="text-gray-400 text-sm">Peajes estimados <Tooltip content="Peajes calculados (cantidad × costo unitario) según rutas base" /></p></div></CardContent></Card>
       </div>
 
-      {peajesPorChofer.length > 0 && (
-        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><DollarSign size={20} className="text-yellow-400" />Peajes por Chofer <Tooltip content="Comparativa entre peajes calculados vs realmente pagados por cada chofer" /></h3><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Peaje Calculado</th><th className="text-center py-2 px-2">Peaje Real</th><th className="text-center py-2 px-2">Diferencia</th></tr></thead><tbody>{peajesPorChofer.map((c, i) => (<tr key={i} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{c.nombre}</td><td className="py-2 px-2 text-center text-gray-300">S/ {c.calculado.toFixed(2)}</td><td className="py-2 px-2 text-center text-gray-300">S/ {c.real.toFixed(2)}</td><td className={`py-2 px-2 text-center font-bold ${c.real - c.calculado > 0 ? 'text-red-400' : c.real - c.calculado < 0 ? 'text-green-400' : 'text-gray-400'}`}>S/ {(c.real - c.calculado).toFixed(2)}</td></tr>))}</tbody></table></div></CardContent></Card>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">📈 Rutas vs Visitas vs Peajes</h3><ResponsiveContainer width="100%" height={250}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="dia" stroke="#94a3b8" fontSize={12} /><YAxis yAxisId="left" stroke="#94a3b8" fontSize={12} /><YAxis yAxisId="right" orientation="right" stroke="#f59e0b" fontSize={12} /><RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} /><Legend /><Bar yAxisId="left" dataKey="rutas" name="Rutas" fill="#6366f1" /><Bar yAxisId="left" dataKey="visitas" name="Visitas" fill="#22c55e" /><Bar yAxisId="right" dataKey="peajes" name="Peajes (S/)" fill="#f59e0b" /></BarChart></ResponsiveContainer></CardContent></Card>
 
-      <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">📋 Detalle de Rutas</h3>{rutas.length === 0 ? (<p className="text-gray-400 text-center py-8">No hay rutas en el período seleccionado</p>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Ruta</th><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Fecha</th><th className="text-center py-2 px-2">Visitas</th><th className="text-center py-2 px-2">KM</th><th className="text-center py-2 px-2">Peaje (S/)</th></tr></thead><tbody>{rutas.map(r => (<tr key={r.id_ruta} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{r.nombre}</td><td className="py-2 px-2 text-gray-300">{r.chofer_nombre || '-'}</td><td className="py-2 px-2 text-center text-gray-300">{formatFriendlyDate(r.fecha)}</td><td className="py-2 px-2 text-center text-gray-300">{r.visitas_realizadas}</td><td className="py-2 px-2 text-center text-gray-300">{r.km_recorridos} km</td><td className="py-2 px-2 text-center"><span className={`px-2 py-1 rounded text-xs ${r.peaje_real > 0 ? 'bg-green-500/20 text-green-400' : 'text-gray-500'}`}>{r.peaje_real > 0 ? `S/ ${r.peaje_real.toFixed(2)}` : '-'}</span></td></tr>))}</tbody></table></div>)}</CardContent></Card>
+        <Card className="bg-gray-800/50 border-gray-700"><CardContent className="p-4"><h3 className="text-lg font-bold text-white mb-4">🛣️ Peajes por Chofer</h3>{peajesPorChofer.length === 0 ? (<p className="text-gray-400 text-center py-8">Sin datos</p>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-gray-700"><tr className="text-gray-400"><th className="text-left py-2 px-2">Chofer</th><th className="text-center py-2 px-2">Peajes (cant)</th><th className="text-center py-2 px-2">Peaje estimado</th></tr></thead><tbody>{peajesPorChofer.map((c, i) => (<tr key={i} className="border-b border-gray-700/50"><td className="py-2 px-2 text-white">{c.nombre}<td><td className="py-2 px-2 text-center text-gray-300">{c.cantidad} peajes</td>
+<td className="py-2 px-2 text-center text-gray-300">S/ {c.calculado.toFixed(2)}</td>
+</tr>
+))}
+</tbody>
+</table>
+</div>)}
+</CardContent>
+</Card>
+      </div>
+
+      <Card className="bg-gray-800/50 border-gray-700">
+        <CardContent className="p-4">
+          <h3 className="text-lg font-bold text-white mb-4">📋 Detalle de Rutas</h3>
+          {rutas.length === 0 ? (
+            <p className="text-gray-400 text-center py-8">No hay rutas en el período seleccionado</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-gray-700">
+                  <tr className="text-gray-400">
+                    <th className="text-left py-2 px-2">Ruta</th>
+                    <th className="text-left py-2 px-2">Chofer</th>
+                    <th className="text-center py-2 px-2">Fecha</th>
+                    <th className="text-center py-2 px-2">Visitas</th>
+                    <th className="text-center py-2 px-2">KM</th>
+                    <th className="text-center py-2 px-2">Peajes (cant)</th>
+                    <th className="text-center py-2 px-2">Peaje (S/)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rutas.map(r => (
+                    <tr key={r.id_ruta} className="border-b border-gray-700/50">
+                      <td className="py-2 px-2 text-white">{r.nombre}</td>
+                      <td className="py-2 px-2 text-gray-300">{r.chofer_nombre || '-'}</td>
+                      <td className="py-2 px-2 text-center text-gray-300">{formatFriendlyDate(r.fecha)}</td>
+                      <td className="py-2 px-2 text-center text-gray-300">{r.visitas_realizadas}</td>
+                      <td className="py-2 px-2 text-center text-gray-300">{r.km_recorridos} km</td>
+                      <td className="py-2 px-2 text-center"><span className="px-2 py-1 rounded text-xs bg-indigo-500/20 text-indigo-400">{r.cantidad_peajes} peajes</span></td>
+                      <td className="py-2 px-2 text-center text-green-400">S/ {r.peaje_calculado.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
